@@ -1,0 +1,17 @@
+# Main azure-pipelines configuration for the OpenXR-CTS repo.
+trigger:
+  branches:
+    include:
+      - '*'
+variables:
+  VULKAN_SDK_VERSION: "1.1.114.0"
+
+stages:
+- stage: Check
+  jobs:
+  - template: check_clang_format.yml
+
+- stage: Build
+  jobs:
+  - template: cts_build_jobs.yml
+

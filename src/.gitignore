@@ -1,0 +1,4 @@
+# Don't commit pre-generated files in this repo.
+xr_generated_dispatch_table.*
+xr_generated_utilities.*
+loader/xr_generated_loader.*
