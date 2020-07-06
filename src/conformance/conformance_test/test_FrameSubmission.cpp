@@ -66,6 +66,18 @@ namespace Conformance
                 REQUIRE(XR_SUCCESS == xrEndFrame(session, &frameEndInfo));
             }
 
+            {  // Test the xrBeginFrame return code after a failed xrEndFrame
+                REQUIRE_RESULT_SUCCEEDED(xrWaitFrame(session, nullptr, &frameState));
+                REQUIRE_RESULT_SUCCEEDED(xrBeginFrame(session, nullptr));
+                XrFrameEndInfo badFrameEndInfo = frameEndInfo;
+                badFrameEndInfo.displayTime = 0;
+                CHECK(XR_ERROR_TIME_INVALID == xrEndFrame(session, &badFrameEndInfo));
+                REQUIRE_RESULT_SUCCEEDED(xrWaitFrame(session, nullptr, &frameState));
+                CHECK(XR_FRAME_DISCARDED == xrBeginFrame(session, nullptr));
+                frameEndInfo.displayTime = frameState.predictedDisplayTime;
+                REQUIRE(XR_SUCCESS == xrEndFrame(session, &frameEndInfo));
+            }
+
             // Test xrBeginFrame was not called.
             CHECK(XR_ERROR_CALL_ORDER_INVALID == xrEndFrame(session, &frameEndInfo));
 
@@ -139,6 +151,9 @@ namespace Conformance
                 INFO("Environment Blend Modes");
 
                 const auto supportedBlendModes = session.SupportedEnvironmentBlendModes();
+                CHECK(std::find(supportedBlendModes.begin(), supportedBlendModes.end(), XR_ENVIRONMENT_BLEND_MODE_MAX_ENUM) ==
+                      supportedBlendModes.end());
+
                 for (XrEnvironmentBlendMode blendMode : SupportedBlendModes) {
                     CAPTURE(blendMode);
 
@@ -149,7 +164,11 @@ namespace Conformance
                     frameEndInfo.displayTime = frameState.predictedDisplayTime;
                     frameEndInfo.environmentBlendMode = blendMode;
 
-                    if (std::find(supportedBlendModes.begin(), supportedBlendModes.end(), blendMode) != supportedBlendModes.end()) {
+                    if (blendMode == XR_ENVIRONMENT_BLEND_MODE_MAX_ENUM) {
+                        // The max value is not valid.
+                        continue;
+                    }
+                    else if (std::find(supportedBlendModes.begin(), supportedBlendModes.end(), blendMode) != supportedBlendModes.end()) {
                         // Runtime supports this blend mode and should allow it.
                         CHECK(XR_SUCCESS == xrEndFrame(session, &frameEndInfo));
                     }
@@ -213,80 +232,89 @@ namespace Conformance
         std::condition_variable displayCv;
         bool frameSubmissionCompleted = false;
 
-        auto renderThread = std::thread([&]() {
-            while (true) {
-                // Dequeue a frame to render.
-                XrFrameState frameState;
+        ns totalFrameDisplayPeriod(0), totalWaitTime(0);
+        Stopwatch frameLoopTimer;
+
+        auto appThread = std::thread([&]() {
+            ATTACH_THREAD;
+            auto queueFrameRender = [&](const XrFrameState& frameState) {
                 {
                     std::unique_lock<std::mutex> lock(displayMutex);
-                    displayCv.wait(lock, [&] { return !queuedFramesForRender.empty() || frameSubmissionCompleted; });
-                    if (queuedFramesForRender.empty()) {
-                        assert(frameSubmissionCompleted);
-                        break;
-                    }
-                    frameState = queuedFramesForRender.front();
-                    queuedFramesForRender.pop();
+                    queuedFramesForRender.push(frameState);
+                }
+                displayCv.notify_one();
+            };
+
+            // Initially prime things by submitting 180 frames without measuring performance.
+            for (int frame = 0; frame < warmupFrameCount; ++frame) {
+                XrFrameState frameState{XR_TYPE_FRAME_STATE};
+                REQUIRE_RESULT_SUCCEEDED(xrWaitFrame(compositionHelper.GetSession(), nullptr, &frameState));
+
+                // Mimic a lot of time spent in game "simulation" phase.
+                YieldSleep(Stopwatch(true), ns((int32_t)(frameState.predictedDisplayPeriod * waitBlockPercentage)));
+
+                queueFrameRender(frameState);
+            }
+
+            frameLoopTimer.Restart();
+
+            // Now submit <testFrameCount> frames and measure the total time spent.
+            for (int frame = 0; frame < testFrameCount; ++frame) {
+                XrFrameState frameState{XR_TYPE_FRAME_STATE};
+                {
+                    Stopwatch waitTimer(true);
+                    REQUIRE_RESULT_SUCCEEDED(xrWaitFrame(compositionHelper.GetSession(), nullptr, &frameState));
+                    totalWaitTime += waitTimer.Elapsed();
                 }
 
-                XRC_CHECK_THROW_XRCMD(xrBeginFrame(compositionHelper.GetSession(), nullptr));
+                totalFrameDisplayPeriod += ns(frameState.predictedDisplayPeriod);
 
-                Stopwatch sw(true);
+                // Mimic a lot of time spent in game "simulation" phase.
+                YieldSleep(Stopwatch(true), ns((int32_t)(frameState.predictedDisplayPeriod * waitBlockPercentage)));
 
-                simpleProjectionLayerHelper.UpdateProjectionLayer(frameState);
-                std::vector<XrCompositionLayerBaseHeader*> layers{simpleProjectionLayerHelper.GetProjectionLayer()};
-
-                // Mimic a lot of time spent in game render phase.
-                YieldSleep(sw, ns((int64_t)(frameState.predictedDisplayPeriod * renderBlockPercentage)));
-
-                compositionHelper.EndFrame(frameState.predictedDisplayTime, layers);
+                queueFrameRender(frameState);
             }
-        });
 
-        auto queueFrameRender = [&](const XrFrameState& frameState) {
+            // Signal that no more frames are coming and wait for the render thread to exit.
             {
                 std::unique_lock<std::mutex> lock(displayMutex);
-                queuedFramesForRender.push(frameState);
+                frameSubmissionCompleted = true;
+                displayCv.notify_one();
             }
-            displayCv.notify_one();
-        };
+            DETACH_THREAD;
+        });
 
-        // Initially prime things by submitting 180 frames without measuring performance.
-        for (int frame = 0; frame < warmupFrameCount; ++frame) {
-            XrFrameState frameState{XR_TYPE_FRAME_STATE};
-            REQUIRE_RESULT_SUCCEEDED(xrWaitFrame(compositionHelper.GetSession(), nullptr, &frameState));
-
-            // Mimic a lot of time spent in game "simulation" phase.
-            YieldSleep(Stopwatch(true), ns((int32_t)(frameState.predictedDisplayPeriod * waitBlockPercentage)));
-
-            queueFrameRender(frameState);
-        }
-
-        // Now submit 100 frames and measure the total time spent.
-        ns totalFrameDisplayPeriod(0), totalWaitTime(0);
-        Stopwatch frameLoopTimer(true);
-        for (int frame = 0; frame < testFrameCount; ++frame) {
-            XrFrameState frameState{XR_TYPE_FRAME_STATE};
+        while (true) {
+            // Dequeue a frame to render.
+            XrFrameState frameState;
             {
-                Stopwatch waitTimer(true);
-                REQUIRE_RESULT_SUCCEEDED(xrWaitFrame(compositionHelper.GetSession(), nullptr, &frameState));
-                totalWaitTime += waitTimer.Elapsed();
+                std::unique_lock<std::mutex> lock(displayMutex);
+                displayCv.wait(lock, [&] { return !queuedFramesForRender.empty() || frameSubmissionCompleted; });
+                if (queuedFramesForRender.empty()) {
+                    assert(frameSubmissionCompleted);
+                    break;
+                }
+                frameState = queuedFramesForRender.front();
+                queuedFramesForRender.pop();
             }
 
-            totalFrameDisplayPeriod += ns(frameState.predictedDisplayPeriod);
+            XRC_CHECK_THROW_XRCMD(xrBeginFrame(compositionHelper.GetSession(), nullptr));
 
-            // Mimic a lot of time spent in game "simulation" phase.
-            YieldSleep(Stopwatch(true), ns((int32_t)(frameState.predictedDisplayPeriod * waitBlockPercentage)));
+            Stopwatch sw(true);
 
-            queueFrameRender(frameState);
+            simpleProjectionLayerHelper.UpdateProjectionLayer(frameState);
+            std::vector<XrCompositionLayerBaseHeader*> layers{simpleProjectionLayerHelper.GetProjectionLayer()};
+
+            // Mimic a lot of time spent in game render phase.
+            YieldSleep(sw, ns((int64_t)(frameState.predictedDisplayPeriod * renderBlockPercentage)));
+
+            compositionHelper.EndFrame(frameState.predictedDisplayTime, layers);
         }
 
-        // Signal that no more frames are coming and wait for the render thread to exit.
-        {
-            std::unique_lock<std::mutex> lock(displayMutex);
-            frameSubmissionCompleted = true;
-            displayCv.notify_one();
+        frameLoopTimer.Stop();
+        if (appThread.joinable()) {
+            appThread.join();
         }
-        renderThread.join();
 
         const ns averageWaitTime = totalWaitTime / testFrameCount;
         ReportF("Average xrWaitFrame wait time    : %.3fms", std::chrono::duration_cast<ms>(averageWaitTime).count());

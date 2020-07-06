@@ -636,7 +636,7 @@ namespace Conformance
 
                 at[colorRef.attachment].format = colorFmt;
                 at[colorRef.attachment].samples = VK_SAMPLE_COUNT_1_BIT;
-                at[colorRef.attachment].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+                at[colorRef.attachment].loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
                 at[colorRef.attachment].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
                 at[colorRef.attachment].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
                 at[colorRef.attachment].stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
@@ -652,7 +652,7 @@ namespace Conformance
 
                 at[depthRef.attachment].format = depthFmt;
                 at[depthRef.attachment].samples = VK_SAMPLE_COUNT_1_BIT;
-                at[depthRef.attachment].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+                at[depthRef.attachment].loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
                 at[depthRef.attachment].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
                 at[depthRef.attachment].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
                 at[depthRef.attachment].stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
@@ -1463,9 +1463,6 @@ namespace Conformance
 
         const XrBaseInStructure* GetGraphicsBinding() const override;
 
-        void CopyRGBAImage(const XrSwapchainImageBaseHeader* swapchainImageBase, int64_t imageFormat, uint32_t arraySlice,
-                           const RGBAImage& image) override;
-
         std::string GetImageFormatName(int64_t imageFormat) const override;
 
         bool IsImageFormatKnown(int64_t imageFormat) const override;
@@ -1481,11 +1478,14 @@ namespace Conformance
 
         int64_t SelectDepthSwapchainFormat(const int64_t* imageFormatArray, size_t count) const override;
 
-        // Format required by RGBAImage type. TODO: Mandate this type in the spec?
-        int64_t GetRGBA8UnormFormat() const override;
+        // Format required by RGBAImage type.
+        int64_t GetRGBA8Format(bool sRGB) const override;
 
-        std::shared_ptr<SwapchainImageStructs> AllocateSwapchainImageStructs(size_t size,
-                                                                             const XrSwapchainCreateInfo& swapchainCreateInfo) override;
+        std::shared_ptr<IGraphicsPlugin::SwapchainImageStructs>
+        AllocateSwapchainImageStructs(size_t size, const XrSwapchainCreateInfo& swapchainCreateInfo) override;
+
+        void CopyRGBAImage(const XrSwapchainImageBaseHeader* swapchainImageBase, int64_t imageFormat, uint32_t arraySlice,
+                           const RGBAImage& image) override;
 
         void SetViewportAndScissor(const VkRect2D& rect);
 
@@ -1767,7 +1767,7 @@ namespace Conformance
 
             std::vector<const char*> layers;
 #if !defined(NDEBUG)
-            auto GetValidationLayerName = []() -> const char* const {
+            auto GetValidationLayerName = []() -> const char* {
                 uint32_t layerCount;
                 vkEnumerateInstanceLayerProperties(&layerCount, nullptr);
                 std::vector<VkLayerProperties> availableLayers(layerCount);
@@ -1785,7 +1785,7 @@ namespace Conformance
                 return nullptr;
             };
 
-            const char* const validationLayerName = GetValidationLayerName();
+            const char* validationLayerName = GetValidationLayerName();
             if (validationLayerName)
                 layers.push_back(validationLayerName);
             else
@@ -2016,113 +2016,6 @@ namespace Conformance
             return reinterpret_cast<const XrBaseInStructure*>(&m_graphicsBinding);
         }
         return nullptr;
-    }
-
-    void VulkanGraphicsPlugin::CopyRGBAImage(const XrSwapchainImageBaseHeader* swapchainImageBase, int64_t imageFormat, uint32_t arraySlice,
-                                             const RGBAImage& image)
-    {
-        const XrSwapchainImageVulkanKHR* swapchainImageVk = reinterpret_cast<const XrSwapchainImageVulkanKHR*>(swapchainImageBase);
-
-        uint32_t w = image.width;
-        uint32_t h = image.height;
-
-        // Create a linear staging buffer
-        VkImageCreateInfo imgInfo{VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO};
-        imgInfo.imageType = VK_IMAGE_TYPE_2D;
-        imgInfo.format = VK_FORMAT_R8G8B8A8_UNORM;
-        imgInfo.extent = {w, h, 1};
-        imgInfo.mipLevels = 1;
-        imgInfo.arrayLayers = 1;
-        imgInfo.samples = VK_SAMPLE_COUNT_1_BIT;
-        imgInfo.tiling = VK_IMAGE_TILING_LINEAR;
-        imgInfo.usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
-        imgInfo.initialLayout = VK_IMAGE_LAYOUT_PREINITIALIZED;
-        VkImage stagingImage{VK_NULL_HANDLE};
-        XRC_CHECK_THROW_VKCMD(vkCreateImage(m_vkDevice, &imgInfo, nullptr, &stagingImage));
-
-        if (imgInfo.format != imageFormat) {
-            // vkCmdBlitImage can handle format conversions, but for now honor D3D11's limitations on CopyRGBAImage
-            throw std::runtime_error("Unsupported swapchain format.");
-        }
-
-        VkMemoryRequirements memReq{};
-        vkGetImageMemoryRequirements(m_vkDevice, stagingImage, &memReq);
-        VkDeviceMemory stagingMemory{VK_NULL_HANDLE};
-        m_memAllocator.Allocate(memReq, &stagingMemory, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-
-        XRC_CHECK_THROW_VKCMD(vkBindImageMemory(m_vkDevice, stagingImage, stagingMemory, 0));
-
-        VkImageSubresource imgSubRes{};
-        imgSubRes.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-        imgSubRes.mipLevel = 0;
-        imgSubRes.arrayLayer = 0;
-        VkSubresourceLayout layout{};
-        vkGetImageSubresourceLayout(m_vkDevice, stagingImage, &imgSubRes, &layout);
-
-        uint8_t* data{nullptr};
-        XRC_CHECK_THROW_VKCMD(vkMapMemory(m_vkDevice, stagingMemory, layout.offset, layout.size, 0, (void**)&data));
-        const size_t rowSize = w * sizeof(RGBA8Color);
-        for (size_t row = 0; row < h; ++row) {
-            uint8_t* rowPtr = &data[layout.offset + row * layout.rowPitch];
-            // Note pixels is a vector<RGBA8Color>
-            memcpy(rowPtr, &image.pixels[row * w], rowSize);
-        }
-        vkUnmapMemory(m_vkDevice, stagingMemory);
-
-        m_cmdBuffer.Clear();
-        m_cmdBuffer.Begin();
-
-        // Switch the staging buffer from PREINITIALIZED -> TRANSFER_SRC_OPTIMAL
-        VkImageMemoryBarrier imgBarrier{VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
-        imgBarrier.srcAccessMask = 0;
-        imgBarrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
-        imgBarrier.oldLayout = VK_IMAGE_LAYOUT_PREINITIALIZED;
-        imgBarrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
-        imgBarrier.srcQueueFamilyIndex = m_queueFamilyIndex;
-        imgBarrier.dstQueueFamilyIndex = m_queueFamilyIndex;
-        imgBarrier.image = stagingImage;
-        imgBarrier.subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
-        vkCmdPipelineBarrier(m_cmdBuffer.buf, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0, nullptr, 1,
-                             &imgBarrier);
-
-        // Switch the destination image from UNDEFINED -> TRANSFER_DST_OPTIMAL
-        imgBarrier.srcAccessMask = 0;
-        imgBarrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-        imgBarrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-        imgBarrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-        imgBarrier.srcQueueFamilyIndex = m_queueFamilyIndex;
-        imgBarrier.dstQueueFamilyIndex = m_queueFamilyIndex;
-        imgBarrier.image = swapchainImageVk->image;
-        imgBarrier.subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
-        vkCmdPipelineBarrier(m_cmdBuffer.buf, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0, nullptr, 1,
-                             &imgBarrier);
-
-        // Blit staging -> swapchain
-        VkImageBlit blit = {{VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1},
-                            {{0, 0, 0}, {(int32_t)w, (int32_t)h, 1}},
-                            {VK_IMAGE_ASPECT_COLOR_BIT, 0, arraySlice, 1},
-                            {{0, 0, 0}, {(int32_t)w, (int32_t)h, 1}}};
-        vkCmdBlitImage(m_cmdBuffer.buf, stagingImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, swapchainImageVk->image,
-                       VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &blit, VK_FILTER_NEAREST);
-
-        // Switch the destination image from TRANSFER_DST_OPTIMAL -> SHADER_READ_ONLY_OPTIMAL
-        imgBarrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-        imgBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-        imgBarrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-        imgBarrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-        imgBarrier.srcQueueFamilyIndex = m_queueFamilyIndex;
-        imgBarrier.dstQueueFamilyIndex = m_queueFamilyIndex;
-        imgBarrier.image = swapchainImageVk->image;
-        imgBarrier.subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
-        vkCmdPipelineBarrier(m_cmdBuffer.buf, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr, 0,
-                             nullptr, 1, &imgBarrier);
-
-        m_cmdBuffer.End();
-        m_cmdBuffer.Exec(m_vkQueue);
-        m_cmdBuffer.Wait();
-
-        vkDestroyImage(m_vkDevice, stagingImage, nullptr);
-        vkFreeMemory(m_vkDevice, stagingMemory, nullptr);
     }
 
     // Shorthand constants for usage below.
@@ -2447,9 +2340,9 @@ namespace Conformance
         return *it;
     }
 
-    int64_t VulkanGraphicsPlugin::GetRGBA8UnormFormat() const
+    int64_t VulkanGraphicsPlugin::GetRGBA8Format(bool sRGB) const
     {
-        return VK_FORMAT_R8G8B8A8_UNORM;
+        return sRGB ? VK_FORMAT_R8G8B8A8_SRGB : VK_FORMAT_R8G8B8A8_UNORM;
     }
 
     std::shared_ptr<IGraphicsPlugin::SwapchainImageStructs>
@@ -2487,6 +2380,108 @@ namespace Conformance
         return result;
     }
 
+    void VulkanGraphicsPlugin::CopyRGBAImage(const XrSwapchainImageBaseHeader* swapchainImageBase, int64_t imageFormat, uint32_t arraySlice,
+                                             const RGBAImage& image)
+    {
+        const XrSwapchainImageVulkanKHR* swapchainImageVk = reinterpret_cast<const XrSwapchainImageVulkanKHR*>(swapchainImageBase);
+
+        uint32_t w = image.width;
+        uint32_t h = image.height;
+
+        // Create a linear staging buffer
+        VkImageCreateInfo imgInfo{VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO};
+        imgInfo.imageType = VK_IMAGE_TYPE_2D;
+        imgInfo.format = static_cast<VkFormat>(imageFormat);
+        imgInfo.extent = {w, h, 1};
+        imgInfo.mipLevels = 1;
+        imgInfo.arrayLayers = 1;
+        imgInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+        imgInfo.tiling = VK_IMAGE_TILING_LINEAR;
+        imgInfo.usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+        imgInfo.initialLayout = VK_IMAGE_LAYOUT_PREINITIALIZED;
+        VkImage stagingImage{VK_NULL_HANDLE};
+        XRC_CHECK_THROW_VKCMD(vkCreateImage(m_vkDevice, &imgInfo, nullptr, &stagingImage));
+
+        VkMemoryRequirements memReq{};
+        vkGetImageMemoryRequirements(m_vkDevice, stagingImage, &memReq);
+        VkDeviceMemory stagingMemory{VK_NULL_HANDLE};
+        m_memAllocator.Allocate(memReq, &stagingMemory, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+
+        XRC_CHECK_THROW_VKCMD(vkBindImageMemory(m_vkDevice, stagingImage, stagingMemory, 0));
+
+        VkImageSubresource imgSubRes{};
+        imgSubRes.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        imgSubRes.mipLevel = 0;
+        imgSubRes.arrayLayer = 0;
+        VkSubresourceLayout layout{};
+        vkGetImageSubresourceLayout(m_vkDevice, stagingImage, &imgSubRes, &layout);
+
+        uint8_t* data{nullptr};
+        XRC_CHECK_THROW_VKCMD(vkMapMemory(m_vkDevice, stagingMemory, layout.offset, layout.size, 0, (void**)&data));
+        const size_t rowSize = w * sizeof(RGBA8Color);
+        for (size_t row = 0; row < h; ++row) {
+            uint8_t* rowPtr = &data[layout.offset + row * layout.rowPitch];
+            // Note pixels is a vector<RGBA8Color>
+            memcpy(rowPtr, &image.pixels[row * w], rowSize);
+        }
+        vkUnmapMemory(m_vkDevice, stagingMemory);
+
+        m_cmdBuffer.Clear();
+        m_cmdBuffer.Begin();
+
+        // Switch the staging buffer from PREINITIALIZED -> TRANSFER_SRC_OPTIMAL
+        VkImageMemoryBarrier imgBarrier{VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
+        imgBarrier.srcAccessMask = 0;
+        imgBarrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+        imgBarrier.oldLayout = VK_IMAGE_LAYOUT_PREINITIALIZED;
+        imgBarrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+        imgBarrier.srcQueueFamilyIndex = m_queueFamilyIndex;
+        imgBarrier.dstQueueFamilyIndex = m_queueFamilyIndex;
+        imgBarrier.image = stagingImage;
+        imgBarrier.subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
+        vkCmdPipelineBarrier(m_cmdBuffer.buf, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0, nullptr, 1,
+                             &imgBarrier);
+
+        // Switch the destination image from UNDEFINED -> TRANSFER_DST_OPTIMAL
+        imgBarrier.srcAccessMask = 0;
+        imgBarrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+        imgBarrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+        imgBarrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+        imgBarrier.srcQueueFamilyIndex = m_queueFamilyIndex;
+        imgBarrier.dstQueueFamilyIndex = m_queueFamilyIndex;
+        imgBarrier.image = swapchainImageVk->image;
+        imgBarrier.subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
+        vkCmdPipelineBarrier(m_cmdBuffer.buf, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0, nullptr, 1,
+                             &imgBarrier);
+
+        // Blit staging -> swapchain
+        VkImageBlit blit = {{VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1},
+                            {{0, 0, 0}, {(int32_t)w, (int32_t)h, 1}},
+                            {VK_IMAGE_ASPECT_COLOR_BIT, 0, arraySlice, 1},
+                            {{0, 0, 0}, {(int32_t)w, (int32_t)h, 1}}};
+        vkCmdBlitImage(m_cmdBuffer.buf, stagingImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, swapchainImageVk->image,
+                       VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &blit, VK_FILTER_NEAREST);
+
+        // Switch the destination image from TRANSFER_DST_OPTIMAL -> SHADER_READ_ONLY_OPTIMAL
+        imgBarrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+        imgBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+        imgBarrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+        imgBarrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        imgBarrier.srcQueueFamilyIndex = m_queueFamilyIndex;
+        imgBarrier.dstQueueFamilyIndex = m_queueFamilyIndex;
+        imgBarrier.image = swapchainImageVk->image;
+        imgBarrier.subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
+        vkCmdPipelineBarrier(m_cmdBuffer.buf, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr, 0,
+                             nullptr, 1, &imgBarrier);
+
+        m_cmdBuffer.End();
+        m_cmdBuffer.Exec(m_vkQueue);
+        m_cmdBuffer.Wait();
+
+        vkDestroyImage(m_vkDevice, stagingImage, nullptr);
+        vkFreeMemory(m_vkDevice, stagingMemory, nullptr);
+    }
+
     void VulkanGraphicsPlugin::SetViewportAndScissor(const VkRect2D& rect)
     {
         VkViewport viewport{float(rect.offset.x), float(rect.offset.y), float(rect.extent.width), float(rect.extent.height), 0.0f, 1.0f};
@@ -2506,7 +2501,15 @@ namespace Conformance
         VkRect2D renderArea = {{0, 0}, {swapchainContext->size.width, swapchainContext->size.height}};
         SetViewportAndScissor(renderArea);
 
-        // Bind and clear eye render target
+        // Bind eye render target
+        VkRenderPassBeginInfo renderPassBeginInfo{VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO};
+        swapchainContext->BindRenderTarget(imageIndex, imageArrayIndex, renderArea, &renderPassBeginInfo);
+
+        vkCmdBeginRenderPass(m_cmdBuffer.buf, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
+
+        swapchainContext->BindPipeline(m_cmdBuffer.buf, imageArrayIndex);
+
+        // Clear the buffers
         static XrColor4f darkSlateGrey = {0.184313729f, 0.309803933f, 0.309803933f, 1.0f};
         static std::array<VkClearValue, 2> clearValues;
         clearValues[0].color.float32[0] = darkSlateGrey.r;
@@ -2515,15 +2518,13 @@ namespace Conformance
         clearValues[0].color.float32[3] = darkSlateGrey.a;
         clearValues[1].depthStencil.depth = 1.0f;
         clearValues[1].depthStencil.stencil = 0;
-        VkRenderPassBeginInfo renderPassBeginInfo{VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO};
-        renderPassBeginInfo.clearValueCount = (uint32_t)clearValues.size();
-        renderPassBeginInfo.pClearValues = clearValues.data();
-
-        swapchainContext->BindRenderTarget(imageIndex, imageArrayIndex, renderArea, &renderPassBeginInfo);
-
-        vkCmdBeginRenderPass(m_cmdBuffer.buf, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
-
-        swapchainContext->BindPipeline(m_cmdBuffer.buf, imageArrayIndex);
+        std::array<VkClearAttachment, 2> clearAttachments{{
+            {VK_IMAGE_ASPECT_COLOR_BIT, 0, clearValues[0]},
+            {VK_IMAGE_ASPECT_DEPTH_BIT, 0, clearValues[1]},
+        }};
+        // imageArrayIndex already included in the VkImageView
+        VkClearRect clearRect{renderArea, 0, 1};
+        vkCmdClearAttachments(m_cmdBuffer.buf, 2, &clearAttachments[0], 1, &clearRect);
 
         vkCmdEndRenderPass(m_cmdBuffer.buf);
 
@@ -2549,18 +2550,8 @@ namespace Conformance
         VkRect2D renderArea = {{r.offset.x, r.offset.y}, {uint32_t(r.extent.width), uint32_t(r.extent.height)}};
         SetViewportAndScissor(renderArea);
 
-        // Bind and clear eye render target
-        static XrColor4f darkSlateGrey = {0.184313729f, 0.309803933f, 0.309803933f, 1.0f};
-        static std::array<VkClearValue, 2> clearValues;
-        clearValues[0].color.float32[0] = darkSlateGrey.r;
-        clearValues[0].color.float32[1] = darkSlateGrey.g;
-        clearValues[0].color.float32[2] = darkSlateGrey.b;
-        clearValues[0].color.float32[3] = darkSlateGrey.a;
-        clearValues[1].depthStencil.depth = 1.0f;
-        clearValues[1].depthStencil.stencil = 0;
+        // Just bind the eye render target, ClearImageSlice will have cleared it.
         VkRenderPassBeginInfo renderPassBeginInfo{VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO};
-        renderPassBeginInfo.clearValueCount = (uint32_t)clearValues.size();
-        renderPassBeginInfo.pClearValues = clearValues.data();
 
         swapchainContext->BindRenderTarget(imageIndex, layerView.subImage.imageArrayIndex, renderArea, &renderPassBeginInfo);
 

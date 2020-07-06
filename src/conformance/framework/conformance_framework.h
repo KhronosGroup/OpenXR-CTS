@@ -93,6 +93,16 @@
 #define XRC_TO_STRING(x) XRC_CHECK_STRINGIFY(x)
 #define XRC_FILE_AND_LINE __FILE__ ":" XRC_TO_STRING(__LINE__)
 
+#if defined(XR_USE_PLATFORM_ANDROID)
+void Conformance_Android_Attach_Current_Thread();
+void Conformance_Android_Detach_Current_Thread();
+#define ATTACH_THREAD Conformance_Android_Attach_Current_Thread()
+#define DETACH_THREAD Conformance_Android_Detach_Current_Thread()
+#else
+#define ATTACH_THREAD
+#define DETACH_THREAD
+#endif
+
 namespace Conformance
 {
 

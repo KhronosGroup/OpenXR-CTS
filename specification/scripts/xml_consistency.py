@@ -147,7 +147,8 @@ class Checker(XMLChecker):
                           "XR_SESSION_NOT_FOCUSED",
                           "XR_FRAME_DISCARDED"),
             "XrReferenceSpaceType": "XR_SPACE_BOUNDS_UNAVAILABLE",
-            "XrDuration": "XR_TIMEOUT_EXPIRED"
+            "XrDuration": "XR_TIMEOUT_EXPIRED",
+            "uint32_t": "XR_ERROR_SIZE_INSUFFICIENT",
         }
 
         # Some return codes are related in that only one of a set
@@ -412,6 +413,17 @@ class Checker(XMLChecker):
             if COUNT_OUTPUT_RE.match(param_name) or CAPACITY_INPUT_RE.match(param_name):
                 self.check_two_call_command(name, info, params)
                 break
+        
+        return_type = info.elem.find('proto/type')
+        if self.conventions.requires_error_validation(return_type):
+            # This command returns an API result code, so check that it
+            # returns at least the required errors.
+            required_errors = set(self.conventions.required_errors)
+            errorcodes = info.elem.get('errorcodes').split(',')
+            if not required_errors.issubset(set(errorcodes)):
+                self.record_error('Missing required error code')
+                exit(1)
+
         super().check_command(name, info)
 
     def check_type(self, name, info, category):
@@ -442,10 +454,14 @@ class Checker(XMLChecker):
                                       "but expected", expected_bitvalues)
         super().check_type(name, info, category)
 
-    def check_extension(self, name, info):
+    def check_extension(self, name, info, supported):
         """Check an extension's XML data for consistency.
 
         Called from check."""
+        super().check_extension(name, info, supported)
+        if not supported:
+            return
+
         elem = info.elem
         name_upper = name.upper()
         version_name = "{}_SPEC_VERSION".format(name)
@@ -493,8 +509,6 @@ class Checker(XMLChecker):
             if name_val != expected_name:
                 self.record_error("Incorrect name enum: expected", expected_name,
                                   "got", name_val)
-
-        super().check_extension(name, elem)
 
 
 ckr = Checker()

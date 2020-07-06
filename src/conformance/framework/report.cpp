@@ -37,11 +37,6 @@ namespace Conformance
         OutputDebugStringA("\n");
 #endif
 
-#ifdef XR_USE_PLATFORM_ANDROID
-        /// write to the log instead
-        __android_log_write(ANDROID_LOG_INFO, "OpenXR_Conformance", str);
-#endif  /// XR_USE_PLATFORM_ANDROID
-
         if (g_reportCallback) {
             g_reportCallback(str);
         }

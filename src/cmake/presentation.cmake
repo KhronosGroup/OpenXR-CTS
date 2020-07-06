@@ -17,7 +17,7 @@ find_package(X11)
 find_package(PkgConfig)
 
 if(PKG_CONFIG_FOUND)
-    pkg_search_module(XCB xcb)
+    pkg_search_module(XCB xcb xcb-glx)
 
     pkg_search_module(WAYLAND_CLIENT wayland-client)
 endif()

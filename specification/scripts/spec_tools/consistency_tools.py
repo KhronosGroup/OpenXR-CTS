@@ -117,7 +117,7 @@ class XMLChecker:
                                ', '.join(unrecognized))
 
         self.referenced_input_types = ReferencedTypes(self.db, self.is_input)
-        self.referenced_api_types = ReferencedTypes(self.db, self.is_api_type)
+        self.referenced_types = ReferencedTypes(self.db)
         if not suppressions:
             suppressions = {}
         self.suppressions = DictOfStringSets(suppressions)
@@ -212,12 +212,11 @@ class XMLChecker:
 
             self.check_type(name, info, cat)
 
+        self.ext_numbers = set()
         for name, info in self.reg.extdict.items():
-            if info.elem.get('supported') != self.conventions.xml_api_name:
-                # Skip unsupported extensions
-                continue
+            supported = (info.elem.get('supported') == self.conventions.xml_api_name)
             self.set_error_context(entity=name, elem=info.elem)
-            self.check_extension(name, info)
+            self.check_extension(name, info, supported)
 
         entities_with_messages = set(
             self.errors.keys()).union(self.warnings.keys())
@@ -327,13 +326,19 @@ class XMLChecker:
             if 'Flags' not in name:
                 self.record_error("Name of bitmask doesn't include 'Flags'")
 
-    def check_extension(self, name, info):
+    def check_extension(self, name, info, supported):
         """Check an extension's XML data for consistency.
 
         Called from check.
 
         May extend."""
-        pass
+        # Verify that each extension has a unique number
+        extension_number = info.elem.get('number')
+        if extension_number is not None and extension_number != '0':
+            if extension_number in self.ext_numbers:
+                self.record_error('Duplicate extension number ' + extension_number)
+            else:
+                self.ext_numbers.add(extension_number)
 
     def check_command(self, name, info):
         """Check a command's XML data for consistency.
@@ -413,7 +418,7 @@ class XMLChecker:
 
         May extend."""
         referenced_input = self.referenced_input_types[name]
-        referenced_types = self.referenced_api_types[name]
+        referenced_types = self.referenced_types[name]
 
         # Check that we have all the codes we expect, based on input types.
         for referenced_type in referenced_input:

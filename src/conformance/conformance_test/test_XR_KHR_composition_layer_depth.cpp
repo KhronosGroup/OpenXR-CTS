@@ -91,13 +91,15 @@ namespace Conformance
                 float farZ;
             };
 
-            std::vector<DepthVaryingInfo> varyingInfoTestArray{DepthVaryingInfo{0.0f, 1.0f, 0.0f, 100.0f},
-                                                               DepthVaryingInfo{0.5f, 0.6f, 0.0f, 100.0f},
-                                                               DepthVaryingInfo{0.0f, 1.0f, 0.0f, std::numeric_limits<float>::infinity()},
-                                                               DepthVaryingInfo{0.0f, 1.0f, 100.0f, 0.0f},
-                                                               DepthVaryingInfo{0.0f, 1.0f, std::numeric_limits<float>::infinity(), 0.0f},
-                                                               DepthVaryingInfo{0.0f, 1.0f, std::numeric_limits<float>::max(), 0.0f},
-                                                               DepthVaryingInfo{0.0f, 1.0f, std::numeric_limits<float>::max(), 0.0f}};
+            constexpr float minimum_useful_z = 0.01f;
+            std::vector<DepthVaryingInfo> varyingInfoTestArray{
+                DepthVaryingInfo{0.0f, 1.0f, minimum_useful_z, 100.0f},
+                DepthVaryingInfo{0.5f, 0.6f, minimum_useful_z, 100.0f},
+                DepthVaryingInfo{0.0f, 1.0f, minimum_useful_z, std::numeric_limits<float>::infinity()},
+                DepthVaryingInfo{0.0f, 1.0f, 100.0f, minimum_useful_z},
+                DepthVaryingInfo{0.0f, 1.0f, std::numeric_limits<float>::infinity(), minimum_useful_z},
+                DepthVaryingInfo{0.0f, 1.0f, std::numeric_limits<float>::max(), minimum_useful_z},
+                DepthVaryingInfo{0.0f, 1.0f, std::numeric_limits<float>::max(), minimum_useful_z}};
 
             for (const DepthVaryingInfo& varyingInfo : varyingInfoTestArray) {
                 runResult = frameIterator.PrepareSubmitFrame();

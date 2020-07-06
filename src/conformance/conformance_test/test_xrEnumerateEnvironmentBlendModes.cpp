@@ -53,14 +53,30 @@ namespace Conformance
 
             // Test every view configuration type in the spec.
             for (XrViewConfigurationType viewType : KnownViewTypes) {
+                CAPTURE(viewType);
+
+                // Is this enum valid, check against enabled extensions.
+                bool valid = IsViewConfigurationTypeEnumValid(viewType);
+
                 const bool isSupportedType =
                     std::find(runtimeViewTypes.begin(), runtimeViewTypes.end(), viewType) != runtimeViewTypes.end();
+
+                if (!valid) {
+                    CHECK_MSG(valid == isSupportedType, "Can not support invalid view configuration type");
+                }
 
                 uint32_t countOutput;
                 const XrResult res = xrEnumerateEnvironmentBlendModes(instance, instance.systemId, viewType, 0, &countOutput, nullptr);
                 if (isSupportedType) {
                     REQUIRE_MSG(XR_SUCCESS == res, "Expected success for supported view configuration type " << viewType);
                     REQUIRE_MSG(countOutput > 0, "Expected non-zero list of blend modes");
+                }
+                else if (!valid) {
+                    REQUIRE_THAT(res, In<XrResult>({XR_ERROR_VALIDATION_FAILURE, XR_ERROR_VIEW_CONFIGURATION_TYPE_UNSUPPORTED}));
+                    if (res == XR_ERROR_VIEW_CONFIGURATION_TYPE_UNSUPPORTED) {
+                        WARN(
+                            "Runtime accepted an invalid enum value as unsupported, which makes it harder for apps to reason about the error.");
+                    }
                 }
                 else {
                     REQUIRE_MSG(XR_ERROR_VIEW_CONFIGURATION_TYPE_UNSUPPORTED == res,

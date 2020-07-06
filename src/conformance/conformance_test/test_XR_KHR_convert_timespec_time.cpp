@@ -21,10 +21,6 @@
 #include <openxr/openxr.h>
 
 // Include all dependencies of openxr_platform as configured
-#ifndef XR_USE_TIMESPEC
-#define XR_USE_TIMESPEC
-#endif
-
 #include "xr_dependencies.h"
 #include <openxr/openxr_platform.h>
 

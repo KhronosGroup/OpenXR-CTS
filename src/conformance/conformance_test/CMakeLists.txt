@@ -39,11 +39,6 @@ add_library(conformance_test SHARED
     ${PROJECT_SOURCE_DIR}/src/common/platform_utils.hpp
 )
 
-if(NOT WIN32 AND TARGET openxr-gfxwrapper)
-    # Conformance test on Win32 uses direct, native access to Win32 APIs, not gfxwrapper.
-    target_link_libraries(conformance_test PRIVATE openxr-gfxwrapper)
-endif()
-
 compile_glsl(run_conformance_test_glsl_compiles ${VULKAN_SHADERS})
 
 add_dependencies(conformance_test
@@ -58,10 +53,13 @@ target_include_directories(conformance_test
     ${CMAKE_CURRENT_LIST_DIR}/../../common
     PRIVATE ${PROJECT_SOURCE_DIR}/src/external
 
-#for openxr.h:
+    # for openxr.h:
     PRIVATE ${PROJECT_BINARY_DIR}/include
-#for common_config.h:
+    # for common_config.h:
     PRIVATE ${PROJECT_BINARY_DIR}/src
+
+    # for helper headers
+    ${PROJECT_SOURCE_DIR}/external/include
 )
 
 if(VulkanHeaders_INCLUDE_DIRS)
@@ -84,8 +82,7 @@ if(Vulkan_LIBRARY)
     target_link_libraries(conformance_test PRIVATE ${Vulkan_LIBRARY})
 endif()
 
-if(NOT WIN32 AND TARGET openxr-gfxwrapper)
-    # Conformance test on Win32 uses direct, native access to Win32 APIs, not gfxwrapper.
+if(TARGET openxr-gfxwrapper)
     target_link_libraries(conformance_test PRIVATE openxr-gfxwrapper)
 endif()
 
@@ -95,9 +92,7 @@ if(WIN32)
         target_compile_options(conformance_test PRIVATE /Zc:wchar_t /Zc:forScope /W4 /WX /wd4996)
     endif()
     target_link_libraries(conformance_test PRIVATE openxr_loader)
-    if(OPENGL_FOUND)
-        target_link_libraries(conformance_test PRIVATE ${OPENGL_LIBRARIES})
-    endif()
+
     if(MSVC)
         # Right now can't build this on MinGW because of directxcolors, etc.
         target_link_libraries(conformance_test PRIVATE d3d11 d3d12 d3dcompiler dxgi)
@@ -111,7 +106,6 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     target_compile_options(conformance_test PRIVATE -Wall)
     target_link_libraries(conformance_test PRIVATE openxr_loader m pthread)
 endif()
-
 
 # Copy conformance_test assets files to the conformance_cli binary folder
 foreach(ASSET ${ASSETS})

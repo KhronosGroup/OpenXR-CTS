@@ -35,9 +35,12 @@ namespace Conformance
         XrExtent2Df bound_dummy{-1.f, -1.f};
         // Note: View has to be supported and we already checked this in the xrEnumerateReferenceSpaces tests.
 
-        // Exercise a non-existent reference space:
+        // Max is not a valid reference space.
         result = xrGetReferenceSpaceBoundsRect(session, XR_REFERENCE_SPACE_TYPE_MAX_ENUM, &bound_dummy);
-        CHECK(result == XR_ERROR_REFERENCE_SPACE_UNSUPPORTED);
+        REQUIRE_THAT(result, In<XrResult>({XR_ERROR_VALIDATION_FAILURE, XR_ERROR_REFERENCE_SPACE_UNSUPPORTED}));
+        if (result == XR_ERROR_REFERENCE_SPACE_UNSUPPORTED) {
+            WARN("Runtime accepted an invalid max enum value as unsupported, which make it harder for apps to reason about the error.");
+        }
 
         // Exercise other invalid handles.
         OPTIONAL_INVALID_HANDLE_VALIDATION_SECTION

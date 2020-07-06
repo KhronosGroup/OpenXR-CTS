@@ -55,44 +55,30 @@ namespace Conformance
     using UpdateLayers = std::function<void(const XrFrameState&)>;
     using EndFrame = std::function<bool(const XrFrameState&)>;
 
-    RenderLoop::RenderLoop(XrSession session, EndFrame endFrame) : m_session(session), m_endFrame(endFrame)
+    bool RenderLoop::IterateFrame()
     {
-        m_thread = std::thread([&] {
-            CHECK_NOTHROW([&]() {
-                while (m_running) {
-                    XrFrameState frameState{XR_TYPE_FRAME_STATE};
-                    XrFrameWaitInfo waitInfo{XR_TYPE_FRAME_WAIT_INFO};
-                    XRC_CHECK_THROW_XRCMD(xrWaitFrame(m_session, &waitInfo, &frameState));
+        XrFrameState frameState{XR_TYPE_FRAME_STATE};
+        XrFrameWaitInfo waitInfo{XR_TYPE_FRAME_WAIT_INFO};
+        XRC_CHECK_THROW_XRCMD(xrWaitFrame(m_session, &waitInfo, &frameState));
 
-                    m_lastPredictedDisplayTime.store(frameState.predictedDisplayTime);
+        m_lastPredictedDisplayTime.store(frameState.predictedDisplayTime);
 
-                    XrFrameBeginInfo beginInfo{XR_TYPE_FRAME_BEGIN_INFO};
-                    XRC_CHECK_THROW_XRCMD(xrBeginFrame(m_session, &beginInfo));
+        XrFrameBeginInfo beginInfo{XR_TYPE_FRAME_BEGIN_INFO};
+        XRC_CHECK_THROW_XRCMD(xrBeginFrame(m_session, &beginInfo));
+        return m_endFrame(frameState);
+    }
 
-                    if (!m_endFrame(frameState)) {
-                        break;
-                    }
-                }
-            }());
-        });
+    void RenderLoop::Loop()
+    {
+        CHECK_NOTHROW([&]() {
+            while (IterateFrame()) {
+            }
+        }());
     }
 
     XrTime RenderLoop::GetLastPredictedDisplayTime() const
     {
         return m_lastPredictedDisplayTime.load();
-    }
-
-    void RenderLoop::WaitForEnd()
-    {
-        if (m_thread.joinable()) {
-            m_thread.join();
-        }
-    }
-
-    RenderLoop::~RenderLoop()
-    {
-        m_running = false;
-        WaitForEnd();
     }
 
     InteractionManager::InteractionManager(XrInstance instance, XrSession session) : m_instance(instance), m_session(session)
@@ -129,6 +115,20 @@ namespace Conformance
         }
     }
 
+    void InteractionManager::SyncActions(XrPath subactionPath)
+    {
+        std::vector<XrActiveActionSet> activeActionSet;
+        for (auto& actionSet : m_actionSets) {
+            XrActiveActionSet activeSet{actionSet, subactionPath};
+            activeActionSet.emplace_back(activeSet);
+        }
+
+        XrActionsSyncInfo syncInfo{XR_TYPE_ACTIONS_SYNC_INFO};
+        syncInfo.countActiveActionSets = uint32_t(m_actionSets.size());
+        syncInfo.activeActionSets = activeActionSet.data();
+        XRC_CHECK_THROW_XRCMD(xrSyncActions(m_session, &syncInfo));
+    }
+
     CompositionHelper::CompositionHelper(const char* testName)
     {
         m_primaryViewType = GetGlobalData().GetOptions().viewConfigurationValue;
@@ -162,15 +162,7 @@ namespace Conformance
 
         {
             constexpr int TitleFontHeightPixels = 32;
-            constexpr int TitleFontPaddingPixels = 2;
-            constexpr int TitleBorderPixels = 2;
-            constexpr int InsetPixels = TitleBorderPixels + TitleFontPaddingPixels;
-
-            RGBAImage image(512, TitleFontHeightPixels + InsetPixels * 2);
-            image.DrawRect(0, 0, image.width, image.height, {0.5f, 0.5f, 0.5f, 0.5f});
-            image.DrawRectBorder(0, 0, image.width, image.height, TitleBorderPixels, {0.5f, 0.5f, 0.5f, 1});
-            image.PutText(XrRect2Di{{InsetPixels, InsetPixels}, {image.width - InsetPixels * 2, image.height - InsetPixels * 2}}, testName,
-                          TitleFontHeightPixels, {1, 1, 1, 1});
+            RGBAImage image = CreateTextImage(512, 44, testName, TitleFontHeightPixels);
 
             m_testNameQuad.layerFlags |= XR_COMPOSITION_LAYER_BLEND_TEXTURE_SOURCE_ALPHA_BIT;
             m_testNameQuad.size.width = 0.75f;
@@ -406,10 +398,10 @@ namespace Conformance
         return CreateStaticSwapchainImage(image);
     }
 
-    XrSwapchain CompositionHelper::CreateStaticSwapchainImage(const RGBAImage& rgbaImage)
+    XrSwapchain CompositionHelper::CreateStaticSwapchainImage(const RGBAImage& rgbaImage, bool sRGB)
     {
         // The swapchain format must be R8G8B8A8 UNORM to match the RGBAImage format.
-        const int64_t format = GetGlobalData().graphicsPlugin->GetRGBA8UnormFormat();
+        const int64_t format = GetGlobalData().graphicsPlugin->GetRGBA8Format(sRGB);
         auto swapchainCreateInfo =
             DefaultColorSwapchainCreateInfo(rgbaImage.width, rgbaImage.height, XR_SWAPCHAIN_CREATE_STATIC_IMAGE_BIT, format);
 
@@ -493,10 +485,8 @@ namespace Conformance
         return reinterpret_cast<XrCompositionLayerBaseHeader*>(m_projLayer);
     }
 
-    void SimpleProjectionLayerHelper::UpdateProjectionLayer(const XrFrameState& frameState)
+    void SimpleProjectionLayerHelper::UpdateProjectionLayer(const XrFrameState& frameState, const std::vector<Cube> cubes)
     {
-        const std::vector<Cube> cubes = {Cube::Make({-1, 0, -2}), Cube::Make({1, 0, -2}), Cube::Make({0, -1, -2}), Cube::Make({0, 1, -2})};
-
         auto viewData = m_compositionHelper.LocateViews(m_localSpace, frameState.predictedDisplayTime);
         const auto& viewState = std::get<XrViewState>(viewData);
 

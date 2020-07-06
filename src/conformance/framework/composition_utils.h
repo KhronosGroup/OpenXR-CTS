@@ -42,18 +42,18 @@ namespace Conformance
     class RenderLoop
     {
     public:
-        RenderLoop(XrSession session, EndFrame endFrame);
-        ~RenderLoop();
+        RenderLoop(XrSession session, EndFrame endFrame) : m_session(session), m_endFrame(endFrame)
+        {
+        }
+
+        bool IterateFrame();
+        void Loop();
 
         XrTime GetLastPredictedDisplayTime() const;
-
-        void WaitForEnd();
 
     private:
         XrSession m_session;
         EndFrame m_endFrame;
-        std::thread m_thread;
-        std::atomic<bool> m_running{true};
         std::atomic<XrTime> m_lastPredictedDisplayTime;
     };
 
@@ -65,6 +65,7 @@ namespace Conformance
 
         void AddActionSet(XrActionSet actionSet);
         void AttachActionSets();
+        void SyncActions(XrPath subactionPath);
 
     private:
         XrInstance m_instance;
@@ -110,7 +111,7 @@ namespace Conformance
 
         XrSwapchain CreateStaticSwapchainSolidColor(const XrColor4f& color);
 
-        XrSwapchain CreateStaticSwapchainImage(const RGBAImage& rgbaImage);
+        XrSwapchain CreateStaticSwapchainImage(const RGBAImage& rgbaImage, bool sRGB = false);
 
         XrSwapchainSubImage MakeDefaultSubImage(XrSwapchain swapchain, uint32_t imageArrayIndex = 0);
 
@@ -154,7 +155,13 @@ namespace Conformance
     public:
         SimpleProjectionLayerHelper(CompositionHelper& compositionHelper);
         XrCompositionLayerBaseHeader* GetProjectionLayer() const;
-        void UpdateProjectionLayer(const XrFrameState& frameState);
+        void UpdateProjectionLayer(const XrFrameState& frameState,
+                                   const std::vector<Cube> cubes = {Cube::Make({-1, 0, -2}), Cube::Make({1, 0, -2}),
+                                                                    Cube::Make({0, -1, -2}), Cube::Make({0, 1, -2})});
+        XrSpace GetLocalSpace() const
+        {
+            return m_localSpace;
+        }
 
     private:
         CompositionHelper& m_compositionHelper;

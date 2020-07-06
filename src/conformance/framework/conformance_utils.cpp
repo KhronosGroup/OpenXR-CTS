@@ -930,32 +930,6 @@ namespace Conformance
 
         return RunResult::Timeout;
     }
-    bool WaitForSessionState(EventReader& eventReader, XrSession session, XrSessionState state, std::chrono::nanoseconds timeout)
-    {
-        using namespace std::chrono_literals;
-        return WaitUntilPredicateWithTimeout(
-            [&] {
-                XrEventDataBuffer eventData;
-                while (eventReader.TryReadNext(eventData)) {
-                    if (eventData.type == XR_TYPE_EVENT_DATA_SESSION_STATE_CHANGED) {
-                        auto sessionStateChanged = reinterpret_cast<XrEventDataSessionStateChanged*>(&eventData);
-                        if (sessionStateChanged->session == session && sessionStateChanged->state == state) {
-                            return true;
-                        }
-                    }
-                }
-
-                return false;
-            },
-            timeout, 10ms);
-    }
-
-    bool WaitForSessionState(XrInstance instance, XrSession session, XrSessionState state, std::chrono::nanoseconds timeout)
-    {
-        EventQueue eventQueue(instance);
-        EventReader eventReader(eventQueue);
-        return WaitForSessionState(eventReader, session, state, timeout);
-    }
 
     bool WaitUntilPredicateWithTimeout(std::function<bool()> predicate, const std::chrono::nanoseconds timeout,
                                        const std::chrono::nanoseconds delay)
@@ -1041,6 +1015,28 @@ namespace Conformance
         }
 
         return false;  // Function is unknown. Was it case-mismatched?
+    }
+
+    bool IsViewConfigurationTypeEnumValid(XrViewConfigurationType viewType)
+    {
+        //! @todo This function should be auto-generated from the spec.
+
+        switch (viewType) {
+        case XR_VIEW_CONFIGURATION_TYPE_PRIMARY_MONO:
+        case XR_VIEW_CONFIGURATION_TYPE_PRIMARY_STEREO:
+            // The two valid view configurations in unextended OpenXR.
+            return true;
+        case XR_VIEW_CONFIGURATION_TYPE_MAX_ENUM:
+            // This is never a valid XrViewConfigurationType.
+            return false;
+        case XR_VIEW_CONFIGURATION_TYPE_PRIMARY_QUAD_VARJO:
+            return IsInstanceExtensionEnabled("XR_VARJO_quad_views");
+        case XR_VIEW_CONFIGURATION_TYPE_SECONDARY_MONO_FIRST_PERSON_OBSERVER_MSFT:
+            return IsInstanceExtensionEnabled("XR_MSFT_first_person_observer");
+        default:
+            assert(false);
+            return false;
+        }
     }
 
     // Encapsulates xrEnumerateSwapchainFormats/xrCreateSwapchain

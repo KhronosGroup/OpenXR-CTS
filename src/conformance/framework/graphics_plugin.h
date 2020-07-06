@@ -113,6 +113,18 @@ namespace Conformance
             // Default no-op implementation for APIs which don't need flushing.
         }
 
+        // Call to check the validity of the graphics state (useful when checking for interactions with OpenXR calls).
+        virtual void CheckState(const char* /*file_line*/) const
+        {
+            // Default no-op implementation for APIs which don't need checking.
+        }
+
+        // Called when changing graphics interaction thread.
+        virtual void MakeCurrent(bool /*bindToThread*/)
+        {
+            // Default no-op implementation for APIs which don't need binding.
+        }
+
         // Shuts down the device initialized by InitializeDevice. Restores to the same state as prior to
         // the call to InitializeDevice.
         virtual void ShutdownDevice() = 0;
@@ -155,7 +167,7 @@ namespace Conformance
         virtual int64_t SelectDepthSwapchainFormat(const int64_t* /*imageFormatArray*/, size_t /*count*/) const = 0;
 
         // Select the preferred swapchain format.
-        virtual int64_t GetRGBA8UnormFormat() const = 0;
+        virtual int64_t GetRGBA8Format(bool sRGB = false) const = 0;
 
         struct SwapchainImageStructs
         {

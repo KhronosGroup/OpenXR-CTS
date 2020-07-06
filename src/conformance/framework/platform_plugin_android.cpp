@@ -42,7 +42,6 @@
 /// Let the infrastructure provide these
 extern void* Conformance_Android_Get_Application_VM();
 extern void* Conformance_Android_Get_Application_Activity();
-extern void* Conformance_Android_Get_Application_NativeWindow();
 
 namespace Conformance
 {

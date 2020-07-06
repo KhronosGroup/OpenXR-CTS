@@ -289,17 +289,18 @@ namespace Conformance
 
     void Exercise_xrEnumerateInstanceExtensionProperties(ThreadTestEnvironment&)
     {
-        std::vector<XrExtensionProperties> properties(16, {XR_TYPE_EXTENSION_PROPERTIES});
         uint32_t propertyCountOutput;
+        XRC_CHECK_THROW_XRCMD(xrEnumerateInstanceExtensionProperties(nullptr, 0, &propertyCountOutput, nullptr));
+        std::vector<XrExtensionProperties> properties(propertyCountOutput, {XR_TYPE_EXTENSION_PROPERTIES});
         XRC_CHECK_THROW_XRCMD(
             xrEnumerateInstanceExtensionProperties(nullptr, (uint32_t)properties.size(), &propertyCountOutput, properties.data()));
     }
 
     void Exercise_xrEnumerateApiLayerProperties(ThreadTestEnvironment&)
     {
-        // XrResult xrEnumerateApiLayerProperties(uint32_t propertyCapacityInput, uint32_t* propertyCountOutput, XrApiLayerProperties* properties);
-        std::vector<XrApiLayerProperties> properties(16, {XR_TYPE_API_LAYER_PROPERTIES});
         uint32_t propertyCountOutput;
+        XRC_CHECK_THROW_XRCMD(xrEnumerateApiLayerProperties(0, &propertyCountOutput, nullptr));
+        std::vector<XrApiLayerProperties> properties(propertyCountOutput, {XR_TYPE_API_LAYER_PROPERTIES});
         XRC_CHECK_THROW_XRCMD(xrEnumerateApiLayerProperties((uint32_t)properties.size(), &propertyCountOutput, properties.data()));
     }
 
@@ -404,8 +405,9 @@ namespace Conformance
 
     void Exercise_xrEnumerateReferenceSpaces(ThreadTestEnvironment& env)
     {
-        std::array<XrReferenceSpaceType, 16> spaces;
         uint32_t spaceCountOutput;
+        XRC_CHECK_THROW_XRCMD(xrEnumerateReferenceSpaces(env.GetAutoBasicSession().GetSession(), 0, &spaceCountOutput, nullptr));
+        std::vector<XrReferenceSpaceType> spaces(spaceCountOutput);
         XRC_CHECK_THROW_XRCMD(
             xrEnumerateReferenceSpaces(env.GetAutoBasicSession().GetSession(), (uint32_t)spaces.size(), &spaceCountOutput, spaces.data()));
     }
@@ -464,11 +466,13 @@ namespace Conformance
 
     void Exercise_xrEnumerateViewConfigurations(ThreadTestEnvironment& env)
     {
-        std::array<XrViewConfigurationType, 16> viewConfigurationTypeArray;
         uint32_t countOutput;
+        XRC_CHECK_THROW_XRCMD(xrEnumerateViewConfigurations(env.GetAutoBasicSession().GetInstance(),
+                                                            env.GetAutoBasicSession().GetSystemId(), 0, &countOutput, nullptr));
+        std::vector<XrViewConfigurationType> viewConfigurationTypes(countOutput);
         XRC_CHECK_THROW_XRCMD(
             xrEnumerateViewConfigurations(env.GetAutoBasicSession().GetInstance(), env.GetAutoBasicSession().GetSystemId(),
-                                          (uint32_t)viewConfigurationTypeArray.size(), &countOutput, viewConfigurationTypeArray.data()));
+                                          (uint32_t)viewConfigurationTypes.size(), &countOutput, viewConfigurationTypes.data()));
     }
 
     void Exercise_xrGetViewConfigurationProperties(ThreadTestEnvironment& env)
@@ -484,11 +488,14 @@ namespace Conformance
     void Exercise_xrEnumerateViewConfigurationViews(ThreadTestEnvironment& env)
     {
         const GlobalData& globalData = GetGlobalData();
-        std::vector<XrViewConfigurationView> viewConfigurationViewArray(16, {XR_TYPE_VIEW_CONFIGURATION_VIEW});
         uint32_t countOutput;
-        XrResult result = xrEnumerateViewConfigurationViews(
+        XRC_CHECK_THROW_XRCMD(xrEnumerateViewConfigurationViews(env.GetAutoBasicSession().GetInstance(),
+                                                                env.GetAutoBasicSession().GetSystemId(),
+                                                                globalData.options.viewConfigurationValue, 0, &countOutput, nullptr));
+        std::vector<XrViewConfigurationView> viewConfigurationViews(countOutput, {XR_TYPE_VIEW_CONFIGURATION_VIEW});
+        XRC_CHECK_THROW_XRCMD(xrEnumerateViewConfigurationViews(
             env.GetAutoBasicSession().GetInstance(), env.GetAutoBasicSession().GetSystemId(), globalData.options.viewConfigurationValue,
-            (uint32_t)viewConfigurationViewArray.size(), &countOutput, viewConfigurationViewArray.data());
+            (uint32_t)viewConfigurationViews.size(), &countOutput, viewConfigurationViews.data()));
 
         // Could potentially validate viewConfigurationViewArray.
 

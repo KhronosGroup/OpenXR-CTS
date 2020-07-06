@@ -12,6 +12,12 @@
 #include "stb/stb_image.h"
 #include "stb/stb_truetype.h"
 
+// Some platforms require reading files from specific
+// sandboxed directories.
+#ifndef PATH_PREFIX
+#define PATH_PREFIX ""
+#endif
+
 namespace
 {
     // Convert R32G32B32A_FLOAT to R8G8B8A8_UNORM.
@@ -25,7 +31,7 @@ namespace
     {
         BakedFont(int pixelHeight)
         {
-            constexpr const char* FontPath = "SourceCodePro-Regular.otf";
+            constexpr const char* FontPath = PATH_PREFIX "SourceCodePro-Regular.otf";
 
             std::ifstream file;
             file.open(FontPath, std::ios::in | std::ios::binary);
@@ -60,12 +66,6 @@ namespace
 
         static std::shared_ptr<const BakedFont> GetOrCreate(int pixelHeight)
         {
-#ifdef XR_USE_PLATFORM_ANDROID
-            // On Android, reading a font file from outside the APK resource is a much more complex process
-            // requiring unzipping and the right permissions. Those don't play nice with automation testing in
-            // the way this framework is setup.
-            return nullptr;
-#endif
             std::unordered_map<int, std::shared_ptr<BakedFont>> s_bakedFonts;
             auto it = s_bakedFonts.find(pixelHeight);
             if (it == s_bakedFonts.end()) {
@@ -110,10 +110,14 @@ namespace Conformance
     {
         constexpr int RequiredComponents = 4;  // RGBA
 
+        char fullPath[512];
+        strcpy(fullPath, PATH_PREFIX);
+        strcat(fullPath, path);
+
         int width, height;
-        stbi_uc* const uc = stbi_load(path, &width, &height, nullptr, RequiredComponents);
+        stbi_uc* const uc = stbi_load(fullPath, &width, &height, nullptr, RequiredComponents);
         if (uc == nullptr) {
-            throw std::runtime_error((std::string("Unable to load file ") + path).c_str());
+            throw std::runtime_error((std::string("Unable to load file ") + fullPath).c_str());
         }
 
         RGBAImage image(width, height);

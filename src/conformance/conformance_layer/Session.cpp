@@ -55,9 +55,10 @@ namespace session
 
     void SessionStateChanged(ConformanceHooksBase* conformanceHooks, const XrEventDataSessionStateChanged* sessionStateChanged)
     {
+        // Check under the lock to guarantee xrEndFrame completes if it's being called on another thread.
         CustomSessionState* const customSessionState = GetCustomSessionState(sessionStateChanged->session);
-
         std::unique_lock<std::mutex> lock(customSessionState->lock);
+
         if (!IsValidStateTransition(customSessionState->sessionState, sessionStateChanged->state)) {
             conformanceHooks->ConformanceFailure(XR_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT, "XrEventDataSessionStateChanged",
                                                  "Invalid session state transition from %s to %s",
@@ -336,11 +337,14 @@ XrResult ConformanceHooks::xrBeginFrame(XrSession session, const XrFrameBeginInf
 
 XrResult ConformanceHooks::xrEndFrame(XrSession session, const XrFrameEndInfo* frameEndInfo)
 {
+    // Call xrEndFrame under the lock because it might generate XR_SESSION_STATE_SYNCHRONIZED
+    // at any time during the call and frameCount needs to increment in unison.
+    CustomSessionState* const customSessionState = GetCustomSessionState(session);
+    std::unique_lock<std::mutex> lock(customSessionState->lock);
+
     const XrResult result = ConformanceHooksBase::xrEndFrame(session, frameEndInfo);
 
-    CustomSessionState* const customSessionState = GetCustomSessionState(session);
     if (XR_SUCCEEDED(result)) {
-        std::unique_lock<std::mutex> lock(customSessionState->lock);
         NONCONFORMANT_IF(!customSessionState->frameBegun,
                          "Unexpected success. XR_ERROR_CALL_ORDER_INVALID expected because xrBeginFrame was not called");
         customSessionState->frameBegun = false;

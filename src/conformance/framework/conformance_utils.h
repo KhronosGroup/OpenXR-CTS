@@ -1,4 +1,5 @@
 // Copyright (c) 2019-2020 The Khronos Group Inc.
+// Copyright (c) 2019 Collabora, Ltd.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -28,6 +29,7 @@
 #include <stdint.h>
 #include <iosfwd>
 #include <utils.h>
+#include <assert.h>
 
 #include "event_reader.h"
 #include "graphics_plugin.h"
@@ -236,125 +238,6 @@ namespace Conformance
     XrResult CreateActionSet(XrInstance instance, XrActionSet* actionSet, std::vector<XrAction>* actionVector,
                              const XrPath* subactionPathArray = nullptr, size_t subactionPathArraySize = 0);
 
-    // InstanceCHECK
-    //
-    // Defines std::unique_ptr for XrInstance which uses CHECK() on destruction to verify that the
-    // destroy function succeeded.
-    // The primary purpose of this is to auto-destroy the handle upon scope exit.
-    //
-    // Example usage:
-    //     // Unfortunately, std::unique_ptr doesn't supprort any portable means to write into it
-    //     // directly from xrCreateSession. This is an unsolved C++ problem:
-    //     //    http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2019/p1132r3.html
-    //     //    https://devblogs.microsoft.com/oldnewthing/20190429-00/?p=102456,
-    //     XrInstance instance = ...;
-    //     InstanceCHECK instanceCHECK(instance);
-    //
-    struct InstanceDeleteCHECK
-    {
-        typedef XrInstance pointer;
-        void operator()(XrInstance i);
-    };
-    typedef std::unique_ptr<XrInstance, InstanceDeleteCHECK> InstanceCHECK;
-
-    // InstanceREQUIRE
-    //
-    // This is similar to InstanceCHECK except that it uses REQUIRE on the result of xrDestroyInstance.
-    //
-    struct InstanceDeleteREQUIRE
-    {
-        typedef XrInstance pointer;
-        void operator()(XrInstance i);
-    };
-    typedef std::unique_ptr<XrInstance, InstanceDeleteREQUIRE> InstanceREQUIRE;
-
-    // SessionCHECK
-    //
-    // Defines std::unique_ptr for XrSession which uses CHECK() on destruction to verify that the
-    // destroy function succeeded.
-    // The primary purpose of this is to auto-destroy the handle upon scope exit.
-    //
-    // Example usage:
-    //     // Unfortunately, std::unique_ptr doesn't supprort any portable means to write into it directly from xrCreateInstance.
-    //     XrSession session = ...;
-    //     SessionCHECK sessionCHECK(session);
-    //
-    struct SessionDeleteCHECK
-    {
-        typedef XrSession pointer;
-        void operator()(XrSession s);
-    };
-    typedef std::unique_ptr<XrSession, SessionDeleteCHECK> SessionCHECK;
-
-    // SessionREQUIRE
-    //
-    // This is similar to SessionCHECK except that it uses REQUIRE on the result of xrDestroySession.
-    //
-    struct SessionDeleteREQUIRE
-    {
-        typedef XrSession pointer;
-        void operator()(XrSession s);
-    };
-    typedef std::unique_ptr<XrSession, SessionDeleteREQUIRE> SessionREQUIRE;
-
-    // SpaceCHECK
-    //
-    // Defines std::unique_ptr for XrSpace which uses CHECK() on destruction to verify that the
-    // destroy function succeeded.
-    // The primary purpose of this is to auto-destroy the handle upon scope exit.
-    //
-    // Example usage:
-    //     // Unfortunately, std::unique_ptr doesn't supprort any portable means to write into it directly from xrCreateSpace.
-    //     XrSpace space = ...;
-    //     SpaceCHECK spaceCHECK(space);
-    //
-    struct SpaceDeleteCHECK
-    {
-        typedef XrSpace pointer;
-        void operator()(XrSpace s);
-    };
-    typedef std::unique_ptr<XrSpace, SpaceDeleteCHECK> SpaceCHECK;
-
-    // SpaceREQUIRE
-    //
-    // This is similar to SpaceCHECK except that it uses REQUIRE on the result of xrDestroySpace.
-    //
-    struct SpaceDeleteREQUIRE
-    {
-        typedef XrSpace pointer;
-        void operator()(XrSpace s);
-    };
-    typedef std::unique_ptr<XrSpace, SpaceDeleteREQUIRE> SpaceREQUIRE;
-
-    // SwapchainCHECK
-    //
-    // Defines std::unique_ptr for XrSwapchain which uses CHECK() on destruction to verify that the
-    // destroy function succeeded.
-    // The primary purpose of this is to auto-destroy the handle upon scope exit.
-    //
-    // Example usage:
-    //     // Unfortunately, std::unique_ptr doesn't supprort any portable means to write into it directly from xrCreateSwapchain.
-    //     XrSwachain swapchain = ...;
-    //     SwapchainCHECK swapchainCHECK(swapchain);
-    //
-    struct SwapchainDeleteCHECK
-    {
-        typedef XrSwapchain pointer;
-        void operator()(XrSwapchain s);
-    };
-    typedef std::unique_ptr<XrSwapchain, SwapchainDeleteCHECK> SwapchainCHECK;
-
-    // SpaceREQUIRE
-    //
-    // This is similar to SwapchainCHECK except that it uses REQUIRE on the result of xrDestroySwapchain.
-    //
-    struct SwapchainDeleteREQUIRE
-    {
-        typedef XrSwapchain pointer;
-        void operator()(XrSwapchain s);
-    };
-    typedef std::unique_ptr<XrSwapchain, SwapchainDeleteREQUIRE> SwapchainREQUIRE;
-
     // Dummy type used to provide a unique identity for XR_NULL_HANDLE, for comparisons, etc.
     // Implicitly convertible to XR_NULL_HANDLE in all the places you want.
     //
@@ -386,6 +269,288 @@ namespace Conformance
     constexpr NullHandleType XR_NULL_HANDLE_CPP{};
 
     std::ostream& operator<<(std::ostream& os, NullHandleType const& /*unused*/);
+
+    template <typename HandleType, typename Destroyer>
+    class ScopedHandle;
+    /// Used by ScopedHandle to allow it to be set "directly" by functions taking a pointer to a handle.
+    template <typename HandleType, typename Destroyer>
+    class ScopedHandleResetProxy
+    {
+    public:
+        explicit ScopedHandleResetProxy(ScopedHandle<HandleType, Destroyer>& parent) : parent_(parent), active_(true)
+        {
+        }
+        ~ScopedHandleResetProxy();
+
+        ScopedHandleResetProxy(ScopedHandleResetProxy const&) = delete;
+        ScopedHandleResetProxy& operator=(ScopedHandleResetProxy const&) = delete;
+        ScopedHandleResetProxy& operator=(ScopedHandleResetProxy&&) = delete;
+        ScopedHandleResetProxy(ScopedHandleResetProxy&& other) : parent_(other.parent_)
+        {
+            std::swap(active_, other.active_);
+            std::swap(addressGot_, other.addressGot_);
+            std::swap(handle_, other.handle_);
+        }
+
+        operator HandleType*()
+        {
+            assert(!addressGot_);
+            addressGot_ = true;
+            return &handle_;
+        }
+
+    private:
+        ScopedHandle<HandleType, Destroyer>& parent_;
+        bool active_ = false;
+        bool addressGot_ = false;
+        HandleType handle_ = XR_NULL_HANDLE;
+    };
+
+    template <typename HandleType, typename Destroyer>
+    class ScopedHandle
+    {
+    public:
+        /// Default (empty) constructor
+        ScopedHandle() = default;
+
+        /// Empty constructor when we need a destroyer instance.
+        ScopedHandle(Destroyer d) : h_(XR_NULL_HANDLE), d_(d)
+        {
+        }
+
+        /// Explicit constructor from handle
+        explicit ScopedHandle(HandleType h) : h_(h)
+        {
+        }
+        /// Constructor from handle when we need a destroyer instance.
+        ScopedHandle(HandleType h, Destroyer d) : h_(h), d_(d)
+        {
+        }
+
+        /// Destructor
+        ~ScopedHandle()
+        {
+            reset();
+        }
+
+        /// Non-copyable
+        ScopedHandle(ScopedHandle const&) = delete;
+        /// Non-copy-assignable
+        ScopedHandle& operator=(ScopedHandle const&) = delete;
+        /// Move-constructible
+        ScopedHandle(ScopedHandle&& other)
+        {
+            std::swap(h_, other.h_);
+        }
+
+        /// Move-assignable
+        ScopedHandle& operator=(ScopedHandle&& other)
+        {
+            std::swap(h_, other.h_);
+            other.reset();
+            return *this;
+        }
+
+        /// Is this handle valid?
+        explicit operator bool() const
+        {
+            return h_ != XR_NULL_HANDLE;
+        }
+
+        /// Destroy the owned handle, if any.
+        void reset()
+        {
+            if (h_ != XR_NULL_HANDLE_CPP) {
+                d_(h_);
+                h_ = XR_NULL_HANDLE_CPP;
+            }
+        }
+
+        /// Assign a new handle into this object's control, destroying the old one if applicable.
+        void reset(HandleType h)
+        {
+            reset();
+            h_ = h;
+        }
+
+        /// Access the raw handle without affecting ownership or lifetime.
+        HandleType get() const
+        {
+            return h_;
+        }
+
+        /// Release the handle from this object's control.
+        HandleType release()
+        {
+            HandleType ret = h_;
+            h_ = XR_NULL_HANDLE_CPP;
+            return ret;
+        }
+
+        /// Call in a parameter that requires a pointer to a handle, to set it "directly" in here.
+        ScopedHandleResetProxy<HandleType, Destroyer> resetAndGetAddress()
+        {
+            reset();
+            return ScopedHandleResetProxy<HandleType, Destroyer>(*this);
+        }
+
+    private:
+        HandleType h_ = XR_NULL_HANDLE_CPP;
+        Destroyer d_;
+    };
+
+    template <typename HandleType, typename Destroyer>
+    inline bool operator==(ScopedHandle<HandleType, Destroyer> const& handle, NullHandleType const&)
+    {
+        return handle.get() == XR_NULL_HANDLE_CPP;
+    }
+    template <typename HandleType, typename Destroyer>
+    inline bool operator==(NullHandleType const&, ScopedHandle<HandleType, Destroyer> const& handle)
+    {
+        return handle.get() == XR_NULL_HANDLE_CPP;
+    }
+
+    template <typename HandleType, typename Destroyer>
+    inline bool operator!=(ScopedHandle<HandleType, Destroyer> const& handle, NullHandleType const&)
+    {
+        return handle.get() != XR_NULL_HANDLE_CPP;
+    }
+    template <typename HandleType, typename Destroyer>
+    inline bool operator!=(NullHandleType const&, ScopedHandle<HandleType, Destroyer> const& handle)
+    {
+        return handle.get() != XR_NULL_HANDLE_CPP;
+    }
+
+    template <typename HandleType, typename Destroyer>
+    inline ScopedHandleResetProxy<HandleType, Destroyer>::~ScopedHandleResetProxy()
+    {
+        if (active_) {
+            assert(addressGot_ && "Called resetAndGetAddress() without passing the result to a pointer-taking function.");
+            parent_.reset(handle_);
+        }
+    }
+
+    // InstanceCHECK
+    //
+    // Defines a type similar to std::unique_ptr for XrInstance which uses CHECK() on destruction to verify that the
+    // destroy function succeeded.
+    // (Unlike std::unique_ptr, you can call resetAndGetAddress() to assign this directly.)
+    // The primary purpose of this is to auto-destroy the handle upon scope exit.
+    //
+    // Example usage:
+    //     // While this is easier to set than unique_ptr, it's still subject to this is an unsolved C++ problem:
+    //     //    http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2019/p1132r3.html
+    //     //    https://devblogs.microsoft.com/oldnewthing/20190429-00/?p=102456,
+    //     InstanceCHECK instanceCHECK;
+    //     xrCreateInstance(instanceCHECK.resetAndGetAddress(), ...);
+    //
+    struct InstanceDeleteCHECK
+    {
+        typedef XrInstance pointer;
+        void operator()(XrInstance i);
+    };
+    typedef ScopedHandle<XrInstance, InstanceDeleteCHECK> InstanceCHECK;
+
+    // InstanceREQUIRE
+    //
+    // This is similar to InstanceCHECK except that it uses REQUIRE on the result of xrDestroyInstance.
+    //
+    struct InstanceDeleteREQUIRE
+    {
+        typedef XrInstance pointer;
+        void operator()(XrInstance i);
+    };
+    typedef ScopedHandle<XrInstance, InstanceDeleteREQUIRE> InstanceREQUIRE;
+
+    // SessionCHECK
+    //
+    // Defines a type similar to std::unique_ptr for XrSession which uses CHECK() on destruction to verify that the
+    // destroy function succeeded.
+    // (Unlike std::unique_ptr, you can call resetAndGetAddress() to assign this directly.)
+    // The primary purpose of this is to auto-destroy the handle upon scope exit.
+    //
+    // Example usage:
+    //     // See InstanceCHECK for caveats
+    //     XrSession session = ...;
+    //     SessionCHECK sessionCHECK(session);
+    //
+    struct SessionDeleteCHECK
+    {
+        typedef XrSession pointer;
+        void operator()(XrSession s);
+    };
+    typedef ScopedHandle<XrSession, SessionDeleteCHECK> SessionCHECK;
+
+    // SessionREQUIRE
+    //
+    // This is similar to SessionCHECK except that it uses REQUIRE on the result of xrDestroySession.
+    //
+    struct SessionDeleteREQUIRE
+    {
+        typedef XrSession pointer;
+        void operator()(XrSession s);
+    };
+    typedef ScopedHandle<XrSession, SessionDeleteREQUIRE> SessionREQUIRE;
+
+    // SpaceCHECK
+    //
+    // Defines a type similar to std::unique_ptr for XrSpace which uses CHECK() on destruction to verify that the
+    // destroy function succeeded.
+    // (Unlike std::unique_ptr, you can call resetAndGetAddress() to assign this directly.)
+    // The primary purpose of this is to auto-destroy the handle upon scope exit.
+    //
+    // Example usage:
+    //     // See InstanceCHECK for caveats
+    //     XrSpace space = ...;
+    //     SpaceCHECK spaceCHECK(space);
+    //
+    struct SpaceDeleteCHECK
+    {
+        typedef XrSpace pointer;
+        void operator()(XrSpace s);
+    };
+    typedef ScopedHandle<XrSpace, SpaceDeleteCHECK> SpaceCHECK;
+
+    // SpaceREQUIRE
+    //
+    // This is similar to SpaceCHECK except that it uses REQUIRE on the result of xrDestroySpace.
+    //
+    struct SpaceDeleteREQUIRE
+    {
+        typedef XrSpace pointer;
+        void operator()(XrSpace s);
+    };
+    typedef ScopedHandle<XrSpace, SpaceDeleteREQUIRE> SpaceREQUIRE;
+
+    // SwapchainCHECK
+    //
+    // Defines a type similar to std::unique_ptr for XrSwapchain which uses CHECK() on destruction to verify that the
+    // destroy function succeeded.
+    // (Unlike std::unique_ptr, you can call resetAndGetAddress() to assign this directly.)
+    // The primary purpose of this is to auto-destroy the handle upon scope exit.
+    //
+    // Example usage:
+    //     // See InstanceCHECK for caveats
+    //     XrSwachain swapchain = ...;
+    //     SwapchainCHECK swapchainCHECK(swapchain);
+    //
+    struct SwapchainDeleteCHECK
+    {
+        typedef XrSwapchain pointer;
+        void operator()(XrSwapchain s);
+    };
+    typedef ScopedHandle<XrSwapchain, SwapchainDeleteCHECK> SwapchainCHECK;
+
+    // SpaceREQUIRE
+    //
+    // This is similar to SwapchainCHECK except that it uses REQUIRE on the result of xrDestroySwapchain.
+    //
+    struct SwapchainDeleteREQUIRE
+    {
+        typedef XrSwapchain pointer;
+        void operator()(XrSwapchain s);
+    };
+    typedef ScopedHandle<XrSwapchain, SwapchainDeleteREQUIRE> SwapchainREQUIRE;
 
     // GetUnrecognizableExtension
     //
@@ -773,10 +938,6 @@ namespace Conformance
 
     std::ostream& operator<<(std::ostream& os, AutoBasicSession const& sess);
 
-    bool WaitForSessionState(EventReader& eventReader, XrSession session, XrSessionState state, std::chrono::nanoseconds timeout);
-
-    bool WaitForSessionState(XrInstance instance, XrSession session, XrSessionState state, std::chrono::nanoseconds timeout);
-
     bool WaitUntilPredicateWithTimeout(std::function<bool()> predicate, const std::chrono::nanoseconds timeout,
                                        const std::chrono::nanoseconds delay);
 
@@ -813,6 +974,10 @@ namespace Conformance
     // Returns true if the extension function (case-sensitive) belongs to an extension that
     // is enabled as per IsInstanceExtensionEnabled. Returns false if the function is unknown.
     bool IsExtensionFunctionEnabled(const char* functionName);
+
+    // Returns true if the enum is valid, either being in the core of the spec or enabled via
+    // an extension (using IsInstanceExtensionEnabled), the max value is never valid.
+    bool IsViewConfigurationTypeEnumValid(XrViewConfigurationType viewType);
 
     // Returns only the major/minor version of the runtime, not also the patch version.
     bool GetRuntimeMajorMinorVersion(XrVersion& version);
@@ -936,4 +1101,19 @@ namespace Conformance
         std::vector<XrCompositionLayerProjectionView> projectionViewVector;  // PrepareFrameEndInfo sets this up.
         XrCompositionLayerProjection compositionLayerProjection;             // PrepareFrameEndInfo sets this up.
     };
+
+    /*!
+ * Overwrites all members of an OpenXR tagged/chainable struct with "bad" data.
+ * 
+ * Leaves @p s.type and @p s.next intact, while allowing the conformance layer to verify that structures are actually overwritten, rather than just left at an acceptable zero-initialized state.
+ */
+    template <typename StructType>
+    static inline void PoisonStructContents(StructType& s)
+    {
+        auto type = s.type;
+        auto next = s.next;
+        std::memset(&s, 1, sizeof(s));
+        s.type = type;
+        s.next = next;
+    }
 }  // namespace Conformance

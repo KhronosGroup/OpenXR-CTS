@@ -30,29 +30,31 @@ include(GNUInstallDirs)
 include(StdFilesystemFlags)
 
 ### Dependencies
-set(OpenGL_GL_PREFERENCE GLVND)
+
+# Skip detection of OpenGL/Vulkan for UWP "WindowsStore" build, otherwise the OpenGL package will be found for UWP
+# apps but gl.h isn't compatible. Similarly, there is no ARM/ARM64 support in the Windows Vulkan SDK.
 if(NOT CMAKE_SYSTEM_NAME STREQUAL "WindowsStore")
-    # OpenGL package will be found for UWP apps but gl.h excludes UWP apps so it isn't actually usable.
+    set(OpenGL_GL_PREFERENCE GLVND)
     find_package(OpenGL)
-endif()
 
-if(OPENGL_FOUND)
-    add_definitions(-DXR_USE_GRAPHICS_API_OPENGL)
-    message(STATUS "Enabling OpenGL support")
-elseif(BUILD_ALL_EXTENSIONS AND NOT CMAKE_SYSTEM_NAME STREQUAL "WindowsStore")
-    message(FATAL_ERROR "OpenGL not found")
-endif()
+    if(OPENGL_FOUND)
+        add_definitions(-DXR_USE_GRAPHICS_API_OPENGL)
+        message(STATUS "Enabling OpenGL support")
+    elseif(BUILD_ALL_EXTENSIONS)
+        message(FATAL_ERROR "OpenGL not found")
+    endif()
 
-if(NOT CMAKE_VERSION VERSION_LESS 3.7.0)
-    # Find the Vulkan headers
-    find_package(VulkanHeaders)
-    find_package(Vulkan)
-endif()
-if(VulkanHeaders_FOUND)
-    add_definitions(-DXR_USE_GRAPHICS_API_VULKAN)
-    message(STATUS "Enabling Vulkan support")
-elseif(BUILD_ALL_EXTENSIONS)
-    message(FATAL_ERROR "Vulkan headers not found")
+    if(NOT CMAKE_VERSION VERSION_LESS 3.7.0)
+        # Find the Vulkan headers
+        find_package(VulkanHeaders)
+        find_package(Vulkan)
+    endif()
+    if(VulkanHeaders_FOUND)
+        add_definitions(-DXR_USE_GRAPHICS_API_VULKAN)
+        message(STATUS "Enabling Vulkan support")
+    elseif(BUILD_ALL_EXTENSIONS)
+        message(FATAL_ERROR "Vulkan headers not found")
+    endif()
 endif()
 
 find_package(Threads REQUIRED)
@@ -219,7 +221,11 @@ add_definitions(-DOPENXR_HAVE_COMMON_CONFIG)
 # Be able to find pre-generated files, if used.
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../include ${CMAKE_CURRENT_SOURCE_DIR})
 
-add_definitions(-DXR_USE_TIMESPEC)
+include(CheckSymbolExists)
+check_symbol_exists(timespec_get time.h HAVE_TIMESPEC_GET)
+if(HAVE_TIMESPEC_GET)
+    add_definitions(-DXR_USE_TIMESPEC)
+endif()
 
 # Set up the OpenXR version variables, used by several targets in this project.
 include(${CMAKE_CURRENT_SOURCE_DIR}/version.cmake)

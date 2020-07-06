@@ -93,9 +93,9 @@ namespace Conformance
         0, XR_SWAPCHAIN_CREATE_PROTECTED_CONTENT_BIT, XR_SWAPCHAIN_CREATE_STATIC_IMAGE_BIT \
     }
 
-#define XRC_DEPTH_CREATE_FLAGS                                                             \
-    {                                                                                      \
-        0, XR_SWAPCHAIN_CREATE_PROTECTED_CONTENT_BIT, XR_SWAPCHAIN_CREATE_STATIC_IMAGE_BIT \
+#define XRC_DEPTH_CREATE_FLAGS                  \
+    {                                           \
+        0, XR_SWAPCHAIN_CREATE_STATIC_IMAGE_BIT \
     }
 
     // clang-format off

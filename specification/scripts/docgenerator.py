@@ -156,18 +156,6 @@ class DocOutputGenerator(OutputGenerator):
         # Decide if we're in a core <feature> or an <extension>
         self.in_core = (interface.tag == 'feature')
 
-        # Verify that each <extension> has a unique number during doc
-        # generation
-        # TODO move this to consistency_tools
-        if not self.in_core:
-            extension_number = interface.get('number')
-            if extension_number is not None and extension_number != "0":
-                if extension_number in self.extension_numbers:
-                    self.logMsg('error', 'Duplicate extension number ', extension_number, ' detected in feature ', interface.get('name'), '\n')
-                    exit(1)
-                else:
-                    self.extension_numbers.add(extension_number)
-
     def endFeature(self):
         # Finish processing in superclass
         OutputGenerator.endFeature(self)
@@ -413,17 +401,6 @@ class DocOutputGenerator(OutputGenerator):
     def genCmd(self, cmdinfo, name, alias):
         "Generate command."
         OutputGenerator.genCmd(self, cmdinfo, name, alias)
-
-        return_type = cmdinfo.elem.find('proto/type')
-        if self.genOpts.conventions.requires_error_validation(return_type):
-            # This command returns an API result code, so check that it
-            # returns at least the required errors.
-            # TODO move this to consistency_tools
-            required_errors = set(self.genOpts.conventions.required_errors)
-            errorcodes = cmdinfo.elem.get('errorcodes').split(',')
-            if not required_errors.issubset(set(errorcodes)):
-                self.logMsg('error', 'Missing required error code for command: ', name, '\n')
-                exit(1)
 
         decls = self.makeCDecls(cmdinfo.elem)
         self.writeInclude('protos', name, decls[0])

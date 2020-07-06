@@ -328,6 +328,8 @@ namespace Conformance
         virtual ~ITestMessageDisplay() = default;
 
         virtual void DisplayMessage(const std::string& message) = 0;
+
+        virtual void IterateFrame() = 0;
     };
 
     std::unique_ptr<IInputTestDevice> CreateTestDevice(ITestMessageDisplay* const messageDisplay,

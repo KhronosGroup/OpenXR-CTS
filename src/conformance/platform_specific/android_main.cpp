@@ -22,12 +22,12 @@
 #include <time.h>
 #include <unistd.h>
 #include <pthread.h>
-#include <sys/prctl.h>  // for prctl( PR_SET_NAME )
+#include <sys/prctl.h>
 #include <sys/system_properties.h>
 #include <thread>
+#include <vector>
 
 #define XR_USE_GRAPHICS_API_OPENGL_ES 1
-/// We need to include all the EGL/GLES headers here or openxr_platform.h complains
 #include <EGL/egl.h>
 #include <EGL/eglext.h>
 #include <GLES3/gl3.h>
@@ -38,24 +38,21 @@
 #include <vulkan/vulkan.h>
 
 #define XR_USE_PLATFORM_ANDROID 1
-/// For symmetry, also include all android headers before openxr_platform.h
 #include <android/log.h>
-#include <android/window.h>             // for AWINDOW_FLAG_KEEP_SCREEN_ON
-#include <android/native_window_jni.h>  // for native window JNI
+#include <android/native_window_jni.h>
 #include <android_native_app_glue.h>
 
-/// Finally add OpenXR
 #include <openxr/openxr.h>
 #include <openxr/openxr_oculus.h>
 #include <openxr/openxr_platform.h>
 
-/// The Conformance framework does include some of the above as well,
-/// and needs both XR_USE_GRAPHICS_API_OPENGL_ES and XR_USE_PLATFORM_ANDROID defined
-/// in this context to run the test. NOTE, potentially a vulkan version could be added.
-#include "conformance_test.h"
+#include <conformance_test.h>
+#include <conformance_framework.h>
+
+#include "conformance_framework.h"
 
 /// #define DEBUG 1
-#define OVR_LOG_TAG "OpenXR_Android_TestBed"
+#define OVR_LOG_TAG "OpenXR_Conformance"
 #define ALOGE(...) __android_log_print(ANDROID_LOG_ERROR, OVR_LOG_TAG, __VA_ARGS__)
 #define ALOGV(...) __android_log_print(ANDROID_LOG_VERBOSE, OVR_LOG_TAG, __VA_ARGS__)
 
@@ -67,9 +64,9 @@ Native Activity
 ================================================================================
 */
 
-/// I≈ to the Conformace framework to create the Android extensions properly
-static void* AndroidApplicationVM = NULL;
-static void* AndroidApplicationActivity = NULL;
+// Required for android create instance extension.
+static JavaVM* AndroidApplicationVM = NULL;
+static jobject AndroidApplicationActivity = NULL;
 static void* AndroidApplicationNativeWindow = NULL;
 void* Conformance_Android_Get_Application_VM()
 {
@@ -83,10 +80,17 @@ void* Conformance_Android_Get_Application_Activity()
     return AndroidApplicationActivity;
 }
 
-void* Conformance_Android_Get_Application_NativeWindow()
+void Conformance_Android_Attach_Current_Thread()
 {
-    ALOGV("AndroidApplicationNativeWindow = %p", AndroidApplicationNativeWindow);
-    return AndroidApplicationNativeWindow;
+    ALOGV("AttachCurrentThread");
+    JNIEnv* Env;
+    AndroidApplicationVM->AttachCurrentThread(&Env, nullptr);
+}
+
+void Conformance_Android_Detach_Current_Thread()
+{
+    ALOGV("DetachCurrentThread");
+    AndroidApplicationVM->DetachCurrentThread();
 }
 
 /**
@@ -96,8 +100,6 @@ static bool exitApp = false;
 static bool resumeApp = false;
 static void app_handle_cmd(struct android_app* app, int32_t cmd)
 {
-    /// ovrApp * appState = (ovrApp *)app->userData;
-
     switch (cmd) {
     // There is no APP_CMD_CREATE. The ANativeActivity creates the
     // application thread from onCreate(). The application thread
@@ -155,7 +157,41 @@ int32_t app_handle_input(struct android_app* app, AInputEvent* event)
     return 0;
 }
 
-#define OVR_LOG_PASSING_TESTS 0  /// change this to see each assertion
+XRAPI_ATTR void XRAPI_CALL OnTestMessage(MessageType type, const char* message)
+{
+    switch (type) {
+    case MessageType_Stdout:
+    case MessageType_Stderr:
+    case MessageType_AssertionFailed:
+    case MessageType_TestSectionStarting:
+        ALOGV("%s", message);
+        break;
+    }
+}
+
+void copy_assets(AAssetManager* mgr)
+{
+    AAssetDir* assetDir = AAssetManager_openDir(mgr, "");
+    const char* filename = (const char*)NULL;
+    static const int SZ = 1 << 20;
+    char* buf = new char[SZ];
+    while ((filename = AAssetDir_getNextFileName(assetDir)) != NULL) {
+        AAsset* asset = AAssetManager_open(mgr, filename, AASSET_MODE_STREAMING);
+        int nb_read = 0;
+        char fullPath[512];
+        strcpy(fullPath, PATH_PREFIX);
+        strcat(fullPath, filename);
+        FILE* out = fopen(fullPath, "w");
+        ALOGV("writing file: %s", fullPath);
+        while ((nb_read = AAsset_read(asset, buf, SZ)) > 0) {
+            fwrite(buf, nb_read, 1, out);
+        }
+        fclose(out);
+        AAsset_close(asset);
+    }
+    delete[] buf;
+    AAssetDir_close(assetDir);
+}
 
 /**
  * This is the main entry point of a native application that is using
@@ -168,12 +204,9 @@ void android_main(struct android_app* app)
     ALOGV("android_app_entry()");
     ALOGV("    android_main()");
 
-    /// Set these early on so that they are available to all tests
+    // Set these early on so that they are available to all tests
     AndroidApplicationVM = app->activity->vm;
     AndroidApplicationActivity = app->activity->clazz;
-
-    // TODO: We should make this not required for OOPC apps.
-    ANativeActivity_setWindowFlags(app->activity, AWINDOW_FLAG_KEEP_SCREEN_ON, 0);
 
     JNIEnv* Env;
     app->activity->vm->AttachCurrentThread(&Env, nullptr);
@@ -181,11 +214,13 @@ void android_main(struct android_app* app)
     // Note that AttachCurrentThread will reset the thread name.
     prctl(PR_SET_NAME, (long)"OVR::Main", 0, 0, 0);
 
-    /// Hook up android handlers
+    copy_assets(app->activity->assetManager);
+
+    // Hook up android handlers
     app->onAppCmd = app_handle_cmd;
     app->onInputEvent = app_handle_input;
 
-    /// Initialize the loader for this platform
+    // Initialize the loader for this platform
     XrLoaderInitializeInfoAndroidOCULUS loaderInitializeInfoAndroid;
     memset(&loaderInitializeInfoAndroid, 0, sizeof(loaderInitializeInfoAndroid));
     loaderInitializeInfoAndroid.type = XR_TYPE_LOADER_INITIALIZE_INFO_ANDROID_OCULUS;
@@ -194,7 +229,7 @@ void android_main(struct android_app* app)
     loaderInitializeInfoAndroid.applicationActivity = app->activity->clazz;
     xrInitializeLoaderOCULUS(&loaderInitializeInfoAndroid);
 
-    /// Testing exception handling - needed for the conformance tests
+    // Testing exception handling - needed for the conformance tests
     try {
         ALOGV("### Exception Test: - before throw...");
         throw std::runtime_error("### Exception Test DONE ###");
@@ -204,18 +239,10 @@ void android_main(struct android_app* app)
         ALOGV("### Exception Test: caught - `%s`", e.what());
     }
 
-    // Determine what Graphics API to test
-    std::string graphicsApiStr;
-    char value[PROP_VALUE_MAX] = {};
-    if (__system_property_get("debug.xr.conformance_gfxapi", value) != 0) {
-        graphicsApiStr = value;
-        ALOGV("debug.xr.conformance_gfxapi = %s", graphicsApiStr.c_str());
+    char argstr[PROP_VALUE_MAX] = {};
+    if (__system_property_get("debug.xr.conform.args", argstr) != 0) {
+        ALOGV("debug.xr.conform.args: %s", argstr);
     }
-
-    if (graphicsApiStr.empty() || (graphicsApiStr != "OpenGLES" && graphicsApiStr != "Vulkan")) {
-        graphicsApiStr = "OpenGLES";
-    }
-    ALOGV("Graphics API specified: %s", graphicsApiStr.c_str());
 
     exitApp = false;
     bool testThreadStarted = false;
@@ -234,38 +261,70 @@ void android_main(struct android_app* app)
             /// Run the actual conformance tests only when all required android components are present
             if (testThreadStarted == false && AndroidApplicationNativeWindow != NULL) {
                 testThreadStarted = true;
-                androidTestThread = std::thread([=]() {
+                androidTestThread = std::thread([&]() {
+                    ATTACH_THREAD;
                     ALOGV("... begin conformance test ...");
 
                     /// Hard-Code these to match regular C declaration of `int main( int argc, char * argv[] )`
-                    const char* argv[] = {
+                    std::vector<const char*> args = {
                         "OpenXR_Conformance_Test_Android",  /// app name
-                        "-G",
-                        graphicsApiStr.c_str(),  /// required: graphics plugin specifier
-#if OVR_LOG_PASSING_TESTS
-                        "-s",  /// include successful tests in output
-#endif
                         "--use-colour",
                         "no",  /// no console coloring
                         "--reporter",
-                        "console",  /// use the console reporter
-                        NULL
+                        "console"  /// use the console reporter
                     };
+                    char* append = argstr;
+                    int count = 1;
+                    while (*append != 0) {
+                        while (*append == ' ') {
+                            append++;
+                        }
+                        if (*append != 0) {
+                            args.insert(args.begin() + count, append);
+                            count++;
+                        }
+                        while (*append != ' ' && *append != 0) {
+                            append++;
+                        }
+                        if (*append == ' ') {
+                            *append = 0;
+                            append++;
+                        }
+                    }
+                    bool hasGfxFlag = false;
+                    for (int i = 0; i < (int)args.size(); i++) {
+                        std::string s = args[i];
+                        if (s == "-G") {
+                            hasGfxFlag = true;
+                            break;
+                        }
+                    }
+                    if (hasGfxFlag == false) {
+                        args.push_back("-G");
+                        args.push_back("OpenGLES");
+                    }
+                    for (int i = 0; i < (int)args.size(); i++) {
+                        ALOGV("arg[%d] = %s", i, args[i]);
+                    }
 
-#if OVR_LOG_PASSING_TESTS
-                    int argc = 8;
-#else
-                    int argc = 7;
-#endif
-                    Conformance::Run(argc, const_cast<char**>(argv));
+                    ConformanceLaunchSettings launchSettings;
+                    launchSettings.argc = args.size();
+                    launchSettings.argv = (&args[0]);
+                    launchSettings.message = OnTestMessage;
+
+                    uint32_t failureCount = 0;
+                    XrcResult result = xrcRunConformanceTests(&launchSettings, &failureCount);
+                    const int exitResult = result == XRC_SUCCESS ? 0 : std::max((uint32_t)1, failureCount);
+                    ALOGV("Exit Result %d", exitResult);
 
                     ALOGV("... end conformance test ...");
 
-                    /// give the logger some time to flush
+                    // give the logger some time to flush
                     std::this_thread::sleep_for(std::chrono::milliseconds(200));
 
-                    /// call JNI exit instead
+                    // call JNI exit instead
                     exitApp = true;
+                    DETACH_THREAD;
                 });
             }
         }

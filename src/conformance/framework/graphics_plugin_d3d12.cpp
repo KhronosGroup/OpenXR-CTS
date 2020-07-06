@@ -127,8 +127,8 @@ namespace Conformance
 
         int64_t SelectDepthSwapchainFormat(const int64_t* imageFormatArray, size_t count) const override;
 
-        // Format required by RGBAImage type. TODO: Mandate this type in the spec?
-        int64_t GetRGBA8UnormFormat() const override;
+        // Format required by RGBAImage type.
+        int64_t GetRGBA8Format(bool sRGB) const override;
 
         std::shared_ptr<SwapchainImageStructs> AllocateSwapchainImageStructs(size_t size,
                                                                              const XrSwapchainCreateInfo& swapchainCreateInfo) override;
@@ -159,6 +159,8 @@ namespace Conformance
                 XRC_CHECK_THROW_HRCMD(
                     d3d12Device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, __uuidof(ID3D12CommandAllocator),
                                                         reinterpret_cast<void**>(commandAllocator.ReleaseAndGetAddressOf())));
+
+                viewProjectionCBuffer = CreateBuffer(d3d12Device, sizeof(ViewProjectionConstantBuffer), D3D12_HEAP_TYPE_UPLOAD);
 
                 return bases;
             }
@@ -210,15 +212,51 @@ namespace Conformance
                 return commandAllocator.Get();
             }
 
+            uint64_t GetFrameFenceValue() const
+            {
+                return fenceValue;
+            }
+            void SetFrameFenceValue(uint64_t fenceVal)
+            {
+                fenceValue = fenceVal;
+            }
+
+            void ResetCommandAllocator()
+            {
+                XRC_CHECK_THROW_HRCMD(commandAllocator->Reset());
+            }
+
+            void RequestModelCBuffer(uint32_t requiredSize)
+            {
+                if (!modelCBuffer || (requiredSize > modelCBuffer->GetDesc().Width)) {
+                    modelCBuffer = CreateBuffer(d3d12Device, requiredSize, D3D12_HEAP_TYPE_UPLOAD);
+                }
+            }
+
+            ID3D12Resource* GetModelCBuffer() const
+            {
+                return modelCBuffer.Get();
+            }
+
+            ID3D12Resource* GetViewProjectionCBuffer() const
+            {
+                return viewProjectionCBuffer.Get();
+            }
+
             std::vector<XrSwapchainImageD3D12KHR> imageVector;
 
             ID3D12Device* d3d12Device{nullptr};
             ComPtr<ID3D12CommandAllocator> commandAllocator;
             ComPtr<ID3D12Resource> depthStencilTexture;
+            ComPtr<ID3D12Resource> modelCBuffer;
+            ComPtr<ID3D12Resource> viewProjectionCBuffer;
+            uint64_t fenceValue = 0;
         };
 
         ID3D12PipelineState* GetOrCreatePipelineState(DXGI_FORMAT swapchainFormat);
         bool ExecuteCommandList(ID3D12CommandList* cmdList) const;
+        void SignalFence() const;
+        void CpuWaitForFence(uint64_t fenceVal) const;
         void WaitForGpu() const;
 
     protected:
@@ -238,8 +276,6 @@ namespace Conformance
         const ComPtr<ID3DBlob> pixelShaderBytes;
         ComPtr<ID3D12RootSignature> rootSignature;
         std::map<DXGI_FORMAT, ComPtr<ID3D12PipelineState>> pipelineStates;
-        ComPtr<ID3D12Resource> modelCBuffer;
-        ComPtr<ID3D12Resource> viewProjectionCBuffer;
         ComPtr<ID3D12Resource> cubeVertexBuffer;
         ComPtr<ID3D12Resource> cubeIndexBuffer;
         ComPtr<ID3D12DescriptorHeap> rtvHeap;
@@ -384,8 +420,6 @@ namespace Conformance
                                                                    rootSignatureBlob->GetBufferSize(), __uuidof(ID3D12RootSignature),
                                                                    reinterpret_cast<void**>(rootSignature.ReleaseAndGetAddressOf())));
 
-            viewProjectionCBuffer = CreateBuffer(d3d12Device.Get(), sizeof(ViewProjectionConstantBuffer), D3D12_HEAP_TYPE_UPLOAD);
-
             D3D12SwapchainImageStructs initializeContext;
             std::vector<XrSwapchainImageBaseHeader*> dummy = initializeContext.Create(d3d12Device.Get(), 1);
 
@@ -463,19 +497,13 @@ namespace Conformance
         swapchainImageContextMap.clear();
     }
 
-    void D3D12GraphicsPlugin::CopyRGBAImage(const XrSwapchainImageBaseHeader* swapchainImage, int64_t imageFormat, uint32_t arraySlice,
+    void D3D12GraphicsPlugin::CopyRGBAImage(const XrSwapchainImageBaseHeader* swapchainImage, int64_t /*imageFormat*/, uint32_t arraySlice,
                                             const RGBAImage& image)
     {
         D3D12_HEAP_PROPERTIES heapProp{};
         heapProp.Type = D3D12_HEAP_TYPE_DEFAULT;
         heapProp.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
         heapProp.MemoryPoolPreference = D3D12_MEMORY_POOL_UNKNOWN;
-
-        if (DXGI_FORMAT_R8G8B8A8_UNORM != imageFormat) {
-            // CopySubresourceRegion cannot copy between different resource formats. Either this
-            // needs to be made more robust or the test must use DXGI_FORMAT_R8G8B8A8_UNORM.
-            throw std::runtime_error("Unsupported swapchain format.");
-        }
 
         ID3D12Resource* const destTexture = reinterpret_cast<const XrSwapchainImageD3D12KHR*>(swapchainImage)->texture;
         const D3D12_RESOURCE_DESC rgbaImageDesc = destTexture->GetDesc();
@@ -496,7 +524,7 @@ namespace Conformance
                 memcpy(dst, src, imageRowPitch);
 
                 src += imageRowPitch;
-                dst += rowSizeInBytes;
+                dst += layout.Footprint.RowPitch;
             }
             const D3D12_RANGE writeRange{0, (SIZE_T)requiredSize};
             uploadBuffer->Unmap(0, &writeRange);
@@ -743,9 +771,9 @@ namespace Conformance
         return *it;
     }
 
-    int64_t D3D12GraphicsPlugin::GetRGBA8UnormFormat() const
+    int64_t D3D12GraphicsPlugin::GetRGBA8Format(bool sRGB) const
     {
-        return DXGI_FORMAT_R8G8B8A8_UNORM;
+        return sRGB ? DXGI_FORMAT_R8G8B8A8_UNORM_SRGB : DXGI_FORMAT_R8G8B8A8_UNORM;
     }
 
     std::shared_ptr<IGraphicsPlugin::SwapchainImageStructs>
@@ -870,6 +898,8 @@ namespace Conformance
                                          const std::vector<Cube>& cubes)
     {
         auto& swapchainContext = *swapchainImageContextMap[colorSwapchainImage];
+        CpuWaitForFence(swapchainContext.GetFrameFenceValue());
+        swapchainContext.ResetCommandAllocator();
 
         ComPtr<ID3D12GraphicsCommandList> cmdList;
         XRC_CHECK_THROW_HRCMD(d3d12Device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, swapchainContext.GetCommandAllocator(),
@@ -911,6 +941,7 @@ namespace Conformance
         XrMatrix4x4f_CreateProjectionFov(&projectionMatrix, GRAPHICS_D3D, layerView.fov, 0.05f, 100.0f);
 
         // Set shaders and constant buffers.
+        ID3D12Resource* viewProjectionCBuffer = swapchainContext.GetViewProjectionCBuffer();
         ViewProjectionConstantBuffer viewProjection;
         XMStoreFloat4x4(&viewProjection.ViewProjection, XMMatrixTranspose(spaceToView * LoadXrMatrix(projectionMatrix)));
         {
@@ -937,10 +968,8 @@ namespace Conformance
         cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
         constexpr uint32_t cubeCBufferSize = AlignTo<D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT>(sizeof(ModelConstantBuffer));
-        const uint32_t requiredSize = (uint32_t)(cubeCBufferSize * cubes.size());
-        if (!modelCBuffer || (requiredSize > modelCBuffer->GetDesc().Width)) {
-            modelCBuffer = CreateBuffer(d3d12Device.Get(), requiredSize, D3D12_HEAP_TYPE_UPLOAD);
-        }
+        swapchainContext.RequestModelCBuffer(static_cast<uint32_t>(cubeCBufferSize * cubes.size()));
+        ID3D12Resource* modelCBuffer = swapchainContext.GetModelCBuffer();
 
         // Render each cube
         uint32_t offset = 0;
@@ -969,8 +998,8 @@ namespace Conformance
         XRC_CHECK_THROW_HRCMD(cmdList->Close());
         CHECK(ExecuteCommandList(cmdList.Get()));
 
-        // XXX Should triple-buffer the command buffers, for now just flush
-        WaitForGpu();
+        SignalFence();
+        swapchainContext.SetFrameFenceValue(fenceValue);
     }
 
     ID3D12PipelineState* D3D12GraphicsPlugin::GetOrCreatePipelineState(DXGI_FORMAT swapchainFormat)
@@ -1056,17 +1085,27 @@ namespace Conformance
         return pipelineStateRaw;
     }
 
-    void D3D12GraphicsPlugin::WaitForGpu() const
+    void D3D12GraphicsPlugin::SignalFence() const
     {
         ++fenceValue;
         XRC_CHECK_THROW_HRCMD(d3d12CmdQueue->Signal(fence.Get(), fenceValue));
-        if (fence->GetCompletedValue() < fenceValue) {
-            XRC_CHECK_THROW_HRCMD(fence->SetEventOnCompletion(fenceValue, fenceEvent));
+    }
+
+    void D3D12GraphicsPlugin::CpuWaitForFence(uint64_t fenceVal) const
+    {
+        if (fence->GetCompletedValue() < fenceVal) {
+            XRC_CHECK_THROW_HRCMD(fence->SetEventOnCompletion(fenceVal, fenceEvent));
             const uint32_t retVal = WaitForSingleObjectEx(fenceEvent, INFINITE, FALSE);
             if (retVal != WAIT_OBJECT_0) {
                 XRC_CHECK_THROW_HRCMD(E_FAIL);
             }
         }
+    }
+
+    void D3D12GraphicsPlugin::WaitForGpu() const
+    {
+        SignalFence();
+        CpuWaitForFence(fenceValue);
     }
 
     std::shared_ptr<IGraphicsPlugin> CreateGraphicsPlugin_D3D12(std::shared_ptr<IPlatformPlugin> platformPlugin)

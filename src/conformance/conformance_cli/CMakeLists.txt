@@ -44,14 +44,15 @@ target_include_directories(conformance_cli
     ${PROJECT_SOURCE_DIR}/external/include
 )
 
-# Be able to find .so when installed
-set_property(TARGET conformance_cli
-    PROPERTY INSTALL_RPATH $ORIGIN)
 if(VulkanHeaders_INCLUDE_DIRS)
     target_include_directories(conformance_cli
         PRIVATE ${VulkanHeaders_INCLUDE_DIRS}
     )
 endif()
+
+# Be able to find .so when installed
+set_property(TARGET conformance_cli
+    PROPERTY INSTALL_RPATH $ORIGIN)
 
 install(
     TARGETS conformance_cli

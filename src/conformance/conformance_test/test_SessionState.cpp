@@ -17,6 +17,7 @@
 #include "utils.h"
 #include "conformance_utils.h"
 #include "conformance_framework.h"
+#include "matchers.h"
 #include <array>
 #include <vector>
 #include <set>
@@ -91,12 +92,28 @@ namespace Conformance
             for (XrViewConfigurationType viewType : KnownViewTypes) {
                 CAPTURE(viewType);
 
+                // Is this enum valid, check against enabled extensions.
+                bool valid = IsViewConfigurationTypeEnumValid(viewType);
+
                 const bool isSupportedType =
                     std::find(runtimeViewTypes.begin(), runtimeViewTypes.end(), viewType) != runtimeViewTypes.end();
-                if (!isSupportedType) {
-                    XrSessionBeginInfo beginInfo{XR_TYPE_SESSION_BEGIN_INFO};
-                    beginInfo.primaryViewConfigurationType = viewType;
-                    REQUIRE(XR_ERROR_VIEW_CONFIGURATION_TYPE_UNSUPPORTED == xrBeginSession(session, &beginInfo));
+
+                if (!valid) {
+                    CHECK_MSG(valid == isSupportedType, "Can not support invalid view configuration type");
+                }
+
+                // Skip this view config.
+                if (isSupportedType) {
+                    continue;
+                }
+
+                XrSessionBeginInfo beginInfo{XR_TYPE_SESSION_BEGIN_INFO};
+                beginInfo.primaryViewConfigurationType = viewType;
+                XrResult result = xrBeginSession(session, &beginInfo);
+                REQUIRE_THAT(result, In<XrResult>({XR_ERROR_VALIDATION_FAILURE, XR_ERROR_VIEW_CONFIGURATION_TYPE_UNSUPPORTED}));
+                if (!valid && result == XR_ERROR_VIEW_CONFIGURATION_TYPE_UNSUPPORTED) {
+                    WARN(
+                        "Runtime accepted an invalid enum value as unsupported, which makes it harder for apps to reason about the error.");
                 }
             }
         }

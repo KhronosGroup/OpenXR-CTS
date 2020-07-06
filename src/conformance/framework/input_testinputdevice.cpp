@@ -171,10 +171,11 @@ namespace Conformance
                                 else if (std::chrono::high_resolution_clock::now() - timeSinceStateChanged > 250ms) {
                                     return true;  // Only return true when the controller has been stably active for 250ms.
                                 }
+                                m_messageDisplay->IterateFrame();
 
                                 return false;
                             },
-                            30s, 50ms),
+                            30s, 5ms),
                         "Input device activity not detected");
 
             m_messageDisplay->DisplayMessage("");
@@ -194,6 +195,10 @@ namespace Conformance
                 // Skip human interaction, this is just a hint to the runtime via the extension
                 return;
             }
+
+            // Blank the instructions briefly before showing the new instructions.
+            m_messageDisplay->DisplayMessage("");
+            std::this_thread::sleep_for(250ms);
 
             std::vector<char> humanReadableName = CHECK_TWO_CALL(char, {}, xrPathToString, m_instance, button);
 
@@ -222,7 +227,12 @@ namespace Conformance
                 return booleanActionData.currentState;
             };
 
-            REQUIRE_MSG(WaitUntilPredicateWithTimeout([&]() { return GetButtonState(actionToDetect) == state; }, 15s, 100ms),
+            REQUIRE_MSG(WaitUntilPredicateWithTimeout(
+                            [&]() {
+                                m_messageDisplay->IterateFrame();
+                                return GetButtonState(actionToDetect) == state;
+                            },
+                            30s, 5ms),
                         "Boolean button state not detected");
 
             m_messageDisplay->DisplayMessage("");
@@ -243,9 +253,13 @@ namespace Conformance
                 return;
             }
 
+            // Blank the instructions briefly before showing the new instructions.
+            m_messageDisplay->DisplayMessage("");
+            std::this_thread::sleep_for(250ms);
+
             std::vector<char> humanReadableName = CHECK_TWO_CALL(char, {}, xrPathToString, m_instance, button);
 
-            auto message = std::string("Input ") + humanReadableName.data() + " to " + std::to_string(state);
+            auto message = std::string("Set ") + humanReadableName.data() + "\nExpected:  " + std::to_string(state);
 
             XrAction actionToDetect = m_actionMap.at(button);
 
@@ -266,18 +280,21 @@ namespace Conformance
                 getInfo.action = action;
                 REQUIRE_RESULT(xrGetActionStateFloat(m_session, &getInfo, &floatActionData), XR_SUCCESS);
 
-                auto currentValueMessage = "Current value: " + std::to_string(floatActionData.currentState);
+                auto currentValueMessage = "Current:  " + std::to_string(floatActionData.currentState);
                 m_messageDisplay->DisplayMessage(message + "\n" + currentValueMessage);
 
                 return fabs(target - floatActionData.currentState) < epsilon;
             };
 
-            REQUIRE_MSG(WaitUntilPredicateWithTimeout([&]() { return FloatStateWithinEpsilon(actionToDetect, state, epsilon); }, 15s, 10ms),
+            REQUIRE_MSG(WaitUntilPredicateWithTimeout(
+                            [&]() {
+                                m_messageDisplay->IterateFrame();
+                                return FloatStateWithinEpsilon(actionToDetect, state, epsilon);
+                            },
+                            30s, 5ms),
                         "Float input state not detected");
 
             m_messageDisplay->DisplayMessage("");
-
-            std::this_thread::sleep_for(100ms);
         }
 
         void SetButtonStateVector2(XrPath button, XrVector2f state, float epsilon, bool skipInteraction = false) override
@@ -295,10 +312,14 @@ namespace Conformance
                 return;
             }
 
+            // Blank the instructions briefly before showing the new instructions.
+            m_messageDisplay->DisplayMessage("");
+            std::this_thread::sleep_for(250ms);
+
             std::vector<char> humanReadableName = CHECK_TWO_CALL(char, {}, xrPathToString, m_instance, button);
 
-            auto message =
-                std::string("Input ") + humanReadableName.data() + " to (" + std::to_string(state.x) + ", " + std::to_string(state.y) + ")";
+            auto message = std::string("Set ") + humanReadableName.data() + "\nExpected: (" + std::to_string(state.x) + ", " +
+                           std::to_string(state.y) + ")";
 
             XrAction actionToDetect = m_actionMap.at(button);
 
@@ -319,17 +340,21 @@ namespace Conformance
                 getInfo.action = action;
                 REQUIRE_RESULT(xrGetActionStateVector2f(m_session, &getInfo, &vectorActionData), XR_SUCCESS);
 
-                auto currentValueMessage = "Current value: (" + std::to_string(vectorActionData.currentState.x) + ", " +
+                auto currentValueMessage = "Current:  (" + std::to_string(vectorActionData.currentState.x) + ", " +
                                            std::to_string(vectorActionData.currentState.y) + ")";
-                m_messageDisplay->DisplayMessage(message + ", " + currentValueMessage);
+                m_messageDisplay->DisplayMessage(message + "\n " + currentValueMessage);
 
                 return fabs(target.x - vectorActionData.currentState.x) < epsilon &&
                        fabs(target.y - vectorActionData.currentState.y) < epsilon;
             };
 
-            REQUIRE_MSG(
-                WaitUntilPredicateWithTimeout([&]() { return VectorStateWithinEpsilon(actionToDetect, state, epsilon); }, 15s, 10ms),
-                "Float input state not detected");
+            REQUIRE_MSG(WaitUntilPredicateWithTimeout(
+                            [&]() {
+                                m_messageDisplay->IterateFrame();
+                                return VectorStateWithinEpsilon(actionToDetect, state, epsilon);
+                            },
+                            30s, 5ms),
+                        "Float input state not detected");
 
             m_messageDisplay->DisplayMessage("");
         }

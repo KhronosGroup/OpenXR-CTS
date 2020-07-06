@@ -136,7 +136,7 @@ namespace Conformance
             globalData.enabledInstanceExtensionNames.push_back_unique(str);
         }
 
-        if (!IsInteractionProfileEnabled("khr/simple_controller")) {
+        if (globalData.enabledInteractionProfiles.empty()) {
             globalData.enabledInteractionProfiles.push_back("khr/simple_controller");
         }
 

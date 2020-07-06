@@ -81,8 +81,8 @@ namespace Conformance
 
         int64_t SelectDepthSwapchainFormat(const int64_t* imageFormatArray, size_t count) const override;
 
-        // Format required by RGBAImage type. TODO: Mandate this type in the spec?
-        int64_t GetRGBA8UnormFormat() const override;
+        // Format required by RGBAImage type.
+        int64_t GetRGBA8Format(bool sRGB) const override;
 
         std::shared_ptr<SwapchainImageStructs> AllocateSwapchainImageStructs(size_t size,
                                                                              const XrSwapchainCreateInfo& swapchainCreateInfo) override;
@@ -308,17 +308,11 @@ namespace Conformance
         rgbaImageDesc.Height = image.height;
         rgbaImageDesc.MipLevels = 1;
         rgbaImageDesc.ArraySize = 1;
-        rgbaImageDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;  // The format of RGBAImage.
+        rgbaImageDesc.Format = (DXGI_FORMAT)imageFormat;
         rgbaImageDesc.SampleDesc.Count = 1;
         rgbaImageDesc.SampleDesc.Quality = 0;
         rgbaImageDesc.Usage = D3D11_USAGE_DEFAULT;
         rgbaImageDesc.BindFlags = 0;
-
-        if (rgbaImageDesc.Format != imageFormat) {
-            // CopySubresourceRegion cannot copy between different resource formats. Either this
-            // needs to be made more robust or the test must use DXGI_FORMAT_R8G8B8A8_UNORM.
-            throw std::runtime_error("Unsupported swapchain format.");
-        }
 
         D3D11_SUBRESOURCE_DATA initData{};
         initData.pSysMem = image.pixels.data();
@@ -496,9 +490,9 @@ namespace Conformance
         return *it;
     }
 
-    int64_t D3D11GraphicsPlugin::GetRGBA8UnormFormat() const
+    int64_t D3D11GraphicsPlugin::GetRGBA8Format(bool sRGB) const
     {
-        return DXGI_FORMAT_R8G8B8A8_UNORM;
+        return sRGB ? DXGI_FORMAT_R8G8B8A8_UNORM_SRGB : DXGI_FORMAT_R8G8B8A8_UNORM;
     }
 
     std::shared_ptr<IGraphicsPlugin::SwapchainImageStructs>

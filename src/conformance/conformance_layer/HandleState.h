@@ -37,15 +37,15 @@ struct ConformanceHooksBase;  // forward-declare
 // Common state kept around for all XR handles.
 struct HandleState
 {
-    HandleState(IntHandle handle, XrObjectType type, HandleState* parent, std::shared_ptr<ConformanceHooksBase> conformanceHooks)
-        : handle(handle), type(type), conformanceHooks(std::move(conformanceHooks)), parent(parent)
+    HandleState(IntHandle handle_, XrObjectType type, HandleState* parent, std::shared_ptr<ConformanceHooksBase> conformanceHooks)
+        : handle(handle_), type(type), conformanceHooks(std::move(conformanceHooks)), parent(parent)
     {
     }
 
-    std::unique_ptr<HandleState> CloneForChild(IntHandle handle, XrObjectType childType)
+    std::unique_ptr<HandleState> CloneForChild(IntHandle handle_, XrObjectType childType)
     {
         // Note that the cloned HandleState will start with a null customState and no children.
-        auto childState = std::unique_ptr<HandleState>(new HandleState(handle, childType, this /* parent */, conformanceHooks));
+        auto childState = std::unique_ptr<HandleState>(new HandleState(handle_, childType, this /* parent */, conformanceHooks));
 
         {
             std::unique_lock<std::mutex> lock(mutex);

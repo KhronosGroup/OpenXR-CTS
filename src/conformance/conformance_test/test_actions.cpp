@@ -33,8 +33,8 @@ using namespace std::chrono_literals;
 using namespace Conformance;
 
 // Stores the top level path in slot 2 and the identifier path in slot 5 or 6 based on whether or not the component was included.
-// If the component was included, 4 and 6 will be matched with the parent and component, otherwise 5 will be matched
-const std::regex cInteractionSourcePathRegex("^((.+)/(input|output))/(([^/]+)|([^/]+)/[^/]+)$");
+// If the component was included, 6 and 7 will be matched with the parent and component, otherwise 5 will be matched.
+const std::regex cInteractionSourcePathRegex("^((.+)/(input|output))/(([^/]+)|([^/]+)/([^/]+))$");
 
 namespace
 {
@@ -45,6 +45,7 @@ namespace
             : m_compositionHelper(compositionHelper)
             , m_viewSpace(compositionHelper.CreateReferenceSpace(XR_REFERENCE_SPACE_TYPE_VIEW))
             , m_eventReader(m_compositionHelper.GetEventQueue())
+            , m_renderLoop(m_compositionHelper.GetSession(), [&](const XrFrameState& frameState) { return EndFrame(frameState); })
         {
         }
 
@@ -53,13 +54,35 @@ namespace
             XrSession session = m_compositionHelper.GetSession();
 
             DisplayMessage("Waiting for session focus...");
-            REQUIRE_MSG(WaitForSessionState(m_eventReader, session, XR_SESSION_STATE_FOCUSED, 30s), "Time out waiting for session focus");
+
+            bool focused = WaitUntilPredicateWithTimeout(
+                [&]() {
+                    m_renderLoop.IterateFrame();
+                    XrEventDataBuffer eventData;
+                    while (m_eventReader.TryReadNext(eventData)) {
+                        if (eventData.type == XR_TYPE_EVENT_DATA_SESSION_STATE_CHANGED) {
+                            auto sessionStateChanged = reinterpret_cast<XrEventDataSessionStateChanged*>(&eventData);
+                            if (sessionStateChanged->session == session && sessionStateChanged->state == XR_SESSION_STATE_FOCUSED) {
+                                return true;
+                            }
+                        }
+                    }
+                    return false;
+                },
+                20s, 5ms);
+
+            REQUIRE_MSG(focused, "Time out waiting for session focus");
             DisplayMessage("");
         }
 
         EventReader& GetEventReader()
         {
             return m_eventReader;
+        }
+
+        RenderLoop& GetRenderLoop()
+        {
+            return m_renderLoop;
         }
 
         // Sync until focus is available, in case focus was lost at some point.
@@ -86,6 +109,7 @@ namespace
                         messageShown = true;
                     }
                 }
+                m_renderLoop.IterateFrame();
 
                 std::this_thread::sleep_for(5ms);
             }
@@ -97,10 +121,21 @@ namespace
         {
             std::lock_guard<std::mutex> lock(m_mutex);
 
+            if (m_displayMessageImage) {
+                m_messageQuad = std::make_unique<MessageQuad>(m_compositionHelper, std::move(m_displayMessageImage), m_viewSpace);
+            }
+
             std::vector<XrCompositionLayerBaseHeader*> layers;
-            AppendLayer(lock, layers);
+            if (m_messageQuad != nullptr) {
+                layers.push_back(reinterpret_cast<XrCompositionLayerBaseHeader*>(m_messageQuad.get()));
+            }
             m_compositionHelper.EndFrame(frameState.predictedDisplayTime, std::move(layers));
             return m_compositionHelper.PollEvents();
+        }
+
+        void IterateFrame() override
+        {
+            m_renderLoop.IterateFrame();
         }
 
         void DisplayMessage(const std::string& message) override
@@ -113,72 +148,62 @@ namespace
                 ReportStr(("Interaction message: " + message).c_str());
             }
 
-#ifdef XR_USE_PLATFORM_ANDROID
-            // On Android, reading a font file from outside the APK resource is a much more complex process
-            // requiring unzipping and the right permissions. Those don't play nice with automation testing in
-            // the way this framework is setup.
-            return;
-#else
             constexpr int TitleFontHeightPixels = 40;
             constexpr int TitleFontPaddingPixels = 2;
             constexpr int TitleBorderPixels = 2;
             constexpr int InsetPixels = TitleBorderPixels + TitleFontPaddingPixels;
 
-            RGBAImage image(768, (TitleFontHeightPixels + InsetPixels * 2) * 5);
+            std::lock_guard<std::mutex> lock(m_mutex);
+
+            auto image = std::make_unique<RGBAImage>(768, (TitleFontHeightPixels + InsetPixels * 2) * 5);
             if (!message.empty()) {
-                image.DrawRect(0, 0, image.width, image.height, {0.25f, 0.25f, 0.25f, 0.25f});
-                image.DrawRectBorder(0, 0, image.width, image.height, TitleBorderPixels, {0.5f, 0.5f, 0.5f, 1});
-                image.PutText(XrRect2Di{{InsetPixels, InsetPixels}, {image.width - InsetPixels * 2, image.height - InsetPixels * 2}},
-                              message.c_str(), TitleFontHeightPixels, {1, 1, 1, 1});
+                image->DrawRect(0, 0, image->width, image->height, {0.25f, 0.25f, 0.25f, 0.25f});
+                image->DrawRectBorder(0, 0, image->width, image->height, TitleBorderPixels, {0.5f, 0.5f, 0.5f, 1});
+                image->PutText(XrRect2Di{{InsetPixels, InsetPixels}, {image->width - InsetPixels * 2, image->height - InsetPixels * 2}},
+                               message.c_str(), TitleFontHeightPixels, {1, 1, 1, 1});
             }
 
-            std::lock_guard<std::mutex> lock(m_mutex);
-            CreateDisplayMessageSwapchain(lock, image);
+            m_displayMessageImage = std::move(image);
             m_lastMessage = message;
         }
 
     private:
-        void CreateDisplayMessageSwapchain(const std::lock_guard<std::mutex>&, RGBAImage& image)
-        {
-            const XrSwapchain testMessageSwapchain = m_compositionHelper.CreateStaticSwapchainImage(image);
-
-            // Quad layers kept alive in a list because the caller may be using an
-            m_pendingMessageQuad = std::make_unique<XrCompositionLayerQuad>();
-            m_pendingMessageQuad->type = XR_TYPE_COMPOSITION_LAYER_QUAD;
-            m_pendingMessageQuad->size.width = 1;
-            m_pendingMessageQuad->size.height = m_pendingMessageQuad->size.width * image.height / image.width;
-            m_pendingMessageQuad->pose = XrPosef{{0, 0, 0, 1}, {0, 0, -1.5f}};
-            m_pendingMessageQuad->subImage = m_compositionHelper.MakeDefaultSubImage(testMessageSwapchain);
-            m_pendingMessageQuad->space = m_viewSpace;
-#endif
-        }
-
-        void AppendLayer(const std::lock_guard<std::mutex>&, std::vector<XrCompositionLayerBaseHeader*>& layers)
-        {
-            if (m_pendingMessageQuad != nullptr) {
-                m_activeMessageQuad.swap(m_pendingMessageQuad);
-
-                if (m_pendingMessageQuad) {  // Clean up the resources for the old quad
-                    m_compositionHelper.DestroySwapchain(m_pendingMessageQuad->subImage.swapchain);
-                    m_pendingMessageQuad.reset();
-                }
-            }
-
-            if (m_activeMessageQuad != nullptr) {
-                layers.push_back(reinterpret_cast<XrCompositionLayerBaseHeader*>(m_activeMessageQuad.get()));
-            }
-        }
-
         std::mutex m_mutex;
 
         CompositionHelper& m_compositionHelper;
         const XrSpace m_viewSpace;
         EventReader m_eventReader;
+        RenderLoop m_renderLoop;
 
-        // Pending is needed because the active layer data may be used in another frame loop thread.
         std::string m_lastMessage;
-        std::unique_ptr<XrCompositionLayerQuad> m_activeMessageQuad;
-        std::unique_ptr<XrCompositionLayerQuad> m_pendingMessageQuad;
+        std::unique_ptr<RGBAImage> m_displayMessageImage;
+
+        struct MessageQuad : public XrCompositionLayerQuad
+        {
+            MessageQuad(CompositionHelper& compositionHelper, std::unique_ptr<RGBAImage> image, XrSpace compositionSpace)
+                : m_compositionHelper(compositionHelper)
+            {
+                const XrSwapchain messageSwapchain = m_compositionHelper.CreateStaticSwapchainImage(*image);
+
+                *static_cast<XrCompositionLayerQuad*>(this) = {XR_TYPE_COMPOSITION_LAYER_QUAD};
+                size.width = 1;
+                size.height = size.width * image->height / image->width;
+                pose = XrPosef{{0, 0, 0, 1}, {0, 0, -1.5f}};
+                subImage = m_compositionHelper.MakeDefaultSubImage(messageSwapchain);
+                space = compositionSpace;
+            }
+            ~MessageQuad()
+            {
+                if (subImage.swapchain) {
+                    m_compositionHelper.DestroySwapchain(subImage.swapchain);
+                }
+            }
+
+        private:
+            CompositionHelper& m_compositionHelper;
+        };
+
+        std::unique_ptr<MessageQuad> m_messageQuad;
     };
 }  // namespace
 
@@ -721,9 +746,6 @@ namespace Conformance
             {{{selectActionB, selectPath}}});
         compositionHelper.GetInteractionManager().AttachActionSets();
 
-        RenderLoop renderLoop(compositionHelper.GetSession(),
-                              [&](const XrFrameState& frameState) { return actionLayerManager.EndFrame(frameState); });
-
         actionLayerManager.WaitForSessionFocusWithMessage();
 
         XrActionsSyncInfo syncInfo{XR_TYPE_ACTIONS_SYNC_INFO};
@@ -1018,9 +1040,6 @@ namespace Conformance
 
         SECTION("Bindings provided")
         {
-            RenderLoop renderLoop(compositionHelper.GetSession(),
-                                  [&](const XrFrameState& frameState) { return actionLayerManager.EndFrame(frameState); });
-
             actionLayerManager.WaitForSessionFocusWithMessage();
 
             compositionHelper.GetInteractionManager().AddActionSet(actionSet);
@@ -1143,6 +1162,7 @@ namespace Conformance
         REQUIRE_RESULT(xrCreateAction(actionSet, &actionCreateInfo, &action), XR_SUCCESS);
 
         XrActionStateBoolean actionStateBoolean{XR_TYPE_ACTION_STATE_BOOLEAN};
+        PoisonStructContents(actionStateBoolean);
         XrActionStateGetInfo getInfo{XR_TYPE_ACTION_STATE_GET_INFO};
         getInfo.action = action;
 
@@ -1164,9 +1184,6 @@ namespace Conformance
         }
         SECTION("Focus")
         {
-            RenderLoop renderLoop(compositionHelper.GetSession(),
-                                  [&](const XrFrameState& frameState) { return actionLayerManager.EndFrame(frameState); });
-
             actionLayerManager.WaitForSessionFocusWithMessage();
 
             SECTION("Parameter validation")
@@ -1211,8 +1228,10 @@ namespace Conformance
 
                         actionLayerManager.DisplayMessage("Turn off " + leftHandPathString + " and wait for 20s");
                         leftHandInputDevice->SetDeviceActive(false, true);
+
                         WaitUntilPredicateWithTimeout(
                             [&]() {
+                                actionLayerManager.GetRenderLoop().IterateFrame();
                                 REQUIRE_RESULT(xrGetActionStateBoolean(compositionHelper.GetSession(), &getInfo, &actionStateBoolean),
                                                XR_SUCCESS);
                                 REQUIRE(actionStateBoolean.isActive);
@@ -1221,12 +1240,13 @@ namespace Conformance
                             },
                             20s, 100ms);
 
-                        actionLayerManager.DisplayMessage("");
+                        actionLayerManager.DisplayMessage("Wait for 5s");
 
                         actionLayerManager.SyncActionsUntilFocusWithMessage(syncInfo);
 
                         WaitUntilPredicateWithTimeout(
                             [&]() {
+                                actionLayerManager.GetRenderLoop().IterateFrame();
                                 REQUIRE_RESULT(xrGetActionStateBoolean(compositionHelper.GetSession(), &getInfo, &actionStateBoolean),
                                                XR_SUCCESS);
                                 REQUIRE_FALSE(actionStateBoolean.isActive);
@@ -1557,6 +1577,14 @@ namespace Conformance
                     getInfo.action = rightHandAction;
                     REQUIRE_RESULT(xrGetActionStateBoolean(compositionHelper.GetSession(), &getInfo, &actionStateBoolean), XR_SUCCESS);
                     REQUIRE_FALSE(actionStateBoolean.isActive);
+                    {
+                        INFO("Values match those specified for isActive == XR_FALSE");
+                        // Set these to the wrong thing if not active, to make sure runtime overwrites the values
+                        PoisonStructContents(actionStateBoolean);
+                        REQUIRE_RESULT(xrGetActionStateBoolean(compositionHelper.GetSession(), &getInfo, &actionStateBoolean), XR_SUCCESS);
+                        REQUIRE_FALSE(actionStateBoolean.isActive);
+                        // The conformance layer will verify that the other fields have been cleared appropriately.
+                    }
 
                     INFO("Right hand");
                     activeActionSet.subactionPath = rightHandPath;
@@ -1627,7 +1655,7 @@ namespace Conformance
         }
     }
 
-    TEST_CASE("State query functions interactive", "[.][actions][interactive]")
+    TEST_CASE("State query functions interactive", "[.][actions][interactive][gamepad]")
     {
         struct ActionInfo
         {
@@ -1635,19 +1663,18 @@ namespace Conformance
             XrAction Action{XR_NULL_HANDLE};
             XrAction XAction{XR_NULL_HANDLE};  // Set if type is vector2f
             XrAction YAction{XR_NULL_HANDLE};  // Set if type is vector2f
+            std::set<int32_t> UnseenValues;
         };
 
+        constexpr float cStepSize = 0.5f;
+        const int32_t cStepSizeOffset = -int32_t(std::roundf(-1.f / cStepSize));
         constexpr float cEpsilon = 0.1f;
         constexpr float cLargeEpsilon = 0.15f;
-        auto NearEqual = [](float a, float b, float epsilon) -> bool { return fabs(b - a) < epsilon; };
 
         auto TestInteractionProfile = [&](const InteractionProfileMetadata& ipMetadata, const std::string& topLevelPathString) {
             CompositionHelper compositionHelper("Input device state query");
             compositionHelper.BeginSession();
             ActionLayerManager actionLayerManager(compositionHelper);
-
-            RenderLoop renderLoop(compositionHelper.GetSession(),
-                                  [&](const XrFrameState& frameState) { return actionLayerManager.EndFrame(frameState); });
 
             actionLayerManager.WaitForSessionFocusWithMessage();
 
@@ -1698,9 +1725,24 @@ namespace Conformance
                         continue;
                     }
 
+                    // Skip /x or /y components since we handle those with the parent Vector2f.
+                    const std::string pathString = inputSourceData.Path;
+                    std::cmatch bindingPathRegexMatch;
+                    REQUIRE_MSG(std::regex_match(pathString.data(), bindingPathRegexMatch, cInteractionSourcePathRegex),
+                                "input source path does not match require format");
+                    if (bindingPathRegexMatch[7].matched) {
+                        if (bindingPathRegexMatch[7] == "x" || bindingPathRegexMatch[7] == "y") {
+#if !defined(NDEBUG)
+                            ReportF("Skipping %s", pathString.c_str());
+#endif
+                            continue;
+                        }
+                    }
+
                     XrAction action{XR_NULL_HANDLE};
                     XrAction xAction{XR_NULL_HANDLE};
                     XrAction yAction{XR_NULL_HANDLE};
+
                     XrActionCreateInfo actionCreateInfo{XR_TYPE_ACTION_CREATE_INFO};
                     actionCreateInfo.actionType = inputSourceData.Type;
                     auto actionNames = GetActionNames();
@@ -1711,20 +1753,41 @@ namespace Conformance
                     XrPath bindingPath = StringToPath(compositionHelper.GetInstance(), inputSourceData.Path.c_str());
                     compositionHelper.GetInteractionManager().AddActionBindings(interactionProfile, {{action, bindingPath}});
 
-                    const std::string pathString = inputSourceData.Path;
-                    std::cmatch bindingPathRegexMatch;
-                    REQUIRE_MSG(std::regex_match(pathString.data(), bindingPathRegexMatch, cInteractionSourcePathRegex),
-                                "input source path does not match require format");
-                    if (bindingPathRegexMatch[6].matched) {
-                        // Component was included
-                        std::string parentPath = std::string(bindingPathRegexMatch[1]) + "/" + std::string(bindingPathRegexMatch[4]);
-                        XrPath parentBindingPath = StringToPath(compositionHelper.GetInstance(), parentPath.c_str());
-                        compositionHelper.GetInteractionManager().AddActionBindings(
-                            interactionProfile, {{action, parentBindingPath}});  // Bind to the parent as well
-                    }
+                    ActionInfo info{};
 
-                    // If we have a vector action, we must have /x and /y float actions
-                    if (inputSourceData.Type == XR_ACTION_TYPE_VECTOR2F_INPUT) {
+                    switch (inputSourceData.Type) {
+                    case XR_ACTION_TYPE_BOOLEAN_INPUT:
+                        // Need to see 0 1
+                        info.UnseenValues = {false, true};
+                        break;
+                    case XR_ACTION_TYPE_FLOAT_INPUT:
+                        // Need to see normalized [0..2] 0 1 2
+                        for (float f = 0.f; f <= 1.f; f += cStepSize) {
+                            info.UnseenValues.insert(int32_t(std::roundf(f / cStepSize)));
+                        }
+                        break;
+                    case XR_ACTION_TYPE_VECTOR2F_INPUT:
+                        // Need to see normalized [0..4] x + y * 10:
+                        //    01 02 03
+                        // 10 11 12 13 14
+                        // 20 21 22 23 24
+                        // 30 31 32 33 34
+                        //    41 42 43
+
+                        // Avoid corner values that a circular thumbstick can't generate (both > cos(45_deg)):
+                        const float limit = std::cos(std::acos(-1.f) / 4.f);
+
+                        for (float x = -1.f; x <= 1.f; x += cStepSize) {
+                            int32_t i = int32_t(std::roundf(x / cStepSize)) + cStepSizeOffset;
+                            for (float y = -1.f; y <= 1.f; y += cStepSize) {
+                                if ((std::fabs(x) > limit) && (std::fabs(y) > limit))
+                                    continue;
+                                int32_t j = int32_t(std::roundf(y / cStepSize)) + cStepSizeOffset;
+                                info.UnseenValues.insert(i + j * 10);
+                            }
+                        }
+
+                        // If we have a vector action, we must have /x and /y float actions.
                         actionCreateInfo.actionType = XR_ACTION_TYPE_FLOAT_INPUT;
                         actionNames = GetActionNames();
                         strcpy(actionCreateInfo.localizedActionName, std::get<1>(actionNames).c_str());
@@ -1743,13 +1806,23 @@ namespace Conformance
                         std::string ySubBindingPath = std::string(inputSourceData.Path.c_str()) + "/y";
                         bindingPath = StringToPath(compositionHelper.GetInstance(), ySubBindingPath.c_str());
                         compositionHelper.GetInteractionManager().AddActionBindings(interactionProfile, {{yAction, bindingPath}});
+                        break;
                     }
 
-                    ActionInfo info{};
+#if !defined(NDEBUG)
+                    // Debug UnseenValues
+                    std::string unseen = inputSourceData.Path;
+                    for (auto key : info.UnseenValues) {
+                        unseen += " " + std::to_string(key);
+                    }
+                    ReportF("Keys for %s", unseen.c_str());
+#endif
+
                     info.Data = inputSourceData;
                     info.Action = action;
                     info.XAction = xAction;
                     info.YAction = yAction;
+
                     actions.push_back(info);
                 }
 
@@ -1785,7 +1858,7 @@ namespace Conformance
                     std::cmatch bindingPathRegexMatch;
                     REQUIRE_MSG(std::regex_match(pathString.data(), bindingPathRegexMatch, cInteractionSourcePathRegex),
                                 "input source path does not match require format");
-                    if (!bindingPathRegexMatch[6].matched) {
+                    if (bindingPathRegexMatch[5].matched) {
                         if (coercionType == XR_ACTION_TYPE_BOOLEAN_INPUT &&
                             HasSubpathOfType(inputSourceData.Path, XR_ACTION_TYPE_BOOLEAN_INPUT)) {
                             continue;
@@ -1896,17 +1969,23 @@ namespace Conformance
             REQUIRE(interactionProfile == interactionProfileState.interactionProfile);
 
             XrActionStateBoolean booleanState{XR_TYPE_ACTION_STATE_BOOLEAN};
+            PoisonStructContents(booleanState);
             XrActionStateFloat floatState{XR_TYPE_ACTION_STATE_FLOAT};
+            PoisonStructContents(floatState);
             XrActionStateVector2f vectorState{XR_TYPE_ACTION_STATE_VECTOR2F};
+            PoisonStructContents(vectorState);
             XrActionStatePose poseState{XR_TYPE_ACTION_STATE_POSE};
 
-            INFO("changedSinceLastSync rules");
+            INFO("Check controller input values");
             {
                 XrActionStateGetInfo getInfo{XR_TYPE_ACTION_STATE_GET_INFO};
 
-                actionLayerManager.DisplayMessage("Use all controller inputs on " + topLevelPathString);
+                actionLayerManager.DisplayMessage("Use all controller inputs on\n" + topLevelPathString);
                 std::this_thread::sleep_for(1s);
 
+                XrActionStateBoolean combinedBoolState{XR_TYPE_ACTION_STATE_BOOLEAN};
+                XrActionStateFloat combinedFloatState{XR_TYPE_ACTION_STATE_FLOAT};
+                XrActionStateVector2f combinedVectorState{XR_TYPE_ACTION_STATE_VECTOR2F};
                 XrActionStateBoolean previousBoolState{XR_TYPE_ACTION_STATE_BOOLEAN};
                 XrActionStateFloat previousFloatState{XR_TYPE_ACTION_STATE_FLOAT};
                 XrActionStateVector2f previousVectorState{XR_TYPE_ACTION_STATE_VECTOR2F};
@@ -1918,525 +1997,407 @@ namespace Conformance
                 getInfo.action = allVectorAction.Action;
                 REQUIRE_RESULT(xrGetActionStateVector2f(compositionHelper.GetSession(), &getInfo, &previousVectorState), XR_SUCCESS);
 
-                float i = 0;
+                // Synthetic values for automation (these loop around by cStepSize in x then y order).
+                float synthesizedX = 0.f;
+                float synthesizedY = 0.f;
+                // Number of actions that need value observations.
+                auto actionCount = booleanActions.size() + floatActions.size() + vectorActions.size();
+                // Actions for which all necessary values have been observed.
                 std::set<XrAction> seenActions{};
+                // If more than one of these input types exist, check that they can be combined.
+                bool waitForCombinedBools = booleanActions.size() > 1;
+                bool waitForCombinedFloats = floatActions.size() > 1;
+                bool waitForCombinedVectors = vectorActions.size() > 1;
+
+                auto mag = [](const XrVector2f& v) -> float { return v.x * v.x + v.y * v.y; };
+
                 WaitUntilPredicateWithTimeout(
                     [&]() {
+                        actionLayerManager.GetRenderLoop().IterateFrame();
+
                         actionLayerManager.SyncActionsUntilFocusWithMessage(syncInfo);
 
                         getInfo.action = allBooleanAction.Action;
-                        REQUIRE_RESULT(xrGetActionStateBoolean(compositionHelper.GetSession(), &getInfo, &booleanState), XR_SUCCESS);
+                        REQUIRE_RESULT(xrGetActionStateBoolean(compositionHelper.GetSession(), &getInfo, &combinedBoolState), XR_SUCCESS);
                         getInfo.action = allFloatAction.Action;
-                        REQUIRE_RESULT(xrGetActionStateFloat(compositionHelper.GetSession(), &getInfo, &floatState), XR_SUCCESS);
+                        REQUIRE_RESULT(xrGetActionStateFloat(compositionHelper.GetSession(), &getInfo, &combinedFloatState), XR_SUCCESS);
                         getInfo.action = allVectorAction.Action;
-                        REQUIRE_RESULT(xrGetActionStateVector2f(compositionHelper.GetSession(), &getInfo, &vectorState), XR_SUCCESS);
+                        REQUIRE_RESULT(xrGetActionStateVector2f(compositionHelper.GetSession(), &getInfo, &combinedVectorState),
+                                       XR_SUCCESS);
 
-                        REQUIRE((bool)booleanState.isActive == booleanActions.size() > 0);
-                        REQUIRE((bool)floatState.isActive == floatActions.size() > 0);
-                        REQUIRE((bool)vectorState.isActive == vectorActions.size() > 0);
+                        REQUIRE((bool)combinedBoolState.isActive == booleanActions.size() > 0);
+                        REQUIRE((bool)combinedFloatState.isActive == floatActions.size() > 0);
+                        REQUIRE((bool)combinedVectorState.isActive == vectorActions.size() > 0);
 
-                        bool shouldBeChanged = (booleanState.currentState != previousBoolState.currentState) && booleanState.isActive &&
-                                               previousBoolState.isActive;
-                        REQUIRE((bool)booleanState.changedSinceLastSync == shouldBeChanged);
-                        shouldBeChanged = (floatState.currentState != previousFloatState.currentState) && floatState.isActive &&
-                                          previousFloatState.isActive;
-                        REQUIRE((bool)floatState.changedSinceLastSync == shouldBeChanged);
-                        shouldBeChanged = ((vectorState.currentState.x != previousVectorState.currentState.x) ||
-                                           (vectorState.currentState.y != previousVectorState.currentState.y)) &&
-                                          vectorState.isActive && previousVectorState.isActive;
-                        REQUIRE((bool)vectorState.changedSinceLastSync == shouldBeChanged);
+                        bool shouldBeChanged = (combinedBoolState.currentState != previousBoolState.currentState) &&
+                                               combinedBoolState.isActive && previousBoolState.isActive;
+                        REQUIRE((bool)combinedBoolState.changedSinceLastSync == shouldBeChanged);
+                        shouldBeChanged = (combinedFloatState.currentState != previousFloatState.currentState) &&
+                                          combinedFloatState.isActive && previousFloatState.isActive;
+                        REQUIRE((bool)combinedFloatState.changedSinceLastSync == shouldBeChanged);
+                        shouldBeChanged = ((combinedVectorState.currentState.x != previousVectorState.currentState.x) ||
+                                           (combinedVectorState.currentState.y != previousVectorState.currentState.y)) &&
+                                          combinedVectorState.isActive && previousVectorState.isActive;
+                        REQUIRE((bool)combinedVectorState.changedSinceLastSync == shouldBeChanged);
 
-                        previousBoolState = booleanState;
-                        previousFloatState = floatState;
-                        previousVectorState = vectorState;
+                        previousBoolState = combinedBoolState;
+                        previousFloatState = combinedFloatState;
+                        previousVectorState = combinedVectorState;
 
-                        for (auto actionInfo : booleanActions) {
+                        int combinedBoolCount = 0;
+                        int combinedFloatCount = 0;
+                        int combinedVectorCount = 0;
+                        XrActionStateBoolean largestBoolState{XR_TYPE_ACTION_STATE_BOOLEAN};
+                        XrActionStateFloat largestFloatState{XR_TYPE_ACTION_STATE_FLOAT};
+                        XrActionStateVector2f largestVectorState{XR_TYPE_ACTION_STATE_VECTOR2F};
+
+                        // Track a remaining unseen action & values to prompt with.
+                        std::string nextActionPrompt;
+                        auto update = [&](int32_t key, ActionInfo& actionInfo) {
+                            // Don't do anything if all the action's values have been seen.
+                            if (seenActions.count(actionInfo.Action) > 0)
+                                return;
+                            // Remove the key if it's never been seen.
+                            if (actionInfo.UnseenValues.count(key) > 0) {
+                                actionInfo.UnseenValues.erase(key);
+#if !defined(NDEBUG)
+                                ReportF("%s saw %d", actionInfo.Data.Path.c_str(), key);
+#endif
+                            }
+                            // If we've seen all the values mark the whole action as seen.
+                            if (actionInfo.UnseenValues.empty()) {
+                                seenActions.insert(actionInfo.Action);
+                                return;
+                            }
+                            // For now just prompt with the first still-pending action and its values.
+                            if (!nextActionPrompt.empty())
+                                return;
+                            nextActionPrompt = "\n" + actionInfo.Data.Path + ":\n";
+                            auto fmt_float = [](float v) -> std::string {
+                                auto s = std::to_string(v);
+                                if (s.length() > 4)
+                                    s.resize(4);
+                                return s;
+                            };
+                            for (auto remainingKeys : actionInfo.UnseenValues) {
+                                switch (actionInfo.Data.Type) {
+                                case XR_ACTION_TYPE_BOOLEAN_INPUT:
+                                    nextActionPrompt += remainingKeys ? "true " : "false ";
+                                    break;
+                                case XR_ACTION_TYPE_FLOAT_INPUT:
+                                    nextActionPrompt += fmt_float(remainingKeys * cStepSize) + " ";
+                                    break;
+                                case XR_ACTION_TYPE_VECTOR2F_INPUT:
+                                    float x = ((remainingKeys % 10) - 2) * cStepSize;
+                                    float y = ((remainingKeys / 10) - 2) * cStepSize;
+                                    nextActionPrompt += "(" + fmt_float(x) + "," + fmt_float(y) + ") ";
+                                    break;
+                                }
+                            }
+                        };
+
+                        for (auto& actionInfo : booleanActions) {
                             getInfo.action = actionInfo.Action;
                             REQUIRE_RESULT(xrGetActionStateBoolean(compositionHelper.GetSession(), &getInfo, &booleanState), XR_SUCCESS);
-                            if (booleanState.changedSinceLastSync) {
-                                seenActions.insert(actionInfo.Action);
+                            if (booleanState.isActive) {
+                                auto key = int32_t(booleanState.currentState);
+                                update(key, actionInfo);
+                                ++combinedBoolCount;
+                                if (!largestBoolState.isActive || (largestBoolState.currentState < booleanState.currentState)) {
+                                    largestBoolState = booleanState;
+                                }
                             }
                         }
 
-                        for (auto actionInfo : floatActions) {
+                        for (auto& actionInfo : floatActions) {
                             getInfo.action = actionInfo.Action;
                             REQUIRE_RESULT(xrGetActionStateFloat(compositionHelper.GetSession(), &getInfo, &floatState), XR_SUCCESS);
-                            if (floatState.changedSinceLastSync) {
-                                seenActions.insert(actionInfo.Action);
+                            if (floatState.isActive) {
+                                auto key = int32_t(std::roundf(floatState.currentState / cStepSize));
+                                update(key, actionInfo);
+                                ++combinedFloatCount;
+                                if (!largestFloatState.isActive ||
+                                    (std::fabs(largestFloatState.currentState) < std::fabs(floatState.currentState))) {
+                                    largestFloatState = floatState;
+                                }
                             }
                         }
 
-                        for (auto actionInfo : vectorActions) {
+                        for (auto& actionInfo : vectorActions) {
                             getInfo.action = actionInfo.Action;
                             REQUIRE_RESULT(xrGetActionStateVector2f(compositionHelper.GetSession(), &getInfo, &vectorState), XR_SUCCESS);
-                            if (vectorState.changedSinceLastSync) {
-                                seenActions.insert(actionInfo.Action);
+                            if (vectorState.isActive) {
+                                auto i = int32_t(std::roundf(vectorState.currentState.x / cStepSize)) + cStepSizeOffset;
+                                auto j = int32_t(std::roundf(vectorState.currentState.y / cStepSize)) + cStepSizeOffset;
+                                auto key = i + j * 10;
+                                update(key, actionInfo);
+                                ++combinedVectorCount;
+                                if (!largestVectorState.isActive ||
+                                    (mag(largestVectorState.currentState) < mag(vectorState.currentState))) {
+                                    largestVectorState = vectorState;
+                                }
+
+                                // At least one of x, y has to change if the parent changes.
+                                int xyChanges = 0;
+
+                                // Verify the x action matches the parent vector.
+                                getInfo.action = actionInfo.XAction;
+                                REQUIRE_RESULT(xrGetActionStateFloat(compositionHelper.GetSession(), &getInfo, &floatState), XR_SUCCESS);
+                                REQUIRE(floatState.isActive);
+                                REQUIRE(floatState.currentState == vectorState.currentState.x);
+                                ++combinedFloatCount;
+                                if (!largestFloatState.isActive ||
+                                    (std::fabs(largestFloatState.currentState) < std::fabs(floatState.currentState))) {
+                                    largestFloatState = floatState;
+                                }
+                                if (floatState.changedSinceLastSync) {
+                                    REQUIRE(floatState.changedSinceLastSync == vectorState.changedSinceLastSync);
+                                    REQUIRE(floatState.lastChangeTime == vectorState.lastChangeTime);
+                                    ++xyChanges;
+                                }
+                                if (!vectorState.changedSinceLastSync) {
+                                    REQUIRE(floatState.changedSinceLastSync == XR_FALSE);
+                                }
+
+                                // Verify the y action matches the parent vector.
+                                getInfo.action = actionInfo.YAction;
+                                REQUIRE_RESULT(xrGetActionStateFloat(compositionHelper.GetSession(), &getInfo, &floatState), XR_SUCCESS);
+                                REQUIRE(floatState.isActive);
+                                REQUIRE(floatState.currentState == vectorState.currentState.y);
+                                ++combinedFloatCount;
+                                if (!largestFloatState.isActive ||
+                                    (std::fabs(largestFloatState.currentState) < std::fabs(floatState.currentState))) {
+                                    largestFloatState = floatState;
+                                }
+                                if (floatState.changedSinceLastSync) {
+                                    REQUIRE(floatState.changedSinceLastSync == vectorState.changedSinceLastSync);
+                                    REQUIRE(floatState.lastChangeTime == vectorState.lastChangeTime);
+                                    ++xyChanges;
+                                }
+                                if (!vectorState.changedSinceLastSync) {
+                                    REQUIRE(floatState.changedSinceLastSync == XR_FALSE);
+                                }
+
+                                if (vectorState.changedSinceLastSync) {
+                                    REQUIRE(xyChanges > 0);
+                                }
                             }
                         }
 
+                        // Check that combined values followed the rules
+                        if (combinedBoolCount >= 1) {
+                            REQUIRE(largestBoolState.isActive == combinedBoolState.isActive);
+                            REQUIRE(largestBoolState.currentState == combinedBoolState.currentState);
+                            // Pass boolean combination if at least two states were combined and one was non-zero.
+                            if ((combinedBoolCount >= 2) && (largestBoolState.currentState != 0)) {
+                                waitForCombinedBools = false;
+                            }
+                        }
+                        if (combinedFloatCount >= 1) {
+                            REQUIRE(largestFloatState.isActive == combinedFloatState.isActive);
+                            // Float inputs might be equal in magnitude but differently signed, we don't care which one wins,
+                            // just that the magnitudes match.
+                            REQUIRE(std::fabs(largestFloatState.currentState) == std::fabs(combinedFloatState.currentState));
+                            // Pass float combination if at least two states were combined and one was non-zero.
+                            if ((combinedFloatCount >= 2) && (largestFloatState.currentState != 0)) {
+                                waitForCombinedFloats = false;
+                            }
+                        }
+                        if (combinedVectorCount > 1) {
+                            REQUIRE(largestVectorState.isActive == combinedVectorState.isActive);
+                            // Vector2f inputs might be equal in magnitude but differently signed, we don't care which one wins,
+                            // just that the magnitudes match.
+                            REQUIRE(std::fabs(largestVectorState.currentState.x) == std::fabs(combinedVectorState.currentState.x));
+                            REQUIRE(std::fabs(largestVectorState.currentState.y) == std::fabs(combinedVectorState.currentState.y));
+                            // Pass vector combination if at least two states were combined and one was non-zero.
+                            if ((combinedVectorCount >= 2) && (mag(largestVectorState.currentState) != 0)) {
+                                waitForCombinedVectors = false;
+                            }
+                        }
+
+                        // For automation only, drive inputs through a set of legal values with at most cStepSize intervals.
                         {
-                            i += 0.1f;
-                            i = std::fmax(std::fmin(0.f, i), 1.f);
-                            // For automation only
+                            // Use cStepSize / 2 to generate {-1.0, -0.5, 0.0, 0.5, 1.0} for x, y below.
+                            synthesizedX += cStepSize / 2.f;
+                            if (synthesizedX > 1.f) {
+                                synthesizedX = 0.f;
+                                synthesizedY += cStepSize / 2.f;
+                                if (synthesizedY > 1.f) {
+                                    synthesizedY = 0.f;
+                                }
+                            }
                             for (auto actionInfo : booleanActions) {
                                 inputDevice->SetButtonStateBool(StringToPath(compositionHelper.GetInstance(), actionInfo.Data.Path.c_str()),
-                                                                i > 0.5f, true);
+                                                                synthesizedX > 0.5f, true);
                             }
 
                             for (auto actionInfo : floatActions) {
                                 inputDevice->SetButtonStateFloat(
-                                    StringToPath(compositionHelper.GetInstance(), actionInfo.Data.Path.c_str()), i, 0, true);
+                                    StringToPath(compositionHelper.GetInstance(), actionInfo.Data.Path.c_str()), synthesizedX, 0, true);
                             }
 
                             for (auto actionInfo : vectorActions) {
+                                float x = (synthesizedX - 0.5f) * 2.f;
+                                float y = (synthesizedY - 0.5f) * 2.f;
                                 inputDevice->SetButtonStateVector2(
-                                    StringToPath(compositionHelper.GetInstance(), actionInfo.Data.Path.c_str()), {i, i}, 0, true);
+                                    StringToPath(compositionHelper.GetInstance(), actionInfo.Data.Path.c_str()), {x, y}, 0, true);
                             }
                         }
 
+                        bool waitingForCombinations = waitForCombinedBools || waitForCombinedFloats || waitForCombinedVectors;
+                        if ((seenActions.size() == actionCount) && !waitingForCombinations)
+                            return true;
+
+                        std::string waitForCombined;
+                        std::string waitForCombinedPrefix = "\nCombine: ";
+                        if (waitForCombinedBools) {
+                            waitForCombined += waitForCombinedPrefix + "bool";
+                            waitForCombinedPrefix = ",";
+                        }
+                        if (waitForCombinedFloats) {
+                            waitForCombined += waitForCombinedPrefix + "float";
+                            waitForCombinedPrefix = ",";
+                        }
+                        if (waitForCombinedVectors) {
+                            waitForCombined += waitForCombinedPrefix + "vec2f";
+                            waitForCombinedPrefix = ",";
+                        }
+                        std::string prompt = "Used " + std::to_string(seenActions.size()) + "/" + std::to_string(actionCount) +
+                                             " inputs on:\n" + topLevelPathString + waitForCombined + nextActionPrompt;
+                        actionLayerManager.DisplayMessage(prompt);
+
                         return false;
                     },
-                    15s, 10ms);
+                    600s, 10ms);
 
-                REQUIRE(seenActions.size() == booleanActions.size() + floatActions.size() + vectorActions.size());
+                REQUIRE(seenActions.size() == actionCount);
+                REQUIRE_FALSE(waitForCombinedBools);
+                REQUIRE_FALSE(waitForCombinedFloats);
+                REQUIRE_FALSE(waitForCombinedVectors);
 
                 actionLayerManager.DisplayMessage("Release all inputs");
                 std::this_thread::sleep_for(2s);
             }
 
-            INFO("Simple state query");
+            INFO("Pose state query");
             {
-                INFO("Boolean State Query");
-                for (const auto& booleanActionData : booleanActions) {
-                    INFO(booleanActionData.Data.Path.c_str());
-
-                    XrPath inputSourcePath = StringToPath(compositionHelper.GetInstance(), booleanActionData.Data.Path.c_str());
+                for (const auto& poseActionData : poseActions) {
+                    INFO(poseActionData.Data.Path.c_str());
 
                     XrActionStateGetInfo getInfo{XR_TYPE_ACTION_STATE_GET_INFO};
-                    getInfo.action = booleanActionData.Action;
-
-                    inputDevice->SetButtonStateBool(inputSourcePath, false);
+                    getInfo.action = poseActionData.Action;
 
                     actionLayerManager.SyncActionsUntilFocusWithMessage(syncInfo);
+                    REQUIRE_RESULT(xrGetActionStatePose(compositionHelper.GetSession(), &getInfo, &poseState), XR_SUCCESS);
+                    REQUIRE(poseState.isActive);
 
-                    REQUIRE_RESULT(xrGetActionStateBoolean(compositionHelper.GetSession(), &getInfo, &booleanState), XR_SUCCESS);
-                    REQUIRE(booleanState.isActive);
-                    REQUIRE_FALSE(booleanState.currentState);
-
-                    inputDevice->SetButtonStateBool(inputSourcePath, true);
+                    inputDevice->SetDeviceActive(false);
 
                     actionLayerManager.SyncActionsUntilFocusWithMessage(syncInfo);
+                    REQUIRE_RESULT(xrGetActionStatePose(compositionHelper.GetSession(), &getInfo, &poseState), XR_SUCCESS);
+                    REQUIRE_FALSE(poseState.isActive);
 
-                    REQUIRE_RESULT(xrGetActionStateBoolean(compositionHelper.GetSession(), &getInfo, &booleanState), XR_SUCCESS);
-                    REQUIRE(booleanState.isActive);
-                    REQUIRE(booleanState.lastChangeTime > 0);
-
-                    inputDevice->SetButtonStateBool(inputSourcePath, false);
+                    inputDevice->SetDeviceActive(true);
 
                     actionLayerManager.SyncActionsUntilFocusWithMessage(syncInfo);
-
-                    REQUIRE_RESULT(xrGetActionStateBoolean(compositionHelper.GetSession(), &getInfo, &booleanState), XR_SUCCESS);
-                    REQUIRE(booleanState.isActive);
-                    REQUIRE_FALSE(booleanState.currentState);
-                    REQUIRE(booleanState.lastChangeTime > 0);
-                }
-
-                INFO("Float State Query");
-                {
-                    for (const auto& floatActionData : floatActions) {
-                        INFO(floatActionData.Data.Path.c_str());
-
-                        XrPath inputSourcePath = StringToPath(compositionHelper.GetInstance(), floatActionData.Data.Path.c_str());
-
-                        XrActionStateGetInfo getInfo{XR_TYPE_ACTION_STATE_GET_INFO};
-                        getInfo.action = floatActionData.Action;
-
-                        actionLayerManager.SyncActionsUntilFocusWithMessage(syncInfo);
-
-                        REQUIRE_RESULT(xrGetActionStateFloat(compositionHelper.GetSession(), &getInfo, &floatState), XR_SUCCESS);
-                        REQUIRE(floatState.isActive);
-
-                        float values[]{0, 0.5f, 1, 0.5f, 0};
-                        for (float value : values) {
-                            inputDevice->SetButtonStateFloat(inputSourcePath, value, cEpsilon);
-
-                            actionLayerManager.SyncActionsUntilFocusWithMessage(syncInfo);
-
-                            REQUIRE_RESULT(xrGetActionStateFloat(compositionHelper.GetSession(), &getInfo, &floatState), XR_SUCCESS);
-                            REQUIRE(floatState.isActive);
-                            REQUIRE(NearEqual(floatState.currentState, value, cLargeEpsilon));
-                            REQUIRE(floatState.lastChangeTime > 0);
-
-                            actionLayerManager.SyncActionsUntilFocusWithMessage(syncInfo);
-
-                            REQUIRE_RESULT(xrGetActionStateFloat(compositionHelper.GetSession(), &getInfo, &floatState), XR_SUCCESS);
-                            REQUIRE(floatState.isActive);
-                            REQUIRE(NearEqual(floatState.currentState, value, cLargeEpsilon));
-                            REQUIRE(floatState.lastChangeTime > 0);
-                        }
-                    }
-                }
-
-                INFO("Vector State Query");
-                {
-                    for (const auto& vectorActionData : vectorActions) {
-                        INFO(vectorActionData.Data.Path.c_str());
-
-                        XrPath inputSourcePath = StringToPath(compositionHelper.GetInstance(), vectorActionData.Data.Path.c_str());
-
-                        XrActionStateGetInfo getInfo{XR_TYPE_ACTION_STATE_GET_INFO};
-                        getInfo.action = vectorActionData.Action;
-
-                        actionLayerManager.SyncActionsUntilFocusWithMessage(syncInfo);
-
-                        REQUIRE_RESULT(xrGetActionStateVector2f(compositionHelper.GetSession(), &getInfo, &vectorState), XR_SUCCESS);
-                        REQUIRE(vectorState.isActive);
-
-                        XrVector2f values[]{{0, 0}, {-0.5f, 0}, {-1, 0}, {-0.5f, 0}, {0, 0},  {0.5f, 0},
-                                            {1, 0}, {0.5f, 0},  {0, 0},  {0, -0.5f}, {0, -1}, {0, -0.5f},
-                                            {0, 0}, {0, 0.5f},  {0, 1},  {0, 0.5f},  {0, 0}};
-                        for (XrVector2f value : values) {
-                            inputDevice->SetButtonStateVector2(inputSourcePath, value, cEpsilon);
-
-                            REQUIRE(vectorActionData.XAction != XR_NULL_HANDLE);
-                            REQUIRE(vectorActionData.YAction != XR_NULL_HANDLE);
-
-                            actionLayerManager.SyncActionsUntilFocusWithMessage(syncInfo);
-
-                            getInfo.action = vectorActionData.Action;
-                            REQUIRE_RESULT(xrGetActionStateVector2f(compositionHelper.GetSession(), &getInfo, &vectorState), XR_SUCCESS);
-                            REQUIRE(vectorState.isActive);
-                            REQUIRE(NearEqual(vectorState.currentState.x, value.x, cLargeEpsilon));
-                            REQUIRE(NearEqual(vectorState.currentState.y, value.y, cLargeEpsilon));
-                            REQUIRE(vectorState.lastChangeTime > 0);
-
-                            getInfo.action = vectorActionData.XAction;
-                            REQUIRE_RESULT(xrGetActionStateFloat(compositionHelper.GetSession(), &getInfo, &floatState), XR_SUCCESS);
-                            REQUIRE(floatState.isActive == vectorState.isActive);
-                            REQUIRE(NearEqual(floatState.currentState, vectorState.currentState.x, cLargeEpsilon));
-                            REQUIRE(floatState.lastChangeTime > 0);
-
-                            getInfo.action = vectorActionData.YAction;
-                            REQUIRE_RESULT(xrGetActionStateFloat(compositionHelper.GetSession(), &getInfo, &floatState), XR_SUCCESS);
-                            REQUIRE(floatState.isActive == vectorState.isActive);
-                            REQUIRE(NearEqual(floatState.currentState, vectorState.currentState.y, cLargeEpsilon));
-                            REQUIRE(floatState.lastChangeTime > 0);
-
-                            actionLayerManager.SyncActionsUntilFocusWithMessage(syncInfo);
-
-                            getInfo.action = vectorActionData.Action;
-                            REQUIRE_RESULT(xrGetActionStateVector2f(compositionHelper.GetSession(), &getInfo, &vectorState), XR_SUCCESS);
-                            REQUIRE(vectorState.isActive);
-                            REQUIRE(NearEqual(vectorState.currentState.x, value.x, cLargeEpsilon));
-                            REQUIRE(NearEqual(vectorState.currentState.y, value.y, cLargeEpsilon));
-                            REQUIRE(vectorState.lastChangeTime > 0);
-
-                            getInfo.action = vectorActionData.XAction;
-                            REQUIRE_RESULT(xrGetActionStateFloat(compositionHelper.GetSession(), &getInfo, &floatState), XR_SUCCESS);
-                            REQUIRE(floatState.isActive == vectorState.isActive);
-                            REQUIRE(NearEqual(floatState.currentState, vectorState.currentState.x, cLargeEpsilon));
-                            REQUIRE(floatState.lastChangeTime > 0);
-
-                            getInfo.action = vectorActionData.YAction;
-                            REQUIRE_RESULT(xrGetActionStateFloat(compositionHelper.GetSession(), &getInfo, &floatState), XR_SUCCESS);
-                            REQUIRE(floatState.isActive == vectorState.isActive);
-                            REQUIRE(NearEqual(floatState.currentState, vectorState.currentState.y, cLargeEpsilon));
-                            REQUIRE(floatState.lastChangeTime > 0);
-                        }
-                    }
-                }
-
-                INFO("Pose State Query");
-                {
-                    for (const auto& poseActionData : poseActions) {
-                        INFO(poseActionData.Data.Path.c_str());
-
-                        XrActionStateGetInfo getInfo{XR_TYPE_ACTION_STATE_GET_INFO};
-                        getInfo.action = poseActionData.Action;
-
-                        actionLayerManager.SyncActionsUntilFocusWithMessage(syncInfo);
-                        REQUIRE_RESULT(xrGetActionStatePose(compositionHelper.GetSession(), &getInfo, &poseState), XR_SUCCESS);
-                        REQUIRE(poseState.isActive);
-
-                        inputDevice->SetDeviceActive(false);
-
-                        actionLayerManager.SyncActionsUntilFocusWithMessage(syncInfo);
-                        REQUIRE_RESULT(xrGetActionStatePose(compositionHelper.GetSession(), &getInfo, &poseState), XR_SUCCESS);
-                        REQUIRE_FALSE(poseState.isActive);
-
-                        inputDevice->SetDeviceActive(true);
-
-                        actionLayerManager.SyncActionsUntilFocusWithMessage(syncInfo);
-                        REQUIRE_RESULT(xrGetActionStatePose(compositionHelper.GetSession(), &getInfo, &poseState), XR_SUCCESS);
-                        REQUIRE(poseState.isActive);
-                    }
-                }
-
-                INFO("Haptics State Query")
-                {
-                    // Need at least one boolean action to confirm haptics
-                    if (booleanActions.size() > 0) {
-                        for (const auto& hapticActionData : hapticActions) {
-                            INFO(hapticActionData.Data.Path.c_str());
-
-                            XrPath inputSourcePath = StringToPath(compositionHelper.GetInstance(), booleanActions[0].Data.Path.c_str());
-
-                            XrHapticActionInfo hapticActionInfo{XR_TYPE_HAPTIC_ACTION_INFO};
-                            hapticActionInfo.action = hapticActionData.Action;
-
-                            XrHapticVibration hapticPacket{XR_TYPE_HAPTIC_VIBRATION};
-                            hapticPacket.amplitude = 1;
-                            hapticPacket.frequency = XR_FREQUENCY_UNSPECIFIED;
-                            hapticPacket.duration = XR_MIN_HAPTIC_DURATION;
-
-                            XrActionStateGetInfo getInfo{XR_TYPE_ACTION_STATE_GET_INFO};
-
-                            XrAction currentBooleanAction{XR_NULL_HANDLE};
-                            auto GetBooleanButtonState = [&]() -> bool {
-                                actionLayerManager.SyncActionsUntilFocusWithMessage(syncInfo);
-                                for (const auto& booleanActionData : booleanActions) {
-                                    getInfo.action = booleanActionData.Action;
-                                    REQUIRE_RESULT(xrGetActionStateBoolean(compositionHelper.GetSession(), &getInfo, &booleanState),
-                                                   XR_SUCCESS);
-                                    if (booleanState.changedSinceLastSync && booleanState.currentState) {
-                                        currentBooleanAction = booleanActionData.Action;
-                                        return true;
-                                    }
-                                }
-                                return false;
-                            };
-
-                            actionLayerManager.DisplayMessage("Press any button when you feel the 3 second haptic vibration");
-                            std::this_thread::sleep_for(3s);
-
-                            hapticPacket.duration = std::chrono::duration_cast<std::chrono::nanoseconds>(3s).count();
-                            REQUIRE_RESULT(xrApplyHapticFeedback(compositionHelper.GetSession(), &hapticActionInfo,
-                                                                 reinterpret_cast<XrHapticBaseHeader*>(&hapticPacket)),
-                                           XR_SUCCESS);
-
-                            {
-                                // For automation only
-                                inputDevice->SetButtonStateBool(inputSourcePath, false, true);
-                                actionLayerManager.SyncActionsUntilFocusWithMessage(syncInfo);
-                                inputDevice->SetButtonStateBool(inputSourcePath, true, true);
-                            }
-                            currentBooleanAction = XR_NULL_HANDLE;
-                            WaitUntilPredicateWithTimeout([&]() { return GetBooleanButtonState(); }, 15s, 100ms);
-                            REQUIRE_FALSE(currentBooleanAction == XR_NULL_HANDLE);
-
-                            {
-                                // For automation only
-                                inputDevice->SetButtonStateBool(inputSourcePath, false, true);
-                            }
-
-                            actionLayerManager.DisplayMessage("Press any button when you feel the short haptic pulse");
-                            std::this_thread::sleep_for(3s);
-
-                            hapticPacket.duration = XR_MIN_HAPTIC_DURATION;
-                            REQUIRE_RESULT(xrApplyHapticFeedback(compositionHelper.GetSession(), &hapticActionInfo,
-                                                                 reinterpret_cast<XrHapticBaseHeader*>(&hapticPacket)),
-                                           XR_SUCCESS);
-
-                            {
-                                inputDevice->SetButtonStateBool(inputSourcePath, false, true);
-                                actionLayerManager.SyncActionsUntilFocusWithMessage(syncInfo);
-                                inputDevice->SetButtonStateBool(inputSourcePath, true, true);
-                            }
-                            currentBooleanAction = XR_NULL_HANDLE;
-                            WaitUntilPredicateWithTimeout([&]() { return GetBooleanButtonState(); }, 15s, 100ms);
-                            REQUIRE_FALSE(currentBooleanAction == XR_NULL_HANDLE);
-
-                            {
-                                // For automation only
-                                inputDevice->SetButtonStateBool(inputSourcePath, false, true);
-                            }
-                        }
-
-                        actionLayerManager.DisplayMessage("Release all inputs");
-                        std::this_thread::sleep_for(2s);
-                    }
+                    REQUIRE_RESULT(xrGetActionStatePose(compositionHelper.GetSession(), &getInfo, &poseState), XR_SUCCESS);
+                    REQUIRE(poseState.isActive);
                 }
             }
 
-            INFO("Multiple action values");
+            INFO("Haptics state query")
             {
-                INFO("Multi Boolean");
-                if (booleanActions.size() > 1) {
-                    auto actionAData = booleanActions[0];
-                    auto actionBData = booleanActions[1];
+                // Need at least one boolean action to confirm haptics
+                if (booleanActions.size() > 0) {
+                    for (const auto& hapticActionData : hapticActions) {
+                        INFO(hapticActionData.Data.Path.c_str());
 
-                    XrPath pathA = StringToPath(compositionHelper.GetInstance(), actionAData.Data.Path.c_str());
-                    XrPath pathB = StringToPath(compositionHelper.GetInstance(), actionBData.Data.Path.c_str());
+                        XrPath inputSourcePath = StringToPath(compositionHelper.GetInstance(), booleanActions[0].Data.Path.c_str());
 
-                    XrActionStateGetInfo getInfo{XR_TYPE_ACTION_STATE_GET_INFO};
-                    getInfo.action = allBooleanAction.Action;
+                        XrHapticActionInfo hapticActionInfo{XR_TYPE_HAPTIC_ACTION_INFO};
+                        hapticActionInfo.action = hapticActionData.Action;
 
-                    inputDevice->SetButtonStateBool(pathA, false);
+                        XrHapticVibration hapticPacket{XR_TYPE_HAPTIC_VIBRATION};
+                        hapticPacket.amplitude = 1;
+                        hapticPacket.frequency = XR_FREQUENCY_UNSPECIFIED;
+                        hapticPacket.duration = XR_MIN_HAPTIC_DURATION;
 
-                    actionLayerManager.SyncActionsUntilFocusWithMessage(syncInfo);
+                        XrActionStateGetInfo getInfo{XR_TYPE_ACTION_STATE_GET_INFO};
 
-                    REQUIRE_RESULT(xrGetActionStateBoolean(compositionHelper.GetSession(), &getInfo, &booleanState), XR_SUCCESS);
-                    REQUIRE(booleanState.isActive);
-                    REQUIRE_FALSE(booleanState.currentState);
+                        XrAction currentBooleanAction{XR_NULL_HANDLE};
+                        auto GetBooleanButtonState = [&]() -> bool {
+                            actionLayerManager.SyncActionsUntilFocusWithMessage(syncInfo);
+                            for (const auto& booleanActionData : booleanActions) {
+                                getInfo.action = booleanActionData.Action;
+                                REQUIRE_RESULT(xrGetActionStateBoolean(compositionHelper.GetSession(), &getInfo, &booleanState),
+                                               XR_SUCCESS);
+                                if (booleanState.changedSinceLastSync && booleanState.currentState) {
+                                    currentBooleanAction = booleanActionData.Action;
+                                    return true;
+                                }
+                            }
+                            return false;
+                        };
 
-                    inputDevice->SetButtonStateBool(pathA, true);
+                        actionLayerManager.DisplayMessage("Press any button when you feel the 3 second haptic vibration");
+                        actionLayerManager.GetRenderLoop().IterateFrame();
+                        std::this_thread::sleep_for(3s);
 
-                    actionLayerManager.SyncActionsUntilFocusWithMessage(syncInfo);
+                        hapticPacket.duration = std::chrono::duration_cast<std::chrono::nanoseconds>(3s).count();
+                        REQUIRE_RESULT(xrApplyHapticFeedback(compositionHelper.GetSession(), &hapticActionInfo,
+                                                             reinterpret_cast<XrHapticBaseHeader*>(&hapticPacket)),
+                                       XR_SUCCESS);
 
-                    REQUIRE_RESULT(xrGetActionStateBoolean(compositionHelper.GetSession(), &getInfo, &booleanState), XR_SUCCESS);
-                    REQUIRE(booleanState.isActive);
-                    REQUIRE(booleanState.currentState);
-                    REQUIRE(booleanState.lastChangeTime > 0);
+                        {
+                            // For automation only
+                            inputDevice->SetButtonStateBool(inputSourcePath, false, true);
+                            actionLayerManager.SyncActionsUntilFocusWithMessage(syncInfo);
+                            inputDevice->SetButtonStateBool(inputSourcePath, true, true);
+                        }
+                        currentBooleanAction = XR_NULL_HANDLE;
+                        WaitUntilPredicateWithTimeout(
+                            [&]() {
+                                actionLayerManager.GetRenderLoop().IterateFrame();
+                                return GetBooleanButtonState();
+                            },
+                            15s, 100ms);
+                        REQUIRE_FALSE(currentBooleanAction == XR_NULL_HANDLE);
 
-                    inputDevice->SetButtonStateBool(pathB, true);
+                        {
+                            // For automation only
+                            inputDevice->SetButtonStateBool(inputSourcePath, false, true);
+                        }
 
-                    actionLayerManager.SyncActionsUntilFocusWithMessage(syncInfo);
+                        REQUIRE_RESULT(xrStopHapticFeedback(compositionHelper.GetSession(), &hapticActionInfo), XR_SUCCESS);
 
-                    REQUIRE_RESULT(xrGetActionStateBoolean(compositionHelper.GetSession(), &getInfo, &booleanState), XR_SUCCESS);
-                    REQUIRE(booleanState.isActive);
-                    REQUIRE(booleanState.currentState);
-                    REQUIRE(booleanState.lastChangeTime > 0);
+                        actionLayerManager.DisplayMessage("Press any button when you feel the short haptic pulse");
+                        actionLayerManager.GetRenderLoop().IterateFrame();
+                        std::this_thread::sleep_for(3s);
 
-                    inputDevice->SetButtonStateBool(pathA, false);
+                        hapticPacket.duration = XR_MIN_HAPTIC_DURATION;
+                        REQUIRE_RESULT(xrApplyHapticFeedback(compositionHelper.GetSession(), &hapticActionInfo,
+                                                             reinterpret_cast<XrHapticBaseHeader*>(&hapticPacket)),
+                                       XR_SUCCESS);
 
-                    actionLayerManager.SyncActionsUntilFocusWithMessage(syncInfo);
+                        {
+                            inputDevice->SetButtonStateBool(inputSourcePath, false, true);
+                            actionLayerManager.SyncActionsUntilFocusWithMessage(syncInfo);
+                            inputDevice->SetButtonStateBool(inputSourcePath, true, true);
+                        }
+                        currentBooleanAction = XR_NULL_HANDLE;
+                        WaitUntilPredicateWithTimeout(
+                            [&]() {
+                                actionLayerManager.GetRenderLoop().IterateFrame();
+                                return GetBooleanButtonState();
+                            },
+                            15s, 100ms);
+                        REQUIRE_FALSE(currentBooleanAction == XR_NULL_HANDLE);
 
-                    REQUIRE_RESULT(xrGetActionStateBoolean(compositionHelper.GetSession(), &getInfo, &booleanState), XR_SUCCESS);
-                    REQUIRE(booleanState.isActive);
-                    REQUIRE(booleanState.currentState);
-                    REQUIRE(booleanState.lastChangeTime > 0);
-
-                    inputDevice->SetButtonStateBool(pathB, false);
-
-                    actionLayerManager.SyncActionsUntilFocusWithMessage(syncInfo);
-
-                    REQUIRE_RESULT(xrGetActionStateBoolean(compositionHelper.GetSession(), &getInfo, &booleanState), XR_SUCCESS);
-                    REQUIRE(booleanState.isActive);
-                    REQUIRE_FALSE(booleanState.currentState);
-                    REQUIRE(booleanState.lastChangeTime > 0);
-
-                    actionLayerManager.DisplayMessage("Release all inputs");
-                    std::this_thread::sleep_for(2s);
-                }
-
-                INFO("Multi Float");
-                if (floatActions.size() > 1) {
-                    auto actionAData = floatActions[0];
-                    auto actionBData = floatActions[1];
-
-                    XrPath pathA = StringToPath(compositionHelper.GetInstance(), actionAData.Data.Path.c_str());
-                    XrPath pathB = StringToPath(compositionHelper.GetInstance(), actionBData.Data.Path.c_str());
-
-                    XrActionStateGetInfo getInfo{XR_TYPE_ACTION_STATE_GET_INFO};
-                    getInfo.action = allFloatAction.Action;
-
-                    inputDevice->SetButtonStateFloat(pathA, 1.f, cEpsilon);
-                    inputDevice->SetButtonStateFloat(pathB, 0.0f, cEpsilon);
-
-                    actionLayerManager.SyncActionsUntilFocusWithMessage(syncInfo);
-
-                    REQUIRE_RESULT(xrGetActionStateFloat(compositionHelper.GetSession(), &getInfo, &floatState), XR_SUCCESS);
-                    REQUIRE(floatState.isActive);
-                    REQUIRE(NearEqual(floatState.currentState, 1, cLargeEpsilon));
-                    REQUIRE(floatState.lastChangeTime > 0);
-
-                    inputDevice->SetButtonStateFloat(pathA, 1.0f, cEpsilon);
-                    inputDevice->SetButtonStateFloat(pathB, 0.5f, cEpsilon);
-
-                    actionLayerManager.SyncActionsUntilFocusWithMessage(syncInfo);
-
-                    REQUIRE_RESULT(xrGetActionStateFloat(compositionHelper.GetSession(), &getInfo, &floatState), XR_SUCCESS);
-                    REQUIRE(floatState.isActive);
-                    REQUIRE(NearEqual(floatState.currentState, 1, cLargeEpsilon));
-                    REQUIRE(floatState.lastChangeTime > 0);
-
-                    inputDevice->SetButtonStateFloat(pathA, 1.f, cEpsilon);
-                    inputDevice->SetButtonStateFloat(pathB, 0.75f, cEpsilon);
-
-                    actionLayerManager.SyncActionsUntilFocusWithMessage(syncInfo);
-
-                    REQUIRE_RESULT(xrGetActionStateFloat(compositionHelper.GetSession(), &getInfo, &floatState), XR_SUCCESS);
-                    REQUIRE(floatState.isActive);
-                    REQUIRE(NearEqual(floatState.currentState, 1, cLargeEpsilon));
-                    REQUIRE(floatState.lastChangeTime > 0);
-
-                    inputDevice->SetButtonStateFloat(pathB, 1.f, cEpsilon);
-                    inputDevice->SetButtonStateFloat(pathA, 0.5f, cEpsilon);
-
-                    actionLayerManager.SyncActionsUntilFocusWithMessage(syncInfo);
-
-                    REQUIRE_RESULT(xrGetActionStateFloat(compositionHelper.GetSession(), &getInfo, &floatState), XR_SUCCESS);
-                    REQUIRE(floatState.isActive);
-                    REQUIRE(NearEqual(floatState.currentState, 1.f, cLargeEpsilon));
-                    REQUIRE(floatState.lastChangeTime > 0);
-
-                    inputDevice->SetButtonStateFloat(pathA, 0.0f, cEpsilon);
-                    inputDevice->SetButtonStateFloat(pathB, 0.0f, cEpsilon);
-
-                    actionLayerManager.SyncActionsUntilFocusWithMessage(syncInfo);
-
-                    REQUIRE_RESULT(xrGetActionStateFloat(compositionHelper.GetSession(), &getInfo, &floatState), XR_SUCCESS);
-                    REQUIRE(floatState.isActive);
-                    REQUIRE(NearEqual(floatState.currentState, 0.f, cLargeEpsilon));
-                    REQUIRE(floatState.lastChangeTime > 0);
-
-                    actionLayerManager.DisplayMessage("Release all inputs");
-                    std::this_thread::sleep_for(2s);
-                }
-
-                INFO("Multi Vector");
-                if (vectorActions.size() > 1) {
-                    auto actionAData = vectorActions[0];
-                    auto actionBData = vectorActions[1];
-
-                    XrPath pathA = StringToPath(compositionHelper.GetInstance(), actionAData.Data.Path.c_str());
-                    XrPath pathB = StringToPath(compositionHelper.GetInstance(), actionBData.Data.Path.c_str());
-
-                    XrActionStateGetInfo getInfo{XR_TYPE_ACTION_STATE_GET_INFO};
-                    getInfo.action = allVectorAction.Action;
-
-                    inputDevice->SetButtonStateVector2(pathA, {0.0f, 0.0f}, cEpsilon);
-                    inputDevice->SetButtonStateVector2(pathB, {0.0f, 0.0f}, cEpsilon);
-
-                    actionLayerManager.SyncActionsUntilFocusWithMessage(syncInfo);
-
-                    REQUIRE_RESULT(xrGetActionStateVector2f(compositionHelper.GetSession(), &getInfo, &vectorState), XR_SUCCESS);
-                    REQUIRE(vectorState.isActive);
-                    REQUIRE(NearEqual(vectorState.currentState.x, 0.0f, cLargeEpsilon));
-                    REQUIRE(NearEqual(vectorState.currentState.y, 0.0f, cLargeEpsilon));
-                    REQUIRE(vectorState.lastChangeTime > 0);
-
-                    inputDevice->SetButtonStateVector2(pathA, {1.f, 0.0f}, cEpsilon);
-                    inputDevice->SetButtonStateVector2(pathB, {0.f, 0.f}, cEpsilon);
-
-                    actionLayerManager.SyncActionsUntilFocusWithMessage(syncInfo);
-
-                    REQUIRE_RESULT(xrGetActionStateVector2f(compositionHelper.GetSession(), &getInfo, &vectorState), XR_SUCCESS);
-                    REQUIRE(vectorState.isActive);
-                    REQUIRE(NearEqual(vectorState.currentState.x, 1.0f, cLargeEpsilon));
-                    REQUIRE(NearEqual(vectorState.currentState.y, 0.0f, cLargeEpsilon));
-                    REQUIRE(vectorState.lastChangeTime > 0);
-
-                    inputDevice->SetButtonStateVector2(pathB, {0.f, 0.5f}, cEpsilon);
-
-                    actionLayerManager.SyncActionsUntilFocusWithMessage(syncInfo);
-
-                    REQUIRE_RESULT(xrGetActionStateVector2f(compositionHelper.GetSession(), &getInfo, &vectorState), XR_SUCCESS);
-                    REQUIRE(vectorState.isActive);
-                    REQUIRE(NearEqual(vectorState.currentState.x, 1.0f, cLargeEpsilon));
-                    REQUIRE(NearEqual(vectorState.currentState.y, 0.0f, cLargeEpsilon));
-                    REQUIRE(vectorState.lastChangeTime > 0);
-
-                    inputDevice->SetButtonStateVector2(pathB, {0.f, 1.0f}, cEpsilon);
-                    inputDevice->SetButtonStateVector2(pathA, {0.5f, 0.0f}, cEpsilon);
-
-                    actionLayerManager.SyncActionsUntilFocusWithMessage(syncInfo);
-
-                    REQUIRE_RESULT(xrGetActionStateVector2f(compositionHelper.GetSession(), &getInfo, &vectorState), XR_SUCCESS);
-                    REQUIRE(vectorState.isActive);
-                    REQUIRE(NearEqual(vectorState.currentState.x, 0.0f, cLargeEpsilon));
-                    REQUIRE(NearEqual(vectorState.currentState.y, 1.0f, cLargeEpsilon));
-                    REQUIRE(vectorState.lastChangeTime > 0);
+                        {
+                            // For automation only
+                            inputDevice->SetButtonStateBool(inputSourcePath, false, true);
+                        }
+                    }
 
                     actionLayerManager.DisplayMessage("Release all inputs");
                     std::this_thread::sleep_for(2s);
@@ -2492,7 +2453,7 @@ namespace Conformance
 
                     REQUIRE_RESULT(xrGetActionStateFloat(compositionHelper.GetSession(), &getInfo, &floatState), XR_SUCCESS);
                     REQUIRE(floatState.isActive);
-                    REQUIRE(NearEqual(floatState.currentState, 0.0f, cLargeEpsilon));
+                    REQUIRE(floatState.currentState == Approx(0.0f).margin(cLargeEpsilon));
 
                     inputDevice->SetButtonStateBool(inputSourcePath, true);
 
@@ -2500,7 +2461,7 @@ namespace Conformance
 
                     REQUIRE_RESULT(xrGetActionStateFloat(compositionHelper.GetSession(), &getInfo, &floatState), XR_SUCCESS);
                     REQUIRE(floatState.isActive);
-                    REQUIRE(floatState.currentState);
+                    REQUIRE(floatState.currentState == Approx(1.0f).margin(cLargeEpsilon));
                     REQUIRE(floatState.lastChangeTime > 0);
 
                     inputDevice->SetButtonStateBool(inputSourcePath, false);
@@ -2509,7 +2470,7 @@ namespace Conformance
 
                     REQUIRE_RESULT(xrGetActionStateFloat(compositionHelper.GetSession(), &getInfo, &floatState), XR_SUCCESS);
                     REQUIRE(floatState.isActive);
-                    REQUIRE(NearEqual(floatState.currentState, 0.0f, cLargeEpsilon));
+                    REQUIRE(floatState.currentState == Approx(0.0f).margin(cLargeEpsilon));
                     REQUIRE(floatState.lastChangeTime > 0);
                 }
 
@@ -2618,9 +2579,6 @@ namespace Conformance
         compositionHelper.BeginSession();
 
         ActionLayerManager actionLayerManager(compositionHelper);
-        RenderLoop renderLoop(compositionHelper.GetSession(),
-                              [&](const XrFrameState& frameState) { return actionLayerManager.EndFrame(frameState); });
-
         actionLayerManager.WaitForSessionFocusWithMessage();
 
         XrPath simpleControllerInteractionProfile =
@@ -2867,9 +2825,6 @@ namespace Conformance
              {poseAction, StringToPath(compositionHelper.GetInstance(), "/user/hand/right/input/grip/pose")}});
         compositionHelper.GetInteractionManager().AttachActionSets();
 
-        RenderLoop renderLoop(compositionHelper.GetSession(),
-                              [&](const XrFrameState& frameState) { return actionLayerManager.EndFrame(frameState); });
-
         actionLayerManager.WaitForSessionFocusWithMessage();
 
         XrActiveActionSet leftHandActiveSet{actionSet, leftHandPath};
@@ -2904,7 +2859,10 @@ namespace Conformance
             bool messageShown = false;
             bool success = WaitUntilPredicateWithTimeout(
                 [&]() {
-                    REQUIRE_RESULT(xrLocateSpace(space, localSpace, renderLoop.GetLastPredictedDisplayTime(), location), XR_SUCCESS);
+                    actionLayerManager.GetRenderLoop().IterateFrame();
+                    REQUIRE_RESULT(
+                        xrLocateSpace(space, localSpace, actionLayerManager.GetRenderLoop().GetLastPredictedDisplayTime(), location),
+                        XR_SUCCESS);
 
                     constexpr XrSpaceLocationFlags LocatableFlags =
                         XR_SPACE_LOCATION_ORIENTATION_VALID_BIT | XR_SPACE_LOCATION_POSITION_VALID_BIT;
@@ -2969,7 +2927,8 @@ namespace Conformance
 
             XrSpaceVelocity currentVelocity{XR_TYPE_SPACE_VELOCITY};
             XrSpaceLocation currentRelation{XR_TYPE_SPACE_LOCATION, &currentVelocity};
-            XrTime locateTime = renderLoop.GetLastPredictedDisplayTime();  // Ensure using the same time for the pose checks.
+            XrTime locateTime =
+                actionLayerManager.GetRenderLoop().GetLastPredictedDisplayTime();  // Ensure using the same time for the pose checks.
             REQUIRE_RESULT(xrLocateSpace(actionSpace, localSpace, locateTime, &currentRelation), XR_SUCCESS);
             REQUIRE_RESULT(xrLocateSpace(leftSpace, localSpace, locateTime, &leftRelation), XR_SUCCESS);
             REQUIRE_RESULT(xrLocateSpace(rightSpace, localSpace, locateTime, &rightRelation), XR_SUCCESS);
@@ -2984,26 +2943,34 @@ namespace Conformance
 
             INFO("Left is off but we're still tracking it");
             REQUIRE(WaitForLocatability("left", leftSpace, &leftRelation, false));
-            REQUIRE_RESULT(xrLocateSpace(actionSpace, localSpace, renderLoop.GetLastPredictedDisplayTime(), &currentRelation), XR_SUCCESS);
+            REQUIRE_RESULT(
+                xrLocateSpace(actionSpace, localSpace, actionLayerManager.GetRenderLoop().GetLastPredictedDisplayTime(), &currentRelation),
+                XR_SUCCESS);
             REQUIRE(0 == currentRelation.locationFlags);
 
             actionLayerManager.SyncActionsUntilFocusWithMessage(syncInfo);
 
             INFO("We are still tracking left as action spaces pick one device and stick with it");
-            REQUIRE_RESULT(xrLocateSpace(actionSpace, localSpace, renderLoop.GetLastPredictedDisplayTime(), &currentRelation), XR_SUCCESS);
+            REQUIRE_RESULT(
+                xrLocateSpace(actionSpace, localSpace, actionLayerManager.GetRenderLoop().GetLastPredictedDisplayTime(), &currentRelation),
+                XR_SUCCESS);
             REQUIRE(0 == currentRelation.locationFlags);
 
             leftHandInputDevice->SetDeviceActive(false);
             rightHandInputDevice->SetDeviceActive(false);
 
             INFO("We are still tracking left, but it's off");
-            REQUIRE_RESULT(xrLocateSpace(actionSpace, localSpace, renderLoop.GetLastPredictedDisplayTime(), &currentRelation), XR_SUCCESS);
+            REQUIRE_RESULT(
+                xrLocateSpace(actionSpace, localSpace, actionLayerManager.GetRenderLoop().GetLastPredictedDisplayTime(), &currentRelation),
+                XR_SUCCESS);
             REQUIRE(0 == currentRelation.locationFlags);
 
             actionLayerManager.SyncActionsUntilFocusWithMessage(syncInfo);
 
             INFO("We are still tracking left, but they're both off");
-            REQUIRE_RESULT(xrLocateSpace(actionSpace, localSpace, renderLoop.GetLastPredictedDisplayTime(), &currentRelation), XR_SUCCESS);
+            REQUIRE_RESULT(
+                xrLocateSpace(actionSpace, localSpace, actionLayerManager.GetRenderLoop().GetLastPredictedDisplayTime(), &currentRelation),
+                XR_SUCCESS);
             REQUIRE(0 == currentRelation.locationFlags);
 
             leftHandInputDevice->SetDeviceActive(true);
@@ -3014,17 +2981,25 @@ namespace Conformance
             REQUIRE(WaitForLocatability("left", leftSpace, &leftRelation, true));
             REQUIRE(WaitForLocatability("right", rightSpace, &rightRelation, true));
 
-            REQUIRE_RESULT(xrLocateSpace(actionSpace, localSpace, renderLoop.GetLastPredictedDisplayTime(), &currentRelation), XR_SUCCESS);
+            REQUIRE_RESULT(
+                xrLocateSpace(actionSpace, localSpace, actionLayerManager.GetRenderLoop().GetLastPredictedDisplayTime(), &currentRelation),
+                XR_SUCCESS);
             REQUIRE(0 != currentRelation.locationFlags);
 
             INFO("The action space should remain locatable despite destruction of the action");
             REQUIRE_RESULT(xrDestroyAction(poseAction), XR_SUCCESS);
 
-            REQUIRE_RESULT(xrLocateSpace(actionSpace, localSpace, renderLoop.GetLastPredictedDisplayTime(), &currentRelation), XR_SUCCESS);
+            REQUIRE_RESULT(
+                xrLocateSpace(actionSpace, localSpace, actionLayerManager.GetRenderLoop().GetLastPredictedDisplayTime(), &currentRelation),
+                XR_SUCCESS);
             REQUIRE(0 != currentRelation.locationFlags);
-            REQUIRE_RESULT(xrLocateSpace(leftSpace, localSpace, renderLoop.GetLastPredictedDisplayTime(), &currentRelation), XR_SUCCESS);
+            REQUIRE_RESULT(
+                xrLocateSpace(leftSpace, localSpace, actionLayerManager.GetRenderLoop().GetLastPredictedDisplayTime(), &currentRelation),
+                XR_SUCCESS);
             REQUIRE(0 != currentRelation.locationFlags);
-            REQUIRE_RESULT(xrLocateSpace(rightSpace, localSpace, renderLoop.GetLastPredictedDisplayTime(), &currentRelation), XR_SUCCESS);
+            REQUIRE_RESULT(
+                xrLocateSpace(rightSpace, localSpace, actionLayerManager.GetRenderLoop().GetLastPredictedDisplayTime(), &currentRelation),
+                XR_SUCCESS);
             REQUIRE(0 != currentRelation.locationFlags);
 
             actionLayerManager.SyncActionsUntilFocusWithMessage(syncInfo);
@@ -3037,11 +3012,17 @@ namespace Conformance
                 REQUIRE_RESULT(xrGetActionStatePose(compositionHelper.GetSession(), &getInfo, &poseActionState), XR_ERROR_HANDLE_INVALID);
             }
 
-            REQUIRE_RESULT(xrLocateSpace(actionSpace, localSpace, renderLoop.GetLastPredictedDisplayTime(), &currentRelation), XR_SUCCESS);
+            REQUIRE_RESULT(
+                xrLocateSpace(actionSpace, localSpace, actionLayerManager.GetRenderLoop().GetLastPredictedDisplayTime(), &currentRelation),
+                XR_SUCCESS);
             REQUIRE(0 != currentRelation.locationFlags);
-            REQUIRE_RESULT(xrLocateSpace(leftSpace, localSpace, renderLoop.GetLastPredictedDisplayTime(), &currentRelation), XR_SUCCESS);
+            REQUIRE_RESULT(
+                xrLocateSpace(leftSpace, localSpace, actionLayerManager.GetRenderLoop().GetLastPredictedDisplayTime(), &currentRelation),
+                XR_SUCCESS);
             REQUIRE(0 != currentRelation.locationFlags);
-            REQUIRE_RESULT(xrLocateSpace(rightSpace, localSpace, renderLoop.GetLastPredictedDisplayTime(), &currentRelation), XR_SUCCESS);
+            REQUIRE_RESULT(
+                xrLocateSpace(rightSpace, localSpace, actionLayerManager.GetRenderLoop().GetLastPredictedDisplayTime(), &currentRelation),
+                XR_SUCCESS);
             REQUIRE(0 != currentRelation.locationFlags);
         }
     }
@@ -3066,9 +3047,6 @@ namespace Conformance
         compositionHelper.BeginSession();
 
         ActionLayerManager actionLayerManager(compositionHelper);
-        RenderLoop renderLoop(compositionHelper.GetSession(),
-                              [&](const XrFrameState& frameState) { return actionLayerManager.EndFrame(frameState); });
-
         actionLayerManager.WaitForSessionFocusWithMessage();
 
         XrPath leftHandPath{StringToPath(compositionHelper.GetInstance(), "/user/hand/left")};

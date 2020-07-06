@@ -28,6 +28,9 @@
 
 using namespace Conformance;
 
+// Useful to track down errors when debugging stateful graphics APIs like OpenGL:
+#define CHKGR() GetGlobalData().graphicsPlugin->CheckState(XRC_FILE_AND_LINE)
+
 namespace Conformance
 {
     constexpr XrVector3f Up{0, 1, 0};
@@ -65,7 +68,7 @@ namespace Conformance
                                                  StringToPath(compositionHelper.GetInstance(), "/user/hand/right")};
 
         XrActionSet actionSet;
-        XrAction throwAction, failAction, aimPoseAction;
+        XrAction throwAction, failAction, gripPoseAction;
         {
             XrActionSetCreateInfo actionSetInfo{XR_TYPE_ACTION_SET_CREATE_INFO};
             strcpy(actionSetInfo.actionSetName, "interaction_test");
@@ -88,11 +91,11 @@ namespace Conformance
             XRC_CHECK_THROW_XRCMD(xrCreateAction(actionSet, &actionInfo, &throwAction));
 
             actionInfo.actionType = XR_ACTION_TYPE_POSE_INPUT;
-            strcpy(actionInfo.actionName, "aim_pose");
-            strcpy(actionInfo.localizedActionName, "Aim pose");
+            strcpy(actionInfo.actionName, "grip_pose");
+            strcpy(actionInfo.localizedActionName, "Grip pose");
             actionInfo.subactionPaths = subactionPaths.data();
             actionInfo.countSubactionPaths = (uint32_t)subactionPaths.size();
-            XRC_CHECK_THROW_XRCMD(xrCreateAction(actionSet, &actionInfo, &aimPoseAction));
+            XRC_CHECK_THROW_XRCMD(xrCreateAction(actionSet, &actionInfo, &gripPoseAction));
         }
 
         const std::vector<XrActionSuggestedBinding> bindings = {
@@ -100,8 +103,8 @@ namespace Conformance
             {throwAction, StringToPath(compositionHelper.GetInstance(), "/user/hand/right/input/select/click")},
             {failAction, StringToPath(compositionHelper.GetInstance(), "/user/hand/left/input/menu/click")},
             {failAction, StringToPath(compositionHelper.GetInstance(), "/user/hand/right/input/menu/click")},
-            {aimPoseAction, StringToPath(compositionHelper.GetInstance(), "/user/hand/left/input/aim/pose")},
-            {aimPoseAction, StringToPath(compositionHelper.GetInstance(), "/user/hand/right/input/aim/pose")},
+            {gripPoseAction, StringToPath(compositionHelper.GetInstance(), "/user/hand/left/input/grip/pose")},
+            {gripPoseAction, StringToPath(compositionHelper.GetInstance(), "/user/hand/right/input/grip/pose")},
         };
 
         XrInteractionProfileSuggestedBinding suggestedBindings{XR_TYPE_INTERACTION_PROFILE_SUGGESTED_BINDING};
@@ -134,14 +137,14 @@ namespace Conformance
         };
         std::vector<HandThrowSpaces> throwSpaces;
 
-        // Create XrSpaces at various spaces around the aim poses.
+        // Create XrSpaces at various spaces around the grip poses.
         for (XrPath subactionPath : subactionPaths) {
             HandThrowSpaces handThrowSpaces;
             handThrowSpaces.subactionPath = subactionPath;
             for (float meterDistance : {0.0f, 0.25f, 0.5f}) {
                 XrSpace handSpace;
                 XrActionSpaceCreateInfo spaceCreateInfo{XR_TYPE_ACTION_SPACE_CREATE_INFO};
-                spaceCreateInfo.action = aimPoseAction;
+                spaceCreateInfo.action = gripPoseAction;
                 spaceCreateInfo.subactionPath = subactionPath;
                 spaceCreateInfo.poseInActionSpace = {{0, 0, 0, 1}, {0, 0, -meterDistance}};
                 XRC_CHECK_THROW_XRCMD(xrCreateActionSpace(compositionHelper.GetSession(), &spaceCreateInfo, &handSpace));
@@ -318,7 +321,6 @@ namespace Conformance
                     compositionHelper.AcquireWaitReleaseImage(
                         swapchains[view], [&](const XrSwapchainImageBaseHeader* swapchainImage, uint64_t format) {
                             GetGlobalData().graphicsPlugin->ClearImageSlice(swapchainImage, 0, format);
-
                             const_cast<XrFovf&>(projLayer->views[view].fov) = views[view].fov;
                             const_cast<XrPosef&>(projLayer->views[view].pose) = views[view].pose;
                             GetGlobalData().graphicsPlugin->RenderView(projLayer->views[view], swapchainImage, format, cubes);
@@ -335,7 +337,7 @@ namespace Conformance
             return compositionHelper.PollEvents();
         };
 
-        RenderLoop(compositionHelper.GetSession(), update).WaitForEnd();
+        RenderLoop(compositionHelper.GetSession(), update).Loop();
 
         // The render loop will end if the user hits and removes all three target cubes or if the user presses menu.
         if (!targetCubes.empty()) {

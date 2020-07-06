@@ -82,7 +82,7 @@ namespace
             {
                 XrSwapchain exampleSwapchain;
                 if (exampleImage) {
-                    exampleSwapchain = compositionHelper.CreateStaticSwapchainImage(RGBAImage::Load(exampleImage));
+                    exampleSwapchain = compositionHelper.CreateStaticSwapchainImage(RGBAImage::Load(exampleImage), true /* sRGB */);
                 }
                 else {
                     RGBAImage image(256, 256);
@@ -170,12 +170,7 @@ namespace
 
         LayerMode GetLayerMode()
         {
-            std::array<XrActiveActionSet, 1> activeActionSet = {{m_actionSet, XR_NULL_PATH}};
-
-            XrActionsSyncInfo syncInfo{XR_TYPE_ACTIONS_SYNC_INFO};
-            syncInfo.countActiveActionSets = 1;
-            syncInfo.activeActionSets = activeActionSet.data();
-            XRC_CHECK_THROW_XRCMD(xrSyncActions(m_compositionHelper.GetSession(), &syncInfo));
+            m_compositionHelper.GetInteractionManager().SyncActions(XR_NULL_PATH);
 
             XrActionStateBoolean actionState{XR_TYPE_ACTION_STATE_BOOLEAN};
             XrActionStateGetInfo getInfo{XR_TYPE_ACTION_STATE_GET_INFO};
@@ -294,7 +289,7 @@ namespace Conformance
 
         RenderLoop(compositionHelper.GetSession(),
                    [&](const XrFrameState& frameState) { return interactiveLayerManager.EndFrame(frameState); })
-            .WaitForEnd();
+            .Loop();
     }
 
     // Purpose: Verify order of transforms by exercising the two ways poses can be specified:
@@ -344,7 +339,7 @@ namespace Conformance
 
         RenderLoop(compositionHelper.GetSession(),
                    [&](const XrFrameState& frameState) { return interactiveLayerManager.EndFrame(frameState); })
-            .WaitForEnd();
+            .Loop();
     }
 
     // Purpose: Validates alpha blending (both premultiplied and unpremultiplied).
@@ -414,7 +409,7 @@ namespace Conformance
 
         RenderLoop(compositionHelper.GetSession(),
                    [&](const XrFrameState& frameState) { return interactiveLayerManager.EndFrame(frameState); })
-            .WaitForEnd();
+            .Loop();
     }
 
     // Purpose: Validate eye visibility flags.
@@ -441,7 +436,7 @@ namespace Conformance
 
         RenderLoop(compositionHelper.GetSession(),
                    [&](const XrFrameState& frameState) { return interactiveLayerManager.EndFrame(frameState); })
-            .WaitForEnd();
+            .Loop();
     }
 
     TEST_CASE("Subimage Tests", "[.][composition][interactive]")
@@ -467,7 +462,7 @@ namespace Conformance
         // Create an array swapchain
         auto swapchainCreateInfo =
             compositionHelper.DefaultColorSwapchainCreateInfo(ImageWidth, ImageHeight, XR_SWAPCHAIN_CREATE_STATIC_IMAGE_BIT);
-        swapchainCreateInfo.format = GetGlobalData().graphicsPlugin->GetRGBA8UnormFormat();
+        swapchainCreateInfo.format = GetGlobalData().graphicsPlugin->GetRGBA8Format(false /* sRGB */);
         swapchainCreateInfo.arraySize = ImageArrayCount;
         const XrSwapchain swapchain = compositionHelper.CreateSwapchain(swapchainCreateInfo);
 
@@ -508,7 +503,7 @@ namespace Conformance
 
         RenderLoop(compositionHelper.GetSession(),
                    [&](const XrFrameState& frameState) { return interactiveLayerManager.EndFrame(frameState); })
-            .WaitForEnd();
+            .Loop();
     }
 
     TEST_CASE("Projection Array Swapchain", "[.][composition][interactive]")
@@ -578,7 +573,7 @@ namespace Conformance
             return interactiveLayerManager.EndFrame(frameState, layers);
         };
 
-        RenderLoop(compositionHelper.GetSession(), updateLayers).WaitForEnd();
+        RenderLoop(compositionHelper.GetSession(), updateLayers).Loop();
     }
 
     TEST_CASE("Projection Wide Swapchain", "[.][composition][interactive]")
@@ -646,7 +641,7 @@ namespace Conformance
             return interactiveLayerManager.EndFrame(frameState, layers);
         };
 
-        RenderLoop(compositionHelper.GetSession(), updateLayers).WaitForEnd();
+        RenderLoop(compositionHelper.GetSession(), updateLayers).Loop();
     }
 
     TEST_CASE("Projection Separate Swapchains", "[.][composition][interactive]")
@@ -665,6 +660,106 @@ namespace Conformance
             return interactiveLayerManager.EndFrame(frameState, layers);
         };
 
-        RenderLoop(compositionHelper.GetSession(), updateLayers).WaitForEnd();
+        RenderLoop(compositionHelper.GetSession(), updateLayers).Loop();
+    }
+
+    TEST_CASE("Quad Hands", "[.][composition][interactive]")
+    {
+        CompositionHelper compositionHelper("Quad Hands");
+        InteractiveLayerManager interactiveLayerManager(compositionHelper, "quad_hands.png",
+                                                        "10x10cm Quads labeled \'L\' and \'R\' should appear 10cm along the grip "
+                                                        "positive Z in front of the center of 10cm cubes rendered at the controller "
+                                                        "grip poses. "
+                                                        "The quads should face you and be upright when the controllers are in "
+                                                        "a thumbs-up pointing-into-screen pose. "
+                                                        "Check that the quads are properly backface-culled, "
+                                                        "that \'R\' is always rendered atop \'L\', "
+                                                        "and both are atop the cubes when visible.");
+
+        const std::vector<XrPath> subactionPaths{StringToPath(compositionHelper.GetInstance(), "/user/hand/left"),
+                                                 StringToPath(compositionHelper.GetInstance(), "/user/hand/right")};
+
+        XrActionSet actionSet;
+        XrAction gripPoseAction;
+        {
+            XrActionSetCreateInfo actionSetInfo{XR_TYPE_ACTION_SET_CREATE_INFO};
+            strcpy(actionSetInfo.actionSetName, "quad_hands");
+            strcpy(actionSetInfo.localizedActionSetName, "Quad Hands");
+            XRC_CHECK_THROW_XRCMD(xrCreateActionSet(compositionHelper.GetInstance(), &actionSetInfo, &actionSet));
+
+            XrActionCreateInfo actionInfo{XR_TYPE_ACTION_CREATE_INFO};
+            actionInfo.actionType = XR_ACTION_TYPE_POSE_INPUT;
+            strcpy(actionInfo.actionName, "grip_pose");
+            strcpy(actionInfo.localizedActionName, "Grip pose");
+            actionInfo.subactionPaths = subactionPaths.data();
+            actionInfo.countSubactionPaths = (uint32_t)subactionPaths.size();
+            XRC_CHECK_THROW_XRCMD(xrCreateAction(actionSet, &actionInfo, &gripPoseAction));
+        }
+
+        compositionHelper.GetInteractionManager().AddActionSet(actionSet);
+        XrPath simpleInteractionProfile = StringToPath(compositionHelper.GetInstance(), "/interaction_profiles/khr/simple_controller");
+        compositionHelper.GetInteractionManager().AddActionBindings(
+            simpleInteractionProfile,
+            {{
+                {gripPoseAction, StringToPath(compositionHelper.GetInstance(), "/user/hand/left/input/grip/pose")},
+                {gripPoseAction, StringToPath(compositionHelper.GetInstance(), "/user/hand/right/input/grip/pose")},
+            }});
+
+        compositionHelper.GetInteractionManager().AttachActionSets();
+        compositionHelper.BeginSession();
+
+        SimpleProjectionLayerHelper simpleProjectionLayerHelper(compositionHelper);
+
+        // Spaces attached to the hand (subaction).
+        std::vector<XrSpace> gripSpaces;
+
+        // Create XrSpaces for each grip pose
+        for (XrPath subactionPath : subactionPaths) {
+            XrSpace space;
+            XrActionSpaceCreateInfo spaceCreateInfo{XR_TYPE_ACTION_SPACE_CREATE_INFO};
+            spaceCreateInfo.action = gripPoseAction;
+            spaceCreateInfo.subactionPath = subactionPath;
+            spaceCreateInfo.poseInActionSpace = {{0, 0, 0, 1}, {0, 0, 0}};
+            XRC_CHECK_THROW_XRCMD(xrCreateActionSpace(compositionHelper.GetSession(), &spaceCreateInfo, &space));
+            gripSpaces.push_back(std::move(space));
+        }
+
+        // Create 10x10cm L and R quads
+        XrCompositionLayerQuad* const leftQuadLayer = compositionHelper.CreateQuadLayer(
+            compositionHelper.CreateStaticSwapchainImage(CreateTextImage(64, 64, "L", 48)), simpleProjectionLayerHelper.GetLocalSpace());
+        leftQuadLayer->space = gripSpaces[0];
+        leftQuadLayer->size.width = 0.1f;
+        leftQuadLayer->size.height = 0.1f;
+        leftQuadLayer->pose.position = {0, 0, 0.1f};
+
+        XrCompositionLayerQuad* const rightQuadLayer = compositionHelper.CreateQuadLayer(
+            compositionHelper.CreateStaticSwapchainImage(CreateTextImage(64, 64, "R", 48)), simpleProjectionLayerHelper.GetLocalSpace());
+        rightQuadLayer->space = gripSpaces[1];
+        rightQuadLayer->size.width = 0.1f;
+        rightQuadLayer->size.height = 0.1f;
+        rightQuadLayer->pose.position = {0, 0, 0.1f};
+
+        interactiveLayerManager.AddLayer(leftQuadLayer);
+        interactiveLayerManager.AddLayer(rightQuadLayer);
+
+        const XrVector3f cubeSize{0.1f, 0.1f, 0.1f};
+        auto updateLayers = [&](const XrFrameState& frameState) {
+            std::vector<Cube> cubes;
+            for (const auto& space : gripSpaces) {
+                XrSpaceLocation location{XR_TYPE_SPACE_LOCATION};
+                if (XR_SUCCEEDED(
+                        xrLocateSpace(space, simpleProjectionLayerHelper.GetLocalSpace(), frameState.predictedDisplayTime, &location))) {
+                    if ((location.locationFlags & XR_SPACE_LOCATION_POSITION_VALID_BIT) &&
+                        (location.locationFlags & XR_SPACE_LOCATION_ORIENTATION_VALID_BIT)) {
+                        cubes.emplace_back(Cube{location.pose, cubeSize});
+                    }
+                }
+            }
+            simpleProjectionLayerHelper.UpdateProjectionLayer(frameState, cubes);
+            std::vector<XrCompositionLayerBaseHeader*> layers{simpleProjectionLayerHelper.GetProjectionLayer()};
+            return interactiveLayerManager.EndFrame(frameState, layers);
+        };
+
+        RenderLoop(compositionHelper.GetSession(), updateLayers).Loop();
     }
 }  // namespace Conformance
