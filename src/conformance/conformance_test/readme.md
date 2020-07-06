@@ -25,9 +25,9 @@ Running CTS
 
     Example:
 
-        conformance_cli -G d3d11 -r xml -o automated_d3d11.xml
-        conformance_cli -G d3d12 -r xml -o automated_d3d12.xml
-        conformance_cli -G vulkan -r xml -o automated_vulkan.xml
+        conformance_cli "exclude:[interactive]" -G d3d11 -r xml -o automated_d3d11.xml
+        conformance_cli "exclude:[interactive]" -G d3d12 -r xml -o automated_d3d12.xml
+        conformance_cli "exclude:[interactive]" -G vulkan -r xml -o automated_vulkan.xml
 
     Notes:
     * Some tests require that a begun session progresses to `XR_SESSION_STATE_FOCUSED`.

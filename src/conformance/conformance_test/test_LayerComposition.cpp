@@ -261,7 +261,7 @@ namespace Conformance
     // Purpose: Verify behavior of quad visibility and occlusion with the expectation that:
     // 1. Quads render with painters algo.
     // 2. Quads which are facing away are not visible.
-    TEST_CASE("Quad Occlusion", "[.][composition][interactive]")
+    TEST_CASE("Quad Occlusion", "[composition][interactive]")
     {
         CompositionHelper compositionHelper("Quad Occlusion");
         InteractiveLayerManager interactiveLayerManager(
@@ -296,7 +296,7 @@ namespace Conformance
     // 1. A pose offset when creating the space
     // 2. A pose offset when adding the layer
     // If the poses are applied in an incorrect order, the quads will not rendener in the correct place or orientation.
-    TEST_CASE("Quad Poses", "[.][composition][interactive]")
+    TEST_CASE("Quad Poses", "[composition][interactive]")
     {
         CompositionHelper compositionHelper("Quad Poses");
         InteractiveLayerManager interactiveLayerManager(
@@ -343,7 +343,7 @@ namespace Conformance
     }
 
     // Purpose: Validates alpha blending (both premultiplied and unpremultiplied).
-    TEST_CASE("Source Alpha Blending", "[.][composition][interactive]")
+    TEST_CASE("Source Alpha Blending", "[composition][interactive]")
     {
         CompositionHelper compositionHelper("Source Alpha Blending");
         InteractiveLayerManager interactiveLayerManager(compositionHelper, "source_alpha_blending.png",
@@ -413,7 +413,7 @@ namespace Conformance
     }
 
     // Purpose: Validate eye visibility flags.
-    TEST_CASE("Eye Visibility", "[.][composition][interactive]")
+    TEST_CASE("Eye Visibility", "[composition][interactive]")
     {
         CompositionHelper compositionHelper("Eye Visibility");
         InteractiveLayerManager interactiveLayerManager(compositionHelper, "eye_visibility.png",
@@ -439,7 +439,7 @@ namespace Conformance
             .Loop();
     }
 
-    TEST_CASE("Subimage Tests", "[.][composition][interactive]")
+    TEST_CASE("Subimage Tests", "[composition][interactive]")
     {
         CompositionHelper compositionHelper("Subimage Tests");
         InteractiveLayerManager interactiveLayerManager(
@@ -506,7 +506,7 @@ namespace Conformance
             .Loop();
     }
 
-    TEST_CASE("Projection Array Swapchain", "[.][composition][interactive]")
+    TEST_CASE("Projection Array Swapchain", "[composition][interactive]")
     {
         CompositionHelper compositionHelper("Projection Array Swapchain");
         InteractiveLayerManager interactiveLayerManager(
@@ -576,7 +576,7 @@ namespace Conformance
         RenderLoop(compositionHelper.GetSession(), updateLayers).Loop();
     }
 
-    TEST_CASE("Projection Wide Swapchain", "[.][composition][interactive]")
+    TEST_CASE("Projection Wide Swapchain", "[composition][interactive]")
     {
         CompositionHelper compositionHelper("Projection Wide Swapchain");
         InteractiveLayerManager interactiveLayerManager(compositionHelper, "projection_wide.png",
@@ -644,7 +644,7 @@ namespace Conformance
         RenderLoop(compositionHelper.GetSession(), updateLayers).Loop();
     }
 
-    TEST_CASE("Projection Separate Swapchains", "[.][composition][interactive]")
+    TEST_CASE("Projection Separate Swapchains", "[composition][interactive]")
     {
         CompositionHelper compositionHelper("Projection Separate Swapchains");
         InteractiveLayerManager interactiveLayerManager(compositionHelper, "projection_separate.png",
@@ -663,7 +663,7 @@ namespace Conformance
         RenderLoop(compositionHelper.GetSession(), updateLayers).Loop();
     }
 
-    TEST_CASE("Quad Hands", "[.][composition][interactive]")
+    TEST_CASE("Quad Hands", "[composition][interactive]")
     {
         CompositionHelper compositionHelper("Quad Hands");
         InteractiveLayerManager interactiveLayerManager(compositionHelper, "quad_hands.png",

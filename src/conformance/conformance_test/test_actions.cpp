@@ -688,7 +688,7 @@ namespace Conformance
         }
     }
 
-    TEST_CASE("xrSuggestInteractionProfileBindings_interactive", "[.][actions][interactive]")
+    TEST_CASE("xrSuggestInteractionProfileBindings_interactive", "[actions][interactive]")
     {
         CompositionHelper compositionHelper("xrSuggestInteractionProfileBindings");
         compositionHelper.BeginSession();
@@ -994,7 +994,7 @@ namespace Conformance
         }
     }
 
-    TEST_CASE("xrGetCurrentInteractionProfile", "[.][actions][interactive]")
+    TEST_CASE("xrGetCurrentInteractionProfile", "[actions][interactive]")
     {
         CompositionHelper compositionHelper("xrGetCurrentInteractionProfile");
         compositionHelper.BeginSession();
@@ -1126,7 +1126,7 @@ namespace Conformance
         }
     }
 
-    TEST_CASE("xrSyncActions", "[.][actions][interactive]")
+    TEST_CASE("xrSyncActions", "[actions][interactive]")
     {
         CompositionHelper compositionHelper("xrSyncActions");
 
@@ -1655,7 +1655,7 @@ namespace Conformance
         }
     }
 
-    TEST_CASE("State query functions interactive", "[.][actions][interactive][gamepad]")
+    TEST_CASE("State query functions interactive", "[actions][interactive][gamepad]")
     {
         struct ActionInfo
         {
@@ -2781,7 +2781,7 @@ namespace Conformance
         }
     }
 
-    TEST_CASE("Action spaces", "[.][actions][interactive]")
+    TEST_CASE("Action spaces", "[actions][interactive]")
     {
         CompositionHelper compositionHelper("Action Spaces");
         compositionHelper.BeginSession();
@@ -3027,7 +3027,7 @@ namespace Conformance
         }
     }
 
-    TEST_CASE("xrEnumerateBoundSourcesForAction and xrGetInputSourceLocalizedName", "[.][actions][interactive]")
+    TEST_CASE("xrEnumerateBoundSourcesForAction and xrGetInputSourceLocalizedName", "[actions][interactive]")
     {
         CompositionHelper compositionHelper("BoundSources and LocalizedName");
 

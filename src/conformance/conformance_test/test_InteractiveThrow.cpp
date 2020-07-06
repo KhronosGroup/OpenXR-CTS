@@ -38,7 +38,7 @@ namespace Conformance
     // Purpose: Verify behavior of action timing and action space linear/angular velocity through throwing
     // 1. Use action state changed timestamp to query velocities
     // 2. Use action space velocities at various rigid offsets to verify "lever arm" effect is computed by runtime.
-    TEST_CASE("Interactive Throw", "[.][scenario][interactive]")
+    TEST_CASE("Interactive Throw", "[scenario][interactive]")
     {
         const char* instructions =
             "Press and hold 'select' to spawn three rigidly-attached cubes to that controller. "
