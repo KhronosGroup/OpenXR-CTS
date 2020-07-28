@@ -27,7 +27,7 @@ namespace actionset
 
     CustomActionSetState* GetCustomActionSetState(XrActionSet handle)
     {
-        return reinterpret_cast<CustomActionSetState*>(GetActionSetState(handle)->customState.get());
+        return dynamic_cast<CustomActionSetState*>(GetActionSetState(handle)->customState.get());
     }
 
     void OnSyncActionData(XrResult syncResult, const XrActiveActionSet* activeActionSet)

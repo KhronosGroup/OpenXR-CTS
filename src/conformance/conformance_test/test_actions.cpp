@@ -373,7 +373,7 @@ namespace Conformance
 
             SECTION("Duplicate subaction paths")
             {
-                XrPath subactionPaths[2] = {StringToPath(instance, "/user"), StringToPath(instance, "/user")};
+                XrPath subactionPaths[2] = {StringToPath(instance, "/user/head"), StringToPath(instance, "/user/head")};
                 actionCreateInfo.countSubactionPaths = 2;
                 actionCreateInfo.subactionPaths = subactionPaths;
                 REQUIRE_RESULT(xrCreateAction(actionSet, &actionCreateInfo, &action), XR_ERROR_PATH_UNSUPPORTED);
@@ -1211,8 +1211,8 @@ namespace Conformance
                     REQUIRE(actionStateBoolean.isActive);
                     REQUIRE_FALSE(actionStateBoolean.currentState);
 
+                    INFO("Repeated state query calls return the same value");
                     {
-                        INFO("Repeated state query calls return the same value");
 
                         leftHandInputDevice->SetButtonStateBool(leftHandSelectPath, true);
 
@@ -1225,7 +1225,10 @@ namespace Conformance
                         REQUIRE_RESULT(xrGetActionStateBoolean(compositionHelper.GetSession(), &getInfo, &actionStateBoolean), XR_SUCCESS);
                         REQUIRE(actionStateBoolean.isActive);
                         REQUIRE(actionStateBoolean.currentState);
+                    }
 
+                    OPTIONAL_DISCONNECTABLE_DEVICE_INFO
+                    {
                         actionLayerManager.DisplayMessage("Turn off " + leftHandPathString + " and wait for 20s");
                         leftHandInputDevice->SetDeviceActive(false, true);
 
@@ -1256,12 +1259,14 @@ namespace Conformance
                             5s, 100ms);
                     }
                 }
+
                 OPTIONAL_INVALID_HANDLE_VALIDATION_SECTION
                 {
                     XrSession invalidSession = (XrSession)0x1234;
                     REQUIRE_RESULT(xrSyncActions(invalidSession, &syncInfo), XR_ERROR_HANDLE_INVALID);
                 }
             }
+
             SECTION("Priority rules")
             {
                 const XrPath bothPaths[2] = {leftHandPath, rightHandPath};
@@ -2279,8 +2284,10 @@ namespace Conformance
                 std::this_thread::sleep_for(2s);
             }
 
-            INFO("Pose state query");
+            OPTIONAL_DISCONNECTABLE_DEVICE_INFO
             {
+                INFO("Pose state query");
+
                 for (const auto& poseActionData : poseActions) {
                     INFO(poseActionData.Data.Path.c_str());
 
@@ -2884,6 +2891,7 @@ namespace Conformance
             return success;
         };
 
+        OPTIONAL_DISCONNECTABLE_DEVICE_INFO
         {
             XrSpaceVelocity leftVelocity{XR_TYPE_SPACE_VELOCITY};
             XrSpaceVelocity rightVelocity{XR_TYPE_SPACE_VELOCITY};

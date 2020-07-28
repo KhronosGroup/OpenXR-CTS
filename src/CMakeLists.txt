@@ -157,6 +157,8 @@ endif()
 if(BUILD_WITH_WAYLAND_HEADERS)
     target_compile_definitions(openxr-all-supported INTERFACE XR_USE_PLATFORM_WAYLAND)
 endif()
+# openxr-all-supported is a dependency of openxr_loader so it should be added to the export set
+install(TARGETS openxr-all-supported EXPORT openxr_loader_export)
 
 # Find glslc shader compiler.
 # On Android, the NDK includes the binary, so no external dependency.
@@ -171,8 +173,11 @@ else()
     file(GLOB glslc_folders $ENV{VULKAN_SDK}/*)
     find_program(GLSL_COMPILER glslc PATHS ${glslc_folders})
 endif()
+find_program(GLSLANG_VALIDATOR glslangValidator)
 if(GLSL_COMPILER)
     message(STATUS "Found glslc: ${GLSL_COMPILER}")
+elseif(GLSLANG_VALIDATOR)
+    message(STATUS "Found glslangValidator: ${GLSLANG_VALIDATOR}")
 else()
     message(STATUS "Could NOT find glslc, using precompiled .spv files")
 endif()
@@ -188,6 +193,14 @@ function(compile_glsl run_target_name)
                 OUTPUT ${out_file}
                 COMMAND ${GLSL_COMPILER} -mfmt=c -fshader-stage=${glsl_stage} ${in_file} -o ${out_file}
                 DEPENDS ${in_file}
+            )
+        elseif(GLSLANG_VALIDATOR)
+            # Run glslangValidator if we can find it
+            add_custom_command(
+                OUTPUT ${out_file}
+                COMMAND ${GLSLANG_VALIDATOR} -V -S ${glsl_stage} ${in_file} -x -o ${out_file}
+                DEPENDS ${in_file}
+                VERBATIM
             )
         else()
             # Use the precompiled .spv files

@@ -1,3 +1,6 @@
+// Copyright (c) 2017-2020 The Khronos Group Inc.
+//
+// SPDX-License-Identifier: Apache-2.0
 #pragma once
 
 #if (defined(XR_USE_GRAPHICS_API_D3D11) || defined(XR_USE_GRAPHICS_API_D3D12)) && !defined(MISSING_DIRECTX_COLORS)

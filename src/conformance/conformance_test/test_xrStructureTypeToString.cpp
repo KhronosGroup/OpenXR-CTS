@@ -17,6 +17,7 @@
 #include "utils.h"
 #include "conformance_utils.h"
 #include "conformance_framework.h"
+#include "matchers.h"
 #include <array>
 #include <vector>
 #include <set>
@@ -47,7 +48,24 @@ namespace Conformance
                 result = xrStructureTypeToString(instance, value.first, buffer);
                 REQUIRE(ValidateResultAllowed("xrStructureTypeToString", result));
                 REQUIRE(result == XR_SUCCESS);
-                CHECK(std::string(buffer) == value.second);
+                bool allowGeneratedName = false;
+                uint64_t ext_num = 0;
+                if (value.first >= 1000000000) {
+                    // This is an extension
+                    ext_num = (value.first - 1000000000) / 1000;
+                    if (!IsInstanceExtensionEnabled(ext_num)) {
+                        // It's not enabled, so not enforcing that it must be the real value.
+                        allowGeneratedName = true;
+                    }
+                }
+                std::string returnedString(buffer);
+                if (allowGeneratedName) {
+                    CHECK_THAT(returnedString,
+                               In<std::string>({std::string(value.second), "XR_UNKNOWN_STRUCTURE_TYPE_" + std::to_string(value.first)}));
+                }
+                else {
+                    CHECK(returnedString == value.second);
+                }
             }
         }
 

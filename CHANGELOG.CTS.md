@@ -1,5 +1,11 @@
 # Changelog for OpenXR-CTS Repo
 
+<!--
+Copyright (c) 2020 The Khronos Group Inc.
+
+SPDX-License-Identifier: CC-BY-4.0
+-->
+
 Update log for the OpenXR-CTS repo on GitHub. Updates are
 in reverse chronological order starting with the latest public release.
 

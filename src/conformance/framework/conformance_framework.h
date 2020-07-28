@@ -239,6 +239,11 @@ namespace Conformance
         // Default is false.
         bool invalidHandleValidation{false};
 
+        // Indicates if the runtime supports disconnecting a device, specifically left and right devices.
+        // Some input tests depends on the side-effects of device disconnection to test various features.
+        // If true the runtime does not support disconnectable devices.
+        bool nonDisconnectableDevices{false};
+
         // If true then all test diagnostics are reported with the file/line that they occurred on.
         // Default is true (enabled).
         bool fileLineLoggingEnabled{true};
@@ -433,6 +438,16 @@ FunctionType GetInstanceExtensionFunction(XrInstance instance, const char* funct
 #define OPTIONAL_INVALID_HANDLE_VALIDATION_SECTION       \
     if (GetGlobalData().options.invalidHandleValidation) \
     SECTION("Invalid handle validation (optional)")
+
+#define OPTIONAL_DISCONNECTABLE_DEVICE_INFO                  \
+    if (!GetGlobalData().options.nonDisconnectableDevices) { \
+        INFO("Disconnectable device (optional)")             \
+    }                                                        \
+    if (!GetGlobalData().options.nonDisconnectableDevices)
+
+#define OPTIONAL_DISCONNECTABLE_DEVICE_SECTION             \
+    if (!GetGlobalData().options.nonDisconnectableDevices) \
+    SECTION("Disconnectable device (optional)")
 
 // Stringification for Catch2.
 // See https://github.com/catchorg/Catch2/blob/master/docs/tostring.md.

@@ -1,6 +1,12 @@
 OpenXR Conformance Test Suite
 =============================
 
+<!--
+Copyright (c) 2019-2020 The Khronos Group Inc.
+
+SPDX-License-Identifier: CC-BY-4.0
+-->
+
 OpenXR Conformance Test Suite is a collection of tests covering the breadth of
 the OpenXR API. Some tests have been grouped by tags depending on the
 involvement of the tester/invoker (e.g. `[interactive]`) and the area of the
@@ -32,6 +38,7 @@ Running CTS
     Notes:
     * Some tests require that a begun session progresses to `XR_SESSION_STATE_FOCUSED`.
     * Some tests require valid view tracking (`XR_VIEW_STATE_ORIENTATION_VALID_BIT & XR_VIEW_STATE_POSITION_VALID_BIT`).
+      
 
 2. Run the interactive composition tests for every graphics API that is supported.
 
@@ -49,6 +56,7 @@ Running CTS
       `khr/simple_controller` isn't required for conformance, it is strongly
       encouraged. If it cannot be included for some reason, use of another
       interaction profile may be performed through the porting process
+      
 
 3. Run the interactive scenario tests. Run the tests for at least one graphics API.
 
@@ -60,6 +68,7 @@ Running CTS
     * The runtime must support `khr/simple_controller`. If it cannot be included
       for some reason, use of another interaction profile may be performed
       through the porting process
+      
 
 4. Run the interactive action tests for every interaction profile your runtime
    can bind completely to a device. Run the tests for at least one graphics API.
@@ -81,6 +90,7 @@ Running CTS
      instructions.
    * The interaction profile paths specified with `-I` must have the
      "/interaction_profile/" prefix stripped to avoid a parsing bug in Catch2.
+      
 
 5. Bundle up the conformance test suite output XML files along with the other
    requirements of the OpenXR section of the Conformance Process document
@@ -103,25 +113,25 @@ Details:
    One or more automated test result XML files, 1 per graphics API supported,
    therefore one or more of the following generated output files:
 
-       automated_d3d11.xml
-       automated_d3d12.xml
-       automated_opengl.xml
-       automated_gles.xml
-       automated_vulkan.xml
+        automated_d3d11.xml
+        automated_d3d12.xml
+        automated_opengl.xml
+        automated_gles.xml
+        automated_vulkan.xml
 
    The output XML file(s) from running the interactive tests, 1 per supported
    graphics API, therefore one or more of the following generated output files:
 
-       interactive_composition_d3d11.xml
-       interactive_composition_d3d12.xml
-       interactive_composition_opengl.xml
-       interactive_composition_gles.xml
-       interactive_composition_vulkan.xml
+        interactive_composition_d3d11.xml
+        interactive_composition_d3d12.xml
+        interactive_composition_opengl.xml
+        interactive_composition_gles.xml
+        interactive_composition_vulkan.xml
 
    At least one output file from running the interactive scenario tests on a
    single graphics API (more is better):
 
-       interactive_scenarios.xml
+        interactive_scenarios.xml
 
    The output XML file(s) from running the interactive action tests, 1 per
    supported interaction profile, therefore one or more of the following
@@ -129,37 +139,37 @@ Details:
    have their own controllers though simple_controller is expected to be
    supported at a minimum.
 
-    interactive_action_simple_controller.xml
-    interactive_action_microsoft_xbox_controller.xml
-    interactive_action_microsoft_motion_controller.xml
-    interactive_action_oculus_touch_controller.xml
-    interactive_action_valve_index_controller.xml
-    interactive_action_vive_controller.xml
+        interactive_action_simple_controller.xml
+        interactive_action_microsoft_xbox_controller.xml
+        interactive_action_microsoft_motion_controller.xml
+        interactive_action_oculus_touch_controller.xml
+        interactive_action_valve_index_controller.xml
+        interactive_action_vive_controller.xml
 
 2. Information on the build of conformance used in generating the results:
 
    Files containing the result of the commands, `git status` and `git log` from
    the CTS directory:
 
-       git_status.txt
-       git_log.txt
+        git_status.txt
+        git_log.txt
 
    If there were changes required to pass the conformance test suite, a diff of
    the changes from a build of the suite should be included as well:
 
-       git_diff.txt
+        git_diff.txt
 
 3. Conformance Statement
 
    A file containing information regarding the submission called
    `statement-<adopter>.txt`
 
-       CONFORM_VERSION:         <git tag of CTS release>
-       PRODUCT:                 <string-value>
-       CPU:                     <string-value>
-       OS:                      <string-value>
+        CONFORM_VERSION:         <git tag of CTS release>
+        PRODUCT:                 <string-value>
+        CPU:                     <string-value>
+        OS:                      <string-value>
 
-       WAIVERS:                 <optional> <paragraph describing waiver requests for non-conformant test results>
+        WAIVERS:                 <optional> <paragraph describing waiver requests for non-conformant test results>
 
    The actual submission package consists of the above set of files which must
    be bundled into a gzipped tar file named

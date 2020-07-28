@@ -967,6 +967,10 @@ namespace Conformance
     // enabled by default for instance creation (GlobalData::Options::enabledInstanceExtensionNames).
     bool IsInstanceExtensionEnabled(const char* extensionName);
 
+    // Returns true if the extension of this number is in the list of extensions that are
+    // enabled by default for instance creation (GlobalData::Options::enabledInstanceExtensionNames).
+    bool IsInstanceExtensionEnabled(uint64_t extensionNumber);
+
     // Returns true if the interaction profile is in the list oc interaction profiles that are
     // enabled by default for conformance testing (GlobalDat::Options::enabledInteractionProfiles).
     bool IsInteractionProfileEnabled(const char* interactionProfile);

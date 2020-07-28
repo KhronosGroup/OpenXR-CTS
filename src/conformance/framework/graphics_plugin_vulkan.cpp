@@ -42,6 +42,15 @@
 // Define USE_CHECKPOINTS to use the nvidia checkpoint extension
 //#define USE_CHECKPOINTS
 
+// glslangValidator doesn't wrap its output in brackets if you don't have it define the whole array.
+#if defined(USE_GLSLANGVALIDATOR)
+#define SPV_PREFIX {
+#define SPV_SUFFIX }
+#else
+#define SPV_PREFIX
+#define SPV_SUFFIX
+#endif
+
 namespace Conformance
 {
     static std::string vkResultString(VkResult res)
@@ -1924,12 +1933,12 @@ namespace Conformance
         auto vertexSPIRV = CompileGlslShader("vertex", shaderc_glsl_default_vertex_shader, VertexShaderGlsl);
         auto fragmentSPIRV = CompileGlslShader("fragment", shaderc_glsl_default_fragment_shader, FragmentShaderGlsl);
 #else
-        std::vector<uint32_t> vertexSPIRV =
+        std::vector<uint32_t> vertexSPIRV = SPV_PREFIX
 #include "vert.spv"
-            ;
-        std::vector<uint32_t> fragmentSPIRV =
+            SPV_SUFFIX;
+        std::vector<uint32_t> fragmentSPIRV = SPV_PREFIX
 #include "frag.spv"
-            ;
+            SPV_SUFFIX;
 #endif
         if (vertexSPIRV.empty())
             XRC_THROW("Failed to compile vertex shader");

@@ -39,6 +39,49 @@ namespace
         Complete
     };
 
+    namespace Colors
+    {
+        constexpr XrColor4f Red = {1, 0, 0, 1};
+        constexpr XrColor4f Green = {0, 1, 0, 1};
+        constexpr XrColor4f Blue = {0, 0, 1, 1};
+        constexpr XrColor4f Purple = {1, 0, 1, 1};
+        constexpr XrColor4f Yellow = {1, 1, 0, 1};
+        constexpr XrColor4f Orange = {1, 0.65f, 0, 1};
+        constexpr XrColor4f White = {1, 1, 1, 1};
+        constexpr XrColor4f Transparent = {0, 0, 0, 0};
+
+        // Avoid including red which is a "failure color".
+        constexpr std::array<XrColor4f, 4> UniqueColors{Green, Blue, Yellow, Orange};
+    }  // namespace Colors
+
+    namespace Math
+    {
+        // Do a linear conversion of a number from one range to another range.
+        // e.g. 5 in range [0-8] projected into range (-.6 to 0.6) is 0.15.
+        float LinearMap(int i, int sourceMin, int sourceMax, float targetMin, float targetMax)
+        {
+            float percent = (i - sourceMin) / (float)sourceMax;
+            return targetMin + ((targetMax - targetMin) * percent);
+        }
+
+        constexpr float DegToRad(float degree)
+        {
+            return degree / 180 * MATH_PI;
+        }
+    }  // namespace Math
+
+    namespace Quat
+    {
+        constexpr XrQuaternionf Identity{0, 0, 0, 1};
+
+        XrQuaternionf FromAxisAngle(XrVector3f axis, float radians)
+        {
+            XrQuaternionf rowQuat;
+            XrQuaternionf_CreateFromAxisAngle(&rowQuat, &axis, radians);
+            return rowQuat;
+        }
+    }  // namespace Quat
+
     // Appends composition layers for interacting with interactive composition tests.
     struct InteractiveLayerManager
     {
@@ -90,26 +133,17 @@ namespace
                     exampleSwapchain = compositionHelper.CreateStaticSwapchainImage(image);
                 }
 
-                // Create a quad with a size proportional to the swapchain image.
-                m_exampleQuad.space = m_viewSpace;
-                m_exampleQuad.subImage = m_compositionHelper.MakeDefaultSubImage(exampleSwapchain);
-                m_exampleQuad.size.width = 1.25f;
-                m_exampleQuad.size.height = m_exampleQuad.size.width * m_exampleQuad.subImage.imageRect.extent.height /
-                                            m_exampleQuad.subImage.imageRect.extent.width;
-                m_exampleQuad.pose.position = {0.5f, 0, -1.5f};  // To the right of the help text.
-                XrQuaternionf_CreateFromAxisAngle(&m_exampleQuad.pose.orientation, &Up, -15 * MATH_PI / 180);
+                // Create a quad to the right of the help text.
+                m_exampleQuad = compositionHelper.CreateQuadLayer(exampleSwapchain, m_viewSpace, 1.25f, {Quat::Identity, {0.5f, 0, -1.5f}});
+                XrQuaternionf_CreateFromAxisAngle(&m_exampleQuad->pose.orientation, &Up, -15 * MATH_PI / 180);
             }
 
-            // Set up the quad layer for showing the help text.
-            m_descriptionQuad.layerFlags |= XR_COMPOSITION_LAYER_BLEND_TEXTURE_SOURCE_ALPHA_BIT;
-            m_descriptionQuad.space = m_viewSpace;
-            m_descriptionQuad.subImage = m_compositionHelper.MakeDefaultSubImage(
-                m_compositionHelper.CreateStaticSwapchainImage(CreateTextImage(768, 768, descriptionText, 48)));
-            m_descriptionQuad.size.width = 0.75f;
-            m_descriptionQuad.size.height = m_descriptionQuad.size.width * m_descriptionQuad.subImage.imageRect.extent.height /
-                                            m_descriptionQuad.subImage.imageRect.extent.width;
-            m_descriptionQuad.pose.position = {-0.5f, 0, -1.5f};  // To the left of the example image.
-            XrQuaternionf_CreateFromAxisAngle(&m_descriptionQuad.pose.orientation, &Up, 15 * MATH_PI / 180);
+            // Set up the quad layer for showing the help text to the left of the example image.
+            m_descriptionQuad = compositionHelper.CreateQuadLayer(
+                m_compositionHelper.CreateStaticSwapchainImage(CreateTextImage(768, 768, descriptionText, 48)), m_viewSpace, 0.75f,
+                {Quat::Identity, {-0.5f, 0, -1.5f}});
+            m_descriptionQuad->layerFlags |= XR_COMPOSITION_LAYER_BLEND_TEXTURE_SOURCE_ALPHA_BIT;
+            XrQuaternionf_CreateFromAxisAngle(&m_descriptionQuad->pose.orientation, &Up, 15 * MATH_PI / 180);
 
             constexpr uint32_t actionsWidth = 768, actionsHeight = 128;
             m_sceneActionsSwapchain = compositionHelper.CreateStaticSwapchainImage(
@@ -118,11 +152,9 @@ namespace
                 compositionHelper.CreateStaticSwapchainImage(CreateTextImage(actionsWidth, actionsHeight, "Press select to FAIL", 48));
 
             // Set up the quad layer and swapchain for showing what actions the user can take in the Scene/Help mode.
-            m_actionsQuad.layerFlags |= XR_COMPOSITION_LAYER_BLEND_TEXTURE_SOURCE_ALPHA_BIT;
-            m_actionsQuad.space = m_viewSpace;
-            m_actionsQuad.pose = {{0, 0, 0, 1}, {0, -0.4f, -1}};  // Positioned on lower part of screen.
-            m_actionsQuad.size.width = 0.75f;
-            m_actionsQuad.size.height = m_actionsQuad.size.width * actionsHeight / actionsWidth;
+            m_actionsQuad =
+                compositionHelper.CreateQuadLayer(m_sceneActionsSwapchain, m_viewSpace, 0.75f, {Quat::Identity, {0, -0.4f, -1}});
+            m_actionsQuad->layerFlags |= XR_COMPOSITION_LAYER_BLEND_TEXTURE_SOURCE_ALPHA_BIT;
         }
 
         template <typename T>
@@ -145,8 +177,8 @@ namespace
             // Add layer(s) based on the interaction mode.
             switch (GetLayerMode()) {
             case LayerMode::Scene:
-                m_actionsQuad.subImage = m_compositionHelper.MakeDefaultSubImage(m_sceneActionsSwapchain);
-                layers.push_back(reinterpret_cast<XrCompositionLayerBaseHeader*>(&m_actionsQuad));
+                m_actionsQuad->subImage = m_compositionHelper.MakeDefaultSubImage(m_sceneActionsSwapchain);
+                layers.push_back(reinterpret_cast<XrCompositionLayerBaseHeader*>(m_actionsQuad));
 
                 for (auto& sceneLayer : m_sceneLayers) {
                     layers.push_back(sceneLayer);
@@ -154,11 +186,11 @@ namespace
                 break;
 
             case LayerMode::Help:
-                layers.push_back(reinterpret_cast<XrCompositionLayerBaseHeader*>(&m_descriptionQuad));
-                layers.push_back(reinterpret_cast<XrCompositionLayerBaseHeader*>(&m_exampleQuad));
+                layers.push_back(reinterpret_cast<XrCompositionLayerBaseHeader*>(m_descriptionQuad));
+                layers.push_back(reinterpret_cast<XrCompositionLayerBaseHeader*>(m_exampleQuad));
 
-                m_actionsQuad.subImage = m_compositionHelper.MakeDefaultSubImage(m_helpActionsSwapchain);
-                layers.push_back(reinterpret_cast<XrCompositionLayerBaseHeader*>(&m_actionsQuad));
+                m_actionsQuad->subImage = m_compositionHelper.MakeDefaultSubImage(m_helpActionsSwapchain);
+                layers.push_back(reinterpret_cast<XrCompositionLayerBaseHeader*>(m_actionsQuad));
                 break;
 
             case LayerMode::Complete:
@@ -206,54 +238,11 @@ namespace
         XrSpace m_viewSpace;
         XrSwapchain m_sceneActionsSwapchain;
         XrSwapchain m_helpActionsSwapchain;
-        XrCompositionLayerQuad m_actionsQuad{XR_TYPE_COMPOSITION_LAYER_QUAD};
-        XrCompositionLayerQuad m_descriptionQuad{XR_TYPE_COMPOSITION_LAYER_QUAD};
-        XrCompositionLayerQuad m_exampleQuad{XR_TYPE_COMPOSITION_LAYER_QUAD};
+        XrCompositionLayerQuad* m_actionsQuad;
+        XrCompositionLayerQuad* m_descriptionQuad;
+        XrCompositionLayerQuad* m_exampleQuad;
         std::vector<XrCompositionLayerBaseHeader*> m_sceneLayers;
     };
-
-    namespace Colors
-    {
-        constexpr XrColor4f Red = {1, 0, 0, 1};
-        constexpr XrColor4f Green = {0, 1, 0, 1};
-        constexpr XrColor4f Blue = {0, 0, 1, 1};
-        constexpr XrColor4f Purple = {1, 0, 1, 1};
-        constexpr XrColor4f Yellow = {1, 1, 0, 1};
-        constexpr XrColor4f Orange = {1, 0.65f, 0, 1};
-        constexpr XrColor4f White = {1, 1, 1, 1};
-        constexpr XrColor4f Transparent = {0, 0, 0, 0};
-
-        // Avoid including red which is a "failure color".
-        constexpr std::array<XrColor4f, 4> UniqueColors{Green, Blue, Yellow, Orange};
-    }  // namespace Colors
-
-    namespace Math
-    {
-        // Do a linear conversion of a number from one range to another range.
-        // e.g. 5 in range [0-8] projected into range (-.6 to 0.6) is 0.15.
-        float LinearMap(int i, int sourceMin, int sourceMax, float targetMin, float targetMax)
-        {
-            float percent = (i - sourceMin) / (float)sourceMax;
-            return targetMin + ((targetMax - targetMin) * percent);
-        }
-
-        constexpr float DegToRad(float degree)
-        {
-            return degree / 180 * MATH_PI;
-        }
-    }  // namespace Math
-
-    namespace Quat
-    {
-        constexpr XrQuaternionf Identity{0, 0, 0, 1};
-
-        XrQuaternionf FromAxisAngle(XrVector3f axis, float radians)
-        {
-            XrQuaternionf rowQuat;
-            XrQuaternionf_CreateFromAxisAngle(&rowQuat, &axis, radians);
-            return rowQuat;
-        }
-    }  // namespace Quat
 }  // namespace
 
 namespace Conformance
@@ -280,12 +269,12 @@ namespace Conformance
         // Each quad is rotated on Y axis by 45 degrees to form an X.
         // Green is added second so it should draw over the blue quad.
         const XrQuaternionf blueRot = Quat::FromAxisAngle({0, 1, 0}, Math::DegToRad(-45));
-        interactiveLayerManager.AddLayer(compositionHelper.CreateQuadLayer(blueSwapchain, viewSpace, XrPosef{blueRot, {0, 0, -2}}));
+        interactiveLayerManager.AddLayer(compositionHelper.CreateQuadLayer(blueSwapchain, viewSpace, 1.0f, XrPosef{blueRot, {0, 0, -2}}));
         const XrQuaternionf greenRot = Quat::FromAxisAngle({0, 1, 0}, Math::DegToRad(45));
-        interactiveLayerManager.AddLayer(compositionHelper.CreateQuadLayer(greenSwapchain, viewSpace, XrPosef{greenRot, {0, 0, -2}}));
+        interactiveLayerManager.AddLayer(compositionHelper.CreateQuadLayer(greenSwapchain, viewSpace, 1.0f, XrPosef{greenRot, {0, 0, -2}}));
         // Red quad is rotated away from the viewer and should not be visible.
         const XrQuaternionf redRot = Quat::FromAxisAngle({0, 1, 0}, Math::DegToRad(180));
-        interactiveLayerManager.AddLayer(compositionHelper.CreateQuadLayer(redSwapchain, viewSpace, XrPosef{redRot, {0, 0, -1}}));
+        interactiveLayerManager.AddLayer(compositionHelper.CreateQuadLayer(redSwapchain, viewSpace, 1.0f, XrPosef{redRot, {0, 0, -1}}));
 
         RenderLoop(compositionHelper.GetSession(),
                    [&](const XrFrameState& frameState) { return interactiveLayerManager.EndFrame(frameState); })
@@ -328,12 +317,10 @@ namespace Conformance
             const XrSpace viewSpacePose1 = compositionHelper.CreateReferenceSpace(XR_REFERENCE_SPACE_TYPE_VIEW, pose1);
             const XrSpace viewSpacePose2 = compositionHelper.CreateReferenceSpace(XR_REFERENCE_SPACE_TYPE_VIEW, pose2);
 
-            auto quad1 = compositionHelper.CreateQuadLayer((i % 2) == 0 ? blueSwapchain : greenSwapchain, viewSpacePose1, pose2);
-            quad1->size = {0.25f, 0.25f};
+            auto quad1 = compositionHelper.CreateQuadLayer((i % 2) == 0 ? blueSwapchain : greenSwapchain, viewSpacePose1, 0.25f, pose2);
             interactiveLayerManager.AddLayer(quad1);
 
-            auto quad2 = compositionHelper.CreateQuadLayer((i % 2) == 0 ? orangeSwapchain : yellowSwapchain, viewSpacePose2, pose1);
-            quad2->size = {0.25f, 0.25f};
+            auto quad2 = compositionHelper.CreateQuadLayer((i % 2) == 0 ? orangeSwapchain : yellowSwapchain, viewSpacePose2, 0.25f, pose1);
             interactiveLayerManager.AddLayer(quad2);
         }
 
@@ -368,7 +355,7 @@ namespace Conformance
 
             const XrSwapchain answerSwapchain = compositionHelper.CreateStaticSwapchainImage(blueGradientOverGreen);
             interactiveLayerManager.AddLayer(
-                compositionHelper.CreateQuadLayer(answerSwapchain, viewSpace, XrPosef{Quat::Identity, {0, 0, QuadZ}}));
+                compositionHelper.CreateQuadLayer(answerSwapchain, viewSpace, 1.0f, XrPosef{Quat::Identity, {0, 0, QuadZ}}));
         }
 
         auto createGradientTest = [&](bool premultiplied, float x, float y) {
@@ -376,7 +363,7 @@ namespace Conformance
             {
                 const XrSwapchain greenSwapchain = compositionHelper.CreateStaticSwapchainSolidColor(Colors::Green);
                 interactiveLayerManager.AddLayer(
-                    compositionHelper.CreateQuadLayer(greenSwapchain, viewSpace, XrPosef{Quat::Identity, {x, y, QuadZ}}));
+                    compositionHelper.CreateQuadLayer(greenSwapchain, viewSpace, 1.0f, XrPosef{Quat::Identity, {x, y, QuadZ}}));
             }
 
             // Create gradient of blue lines from 0.0 to 1.0.
@@ -393,7 +380,7 @@ namespace Conformance
 
                 const XrSwapchain gradientSwapchain = compositionHelper.CreateStaticSwapchainImage(blueGradient);
                 XrCompositionLayerQuad* gradientQuad =
-                    compositionHelper.CreateQuadLayer(gradientSwapchain, viewSpace, XrPosef{Quat::Identity, {x, y, QuadZ}});
+                    compositionHelper.CreateQuadLayer(gradientSwapchain, viewSpace, 1.0f, XrPosef{Quat::Identity, {x, y, QuadZ}});
 
                 gradientQuad->layerFlags |= XR_COMPOSITION_LAYER_BLEND_TEXTURE_SOURCE_ALPHA_BIT;
                 if (!premultiplied) {
@@ -425,12 +412,14 @@ namespace Conformance
         const XrSpace viewSpace = compositionHelper.CreateReferenceSpace(XR_REFERENCE_SPACE_TYPE_VIEW);
 
         const XrSwapchain greenSwapchain = compositionHelper.CreateStaticSwapchainSolidColor(Colors::Green);
-        XrCompositionLayerQuad* quad1 = compositionHelper.CreateQuadLayer(greenSwapchain, viewSpace, XrPosef{Quat::Identity, {-1, 0, -2}});
+        XrCompositionLayerQuad* quad1 =
+            compositionHelper.CreateQuadLayer(greenSwapchain, viewSpace, 1.0f, XrPosef{Quat::Identity, {-1, 0, -2}});
         quad1->eyeVisibility = XR_EYE_VISIBILITY_LEFT;
         interactiveLayerManager.AddLayer(quad1);
 
         const XrSwapchain blueSwapchain = compositionHelper.CreateStaticSwapchainSolidColor(Colors::Blue);
-        XrCompositionLayerQuad* quad2 = compositionHelper.CreateQuadLayer(blueSwapchain, viewSpace, XrPosef{Quat::Identity, {1, 0, -2}});
+        XrCompositionLayerQuad* quad2 =
+            compositionHelper.CreateQuadLayer(blueSwapchain, viewSpace, 1.0f, XrPosef{Quat::Identity, {1, 0, -2}});
         quad2->eyeVisibility = XR_EYE_VISIBILITY_RIGHT;
         interactiveLayerManager.AddLayer(quad2);
 
@@ -490,10 +479,11 @@ namespace Conformance
                     const float quadX = Math::LinearMap(x, 0, ImageColCount - 1, -2.0f, 2.0f);
                     const float quadY = Math::LinearMap(arraySlice, 0, ImageArrayCount - 1, 0.75f, -0.75f);
                     XrCompositionLayerQuad* const quad =
-                        compositionHelper.CreateQuadLayer(swapchain, viewSpace, XrPosef{Quat::Identity, {quadX, quadY, QuadZ}});
+                        compositionHelper.CreateQuadLayer(swapchain, viewSpace, 1.0f, XrPosef{Quat::Identity, {quadX, quadY, QuadZ}});
                     quad->layerFlags |= XR_COMPOSITION_LAYER_BLEND_TEXTURE_SOURCE_ALPHA_BIT;
                     quad->subImage.imageArrayIndex = arraySlice;
                     quad->subImage.imageRect = numberRect;
+                    quad->size.height = 1.0f;  // Height needs to be corrected since the imageRect is customized.
                     interactiveLayerManager.AddLayer(quad);
                 }
 
@@ -535,14 +525,17 @@ namespace Conformance
 
         // Create swapchain with array type.
         auto swapchainCreateInfo = compositionHelper.DefaultColorSwapchainCreateInfo(maxWidth, maxHeight);
-        swapchainCreateInfo.arraySize = (uint32_t)viewProperties.size();
+        swapchainCreateInfo.arraySize = (uint32_t)viewProperties.size() * 3;
         const XrSwapchain swapchain = compositionHelper.CreateSwapchain(swapchainCreateInfo);
 
         // Set up the projection layer
         XrCompositionLayerProjection* const projLayer = compositionHelper.CreateProjectionLayer(localSpace);
         for (uint32_t j = 0; j < projLayer->viewCount; j++) {
-            const_cast<XrSwapchainSubImage&>(projLayer->views[j].subImage) =
-                compositionHelper.MakeDefaultSubImage(swapchain, j /* array index */);
+            // Use non-contiguous array indices to ferret out any assumptions that implementations are making
+            // about array indices. In particular 0 != left and 1 != right, but this should test for other
+            // assumptions too.
+            uint32_t arrayIndex = swapchainCreateInfo.arraySize - (j * 2 + 1);
+            const_cast<XrSwapchainSubImage&>(projLayer->views[j].subImage) = compositionHelper.MakeDefaultSubImage(swapchain, arrayIndex);
         }
 
         const std::vector<Cube> cubes = {Cube::Make({-1, 0, -2}), Cube::Make({1, 0, -2}), Cube::Make({0, -1, -2}), Cube::Make({0, 1, -2})};
@@ -560,7 +553,8 @@ namespace Conformance
                 compositionHelper.AcquireWaitReleaseImage(
                     swapchain, [&](const XrSwapchainImageBaseHeader* swapchainImage, uint64_t format) {
                         for (uint32_t slice = 0; slice < (uint32_t)views.size(); slice++) {
-                            GetGlobalData().graphicsPlugin->ClearImageSlice(swapchainImage, slice, format);
+                            GetGlobalData().graphicsPlugin->ClearImageSlice(swapchainImage,
+                                                                            projLayer->views[slice].subImage.imageArrayIndex, format);
 
                             const_cast<XrFovf&>(projLayer->views[slice].fov) = views[slice].fov;
                             const_cast<XrPosef&>(projLayer->views[slice].pose) = views[slice].pose;
@@ -725,19 +719,13 @@ namespace Conformance
         }
 
         // Create 10x10cm L and R quads
-        XrCompositionLayerQuad* const leftQuadLayer = compositionHelper.CreateQuadLayer(
-            compositionHelper.CreateStaticSwapchainImage(CreateTextImage(64, 64, "L", 48)), simpleProjectionLayerHelper.GetLocalSpace());
-        leftQuadLayer->space = gripSpaces[0];
-        leftQuadLayer->size.width = 0.1f;
-        leftQuadLayer->size.height = 0.1f;
-        leftQuadLayer->pose.position = {0, 0, 0.1f};
+        XrCompositionLayerQuad* const leftQuadLayer =
+            compositionHelper.CreateQuadLayer(compositionHelper.CreateStaticSwapchainImage(CreateTextImage(64, 64, "L", 48)), gripSpaces[0],
+                                              0.1f, {Quat::Identity, {0, 0, 0.1f}});
 
-        XrCompositionLayerQuad* const rightQuadLayer = compositionHelper.CreateQuadLayer(
-            compositionHelper.CreateStaticSwapchainImage(CreateTextImage(64, 64, "R", 48)), simpleProjectionLayerHelper.GetLocalSpace());
-        rightQuadLayer->space = gripSpaces[1];
-        rightQuadLayer->size.width = 0.1f;
-        rightQuadLayer->size.height = 0.1f;
-        rightQuadLayer->pose.position = {0, 0, 0.1f};
+        XrCompositionLayerQuad* const rightQuadLayer =
+            compositionHelper.CreateQuadLayer(compositionHelper.CreateStaticSwapchainImage(CreateTextImage(64, 64, "R", 48)), gripSpaces[1],
+                                              0.1f, {Quat::Identity, {0, 0, 0.1f}});
 
         interactiveLayerManager.AddLayer(leftQuadLayer);
         interactiveLayerManager.AddLayer(rightQuadLayer);

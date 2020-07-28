@@ -107,6 +107,7 @@ namespace Conformance
         AppendSprintf(reportString, "Tested view configuration: %s\n", globalData.options.viewConfiguration.c_str());
         AppendSprintf(reportString, "Tested environment blend mode: %s\n", globalData.options.environmentBlendMode.c_str());
         AppendSprintf(reportString, "Handle invalidation tested: %s\n", globalData.options.invalidHandleValidation ? "yes" : "no");
+        AppendSprintf(reportString, "Non-disconnectable devices: %s\n", globalData.options.nonDisconnectableDevices ? "yes" : "no");
         AppendSprintf(reportString, "Test Success Count: %d\n", (int)testSuccessCount);
         AppendSprintf(reportString, "Test Failure Count: %d\n", (int)testFailureCount);
 

@@ -50,7 +50,7 @@ namespace session
 
     CustomSessionState* GetCustomSessionState(XrSession handle)
     {
-        return reinterpret_cast<CustomSessionState*>(GetSessionState(handle)->customState.get());
+        return dynamic_cast<CustomSessionState*>(GetSessionState(handle)->customState.get());
     }
 
     void SessionStateChanged(ConformanceHooksBase* conformanceHooks, const XrEventDataSessionStateChanged* sessionStateChanged)

@@ -119,13 +119,13 @@ getDocsFilenames() {
         | grep -v "vuid[.]adoc" \
         | grep -v "CMakeLists.txt" \
         | grep -v "ubmitted" \
-        | grep -v "compare"
+        | grep -v "compare" \
+        | grep -v "JP\.jpg"
 }
 
 getSDKSourceFilenames() {
     # The src directory, plus the minimum subset of the specification directory
     # required to build those tools
-    # TODO need a mention in the spec folder about how it's not under the same license (?)
     git ls-files \
         $COMMON_FILES \
         BUILDING.md \

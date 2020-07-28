@@ -86,6 +86,11 @@ if(TARGET openxr-gfxwrapper)
     target_link_libraries(conformance_test PRIVATE openxr-gfxwrapper)
 endif()
 
+if(GLSLANG_VALIDATOR AND NOT GLSLC_COMMAND)
+    target_compile_definitions(conformance_test PRIVATE USE_GLSLANGVALIDATOR)
+endif()
+
+
 if(WIN32)
     target_compile_definitions(conformance_test PRIVATE _CRT_SECURE_NO_WARNINGS)
     if(MSVC)
