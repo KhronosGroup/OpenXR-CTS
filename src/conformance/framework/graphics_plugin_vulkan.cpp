@@ -35,7 +35,7 @@
 #endif
 
 #if defined(VK_USE_PLATFORM_WIN32_KHR)
-// Define USE_MIRROR_WINDOW to open a dummy window for e.g. RenderDoc
+// Define USE_MIRROR_WINDOW to open an otherwise-unused window for e.g. RenderDoc
 //#define USE_MIRROR_WINDOW
 #endif
 
@@ -649,7 +649,7 @@ namespace Conformance
                 at[colorRef.attachment].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
                 at[colorRef.attachment].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
                 at[colorRef.attachment].stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-                at[colorRef.attachment].initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+                at[colorRef.attachment].initialLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
                 at[colorRef.attachment].finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
                 subpass.colorAttachmentCount = 1;
@@ -665,7 +665,7 @@ namespace Conformance
                 at[depthRef.attachment].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
                 at[depthRef.attachment].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
                 at[depthRef.attachment].stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-                at[depthRef.attachment].initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+                at[depthRef.attachment].initialLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
                 at[depthRef.attachment].finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
                 subpass.pDepthStencilAttachment = &depthRef;
@@ -1079,11 +1079,30 @@ namespace Conformance
             XRC_CHECK_THROW_VKCMD(vkBindImageMemory(device, depthImage, depthMemory, 0));
         }
 
+        void TransitionLayout(CmdBuffer* cmdBuffer, VkImageLayout newLayout)
+        {
+            if (newLayout == m_vkLayout) {
+                return;
+            }
+
+            VkImageMemoryBarrier depthBarrier{VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
+            depthBarrier.srcAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+            depthBarrier.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT;
+            depthBarrier.oldLayout = m_vkLayout;
+            depthBarrier.newLayout = newLayout;
+            depthBarrier.image = depthImage;
+            depthBarrier.subresourceRange = {VK_IMAGE_ASPECT_DEPTH_BIT, 0, 1, 0, 1};
+            vkCmdPipelineBarrier(cmdBuffer->buf, VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT, VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT, 0, 0, nullptr, 0,
+                                 nullptr, 1, &depthBarrier);
+
+            m_vkLayout = newLayout;
+        }
         DepthBuffer(const DepthBuffer&) = delete;
         DepthBuffer& operator=(const DepthBuffer&) = delete;
 
     private:
         VkDevice m_vkDevice{VK_NULL_HANDLE};
+        VkImageLayout m_vkLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     };
 
     struct SwapchainImageContext : public IGraphicsPlugin::SwapchainImageStructs
@@ -2509,6 +2528,10 @@ namespace Conformance
 
         VkRect2D renderArea = {{0, 0}, {swapchainContext->size.width, swapchainContext->size.height}};
         SetViewportAndScissor(renderArea);
+
+        // Ensure depth is in the right layout
+        DepthBuffer& depthBuffer = swapchainContext->slice[imageArrayIndex].depthBuffer;
+        depthBuffer.TransitionLayout(&m_cmdBuffer, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
 
         // Bind eye render target
         VkRenderPassBeginInfo renderPassBeginInfo{VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO};

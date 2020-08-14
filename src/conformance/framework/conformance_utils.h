@@ -238,7 +238,7 @@ namespace Conformance
     XrResult CreateActionSet(XrInstance instance, XrActionSet* actionSet, std::vector<XrAction>* actionVector,
                              const XrPath* subactionPathArray = nullptr, size_t subactionPathArraySize = 0);
 
-    // Dummy type used to provide a unique identity for XR_NULL_HANDLE, for comparisons, etc.
+    // Proxy type used to provide a unique identity for XR_NULL_HANDLE, for comparisons, etc.
     // Implicitly convertible to XR_NULL_HANDLE in all the places you want.
     //
     // Typically just use the instance XR_NULL_HANDLE_CPP

@@ -17,6 +17,7 @@
 #include "utils.h"
 #include "conformance_utils.h"
 #include "conformance_framework.h"
+#include "matchers.h"
 #include <array>
 #include <vector>
 #include <set>
@@ -80,9 +81,14 @@ namespace Conformance
                 // Happens if the application tries to create the session but hasn't queried the graphics requirements (e.g.
                 // xrGetD3D12GraphicsRequirementsKHR). This spec states that applications must call this, but
                 // how we enforce it in conformance testing is problematic because a specific return code isn't specified.
-                graphicsPlugin->InitializeDevice(instance, systemId, false);
+                graphicsPlugin->InitializeDevice(instance, systemId, false /* checkGraphicsRequirements */);
                 sessionCreateInfo.next = graphicsPlugin->GetGraphicsBinding();
-                CHECK(xrCreateSession(instance, &sessionCreateInfo, &session) == XR_ERROR_VALIDATION_FAILURE);
+                XrResult sessionResult = xrCreateSession(instance, &sessionCreateInfo, &session);
+                CHECK_THAT(sessionResult, In<XrResult>({XR_ERROR_VALIDATION_FAILURE, XR_ERROR_GRAPHICS_REQUIREMENTS_CALL_MISSING}));
+                if (sessionResult == XR_ERROR_VALIDATION_FAILURE) {
+                    WARN("Runtime should prefer XR_ERROR_GRAPHICS_REQUIREMENTS_CALL_MISSING over XR_ERROR_VALIDATION_FAILURE");
+                }
+
                 cleanup.Destroy();
                 graphicsPlugin->ShutdownDevice();
             }

@@ -183,8 +183,8 @@ namespace Conformance
             {
                 if (countOutput >= 2) {  // Need at least two in order to exercise XR_ERROR_SIZE_INSUFFICIENT
                     CHECK_MSG(xrEnumerateSwapchainFormats(session, 1, &countOutput, imageFormatArray.data()), XR_ERROR_SIZE_INSUFFICIENT);
-                    INFO("Should not overwrite dummy data");
-                    CHECK_MSG(imageFormatArray[1] == imageFormatInvalid, "Should not overwrite dummy data.");
+                    INFO("Should not overwrite input data");
+                    CHECK_MSG(imageFormatArray[1] == imageFormatInvalid, "Should not overwrite input data.");
                     CHECK_MSG(countOutput == imageFormatArray.size(), "Should not change required size unexpectectedly.");
                 }
 

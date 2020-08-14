@@ -421,7 +421,7 @@ namespace Conformance
                                                                    reinterpret_cast<void**>(rootSignature.ReleaseAndGetAddressOf())));
 
             D3D12SwapchainImageStructs initializeContext;
-            std::vector<XrSwapchainImageBaseHeader*> dummy = initializeContext.Create(d3d12Device.Get(), 1);
+            std::vector<XrSwapchainImageBaseHeader*> _ = initializeContext.Create(d3d12Device.Get(), 1);
 
             ComPtr<ID3D12GraphicsCommandList> cmdList;
             XRC_CHECK_THROW_HRCMD(d3d12Device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, initializeContext.GetCommandAllocator(),

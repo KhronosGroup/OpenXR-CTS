@@ -32,11 +32,11 @@ namespace Conformance
         // Get all supported reference space types and exercise them.
         auto spaceTypeVector = CHECK_TWO_CALL(XrReferenceSpaceType, {}, xrEnumerateReferenceSpaces, session);
 
-        XrExtent2Df bound_dummy{-1.f, -1.f};
+        XrExtent2Df extent{-1.f, -1.f};
         // Note: View has to be supported and we already checked this in the xrEnumerateReferenceSpaces tests.
 
         // Max is not a valid reference space.
-        result = xrGetReferenceSpaceBoundsRect(session, XR_REFERENCE_SPACE_TYPE_MAX_ENUM, &bound_dummy);
+        result = xrGetReferenceSpaceBoundsRect(session, XR_REFERENCE_SPACE_TYPE_MAX_ENUM, &extent);
         REQUIRE_THAT(result, In<XrResult>({XR_ERROR_VALIDATION_FAILURE, XR_ERROR_REFERENCE_SPACE_UNSUPPORTED}));
         if (result == XR_ERROR_REFERENCE_SPACE_UNSUPPORTED) {
             WARN("Runtime accepted an invalid max enum value as unsupported, which make it harder for apps to reason about the error.");
@@ -46,11 +46,11 @@ namespace Conformance
         OPTIONAL_INVALID_HANDLE_VALIDATION_SECTION
         {
             // Exercise a NULL handle:
-            result = xrGetReferenceSpaceBoundsRect(XR_NULL_HANDLE_CPP, XR_REFERENCE_SPACE_TYPE_VIEW, &bound_dummy);
+            result = xrGetReferenceSpaceBoundsRect(XR_NULL_HANDLE_CPP, XR_REFERENCE_SPACE_TYPE_VIEW, &extent);
             CHECK(result == XR_ERROR_HANDLE_INVALID);
 
             // Exercise other invalid handles.
-            result = xrGetReferenceSpaceBoundsRect(GlobalData().invalidSession, XR_REFERENCE_SPACE_TYPE_VIEW, &bound_dummy);
+            result = xrGetReferenceSpaceBoundsRect(GlobalData().invalidSession, XR_REFERENCE_SPACE_TYPE_VIEW, &extent);
             CHECK(result == XR_ERROR_HANDLE_INVALID);
         }
 

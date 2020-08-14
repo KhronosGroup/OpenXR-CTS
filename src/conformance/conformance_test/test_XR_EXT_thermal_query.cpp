@@ -61,7 +61,7 @@ namespace Conformance
             CHECK(((notificationLevel == XR_PERF_SETTINGS_NOTIF_LEVEL_NORMAL_EXT) ||
                    (notificationLevel == XR_PERF_SETTINGS_NOTIF_LEVEL_WARNING_EXT) ||
                    (notificationLevel == XR_PERF_SETTINGS_NOTIF_LEVEL_IMPAIRED_EXT)));
-            CHECK(tempHeadroom < 100000);  // Sanity check values.
+            CHECK(tempHeadroom < 100000);  // Check that values are reasonable
             CHECK(tempSlope < 1000);
 
             // XR_PERF_SETTINGS_DOMAIN_GPU_EXT
@@ -78,7 +78,7 @@ namespace Conformance
             CHECK(((notificationLevel == XR_PERF_SETTINGS_NOTIF_LEVEL_NORMAL_EXT) ||
                    (notificationLevel == XR_PERF_SETTINGS_NOTIF_LEVEL_WARNING_EXT) ||
                    (notificationLevel == XR_PERF_SETTINGS_NOTIF_LEVEL_IMPAIRED_EXT)));
-            CHECK(tempHeadroom < 100000);  // Sanity check values.
+            CHECK(tempHeadroom < 100000);  // Check that values are reasonable
             CHECK(tempSlope < 1000);
         }
 

@@ -62,15 +62,6 @@ namespace Conformance
         XrSessionCreateInfo sessionCreateInfo{XR_TYPE_SESSION_CREATE_INFO, nullptr, 0, systemId};
         CleanupSessionOnScopeExit cleanup(session);
 
-        SECTION("xrGetD3D11GraphicsRequirementsKHR not called")
-        {
-            graphicsPlugin->InitializeDevice(instance, systemId, false);
-            sessionCreateInfo.next = graphicsPlugin->GetGraphicsBinding();
-            CHECK(xrCreateSession(instance, &sessionCreateInfo, &session) == XR_ERROR_VALIDATION_FAILURE);
-            cleanup.Destroy();
-            graphicsPlugin->ShutdownDevice();
-        }
-
         SECTION("No graphics binding")
         {
             graphicsPlugin->InitializeDevice(instance, systemId, true);
