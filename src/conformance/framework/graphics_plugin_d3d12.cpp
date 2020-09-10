@@ -964,8 +964,8 @@ namespace Conformance
 
             // Set cube primitive data.
             const D3D12_VERTEX_BUFFER_VIEW vertexBufferView[] = {
-                {cubeVertexBuffer->GetGPUVirtualAddress(), (uint32_t)(Geometry::c_cubeVertices.size() * sizeof(Geometry::c_cubeVertices[0])),
-                 sizeof(Geometry::Vertex)}};
+                {cubeVertexBuffer->GetGPUVirtualAddress(),
+                 (uint32_t)(Geometry::c_cubeVertices.size() * sizeof(Geometry::c_cubeVertices[0])), sizeof(Geometry::Vertex)}};
             cmdList->IASetVertexBuffers(0, (UINT)ArraySize(vertexBufferView), vertexBufferView);
 
             D3D12_INDEX_BUFFER_VIEW indexBufferView{cubeIndexBuffer->GetGPUVirtualAddress(),
