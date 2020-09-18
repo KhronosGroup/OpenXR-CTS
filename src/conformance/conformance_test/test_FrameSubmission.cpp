@@ -235,6 +235,8 @@ namespace Conformance
         ns totalFrameDisplayPeriod(0), totalWaitTime(0);
         Stopwatch frameLoopTimer;
 
+        XrResult appThreadResult = XR_SUCCESS;
+
         auto appThread = std::thread([&]() {
             ATTACH_THREAD;
             auto queueFrameRender = [&](const XrFrameState& frameState) {
@@ -248,7 +250,8 @@ namespace Conformance
             // Initially prime things by submitting 180 frames without measuring performance.
             for (int frame = 0; frame < warmupFrameCount; ++frame) {
                 XrFrameState frameState{XR_TYPE_FRAME_STATE};
-                REQUIRE_RESULT_SUCCEEDED(xrWaitFrame(compositionHelper.GetSession(), nullptr, &frameState));
+                XrResult result = xrWaitFrame(compositionHelper.GetSession(), nullptr, &frameState);
+                appThreadResult = (appThreadResult == XR_SUCCESS) ? result : appThreadResult;
 
                 // Mimic a lot of time spent in game "simulation" phase.
                 YieldSleep(Stopwatch(true), ns((int32_t)(frameState.predictedDisplayPeriod * waitBlockPercentage)));
@@ -263,7 +266,9 @@ namespace Conformance
                 XrFrameState frameState{XR_TYPE_FRAME_STATE};
                 {
                     Stopwatch waitTimer(true);
-                    REQUIRE_RESULT_SUCCEEDED(xrWaitFrame(compositionHelper.GetSession(), nullptr, &frameState));
+                    XrResult result = xrWaitFrame(compositionHelper.GetSession(), nullptr, &frameState);
+                    appThreadResult = (appThreadResult == XR_SUCCESS) ? result : appThreadResult;
+
                     totalWaitTime += waitTimer.Elapsed();
                 }
 
@@ -314,6 +319,7 @@ namespace Conformance
         frameLoopTimer.Stop();
         if (appThread.joinable()) {
             appThread.join();
+            REQUIRE_RESULT_SUCCEEDED(appThreadResult);
         }
 
         const ns averageWaitTime = totalWaitTime / testFrameCount;
