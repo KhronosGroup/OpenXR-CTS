@@ -241,7 +241,7 @@ namespace Conformance
                             XrSwapchain swapchain;
                             XrResult result = xrCreateSwapchain(session, &swapchainCreateInfo, &swapchain);
                             CHECK(ValidateResultAllowed("xrCreateSwapchain", result));
-                            REQUIRE(((result == XR_SUCCESS) || (result == XR_ERROR_FEATURE_UNSUPPORTED)));
+                            REQUIRE_RESULT_SUCCEEDED(result);
 
                             if (XR_SUCCEEDED(result)) {
                                 TestSwapchainHandle(imageFormat, &tp, &swapchainCreateInfo, swapchain);
