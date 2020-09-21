@@ -250,8 +250,11 @@ namespace Conformance
             // Initially prime things by submitting 180 frames without measuring performance.
             for (int frame = 0; frame < warmupFrameCount; ++frame) {
                 XrFrameState frameState{XR_TYPE_FRAME_STATE};
-                XrResult result = xrWaitFrame(compositionHelper.GetSession(), nullptr, &frameState);
-                appThreadResult = (appThreadResult == XR_SUCCESS) ? result : appThreadResult;
+                appThreadResult = xrWaitFrame(compositionHelper.GetSession(), nullptr, &frameState);
+                if (appThreadResult != XR_SUCCESS) {
+                    DETACH_THREAD
+                    return;
+                }
 
                 // Mimic a lot of time spent in game "simulation" phase.
                 YieldSleep(Stopwatch(true), ns((int32_t)(frameState.predictedDisplayPeriod * waitBlockPercentage)));
@@ -266,8 +269,11 @@ namespace Conformance
                 XrFrameState frameState{XR_TYPE_FRAME_STATE};
                 {
                     Stopwatch waitTimer(true);
-                    XrResult result = xrWaitFrame(compositionHelper.GetSession(), nullptr, &frameState);
-                    appThreadResult = (appThreadResult == XR_SUCCESS) ? result : appThreadResult;
+                    appThreadResult = xrWaitFrame(compositionHelper.GetSession(), nullptr, &frameState);
+                    if (appThreadResult != XR_SUCCESS) {
+                        DETACH_THREAD
+                        return;
+                    }
 
                     totalWaitTime += waitTimer.Elapsed();
                 }
