@@ -1,0 +1,1 @@
+Fix some interactive tests like "Grip and Aim Pose" which exposed D3D12 validation errors due to bugs in the D3D12 graphics plugin.
