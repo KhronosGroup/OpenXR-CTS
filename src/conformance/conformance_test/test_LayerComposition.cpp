@@ -750,4 +750,92 @@ namespace Conformance
 
         RenderLoop(compositionHelper.GetSession(), updateLayers).Loop();
     }
+
+    TEST_CASE("Projection Mutable Field-of-View", "[.][composition][interactive]")
+    {
+        CompositionHelper compositionHelper("Projection Mutable Field-of-View");
+        InteractiveLayerManager interactiveLayerManager(compositionHelper, "projection_mutable.png",
+                                                        "Uses mutable field-of-views for each projection layer view.");
+        compositionHelper.GetInteractionManager().AttachActionSets();
+        compositionHelper.BeginSession();
+
+        const XrSpace localSpace =
+            compositionHelper.CreateReferenceSpace(XR_REFERENCE_SPACE_TYPE_LOCAL, XrPosef{Quat::Identity, {0, 0, 0}});
+
+        if (!compositionHelper.GetViewConfigurationProperties().fovMutable) {
+            return;
+        }
+
+        const std::vector<XrViewConfigurationView> viewProperties = compositionHelper.EnumerateConfigurationViews();
+
+        const auto totalWidth =
+            std::accumulate(viewProperties.begin(), viewProperties.end(), 0,
+                            [](uint32_t l, const XrViewConfigurationView& r) { return l + r.recommendedImageRectWidth; });
+        // Because a single swapchain is being used for all views the maximum height must be used.
+        const auto maxHeight = std::max_element(viewProperties.begin(), viewProperties.end(),
+                                                [](const XrViewConfigurationView& l, const XrViewConfigurationView& r) {
+                                                    return l.recommendedImageRectHeight < r.recommendedImageRectHeight;
+                                                })
+                                   ->recommendedImageRectHeight;
+
+        // Create wide swapchain.
+        const XrSwapchain swapchain =
+            compositionHelper.CreateSwapchain(compositionHelper.DefaultColorSwapchainCreateInfo(totalWidth, maxHeight));
+
+        XrCompositionLayerProjection* const projLayer = compositionHelper.CreateProjectionLayer(localSpace);
+        int x = 0;
+        for (uint32_t j = 0; j < projLayer->viewCount; j++) {
+            XrSwapchainSubImage subImage = compositionHelper.MakeDefaultSubImage(swapchain, 0);
+            subImage.imageRect.offset = {x, 0};
+            subImage.imageRect.extent = {(int32_t)viewProperties[j].recommendedImageRectWidth,
+                                         (int32_t)viewProperties[j].recommendedImageRectHeight};
+            const_cast<XrSwapchainSubImage&>(projLayer->views[j].subImage) = subImage;
+            x += subImage.imageRect.extent.width;  // Each view is to the left of the previous view.
+        }
+
+        const std::vector<Cube> cubes = {Cube::Make({-.2f, .2f, -2}), Cube::Make({.2f, .2f, -2}), Cube::Make({0, -.1f, -2})};
+
+        auto updateLayers = [&](const XrFrameState& frameState) {
+            auto viewData = compositionHelper.LocateViews(localSpace, frameState.predictedDisplayTime);
+            const auto& viewState = std::get<XrViewState>(viewData);
+
+            std::vector<XrCompositionLayerBaseHeader*> layers;
+            if (viewState.viewStateFlags & XR_VIEW_STATE_POSITION_VALID_BIT &&
+                viewState.viewStateFlags & XR_VIEW_STATE_ORIENTATION_VALID_BIT) {
+                const auto& views = std::get<std::vector<XrView>>(viewData);
+
+                // Render into each view port of the wide swapchain using the projection layer view fov and pose.
+                compositionHelper.AcquireWaitReleaseImage(
+                    swapchain, [&](const XrSwapchainImageBaseHeader* swapchainImage, uint64_t format) {
+                        GetGlobalData().graphicsPlugin->ClearImageSlice(swapchainImage, 0, format);
+                        for (size_t view = 0; view < views.size(); view++) {
+                            const_cast<XrFovf&>(projLayer->views[view].fov) = views[view].fov;
+                            const_cast<XrPosef&>(projLayer->views[view].pose) = views[view].pose;
+
+                            // Invert our render pose since we're going to submit this layer up-side down
+                            const_cast<float&>(projLayer->views[view].pose.orientation.y) *= -1.0f;
+
+                            // Reduce the field-of-view by half
+                            const_cast<float&>(projLayer->views[view].fov.angleUp) *= 0.5f;
+                            const_cast<float&>(projLayer->views[view].fov.angleDown) *= 0.5f;
+                            const_cast<float&>(projLayer->views[view].fov.angleLeft) *= 0.5f;
+                            const_cast<float&>(projLayer->views[view].fov.angleRight) *= 0.5f;
+
+                            GetGlobalData().graphicsPlugin->RenderView(projLayer->views[view], swapchainImage, format, cubes);
+                        }
+                    });
+
+                // Invert the pose back and flip the layer
+                for (size_t view = 0; view < views.size(); view++) {
+                    std::swap(const_cast<float&>(projLayer->views[view].fov.angleUp),
+                              const_cast<float&>(projLayer->views[view].fov.angleDown));
+                    const_cast<float&>(projLayer->views[view].pose.orientation.y) *= -1.0f;
+                }
+                layers.push_back(reinterpret_cast<XrCompositionLayerBaseHeader*>(projLayer));
+            }
+            return interactiveLayerManager.EndFrame(frameState, layers);
+        };
+
+        RenderLoop(compositionHelper.GetSession(), updateLayers).Loop();
+    }
 }  // namespace Conformance

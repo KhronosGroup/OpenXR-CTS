@@ -43,7 +43,6 @@
 #include <android_native_app_glue.h>
 
 #include <openxr/openxr.h>
-#include <openxr/openxr_oculus.h>
 #include <openxr/openxr_platform.h>
 
 #include <conformance_test.h>
@@ -220,14 +219,17 @@ void android_main(struct android_app* app)
     app->onAppCmd = app_handle_cmd;
     app->onInputEvent = app_handle_input;
 
-    // Initialize the loader for this platform
-    XrLoaderInitializeInfoAndroidOCULUS loaderInitializeInfoAndroid;
-    memset(&loaderInitializeInfoAndroid, 0, sizeof(loaderInitializeInfoAndroid));
-    loaderInitializeInfoAndroid.type = XR_TYPE_LOADER_INITIALIZE_INFO_ANDROID_OCULUS;
-    loaderInitializeInfoAndroid.next = NULL;
-    loaderInitializeInfoAndroid.applicationVM = app->activity->vm;
-    loaderInitializeInfoAndroid.applicationActivity = app->activity->clazz;
-    xrInitializeLoaderOCULUS(&loaderInitializeInfoAndroid);
+    PFN_xrInitializeLoaderKHR xrInitializeLoaderKHR;
+    xrGetInstanceProcAddr(XR_NULL_HANDLE, "xrInitializeLoaderKHR", (PFN_xrVoidFunction*)&xrInitializeLoaderKHR);
+    if (xrInitializeLoaderKHR != NULL) {
+        XrLoaderInitInfoAndroidKHR loaderInitializeInfoAndroid;
+        memset(&loaderInitializeInfoAndroid, 0, sizeof(loaderInitializeInfoAndroid));
+        loaderInitializeInfoAndroid.type = XR_TYPE_LOADER_INIT_INFO_ANDROID_KHR;
+        loaderInitializeInfoAndroid.next = NULL;
+        loaderInitializeInfoAndroid.applicationVM = app->activity->vm;
+        loaderInitializeInfoAndroid.applicationContext = app->activity->clazz;
+        xrInitializeLoaderKHR((XrLoaderInitInfoBaseHeaderKHR*)&loaderInitializeInfoAndroid);
+    }
 
     // Testing exception handling - needed for the conformance tests
     try {
@@ -268,20 +270,24 @@ void android_main(struct android_app* app)
                     /// Hard-Code these to match regular C declaration of `int main( int argc, char * argv[] )`
                     std::vector<const char*> args = {
                         "OpenXR_Conformance_Test_Android",  /// app name
-                        "--use-colour",
-                        "no",  /// no console coloring
-                        "--reporter",
-                        "console"  /// use the console reporter
                     };
                     char* append = argstr;
                     int count = 1;
+
+                    bool reportXml = false;
+
                     while (*append != 0) {
                         while (*append == ' ') {
                             append++;
                         }
                         if (*append != 0) {
-                            args.insert(args.begin() + count, append);
-                            count++;
+                            if (strcmp(append, "-O") == 0) {
+                                reportXml = true;
+                            }
+                            else {
+                                args.insert(args.begin() + count, append);
+                                count++;
+                            }
                         }
                         while (*append != ' ' && *append != 0) {
                             append++;
@@ -303,6 +309,20 @@ void android_main(struct android_app* app)
                         args.push_back("-G");
                         args.push_back("OpenGLES");
                     }
+
+                    if (reportXml) {
+                        args.push_back("-r");
+                        args.push_back("xml");
+                        args.push_back("-o");
+                        args.push_back(PATH_PREFIX "openxr_conformance.xml");
+                    }
+                    else {
+                        args.push_back("--use-colour");
+                        args.push_back("no");  /// no console coloring
+                        args.push_back("--reporter");
+                        args.push_back("console");  /// use the console reporter
+                    }
+
                     for (int i = 0; i < (int)args.size(); i++) {
                         ALOGV("arg[%d] = %s", i, args[i]);
                     }

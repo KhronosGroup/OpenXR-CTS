@@ -310,12 +310,23 @@ class ValidationSourceOutputGenerator(AutomaticSourceOutputGenerator):
             enum_value_validate += 'switch (value) {\n'
             indent += 1
             for cur_value in enum_tuple.values:
+                avoid_dupe = None
+                if cur_value.alias:
+                    aliased = [x for x in enum_tuple.values if x.name == cur_value.alias]
+                    aliased_value = aliased[0]
+                    if aliased_value.protect_value and aliased_value.protect_value != cur_value.protect_value and aliased_value.protect_value != enum_tuple.protect_value:
+                        avoid_dupe = aliased_value.protect_string
+                        enum_value_validate += '#if !(%s)\n' % avoid_dupe
+                    else:
+                        # This would unconditionally cause a duplicate case
+                        continue
+                value_protect = None
                 if cur_value.protect_value and enum_tuple.protect_value != cur_value.protect_value:
-                    enum_value_validate += '#if %s\n' % cur_value.protect_string
+                    value_protect = cur_value.protect_string
+                    enum_value_validate += '#if %s\n' % value_protect
+
                 enum_value_validate += self.writeIndent(indent)
                 enum_value_validate += 'case %s:\n' % cur_value.name
-                if cur_value.protect_value and enum_tuple.protect_value != cur_value.protect_value:
-                    enum_value_validate += '#endif // %s\n' % cur_value.protect_string
                 if cur_value.ext_name and cur_value.ext_name != checked_extension and not self.isCoreExtensionName(cur_value.ext_name):
                     indent += 1
                     enum_value_validate += self.writeIndent(indent)
@@ -361,6 +372,10 @@ class ValidationSourceOutputGenerator(AutomaticSourceOutputGenerator):
                 else:
                     enum_value_validate += self.writeIndent(indent + 1)
                     enum_value_validate += 'return true;\n'
+                if value_protect:
+                    enum_value_validate += '#endif // %s\n' % value_protect
+                if avoid_dupe:
+                    enum_value_validate += '#endif // !(%s)\n' % avoid_dupe
             indent -= 1
             enum_value_validate += self.writeIndent(indent)
             enum_value_validate += 'default:\n'
@@ -467,34 +482,43 @@ class ValidationSourceOutputGenerator(AutomaticSourceOutputGenerator):
         # Validate the rest of this struct
         next_chain_info += self.writeIndent(1)
         next_chain_info += 'switch (next_header->type) {\n'
-        for enum_tuple in self.api_enums:
-            if enum_tuple.name == 'XrStructureType':
-                if enum_tuple.protect_value:
-                    next_chain_info += '#if %s\n' % enum_tuple.protect_string
-                for cur_value in enum_tuple.values:
-                    struct_define_name = self.genXrStructureName(
-                        cur_value.name)
-                    if struct_define_name:
-                        struct_tuple = self.getStruct(struct_define_name)
-                        if struct_tuple.protect_value:
-                            next_chain_info += '#if %s\n' % struct_tuple.protect_string
-                        next_chain_info += self.writeIndent(2)
-                        next_chain_info += 'case %s:\n' % cur_value.name
-                        next_chain_info += self.writeIndent(3)
-                        next_chain_info += 'if (XR_SUCCESS != ValidateXrStruct(instance_info, command_name, objects_info, false,\n'
-                        next_chain_info += self.writeIndent(3)
-                        next_chain_info += '                                   reinterpret_cast<const %s*>(next))) {\n' % struct_define_name
-                        next_chain_info += self.writeIndent(4)
-                        next_chain_info += 'return NEXT_CHAIN_RESULT_ERROR;\n'
-                        next_chain_info += self.writeIndent(3)
-                        next_chain_info += '}\n'
-                        next_chain_info += self.writeIndent(3)
-                        next_chain_info += 'break;\n'
-                        if struct_tuple.protect_value:
-                            next_chain_info += '#endif // %s\n' % struct_tuple.protect_string
-                if enum_tuple.protect_value:
-                    next_chain_info += '#endif //%s\n' % enum_tuple.protect_string
-                break
+        enum_tuple = [x for x in self.api_enums if x.name == 'XrStructureType'][0]
+        for cur_value in enum_tuple.values:
+            struct_define_name = self.genXrStructureName(
+                cur_value.name)
+            if not struct_define_name:
+                continue
+
+            struct_tuple = self.getStruct(struct_define_name)
+            avoid_dupe = None
+            if cur_value.alias:
+                aliased_value = [x for x in enum_tuple.values if x.name == cur_value.alias][0]
+                if aliased_value.protect_value and aliased_value.protect_value != cur_value.protect_value and aliased_value.protect_value != struct_tuple.protect_value:
+                    avoid_dupe = aliased_value.protect_string
+                    next_chain_info += '#if !(%s)\n' % avoid_dupe
+                else:
+                    # This would unconditionally cause a duplicate case
+                    continue
+            if struct_tuple.protect_value:
+                next_chain_info += '#if %s\n' % struct_tuple.protect_string
+                
+            next_chain_info += self.writeIndent(2)
+            next_chain_info += 'case %s:\n' % cur_value.name
+            next_chain_info += self.writeIndent(3)
+            next_chain_info += 'if (XR_SUCCESS != ValidateXrStruct(instance_info, command_name, objects_info, false,\n'
+            next_chain_info += self.writeIndent(3)
+            next_chain_info += '                                   reinterpret_cast<const %s*>(next))) {\n' % struct_define_name
+            next_chain_info += self.writeIndent(4)
+            next_chain_info += 'return NEXT_CHAIN_RESULT_ERROR;\n'
+            next_chain_info += self.writeIndent(3)
+            next_chain_info += '}\n'
+            next_chain_info += self.writeIndent(3)
+            next_chain_info += 'break;\n'
+            if struct_tuple.protect_value:
+                next_chain_info += '#endif // %s\n' % struct_tuple.protect_string
+            if avoid_dupe:
+                next_chain_info += '#endif // !(%s)\n' % avoid_dupe
+
         next_chain_info += self.writeIndent(2)
         next_chain_info += 'default:\n'
         next_chain_info += self.writeIndent(3)
@@ -553,7 +577,7 @@ class ValidationSourceOutputGenerator(AutomaticSourceOutputGenerator):
                         validation_header_info += '\n// ---- %s extension commands\n' % cur_cmd.ext_name
                     cur_extension_name = cur_cmd.ext_name
 
-                prototype = self.replace_ATTR_CALL(cur_cmd.cdecl)
+                prototype = cur_cmd.cdecl
 
                 # We need to always export xrGetInstanceProcAddr, even though we automatically generate it.
                 # Also, we really only need the core function, not the others.
@@ -1903,7 +1927,7 @@ class ValidationSourceOutputGenerator(AutomaticSourceOutputGenerator):
                     struct_check += '}\n'
                     if child_struct.protect_value:
                         struct_check += '#endif // %s\n' % child_struct.protect_string
-                
+
                 struct_check += self.writeIndent(indent)
                 struct_check += 'InvalidStructureType(instance_info, command_name, objects_info, "%s",\n' % xr_struct.name
                 struct_check += self.writeIndent(indent)
@@ -2357,9 +2381,6 @@ class ValidationSourceOutputGenerator(AutomaticSourceOutputGenerator):
         pre_validate_func += '}\n\n'
         return pre_validate_func
 
-    def replace_ATTR_CALL(self, decl):
-        return decl.replace(self.genOpts.apicall, "").replace(self.genOpts.apientry, "")
-
     # Generate C++ code to call down to the next layer/loader terminator/runtime
     #   self            the ValidationSourceOutputGenerator object
     #   cur_command     the command generated in automatic_source_generator.py to validate
@@ -2374,7 +2395,7 @@ class ValidationSourceOutputGenerator(AutomaticSourceOutputGenerator):
         # entry into the dispatch table so it's a special case all around.
         if 'xrCreateInstance' in cur_command.name:
             return ''
-        prototype = self.replace_ATTR_CALL(cur_command.cdecl.replace(" xr", " GenValidUsageNextXr"))
+        prototype = cur_command.cdecl.replace(" xr", " GenValidUsageNextXr")
         prototype = prototype.replace(";", " {")
         next_validate_func += '%s\n' % (prototype)
         if has_return:
@@ -2517,7 +2538,7 @@ class ValidationSourceOutputGenerator(AutomaticSourceOutputGenerator):
     #   has_return      Boolean indicating that the command must return a value (usually XrResult)
     def genAutoValidateFunc(self, cur_command, has_return):
         auto_validate_func = ''
-        prototype = self.replace_ATTR_CALL(cur_command.cdecl.replace(" xr", " GenValidUsageXr"))
+        prototype = cur_command.cdecl.replace(" xr", " GenValidUsageXr")
         prototype = prototype.replace(";", " {")
         auto_validate_func += '%s\n' % (prototype)
         auto_validate_func += self.writeIndent(1)
@@ -2677,7 +2698,7 @@ class ValidationSourceOutputGenerator(AutomaticSourceOutputGenerator):
                     validation_source_funcs += '\n'
 
         validation_source_funcs += '\n// API Layer\'s xrGetInstanceProcAddr\n'
-        validation_source_funcs += 'XrResult GenValidUsageXrGetInstanceProcAddr(\n'
+        validation_source_funcs += 'XRAPI_ATTR XrResult XRAPI_CALL GenValidUsageXrGetInstanceProcAddr(\n'
         validation_source_funcs += '    XrInstance          instance,\n'
         validation_source_funcs += '    const char*         name,\n'
         validation_source_funcs += '    PFN_xrVoidFunction* function) {\n'

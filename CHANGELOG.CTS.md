@@ -24,6 +24,8 @@ signed tags on the `approved` branch are not valid for conformance submission.
 - Conformance Tests
   - New test: Add test for quads composed in hand spaces.
     ([internal MR 1767](https://gitlab.khronos.org/openxr/openxr/merge_requests/1767))
+  - New test: Add test for mutable field-of-view composition.
+    ([internal MR 1830](https://gitlab.khronos.org/openxr/openxr/merge_requests/1830))
   - Improvement: Pre-fill action state structs a few times with non-zero data.
     ([internal MR 1828](https://gitlab.khronos.org/openxr/openxr/merge_requests/1828))
   - Improvement: interactive action test improvements.

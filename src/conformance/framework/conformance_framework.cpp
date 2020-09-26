@@ -215,6 +215,17 @@ namespace Conformance
             availableInstanceExtensionNames.emplace_back(value.extensionName);
         }
 
+        // This list of instance extensions is safe to always enable if available.
+        std::vector<std::string> enableIfAvailableInstanceExtensionNames = {XR_KHR_COMPOSITION_LAYER_CUBE_EXTENSION_NAME,
+                                                                            XR_KHR_COMPOSITION_LAYER_CYLINDER_EXTENSION_NAME};
+
+        for (auto& value : enableIfAvailableInstanceExtensionNames) {
+            auto& avail = availableInstanceExtensionNames;
+            if (std::find(avail.begin(), avail.end(), value) != avail.end()) {
+                enabledInstanceExtensionNames.push_back_unique(value);
+            }
+        }
+
         if (useDebugMessenger) {
             enabledInstanceExtensionNames.push_back_unique(XR_EXT_DEBUG_UTILS_EXTENSION_NAME);
         }

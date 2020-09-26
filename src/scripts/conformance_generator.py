@@ -25,7 +25,8 @@ from jinja_helpers import JinjaTemplate, make_jinja_environment
 VALID_FOR_NULL_INSTANCE = set((
     'xrEnumerateInstanceExtensionProperties',
     'xrEnumerateApiLayerProperties',
-    'xrCreateInstance'
+    'xrCreateInstance',
+    'xrInitializeLoaderKHR'
 ))
 
 class ConformanceGenerator(AutomaticSourceOutputGenerator):
@@ -69,6 +70,7 @@ class ConformanceGenerator(AutomaticSourceOutputGenerator):
     #   self            the ConformanceLayerBaseGenerator object
     def endFile(self):
         sorted_cmds = self.core_commands + self.ext_commands
+        null_ok=set()
         file_data = self.template.render(
             gen=self,
             registry=self.registry,

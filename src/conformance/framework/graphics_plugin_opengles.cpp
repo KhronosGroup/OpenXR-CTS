@@ -248,17 +248,23 @@ namespace Conformance
         SwapchainInfo& swapchainInfo = m_swapchainInfo[imageInfoIt->second.swapchainIndex];
         GLuint arraySize = swapchainInfo.createInfo.arraySize;
         bool isArray = arraySize > 1;
-        GLuint width = swapchainInfo.createInfo.width;
-        GLuint height = swapchainInfo.createInfo.height;
+        GLuint width = image.width;
+        GLuint height = image.height;
         GLenum target = isArray ? GL_TEXTURE_2D_ARRAY : GL_TEXTURE_2D;
 
         const uint32_t img = reinterpret_cast<const XrSwapchainImageOpenGLESKHR*>(swapchainImage)->image;
         GL(glBindTexture(target, img));
         if (isArray) {
-            GL(glTexSubImage3D(target, 0, 0, 0, arraySlice, image.width, image.height, 1, GL_RGBA, GL_UNSIGNED_BYTE, &image.pixels[0]));
+            for (GLuint y = 0; y < height; ++y) {
+                const void* pixels = &image.pixels[(height - 1 - y) * width];
+                GL(glTexSubImage3D(target, 0, 0, y, arraySlice, width, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, pixels));
+            }
         }
         else {
-            GL(glTexSubImage2D(target, 0, 0, 0, image.width, image.height, GL_RGBA, GL_UNSIGNED_BYTE, &image.pixels[0]));
+            for (GLuint y = 0; y < height; ++y) {
+                const void* pixels = &image.pixels[(height - 1 - y) * width];
+                GL(glTexSubImage2D(target, 0, 0, y, width, 1, GL_RGBA, GL_UNSIGNED_BYTE, pixels));
+            }
         }
         GL(glBindTexture(target, 0));
     }
