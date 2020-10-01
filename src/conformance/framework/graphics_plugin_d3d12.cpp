@@ -255,9 +255,10 @@ namespace Conformance
 
         ID3D12PipelineState* GetOrCreatePipelineState(DXGI_FORMAT swapchainFormat);
         bool ExecuteCommandList(ID3D12CommandList* cmdList) const;
-        void SignalFence() const;
         void CpuWaitForFence(uint64_t fenceVal) const;
         void WaitForGpu() const;
+
+        D3D12SwapchainImageStructs& GetSwapchainImageContext(const XrSwapchainImageBaseHeader* swapchainImage);
 
     protected:
         bool initialized = false;
@@ -270,6 +271,7 @@ namespace Conformance
 
         // Not used yet: std::list<std::shared_ptr<D3D12SwapchainImageStructs>> swapchainImageContexts;
         std::map<const XrSwapchainImageBaseHeader*, D3D12SwapchainImageStructs*> swapchainImageContextMap;
+        const XrSwapchainImageBaseHeader* lastSwapchainImage = nullptr;
 
         // Resources needed for rendering cubes
         const ComPtr<ID3DBlob> vertexShaderBytes;
@@ -423,6 +425,11 @@ namespace Conformance
             D3D12SwapchainImageStructs initializeContext;
             std::vector<XrSwapchainImageBaseHeader*> _ = initializeContext.Create(d3d12Device.Get(), 1);
 
+            XRC_CHECK_THROW_HRCMD(d3d12Device->CreateFence(fenceValue, D3D12_FENCE_FLAG_NONE, __uuidof(ID3D12Fence),
+                                                           reinterpret_cast<void**>(fence.ReleaseAndGetAddressOf())));
+            fenceEvent = CreateEvent(nullptr, FALSE, FALSE, nullptr);
+            CHECK(fenceEvent != nullptr);
+
             ComPtr<ID3D12GraphicsCommandList> cmdList;
             XRC_CHECK_THROW_HRCMD(d3d12Device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, initializeContext.GetCommandAllocator(),
                                                                  nullptr, __uuidof(ID3D12GraphicsCommandList),
@@ -470,11 +477,6 @@ namespace Conformance
             XRC_CHECK_THROW_HRCMD(cmdList->Close());
             CHECK(ExecuteCommandList(cmdList.Get()));
 
-            XRC_CHECK_THROW_HRCMD(d3d12Device->CreateFence(fenceValue, D3D12_FENCE_FLAG_NONE, __uuidof(ID3D12Fence),
-                                                           reinterpret_cast<void**>(fence.ReleaseAndGetAddressOf())));
-            fenceEvent = CreateEvent(nullptr, FALSE, FALSE, nullptr);
-            CHECK(fenceEvent != nullptr);
-
             WaitForGpu();
 
             graphicsBinding.device = d3d12Device.Get();
@@ -495,6 +497,7 @@ namespace Conformance
         d3d12CmdQueue.Reset();
         d3d12Device.Reset();
         swapchainImageContextMap.clear();
+        lastSwapchainImage = nullptr;
     }
 
     void D3D12GraphicsPlugin::CopyRGBAImage(const XrSwapchainImageBaseHeader* swapchainImage, int64_t /*imageFormat*/, uint32_t arraySlice,
@@ -530,7 +533,7 @@ namespace Conformance
             uploadBuffer->Unmap(0, &writeRange);
         }
 
-        auto& swapchainContext = *swapchainImageContextMap[swapchainImage];
+        auto& swapchainContext = GetSwapchainImageContext(swapchainImage);
 
         ComPtr<ID3D12GraphicsCommandList> cmdList;
         XRC_CHECK_THROW_HRCMD(d3d12Device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, swapchainContext.GetCommandAllocator(),
@@ -671,14 +674,20 @@ namespace Conformance
 
     bool D3D12GraphicsPlugin::ExecuteCommandList(ID3D12CommandList* cmdList) const
     {
+        bool success;
         __try {
             ID3D12CommandList* cmdLists[] = {cmdList};
             d3d12CmdQueue->ExecuteCommandLists((UINT)ArraySize(cmdLists), cmdLists);
+            success = true;
         }
         __except (EXCEPTION_EXECUTE_HANDLER) {
-            return false;
+            success = false;
         }
-        return true;
+
+        ++fenceValue;
+        XRC_CHECK_THROW_HRCMD(d3d12CmdQueue->Signal(fence.Get(), fenceValue));
+
+        return success;
     }
 
     bool D3D12GraphicsPlugin::ValidateSwapchainImageState(XrSwapchain swapchain, uint32_t index, int64_t imageFormat) const
@@ -869,7 +878,7 @@ namespace Conformance
     void D3D12GraphicsPlugin::ClearImageSlice(const XrSwapchainImageBaseHeader* colorSwapchainImage, uint32_t imageArrayIndex,
                                               int64_t colorSwapchainFormat)
     {
-        auto& swapchainContext = *swapchainImageContextMap[colorSwapchainImage];
+        auto& swapchainContext = GetSwapchainImageContext(colorSwapchainImage);
 
         ID3D12Resource* const colorTexture = reinterpret_cast<const XrSwapchainImageD3D12KHR*>(colorSwapchainImage)->texture;
         const D3D12_RESOURCE_DESC colorTextureDesc = colorTexture->GetDesc();
@@ -897,109 +906,106 @@ namespace Conformance
                                          const XrSwapchainImageBaseHeader* colorSwapchainImage, int64_t colorSwapchainFormat,
                                          const std::vector<Cube>& cubes)
     {
-        auto& swapchainContext = *swapchainImageContextMap[colorSwapchainImage];
-        CpuWaitForFence(swapchainContext.GetFrameFenceValue());
-        swapchainContext.ResetCommandAllocator();
+        auto& swapchainContext = GetSwapchainImageContext(colorSwapchainImage);
 
-        ComPtr<ID3D12GraphicsCommandList> cmdList;
-        XRC_CHECK_THROW_HRCMD(d3d12Device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, swapchainContext.GetCommandAllocator(),
-                                                             nullptr, __uuidof(ID3D12GraphicsCommandList),
-                                                             reinterpret_cast<void**>(cmdList.ReleaseAndGetAddressOf())));
+        if (!cubes.empty()) {
+            ComPtr<ID3D12GraphicsCommandList> cmdList;
+            XRC_CHECK_THROW_HRCMD(d3d12Device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, swapchainContext.GetCommandAllocator(),
+                                                                 nullptr, __uuidof(ID3D12GraphicsCommandList),
+                                                                 reinterpret_cast<void**>(cmdList.ReleaseAndGetAddressOf())));
 
-        ID3D12PipelineState* pipelineState = GetOrCreatePipelineState((DXGI_FORMAT)colorSwapchainFormat);
-        cmdList->SetPipelineState(pipelineState);
-        cmdList->SetGraphicsRootSignature(rootSignature.Get());
+            ID3D12PipelineState* pipelineState = GetOrCreatePipelineState((DXGI_FORMAT)colorSwapchainFormat);
+            cmdList->SetPipelineState(pipelineState);
+            cmdList->SetGraphicsRootSignature(rootSignature.Get());
 
-        ID3D12Resource* const colorTexture = reinterpret_cast<const XrSwapchainImageD3D12KHR*>(colorSwapchainImage)->texture;
-        const D3D12_RESOURCE_DESC colorTextureDesc = colorTexture->GetDesc();
+            ID3D12Resource* const colorTexture = reinterpret_cast<const XrSwapchainImageD3D12KHR*>(colorSwapchainImage)->texture;
+            const D3D12_RESOURCE_DESC colorTextureDesc = colorTexture->GetDesc();
 
-        const D3D12_VIEWPORT viewport = {(float)layerView.subImage.imageRect.offset.x,
-                                         (float)layerView.subImage.imageRect.offset.y,
-                                         (float)layerView.subImage.imageRect.extent.width,
-                                         (float)layerView.subImage.imageRect.extent.height,
-                                         0,
-                                         1};
-        cmdList->RSSetViewports(1, &viewport);
+            const D3D12_VIEWPORT viewport = {(float)layerView.subImage.imageRect.offset.x,
+                                             (float)layerView.subImage.imageRect.offset.y,
+                                             (float)layerView.subImage.imageRect.extent.width,
+                                             (float)layerView.subImage.imageRect.extent.height,
+                                             0,
+                                             1};
+            cmdList->RSSetViewports(1, &viewport);
 
-        const D3D12_RECT scissorRect = {layerView.subImage.imageRect.offset.x, layerView.subImage.imageRect.offset.y,
-                                        layerView.subImage.imageRect.offset.x + layerView.subImage.imageRect.extent.width,
-                                        layerView.subImage.imageRect.offset.y + layerView.subImage.imageRect.extent.height};
-        cmdList->RSSetScissorRects(1, &scissorRect);
+            const D3D12_RECT scissorRect = {layerView.subImage.imageRect.offset.x, layerView.subImage.imageRect.offset.y,
+                                            layerView.subImage.imageRect.offset.x + layerView.subImage.imageRect.extent.width,
+                                            layerView.subImage.imageRect.offset.y + layerView.subImage.imageRect.extent.height};
+            cmdList->RSSetScissorRects(1, &scissorRect);
 
-        // Create RenderTargetView with original swapchain format (swapchain is typeless).
-        D3D12_CPU_DESCRIPTOR_HANDLE renderTargetView =
-            CreateRenderTargetView(colorTexture, layerView.subImage.imageArrayIndex, colorSwapchainFormat);
+            // Create RenderTargetView with original swapchain format (swapchain is typeless).
+            D3D12_CPU_DESCRIPTOR_HANDLE renderTargetView =
+                CreateRenderTargetView(colorTexture, layerView.subImage.imageArrayIndex, colorSwapchainFormat);
 
-        ID3D12Resource* depthStencilTexture = swapchainContext.GetDepthStencilTexture(colorTexture);
-        D3D12_CPU_DESCRIPTOR_HANDLE depthStencilView = CreateDepthStencilView(depthStencilTexture, layerView.subImage.imageArrayIndex);
+            ID3D12Resource* depthStencilTexture = swapchainContext.GetDepthStencilTexture(colorTexture);
+            D3D12_CPU_DESCRIPTOR_HANDLE depthStencilView = CreateDepthStencilView(depthStencilTexture, layerView.subImage.imageArrayIndex);
 
-        D3D12_CPU_DESCRIPTOR_HANDLE renderTargets[] = {renderTargetView};
-        cmdList->OMSetRenderTargets((UINT)ArraySize(renderTargets), renderTargets, true, &depthStencilView);
+            D3D12_CPU_DESCRIPTOR_HANDLE renderTargets[] = {renderTargetView};
+            cmdList->OMSetRenderTargets((UINT)ArraySize(renderTargets), renderTargets, true, &depthStencilView);
 
-        const XMMATRIX spaceToView = XMMatrixInverse(nullptr, LoadXrPose(layerView.pose));
-        XrMatrix4x4f projectionMatrix;
-        XrMatrix4x4f_CreateProjectionFov(&projectionMatrix, GRAPHICS_D3D, layerView.fov, 0.05f, 100.0f);
+            const XMMATRIX spaceToView = XMMatrixInverse(nullptr, LoadXrPose(layerView.pose));
+            XrMatrix4x4f projectionMatrix;
+            XrMatrix4x4f_CreateProjectionFov(&projectionMatrix, GRAPHICS_D3D, layerView.fov, 0.05f, 100.0f);
 
-        // Set shaders and constant buffers.
-        ID3D12Resource* viewProjectionCBuffer = swapchainContext.GetViewProjectionCBuffer();
-        ViewProjectionConstantBuffer viewProjection;
-        XMStoreFloat4x4(&viewProjection.ViewProjection, XMMatrixTranspose(spaceToView * LoadXrMatrix(projectionMatrix)));
-        {
-            void* data;
-            const D3D12_RANGE readRange{0, 0};
-            XRC_CHECK_THROW_HRCMD(viewProjectionCBuffer->Map(0, &readRange, &data));
-            memcpy(data, &viewProjection, sizeof(viewProjection));
-            viewProjectionCBuffer->Unmap(0, nullptr);
-        }
-
-        cmdList->SetGraphicsRootConstantBufferView(1, viewProjectionCBuffer->GetGPUVirtualAddress());
-
-        // Set cube primitive data.
-        const D3D12_VERTEX_BUFFER_VIEW vertexBufferView[] = {
-            {cubeVertexBuffer->GetGPUVirtualAddress(), (uint32_t)(Geometry::c_cubeVertices.size() * sizeof(Geometry::c_cubeVertices[0])),
-             sizeof(Geometry::Vertex)}};
-        cmdList->IASetVertexBuffers(0, (UINT)ArraySize(vertexBufferView), vertexBufferView);
-
-        D3D12_INDEX_BUFFER_VIEW indexBufferView{cubeIndexBuffer->GetGPUVirtualAddress(),
-                                                (uint32_t)(Geometry::c_cubeIndices.size() * sizeof(Geometry::c_cubeIndices[0])),
-                                                DXGI_FORMAT_R16_UINT};
-        cmdList->IASetIndexBuffer(&indexBufferView);
-
-        cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-
-        constexpr uint32_t cubeCBufferSize = AlignTo<D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT>(sizeof(ModelConstantBuffer));
-        swapchainContext.RequestModelCBuffer(static_cast<uint32_t>(cubeCBufferSize * cubes.size()));
-        ID3D12Resource* modelCBuffer = swapchainContext.GetModelCBuffer();
-
-        // Render each cube
-        uint32_t offset = 0;
-        for (const Cube& cube : cubes) {
-            // Compute and update the model transform.
-            ModelConstantBuffer model;
-            XMStoreFloat4x4(&model.Model,
-                            XMMatrixTranspose(XMMatrixScaling(cube.Scale.x, cube.Scale.y, cube.Scale.z) * LoadXrPose(cube.Pose)));
+            // Set shaders and constant buffers.
+            ID3D12Resource* viewProjectionCBuffer = swapchainContext.GetViewProjectionCBuffer();
+            ViewProjectionConstantBuffer viewProjection;
+            XMStoreFloat4x4(&viewProjection.ViewProjection, XMMatrixTranspose(spaceToView * LoadXrMatrix(projectionMatrix)));
             {
-                uint8_t* data;
+                void* data;
                 const D3D12_RANGE readRange{0, 0};
-                XRC_CHECK_THROW_HRCMD(modelCBuffer->Map(0, &readRange, reinterpret_cast<void**>(&data)));
-                memcpy(data + offset, &model, sizeof(model));
-                const D3D12_RANGE writeRange{offset, offset + cubeCBufferSize};
-                modelCBuffer->Unmap(0, &writeRange);
+                XRC_CHECK_THROW_HRCMD(viewProjectionCBuffer->Map(0, &readRange, &data));
+                memcpy(data, &viewProjection, sizeof(viewProjection));
+                viewProjectionCBuffer->Unmap(0, nullptr);
             }
 
-            cmdList->SetGraphicsRootConstantBufferView(0, modelCBuffer->GetGPUVirtualAddress() + offset);
+            cmdList->SetGraphicsRootConstantBufferView(1, viewProjectionCBuffer->GetGPUVirtualAddress());
 
-            // Draw the cube.
-            cmdList->DrawIndexedInstanced((uint32_t)Geometry::c_cubeIndices.size(), 1, 0, 0, 0);
+            // Set cube primitive data.
+            const D3D12_VERTEX_BUFFER_VIEW vertexBufferView[] = {
+                {cubeVertexBuffer->GetGPUVirtualAddress(),
+                 (uint32_t)(Geometry::c_cubeVertices.size() * sizeof(Geometry::c_cubeVertices[0])), sizeof(Geometry::Vertex)}};
+            cmdList->IASetVertexBuffers(0, (UINT)ArraySize(vertexBufferView), vertexBufferView);
 
-            offset += cubeCBufferSize;
+            D3D12_INDEX_BUFFER_VIEW indexBufferView{cubeIndexBuffer->GetGPUVirtualAddress(),
+                                                    (uint32_t)(Geometry::c_cubeIndices.size() * sizeof(Geometry::c_cubeIndices[0])),
+                                                    DXGI_FORMAT_R16_UINT};
+            cmdList->IASetIndexBuffer(&indexBufferView);
+
+            cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+
+            constexpr uint32_t cubeCBufferSize = AlignTo<D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT>(sizeof(ModelConstantBuffer));
+            swapchainContext.RequestModelCBuffer(static_cast<uint32_t>(cubeCBufferSize * cubes.size()));
+            ID3D12Resource* modelCBuffer = swapchainContext.GetModelCBuffer();
+
+            // Render each cube
+            uint32_t offset = 0;
+            for (const Cube& cube : cubes) {
+                // Compute and update the model transform.
+                ModelConstantBuffer model;
+                XMStoreFloat4x4(&model.Model,
+                                XMMatrixTranspose(XMMatrixScaling(cube.Scale.x, cube.Scale.y, cube.Scale.z) * LoadXrPose(cube.Pose)));
+                {
+                    uint8_t* data;
+                    const D3D12_RANGE readRange{0, 0};
+                    XRC_CHECK_THROW_HRCMD(modelCBuffer->Map(0, &readRange, reinterpret_cast<void**>(&data)));
+                    memcpy(data + offset, &model, sizeof(model));
+                    const D3D12_RANGE writeRange{offset, offset + cubeCBufferSize};
+                    modelCBuffer->Unmap(0, &writeRange);
+                }
+
+                cmdList->SetGraphicsRootConstantBufferView(0, modelCBuffer->GetGPUVirtualAddress() + offset);
+
+                // Draw the cube.
+                cmdList->DrawIndexedInstanced((uint32_t)Geometry::c_cubeIndices.size(), 1, 0, 0, 0);
+
+                offset += cubeCBufferSize;
+            }
+
+            XRC_CHECK_THROW_HRCMD(cmdList->Close());
+            CHECK(ExecuteCommandList(cmdList.Get()));
         }
-
-        XRC_CHECK_THROW_HRCMD(cmdList->Close());
-        CHECK(ExecuteCommandList(cmdList.Get()));
-
-        SignalFence();
-        swapchainContext.SetFrameFenceValue(fenceValue);
     }
 
     ID3D12PipelineState* D3D12GraphicsPlugin::GetOrCreatePipelineState(DXGI_FORMAT swapchainFormat)
@@ -1085,12 +1091,6 @@ namespace Conformance
         return pipelineStateRaw;
     }
 
-    void D3D12GraphicsPlugin::SignalFence() const
-    {
-        ++fenceValue;
-        XRC_CHECK_THROW_HRCMD(d3d12CmdQueue->Signal(fence.Get(), fenceValue));
-    }
-
     void D3D12GraphicsPlugin::CpuWaitForFence(uint64_t fenceVal) const
     {
         if (fence->GetCompletedValue() < fenceVal) {
@@ -1104,8 +1104,23 @@ namespace Conformance
 
     void D3D12GraphicsPlugin::WaitForGpu() const
     {
-        SignalFence();
         CpuWaitForFence(fenceValue);
+    }
+
+    D3D12GraphicsPlugin::D3D12SwapchainImageStructs&
+    D3D12GraphicsPlugin::GetSwapchainImageContext(const XrSwapchainImageBaseHeader* swapchainImage)
+    {
+        auto& retContext = *swapchainImageContextMap[swapchainImage];
+        if (lastSwapchainImage != swapchainImage) {
+            if (lastSwapchainImage != nullptr) {
+                swapchainImageContextMap[lastSwapchainImage]->SetFrameFenceValue(fenceValue);
+            }
+            lastSwapchainImage = swapchainImage;
+
+            CpuWaitForFence(retContext.GetFrameFenceValue());
+            retContext.ResetCommandAllocator();
+        }
+        return retContext;
     }
 
     std::shared_ptr<IGraphicsPlugin> CreateGraphicsPlugin_D3D12(std::shared_ptr<IPlatformPlugin> platformPlugin)
