@@ -799,7 +799,7 @@ namespace Conformance
         // Map every swapchainImage base pointer to this context
         for (auto& base : bases) {
             derivedResult->imagePtrVector.push_back(base);
-            swapchainImageContextMap.emplace(std::make_pair(base, derivedResult.get()));
+            swapchainImageContextMap[base] = derivedResult.get();
         }
 
         // Cast our derived type to the caller-expected type.

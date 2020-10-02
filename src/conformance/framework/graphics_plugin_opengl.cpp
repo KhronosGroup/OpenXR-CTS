@@ -1093,7 +1093,7 @@ namespace Conformance
             // Set the generic vector of base pointers
             derivedResult->imagePtrVector.push_back(base);
             // Map every swapchainImage base pointer to this context
-            m_swapchainImageContextMap.emplace(std::make_pair(base, derivedResult));
+            m_swapchainImageContextMap[base] = derivedResult;
         }
 
         // Cast our derived type to the caller-expected type.
