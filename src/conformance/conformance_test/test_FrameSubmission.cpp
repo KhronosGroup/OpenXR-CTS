@@ -57,6 +57,10 @@ namespace Conformance
             XrFrameEndInfo frameEndInfo{XR_TYPE_FRAME_END_INFO};
             frameEndInfo.environmentBlendMode = globalData.GetOptions().environmentBlendModeValue;
 
+            {  // Fresh session, test xrBeginFrame with no corresponding xrWaitFrame.
+                CHECK(XR_ERROR_CALL_ORDER_INVALID == xrBeginFrame(session, nullptr));
+            }
+
             {  // Test discarded frame.
                 REQUIRE_RESULT_SUCCEEDED(xrWaitFrame(session, nullptr, &frameState));
                 REQUIRE_RESULT_SUCCEEDED(xrBeginFrame(session, nullptr));
@@ -64,6 +68,10 @@ namespace Conformance
                 CHECK(XR_FRAME_DISCARDED == xrBeginFrame(session, nullptr));
                 frameEndInfo.displayTime = frameState.predictedDisplayTime;
                 REQUIRE(XR_SUCCESS == xrEndFrame(session, &frameEndInfo));
+            }
+
+            {  // Successful frame submitted, test xrBeginFrame with no corresponding xrWaitFrame.
+                REQUIRE(XR_ERROR_CALL_ORDER_INVALID == xrBeginFrame(session, nullptr));
             }
 
             {  // Test the xrBeginFrame return code after a failed xrEndFrame
@@ -75,6 +83,13 @@ namespace Conformance
                 REQUIRE_RESULT_SUCCEEDED(xrWaitFrame(session, nullptr, &frameState));
                 CHECK(XR_FRAME_DISCARDED == xrBeginFrame(session, nullptr));
                 frameEndInfo.displayTime = frameState.predictedDisplayTime;
+                REQUIRE(XR_SUCCESS == xrEndFrame(session, &frameEndInfo));
+            }
+
+            {  // Test that bad xrBeginFrame doesn't discard frame.
+                REQUIRE(XR_SUCCESS == xrWaitFrame(session, nullptr, &frameState));
+                REQUIRE_RESULT_SUCCEEDED(xrBeginFrame(session, nullptr));  // In case of discarded.
+                REQUIRE(XR_ERROR_CALL_ORDER_INVALID == xrBeginFrame(session, nullptr));
                 REQUIRE(XR_SUCCESS == xrEndFrame(session, &frameEndInfo));
             }
 
