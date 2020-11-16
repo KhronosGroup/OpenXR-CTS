@@ -59,6 +59,13 @@ namespace Conformance
         return resultStringMap;
     }
 
+    const std::map<uint64_t, const char*> GetNumberExtensionMap()
+    {
+#define MAKE_EXTENSION_NUMBER_MAP(NAME, NUM) {NUM, #NAME},
+        static const std::map<uint64_t, const char*> myMap = {XR_LIST_EXTENSIONS(MAKE_EXTENSION_NUMBER_MAP)};
+        return myMap;
+    }
+
     const char* ResultToString(XrResult result)
     {
         auto it = resultStringMap.find(result);
@@ -989,6 +996,16 @@ namespace Conformance
                                caseInsensitivePredicate);
 
         return (it != globalData.enabledInstanceExtensionNames.end());
+    }
+
+    bool IsInstanceExtensionEnabled(uint64_t extensionNumber)
+    {
+        auto& map = GetNumberExtensionMap();
+        auto it = map.find(extensionNumber);
+        if (it == map.end()) {
+            return false;
+        }
+        return IsInstanceExtensionEnabled(it->second);
     }
 
     bool IsInteractionProfileEnabled(const char* ipName)

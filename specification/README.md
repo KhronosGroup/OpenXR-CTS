@@ -1,5 +1,11 @@
 # Building the Specification
 
+<!--
+Copyright (c) 2014-2020 The Khronos Group Inc.
+
+SPDX-License-Identifier: CC-BY-4.0
+-->
+
 Before building the specification, install the necessary prerequisite tools as described later in this document.
 
 You may instead choose to use the `open-in-docker.sh` script,
@@ -125,6 +131,9 @@ Before building the OpenXR spec, you must install the following tools:
     which are likely sufficient.
   * To install with pip, the typical `pip3 install -r requirements.txt`
     will work.
+  * To be able to generate the Python docs, or perform spec diffs, you'll
+    additionally need: `sudo apt install python3-pytest python3-pypdf2` and
+    `python3 -m pip install pdoc3 pdf_diff`
 * Ruby (`ruby`, version 2.3.3 tested, anything newer should work)
   * The Ruby development package (ruby-dev) may also be required in some
     environments.

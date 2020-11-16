@@ -48,7 +48,7 @@ namespace swapchain
 
     CustomSwapchainState* GetCustomSwapchainState(XrSwapchain handle)
     {
-        return reinterpret_cast<CustomSwapchainState*>(GetSwapchainState(handle)->customState.get());
+        return dynamic_cast<CustomSwapchainState*>(GetSwapchainState(handle)->customState.get());
     }
 
 }  // namespace swapchain

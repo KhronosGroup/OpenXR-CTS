@@ -183,7 +183,7 @@ elseif(WIN32)
         target_compile_options(openxr_loader PRIVATE /wd6386)
     endif()
 
-    target_link_libraries(openxr_loader PRIVATE advapi32)
+    target_link_libraries(openxr_loader PUBLIC advapi32 pathcch)
 
     # Need to copy DLL to client directories so clients can easily load it.
     if(DYNAMIC_LOADER AND (CMAKE_GENERATOR MATCHES "^Visual Studio.*"))
@@ -239,8 +239,46 @@ if(CMAKE_COMPILER_IS_GNUCC OR CMAKE_C_COMPILER_ID MATCHES "Clang")
 endif()
 
 install(
-    TARGETS openxr_loader
-    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
-    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+    TARGETS openxr_loader EXPORT openxr_loader_export
+    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}$<$<CONFIG:Debug>:/Debug>
+    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}$<$<CONFIG:Debug>:/Debug>
+    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}$<$<CONFIG:Debug>:/Debug>
+)
+
+export(
+    EXPORT openxr_loader_export
+    FILE ${CMAKE_CURRENT_BINARY_DIR}/OpenXRTargets.cmake
+    NAMESPACE OpenXR::
+)
+
+if((CMAKE_SYSTEM_NAME STREQUAL "Windows") OR (CMAKE_SYSTEM_NAME STREQUAL "WindowsStore"))
+    set(TARGET_DESTINATION cmake)
+else()
+    set(TARGET_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/openxr/)
+endif()
+
+install(
+    EXPORT openxr_loader_export
+    FILE OpenXRTargets.cmake
+    NAMESPACE OpenXR::
+    DESTINATION ${TARGET_DESTINATION}
+)
+
+include(CMakePackageConfigHelpers)
+set(INCLUDE_INSTALL_DIR include/)
+configure_package_config_file(
+    OpenXRConfig.cmake.in
+    ${CMAKE_CURRENT_BINARY_DIR}/OpenXRConfig.cmake
+    INSTALL_DESTINATION ${TARGET_DESTINATION}
+    PATH_VARS INCLUDE_INSTALL_DIR
+)
+write_basic_package_version_file(
+    ${CMAKE_CURRENT_BINARY_DIR}/OpenXRConfigVersion.cmake
+    VERSION "${MAJOR}.${MINOR}.${PATCH}"
+    COMPATIBILITY SameMajorVersion
+)
+install(
+    FILES ${CMAKE_CURRENT_BINARY_DIR}/OpenXRConfig.cmake
+          ${CMAKE_CURRENT_BINARY_DIR}/OpenXRConfigVersion.cmake
+    DESTINATION ${TARGET_DESTINATION}
 )

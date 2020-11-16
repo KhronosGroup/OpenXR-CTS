@@ -115,14 +115,14 @@ namespace Conformance
 
         XrSwapchainSubImage MakeDefaultSubImage(XrSwapchain swapchain, uint32_t imageArrayIndex = 0);
 
-        XrCompositionLayerQuad* CreateQuadLayer(XrSwapchain swapchain, XrSpace space, XrPosef pose = XrPosefCPP());
+        XrCompositionLayerQuad* CreateQuadLayer(XrSwapchain swapchain, XrSpace space, float width, XrPosef pose = XrPosefCPP());
 
         XrCompositionLayerProjection* CreateProjectionLayer(XrSpace space);
 
     private:
         std::mutex m_mutex;
 
-        XrInstance m_instance;
+        InstanceREQUIRE m_instance;
         XrSession m_session;
         XrSystemId m_systemId;
 

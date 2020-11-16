@@ -274,6 +274,11 @@ namespace
               ("Enables testing of invalid handle checking.")
                   .optional()
 
+            | Opt(options.nonDisconnectableDevices)  // Runtime supports disconnectable devices
+                  ["--nonDisconnectableDevices"]     //
+              ("Disables tests that requires disconnectable devices (for debugging).")
+                  .optional()
+
             | Opt([&](bool /* flag */) { options.fileLineLoggingEnabled = false; })  // disable file/line logging
                   ["-F"]["--disableFileLineLogging"]                                 //
               ("Disables logging file/line data.")

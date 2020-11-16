@@ -1,3 +1,7 @@
+// Copyright (c) 2017-2020 The Khronos Group Inc
+//
+// SPDX-License-Identifier: Apache-2.0
+
 #include "gen_dispatch.h"
 
 // Unhandled exception at ABI is a catastrophic error in the layer (a bug).

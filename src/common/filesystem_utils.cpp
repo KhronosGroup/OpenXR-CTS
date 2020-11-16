@@ -88,6 +88,10 @@
 #endif
 
 #if defined(XR_USE_PLATFORM_WIN32)
+#include <PathCch.h>
+#endif
+
+#if defined(XR_USE_PLATFORM_WIN32)
 #define PATH_SEPARATOR ';'
 #define DIRECTORY_SYMBOL '\\'
 #define ALTERNATE_DIRECTORY_SYMBOL '/'
@@ -124,6 +128,22 @@ bool FileSysUtilsGetParentPath(const std::string& file_path, std::string& parent
 
 bool FileSysUtilsGetAbsolutePath(const std::string& path, std::string& absolute) {
     absolute = FS_PREFIX::absolute(path).string();
+    return true;
+}
+
+bool FileSysUtilsGetCanonicalPath(const std::string& path, std::string& canonical) {
+#if defined(XR_USE_PLATFORM_WIN32)
+    // std::filesystem::canonical fails on UWP and must be avoided. This alternative will not
+    // follow symbolic links but symbolic links are not needed on Windows since the loader uses
+    // the registry as a form of indirection instead.
+    wchar_t canonical_wide_path[MAX_PATH];
+    if (FAILED(PathCchCanonicalize(canonical_wide_path, MAX_PATH, utf8_to_wide(path).c_str()))) {
+        return false;
+    }
+    canonical = wide_to_utf8(canonical_wide_path);
+#else
+    canonical = FS_PREFIX::canonical(path).string();
+#endif
     return true;
 }
 
@@ -203,6 +223,15 @@ bool FileSysUtilsGetParentPath(const std::string& file_path, std::string& parent
 bool FileSysUtilsGetAbsolutePath(const std::string& path, std::string& absolute) {
     wchar_t tmp_path[MAX_PATH];
     if (0 != GetFullPathNameW(utf8_to_wide(path).c_str(), MAX_PATH, tmp_path, NULL)) {
+        absolute = wide_to_utf8(tmp_path);
+        return true;
+    }
+    return false;
+}
+
+bool FileSysUtilsGetCanonicalPath(const std::string& path, std::string& absolute) {
+    wchar_t tmp_path[MAX_PATH];
+    if (SUCCEEDED(PathCchCanonicalize(tmp_path, MAX_PATH, utf8_to_wide(path).c_str()))) {
         absolute = wide_to_utf8(tmp_path);
         return true;
     }
@@ -292,9 +321,14 @@ bool FileSysUtilsGetParentPath(const std::string& file_path, std::string& parent
 }
 
 bool FileSysUtilsGetAbsolutePath(const std::string& path, std::string& absolute) {
+    // canonical path is absolute
+    return FileSysUtilsGetCanonicalPath(path, absolute);
+}
+
+bool FileSysUtilsGetCanonicalPath(const std::string& path, std::string& canonical) {
     char buf[PATH_MAX];
     if (nullptr != realpath(path.c_str(), buf)) {
-        absolute = buf;
+        canonical = buf;
         return true;
     }
     return false;

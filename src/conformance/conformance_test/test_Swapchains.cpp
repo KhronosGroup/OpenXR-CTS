@@ -183,8 +183,8 @@ namespace Conformance
             {
                 if (countOutput >= 2) {  // Need at least two in order to exercise XR_ERROR_SIZE_INSUFFICIENT
                     CHECK_MSG(xrEnumerateSwapchainFormats(session, 1, &countOutput, imageFormatArray.data()), XR_ERROR_SIZE_INSUFFICIENT);
-                    INFO("Should not overwrite dummy data");
-                    CHECK_MSG(imageFormatArray[1] == imageFormatInvalid, "Should not overwrite dummy data.");
+                    INFO("Should not overwrite input data");
+                    CHECK_MSG(imageFormatArray[1] == imageFormatInvalid, "Should not overwrite input data.");
                     CHECK_MSG(countOutput == imageFormatArray.size(), "Should not change required size unexpectectedly.");
                 }
 
@@ -218,6 +218,7 @@ namespace Conformance
 
                         ReportF("Testing format %s", tp.imageFormatName.c_str());
                         int swapchainCreateCount = 0;
+                        int unsupportedCount = 0;
 
                         auto createDefaultSwapchain = [&] {
                             XrSwapchainCreateInfo createInfo{XR_TYPE_SWAPCHAIN_CREATE_INFO};
@@ -241,7 +242,13 @@ namespace Conformance
                             XrSwapchain swapchain;
                             XrResult result = xrCreateSwapchain(session, &swapchainCreateInfo, &swapchain);
                             CHECK(ValidateResultAllowed("xrCreateSwapchain", result));
-                            REQUIRE_RESULT_SUCCEEDED(result);
+                            // A runtime is allowed to fail swapchain creation due to a unsupported creation flag.
+                            REQUIRE_THAT(result, In<XrResult>({XR_SUCCESS, XR_ERROR_FEATURE_UNSUPPORTED}));
+                            if (result == XR_ERROR_FEATURE_UNSUPPORTED) {
+                                WARN("Unsupported config found");
+                                CAPTURE(result);
+                                unsupportedCount++;
+                            }
 
                             if (XR_SUCCEEDED(result)) {
                                 TestSwapchainHandle(imageFormat, &tp, &swapchainCreateInfo, swapchain);
@@ -317,7 +324,8 @@ namespace Conformance
                             CAPTURE(createInfo.mipCount = mc);
                             testSwapchainCreation(createInfo);
                         }
-                        ReportF("    %d cases tested", swapchainCreateCount);
+
+                        ReportF("    %d cases tested (%d unsupported)", swapchainCreateCount, unsupportedCount);
                     }
                 }
             }

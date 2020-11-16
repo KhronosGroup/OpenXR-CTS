@@ -17,6 +17,7 @@
 #include "utils.h"
 #include "conformance_utils.h"
 #include "conformance_framework.h"
+#include "matchers.h"
 #include <array>
 #include <vector>
 #include <set>
@@ -44,7 +45,31 @@ namespace Conformance
             result = xrResultToString(instance, value.first, buffer);
             REQUIRE(ValidateResultAllowed("xrResultToString", result));
             REQUIRE(result == XR_SUCCESS);
+            bool allowGeneratedName = false;
+            uint64_t ext_num = 0;
             CHECK(std::string(buffer) == value.second);
+            if (std::abs(value.first) >= 1000000000) {
+                // This is an extension
+                ext_num = (std::abs(value.first) - 1000000000) / 1000;
+                if (!IsInstanceExtensionEnabled(ext_num)) {
+                    // It's not enabled, so not enforcing that it must be the real value.
+                    allowGeneratedName = true;
+                }
+            }
+            std::string returnedString(buffer);
+            if (allowGeneratedName) {
+                std::string generatedName;
+                if (value.first < 0) {
+                    generatedName = "XR_UNKNOWN_FAILURE_" + std::to_string(value.first);
+                }
+                else {
+                    generatedName = "XR_UNKNOWN_SUCCESS_" + std::to_string(value.first);
+                }
+                CHECK_THAT(returnedString, In<std::string>({std::string(value.second), generatedName}));
+            }
+            else {
+                CHECK(returnedString == value.second);
+            }
         }
 
         // Exercise XR_UNKNOWN_SUCCESS_XXX

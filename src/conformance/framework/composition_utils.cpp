@@ -133,17 +133,17 @@ namespace Conformance
     {
         m_primaryViewType = GetGlobalData().GetOptions().viewConfigurationValue;
 
-        XRC_CHECK_THROW_XRCMD(CreateBasicInstance(&m_instance));
+        XRC_CHECK_THROW_XRCMD(CreateBasicInstance(m_instance.resetAndGetAddress()));
 
-        m_eventQueue = std::unique_ptr<EventQueue>(new EventQueue(m_instance));
+        m_eventQueue = std::unique_ptr<EventQueue>(new EventQueue(m_instance.get()));
         m_privateEventReader = std::unique_ptr<EventReader>(new EventReader(*m_eventQueue));
 
-        XRC_CHECK_THROW_XRCMD(CreateBasicSession(m_instance, &m_systemId, &m_session));
+        XRC_CHECK_THROW_XRCMD(CreateBasicSession(m_instance.get(), &m_systemId, &m_session));
 
         XRC_CHECK_THROW_XRCMD(
-            xrEnumerateViewConfigurationViews(m_instance, m_systemId, m_primaryViewType, 0, &m_projectionViewCount, nullptr));
+            xrEnumerateViewConfigurationViews(m_instance.get(), m_systemId, m_primaryViewType, 0, &m_projectionViewCount, nullptr));
 
-        m_interactionManager = std::make_unique<InteractionManager>(m_instance, m_session);
+        m_interactionManager = std::make_unique<InteractionManager>(m_instance.get(), m_session);
 
         std::vector<int64_t> swapchainFormats;
         {
@@ -190,8 +190,6 @@ namespace Conformance
         if (graphicsPlugin->IsInitialized()) {
             graphicsPlugin->ShutdownDevice();
         }
-
-        xrDestroyInstance(m_instance);
     }
 
     InteractionManager& CompositionHelper::GetInteractionManager()
@@ -201,7 +199,7 @@ namespace Conformance
 
     XrInstance CompositionHelper::GetInstance() const
     {
-        return m_instance;
+        return m_instance.get();
     }
 
     XrSession CompositionHelper::GetSession() const
@@ -214,10 +212,10 @@ namespace Conformance
         std::vector<XrViewConfigurationView> views;
 
         uint32_t countOutput;
-        XRC_CHECK_THROW_XRCMD(xrEnumerateViewConfigurationViews(m_instance, m_systemId, m_primaryViewType, 0, &countOutput, nullptr));
+        XRC_CHECK_THROW_XRCMD(xrEnumerateViewConfigurationViews(m_instance.get(), m_systemId, m_primaryViewType, 0, &countOutput, nullptr));
         if (countOutput != 0) {
             views.resize(countOutput, {XR_TYPE_VIEW_CONFIGURATION_VIEW});
-            XRC_CHECK_THROW_XRCMD(xrEnumerateViewConfigurationViews(m_instance, m_systemId, m_primaryViewType, (uint32_t)views.size(),
+            XRC_CHECK_THROW_XRCMD(xrEnumerateViewConfigurationViews(m_instance.get(), m_systemId, m_primaryViewType, (uint32_t)views.size(),
                                                                     &countOutput, views.data()));
         }
 
@@ -227,7 +225,7 @@ namespace Conformance
     XrViewConfigurationProperties CompositionHelper::GetViewConfigurationProperties()
     {
         XrViewConfigurationProperties properties{XR_TYPE_VIEW_CONFIGURATION_PROPERTIES};
-        XRC_CHECK_THROW_XRCMD(xrGetViewConfigurationProperties(m_instance, m_systemId, m_primaryViewType, &properties));
+        XRC_CHECK_THROW_XRCMD(xrGetViewConfigurationProperties(m_instance.get(), m_systemId, m_primaryViewType, &properties));
         return properties;
     }
 
@@ -312,6 +310,7 @@ namespace Conformance
         XRC_CHECK_THROW_XRCMD(xrAcquireSwapchainImage(swapchain, &acquireInfo, &imageIndex));
 
         XrSwapchainImageWaitInfo waitInfo{XR_TYPE_SWAPCHAIN_IMAGE_WAIT_INFO};
+        waitInfo.timeout = 500_xrMilliseconds;  // Call can block waiting for image to become available for writing.
         XRC_CHECK_THROW_XRCMD(xrWaitSwapchainImage(swapchain, &waitInfo));
 
         std::unique_lock<std::mutex> lock(m_mutex);
@@ -429,14 +428,15 @@ namespace Conformance
         return subImage;
     }
 
-    XrCompositionLayerQuad* CompositionHelper::CreateQuadLayer(XrSwapchain swapchain, XrSpace space, XrPosef pose /*= XrPosefCPP()*/)
+    XrCompositionLayerQuad* CompositionHelper::CreateQuadLayer(XrSwapchain swapchain, XrSpace space, float width,
+                                                               XrPosef pose /*= XrPosefCPP()*/)
     {
         XrCompositionLayerQuad quad{XR_TYPE_COMPOSITION_LAYER_QUAD};
-        quad.size = {1, 1};
         quad.eyeVisibility = XR_EYE_VISIBILITY_BOTH;
         quad.pose = pose;
         quad.space = space;
         quad.subImage = MakeDefaultSubImage(swapchain);
+        quad.size = {width, width * quad.subImage.imageRect.extent.height / quad.subImage.imageRect.extent.width};
 
         std::lock_guard<std::mutex> lock(m_mutex);
         m_quads.push_back(quad);

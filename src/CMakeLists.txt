@@ -31,9 +31,15 @@ include(StdFilesystemFlags)
 
 ### Dependencies
 
-# Skip detection of OpenGL/Vulkan for UWP "WindowsStore" build, otherwise the OpenGL package will be found for UWP
-# apps but gl.h isn't compatible. Similarly, there is no ARM/ARM64 support in the Windows Vulkan SDK.
-if(NOT CMAKE_SYSTEM_NAME STREQUAL "WindowsStore")
+# CMake will detect OpenGL/Vulkan which are not compatible with UWP and ARM/ARM64 on Windows so skip it in these cases.
+string(TOUPPER "${CMAKE_GENERATOR_PLATFORM}" CMAKE_GENERATOR_PLATFORM_UPPER)
+if(CMAKE_SYSTEM_NAME STREQUAL "WindowsStore" OR (WIN32 AND CMAKE_GENERATOR_PLATFORM_UPPER MATCHES "ARM.*"))
+    set(OPENGL_INCOMPATIBLE TRUE)
+    set(VULKAN_INCOMPATIBLE TRUE)
+    message(STATUS "OpenGL/Vulkan disabled due to incompatibility")
+endif()
+
+if(NOT OPENGL_INCOMPATIBLE)
     set(OpenGL_GL_PREFERENCE GLVND)
     find_package(OpenGL)
 
@@ -43,7 +49,9 @@ if(NOT CMAKE_SYSTEM_NAME STREQUAL "WindowsStore")
     elseif(BUILD_ALL_EXTENSIONS)
         message(FATAL_ERROR "OpenGL not found")
     endif()
+endif()
 
+if(NOT VULKAN_INCOMPATIBLE)
     if(NOT CMAKE_VERSION VERSION_LESS 3.7.0)
         # Find the Vulkan headers
         find_package(VulkanHeaders)
@@ -77,7 +85,7 @@ endif()
 if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/api_layers/CMakeLists.txt")
     option(BUILD_API_LAYERS "Build API layers" ON)
 endif()
-if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/tests/CMakeLists.txt" AND NOT CMAKE_SYSTEM_NAME STREQUAL "WindowsStore")
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/tests/CMakeLists.txt")
     option(BUILD_TESTS "Build tests" ON)
 endif()
 if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/conformance/CMakeLists.txt")
@@ -88,8 +96,11 @@ include(CMakeDependentOption)
 cmake_dependent_option(
     BUILD_WITH_SYSTEM_JSONCPP "Use system jsoncpp instead of vendored source" ON "JSONCPP_FOUND" OFF
 )
-cmake_dependent_option(BUILD_WITH_STD_FILESYSTEM "Use std::[experimental::]filesystem." ON
-       "HAVE_FILESYSTEM_WITHOUT_LIB OR HAVE_FILESYSTEM_NEEDING_LIB" OFF)
+cmake_dependent_option(
+    BUILD_WITH_STD_FILESYSTEM "Use std::[experimental::]filesystem." ON
+    "HAVE_FILESYSTEM_WITHOUT_LIB OR HAVE_FILESYSTEM_NEEDING_LIBSTDCXXFS OR HAVE_FILESYSTEM_NEEDING_LIBCXXFS"
+    OFF
+)
 
 # Several files use these compile-time OS switches
 if(WIN32)
@@ -127,10 +138,6 @@ endif()
 # Several files use these compile-time platform switches
 if(WIN32)
     add_definitions(-DXR_USE_PLATFORM_WIN32)
-    # TODO remove once work is done to get more stuff building for UWP.
-    if (CMAKE_SYSTEM_NAME STREQUAL "WindowsStore")
-        set(BUILD_TESTS OFF)
-    endif()
 elseif(PRESENTATION_BACKEND MATCHES "xlib")
     add_definitions(-DXR_USE_PLATFORM_XLIB)
 elseif(PRESENTATION_BACKEND MATCHES "xcb")
@@ -157,6 +164,8 @@ endif()
 if(BUILD_WITH_WAYLAND_HEADERS)
     target_compile_definitions(openxr-all-supported INTERFACE XR_USE_PLATFORM_WAYLAND)
 endif()
+# openxr-all-supported is a dependency of openxr_loader so it should be added to the export set
+install(TARGETS openxr-all-supported EXPORT openxr_loader_export)
 
 # Find glslc shader compiler.
 # On Android, the NDK includes the binary, so no external dependency.
@@ -171,8 +180,11 @@ else()
     file(GLOB glslc_folders $ENV{VULKAN_SDK}/*)
     find_program(GLSL_COMPILER glslc PATHS ${glslc_folders})
 endif()
+find_program(GLSLANG_VALIDATOR glslangValidator)
 if(GLSL_COMPILER)
     message(STATUS "Found glslc: ${GLSL_COMPILER}")
+elseif(GLSLANG_VALIDATOR)
+    message(STATUS "Found glslangValidator: ${GLSLANG_VALIDATOR}")
 else()
     message(STATUS "Could NOT find glslc, using precompiled .spv files")
 endif()
@@ -188,6 +200,14 @@ function(compile_glsl run_target_name)
                 OUTPUT ${out_file}
                 COMMAND ${GLSL_COMPILER} -mfmt=c -fshader-stage=${glsl_stage} ${in_file} -o ${out_file}
                 DEPENDS ${in_file}
+            )
+        elseif(GLSLANG_VALIDATOR)
+            # Run glslangValidator if we can find it
+            add_custom_command(
+                OUTPUT ${out_file}
+                COMMAND ${GLSLANG_VALIDATOR} -V -S ${glsl_stage} ${in_file} -x -o ${out_file}
+                DEPENDS ${in_file}
+                VERBATIM
             )
         else()
             # Use the precompiled .spv files

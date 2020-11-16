@@ -3,18 +3,6 @@
 # Copyright (c) 2013-2020 The Khronos Group Inc.
 #
 # SPDX-License-Identifier: Apache-2.0
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
 
 import os
 import re
@@ -127,6 +115,9 @@ class CGeneratorOptions(GeneratorOptions):
 
         self.aliasMacro = aliasMacro
         """alias macro to inject when genAliasMacro is True"""
+
+        self.codeGenerator = True
+        """True if this generator makes compilable code"""
 
 
 class COutputGenerator(OutputGenerator):
@@ -313,9 +304,9 @@ class COutputGenerator(OutputGenerator):
                                  if data.elem.get('mayalias') == 'true')
 
             # Every type mentioned in some other type's parentstruct attribute.
-            parent_structs = (otherType.elem.get('parentstruct')
-                              for otherType in self.registry.typedict.values())
-            self.may_alias.update(set(x for x in parent_structs
+            polymorphic_bases = (otherType.elem.get('parentstruct')
+                                 for otherType in self.registry.typedict.values())
+            self.may_alias.update(set(x for x in polymorphic_bases
                                       if x is not None))
         return typeName in self.may_alias
 

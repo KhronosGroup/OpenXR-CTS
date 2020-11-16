@@ -1,5 +1,11 @@
 # Changelog for OpenXR-CTS Repo
 
+<!--
+Copyright (c) 2020 The Khronos Group Inc.
+
+SPDX-License-Identifier: CC-BY-4.0
+-->
+
 Update log for the OpenXR-CTS repo on GitHub. Updates are
 in reverse chronological order starting with the latest public release.
 
@@ -11,6 +17,47 @@ particular, since it is primarily software, pull requests may be integrated as
 they are accepted even between periodic updates. However, versions that are not
 signed tags on the `approved` branch are not valid for conformance submission.
 
+## OpenXR CTS 1.0.12.1 (2020-10-01)
+
+- Registry
+  - All changes found in 1.0.10, 1.0.11, and 1.0.12.
+- Conformance Tests
+  - Fix: Fix Vulkan image layout transitions
+    ([internal MR 1876](https://gitlab.khronos.org/openxr/openxr/merge_requests/1876))
+  - Fix: Images were being copied upside-down in OpenGL ES.
+    ([internal MR 1899](https://gitlab.khronos.org/openxr/openxr/merge_requests/1899))
+  - Fix: Issues around `xrInitializeLoaderKHR`.
+    ([internal MR 1922](https://gitlab.khronos.org/openxr/openxr/merge_requests/1922))
+  - Fix: Fix some interactive tests like "Grip and Aim Pose" which exposed D3D12
+    validation errors due to bugs in the D3D12 graphics plugin.
+    ([OpenXR-CTS/#1](https://github.com/KhronosGroup/OpenXR-CTS/pull/1))
+  - Fix: Use `REQUIRE` macro in main thread only, in `Timed Pipelined Frame
+    Submission` to prevent race condition.
+    ([OpenXR-CTS/#2](https://github.com/KhronosGroup/OpenXR-CTS/pull/2))
+  - Improvement: Enable use of glslangValidator to compile shaders if shaderc is
+    not available.
+    ([internal MR 1857](https://gitlab.khronos.org/openxr/openxr/merge_requests/1857))
+  - Improvement: Add options to not run tests that require disconnecting devices.
+    ([internal MR 1862](https://gitlab.khronos.org/openxr/openxr/merge_requests/1862))
+  - Improvement: `xrStructureTypeToString`, `xrResultToString`: Make test more
+    lenient, so it will also accept the "generic" generated value for enumerant
+    values defined by an extension that is not currently enabled.
+    ([internal MR 1864](https://gitlab.khronos.org/openxr/openxr/merge_requests/1864))
+  - Improvement: Improve language usage in code and comments to be more respectful.
+    ([internal MR 1881](https://gitlab.khronos.org/openxr/openxr/merge_requests/1881))
+  - Improvement: Handle the new `XR_ERROR_GRAPHICS_REQUIREMENTS_CALL_MISSING`
+    return code, and move all checks for this code to the `xrCreateSession` test,
+    from the individual graphics bindings tests.
+    ([internal MR 1882](https://gitlab.khronos.org/openxr/openxr/merge_requests/1882),
+    [OpenXR-Docs/#53](https://github.com/KhronosGroup/OpenXR-Docs/issues/53),
+    [internal issue 1397](https://gitlab.khronos.org/openxr/openxr/issues/1397))
+  - Improvement: Automatically enable a number of extensions, if present, that can
+    be enabled without side-effects.
+    ([internal MR 1897](https://gitlab.khronos.org/openxr/openxr/merge_requests/1897))
+  - Improvement: Use the `XR_KHR_loader_init_android` extension on Android instead
+    of vendor-specific code.
+    ([internal MR 1903](https://gitlab.khronos.org/openxr/openxr/merge_requests/1903))
+
 ## OpenXR CTS 1.0.9.2 (2020-06-18)
 
 - Registry
@@ -18,6 +65,8 @@ signed tags on the `approved` branch are not valid for conformance submission.
 - Conformance Tests
   - New test: Add test for quads composed in hand spaces.
     ([internal MR 1767](https://gitlab.khronos.org/openxr/openxr/merge_requests/1767))
+  - New test: Add test for mutable field-of-view composition.
+    ([internal MR 1830](https://gitlab.khronos.org/openxr/openxr/merge_requests/1830))
   - Improvement: Pre-fill action state structs a few times with non-zero data.
     ([internal MR 1828](https://gitlab.khronos.org/openxr/openxr/merge_requests/1828))
   - Improvement: interactive action test improvements.

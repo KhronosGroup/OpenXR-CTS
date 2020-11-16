@@ -3,18 +3,6 @@
 # Copyright (c) 2013-2020 The Khronos Group Inc.
 #
 # SPDX-License-Identifier: Apache-2.0
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
 
 import re
 
@@ -22,6 +10,8 @@ import re
 _A_VS_AN_RE = re.compile(r' a ([a-z]+:)?([aAeEiIoOxX]\w+\b)(?!:)')
 
 _STARTS_WITH_MACRO_RE = re.compile(r'^[a-z]+:.*')
+
+_VUID_ANCHOR_RE = re.compile(r'\[\[VUID-.*\]\]')
 
 
 def _checkAnchorComponents(anchor):
@@ -42,11 +32,12 @@ def _fix_a_vs_an(s):
 class ValidityCollection:
     """Combines validity for a single entity."""
 
-    def __init__(self, entity_name=None, conventions=None, strict=True):
+    def __init__(self, entity_name=None, conventions=None, strict=True, verbose=False):
         self.entity_name = entity_name
         self.conventions = conventions
         self.lines = []
         self.strict = strict
+        self.verbose = verbose
 
     def possiblyAddExtensionRequirement(self, extension_name, entity_preface):
         """Add an extension-related validity statement if required.
@@ -123,10 +114,16 @@ class ValidityCollection:
                     print(self.entity_name, 'Appending', str(other))
                 self.addValidityEntry(str(other), anchor=other.anchor)
         elif isinstance(other, ValidityCollection):
-            if not self.entity_name == other.entity_name:
-                raise RuntimeError(
-                    "Trying to combine two ValidityCollections for different entities!")
-            self._extend(other.lines)
+            if self.entity_name == other.entity_name:
+                self._extend(other.lines)
+            else:
+                # Remove foreign anchors - this is presumably an alias
+                if other.verbose:
+                    print(self.entity_name,
+                          'merging with validity for',
+                          other.entity_name,
+                          'so removing VUID anchor on incoming entries')
+                self._extend(_VUID_ANCHOR_RE.sub('', s, 1) for s in other.lines)
         else:
             # Deal with other iterables.
             self._extend(other)
@@ -168,6 +165,10 @@ class ValidityEntry:
         if isinstance(anchor, str):
             # anchor needs to be a tuple
             anchor = (anchor,)
+
+        # VUID does not allow special chars except ":"
+        if anchor is not None:
+            anchor = [(anchor_value.replace('->', '::').replace('.', '::')) for anchor_value in anchor]
 
         self.anchor = anchor
         self.parts = []

@@ -27,7 +27,7 @@ namespace action
 
     CustomActionState* GetCustomActionState(XrAction handle)
     {
-        return reinterpret_cast<CustomActionState*>(GetActionState(handle)->customState.get());
+        return dynamic_cast<CustomActionState*>(GetActionState(handle)->customState.get());
     }
 }  // namespace action
 

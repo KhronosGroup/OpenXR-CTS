@@ -238,7 +238,7 @@ namespace Conformance
     XrResult CreateActionSet(XrInstance instance, XrActionSet* actionSet, std::vector<XrAction>* actionVector,
                              const XrPath* subactionPathArray = nullptr, size_t subactionPathArraySize = 0);
 
-    // Dummy type used to provide a unique identity for XR_NULL_HANDLE, for comparisons, etc.
+    // Proxy type used to provide a unique identity for XR_NULL_HANDLE, for comparisons, etc.
     // Implicitly convertible to XR_NULL_HANDLE in all the places you want.
     //
     // Typically just use the instance XR_NULL_HANDLE_CPP
@@ -966,6 +966,10 @@ namespace Conformance
     // Returns true if the extension name is in the list (case-insensitive) of extensions that are
     // enabled by default for instance creation (GlobalData::Options::enabledInstanceExtensionNames).
     bool IsInstanceExtensionEnabled(const char* extensionName);
+
+    // Returns true if the extension of this number is in the list of extensions that are
+    // enabled by default for instance creation (GlobalData::Options::enabledInstanceExtensionNames).
+    bool IsInstanceExtensionEnabled(uint64_t extensionNumber);
 
     // Returns true if the interaction profile is in the list oc interaction profiles that are
     // enabled by default for conformance testing (GlobalDat::Options::enabledInteractionProfiles).

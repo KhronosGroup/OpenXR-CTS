@@ -3,18 +3,6 @@
 # Copyright (c) 2013-2020 The Khronos Group Inc.
 #
 # SPDX-License-Identifier: Apache-2.0
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
 
 from pathlib import Path
 
@@ -288,22 +276,37 @@ class DocOutputGenerator(OutputGenerator):
                 else:
                     self.logMsg('diag', '# NOT writing empty include file for type', name)
 
+    def genStructBody(self, typeinfo, typeName):
+        """
+        Returns the body generated for a struct.
+
+        Factored out to allow aliased types to also generate the original type.
+        """
+        typeElem = typeinfo.elem
+        body = 'typedef ' + typeElem.get('category') + ' ' + typeName + ' {\n'
+
+        targetLen = self.getMaxCParamTypeLength(typeinfo)
+        for member in typeElem.findall('.//member'):
+            body += self.makeCParamDecl(member, targetLen + 4)
+            body += ';\n'
+        body += '} ' + typeName + ';'
+        return body
+    
     def genStruct(self, typeinfo, typeName, alias):
         """Generate struct."""
         OutputGenerator.genStruct(self, typeinfo, typeName, alias)
 
-        typeElem = typeinfo.elem
-
         if alias:
-            body = 'typedef ' + alias + ' ' + typeName + ';\n'
+            body = ''
+            if self.conventions.duplicate_aliased_structs:
+                # TODO maybe move this outside the conditional? This would be a visual change.
+                body += '// {} is an alias for {}\n'.format(typeName, alias)
+                alias_info = self.registry.typedict[alias]
+                body += self.genStructBody(alias_info, alias)
+                body += '\n\n'
+            body += 'typedef ' + alias + ' ' + typeName + ';\n'
         else:
-            body = 'typedef ' + typeElem.get('category') + ' ' + typeName + ' {\n'
-
-            targetLen = self.getMaxCParamTypeLength(typeinfo)
-            for member in typeElem.findall('.//member'):
-                body += self.makeCParamDecl(member, targetLen + 4)
-                body += ';\n'
-            body += '} ' + typeName + ';'
+            body = self.genStructBody(typeinfo, typeName)
 
         self.writeInclude('structs', typeName, body)
 
@@ -323,7 +326,7 @@ class DocOutputGenerator(OutputGenerator):
                 'name': name,
             }
 
-            (numVal, strVal) = self.enumToValue(elem, True)
+            (numVal, _) = self.enumToValue(elem, True)
             data['value'] = numVal
 
             extname = elem.get('extname')
@@ -337,7 +340,7 @@ class DocOutputGenerator(OutputGenerator):
             if comment:
                 got_comment = True
             elif name.endswith('_UNKNOWN') and numVal == 0:
-                # This is a dummy placeholder for 0-initialization to be clearly invalid.
+                # This is a placeholder for 0-initialization to be clearly invalid.
                 # Just skip this silently
                 continue
             else:

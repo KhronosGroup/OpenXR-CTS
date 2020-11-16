@@ -119,15 +119,15 @@ class ApiDumpOutputGenerator(AutomaticSourceOutputGenerator):
     #   self            the ApiDumpOutputGenerator object
     def outputLayerHeaderPrototypes(self):
         generated_prototypes = '// Layer\'s xrGetInstanceProcAddr\n'
-        generated_prototypes += 'XrResult ApiDumpLayerXrGetInstanceProcAddr(XrInstance instance,\n'
+        generated_prototypes += 'XRAPI_ATTR XrResult XRAPI_CALL ApiDumpLayerXrGetInstanceProcAddr(XrInstance instance,\n'
         generated_prototypes += '                                          const char* name, PFN_xrVoidFunction* function);\n\n'
         generated_prototypes += '// Api Dump Log Command\n'
         generated_prototypes += 'bool ApiDumpLayerRecordContent(std::vector<std::tuple<std::string, std::string, std::string>> contents);\n\n'
         generated_prototypes += '// Api Dump Manual Functions\n'
         generated_prototypes += 'XrInstance FindInstanceFromDispatchTable(XrGeneratedDispatchTable* dispatch_table);\n'
-        generated_prototypes += 'XrResult ApiDumpLayerXrCreateInstance(const XrInstanceCreateInfo *info,\n'
+        generated_prototypes += 'XRAPI_ATTR XrResult XRAPI_CALL ApiDumpLayerXrCreateInstance(const XrInstanceCreateInfo *info,\n'
         generated_prototypes += '                                      XrInstance *instance);\n'
-        generated_prototypes += 'XrResult ApiDumpLayerXrDestroyInstance(XrInstance instance);\n'
+        generated_prototypes += 'XRAPI_ATTR XrResult XRAPI_CALL ApiDumpLayerXrDestroyInstance(XrInstance instance);\n'
         generated_prototypes += '\n//Dump utility functions\n'
         generated_prototypes += 'bool ApiDumpDecodeNextChain(XrGeneratedDispatchTable* gen_dispatch_table, const void* value, std::string prefix,\n'
         generated_prototypes += '                            std::vector<std::tuple<std::string, std::string, std::string>> &contents);\n'
@@ -825,11 +825,8 @@ class ApiDumpOutputGenerator(AutomaticSourceOutputGenerator):
             # that isn't a pointer
             if member_param_struct and pointer_count == 0:
                 # Check to see if this struct is the base of a relation group
-                for cur_rel_group in self.struct_relation_groups:
-                    if cur_rel_group.generic_struct_name == member_param_struct.name:
-                        relation_group = cur_rel_group
-                        is_relation_group = True
-                        break
+                relation_group = self.getRelationGroupForBaseStruct(member_param_struct.name)
+                is_relation_group = (relation_group is not None)
             # If this struct is the base of a relation group, check to see if this call really should go to any one of
             # it's children instead of itself.
             if is_relation_group:
@@ -926,14 +923,10 @@ class ApiDumpOutputGenerator(AutomaticSourceOutputGenerator):
             struct_union_check += self.writeIndent(indent)
             struct_union_check += 'try {\n'
             indent = indent + 1
-            is_relation_group = False
-            relation_group = None
+
             # Check to see if this struct is the base of a relation group
-            for cur_rel_group in self.struct_relation_groups:
-                if cur_rel_group.generic_struct_name == xr_struct.name:
-                    relation_group = cur_rel_group
-                    is_relation_group = True
-                    break
+            relation_group = self.getRelationGroupForBaseStruct(xr_struct.name)
+            is_relation_group = (relation_group is not None)
             # If this struct is the base of a relation group, check to see if this call really should go to any one of
             # it's children instead of itself.
             if is_relation_group:
@@ -996,32 +989,39 @@ class ApiDumpOutputGenerator(AutomaticSourceOutputGenerator):
         # Validate the rest of this struct
         struct_union_check += self.writeIndent(2)
         struct_union_check += 'switch (next_header->type) {\n'
-        for enum_tuple in self.api_enums:
-            if enum_tuple.name == 'XrStructureType':
-                if enum_tuple.protect_value:
-                    struct_union_check += '#if %s\n' % enum_tuple.protect_string
-                for cur_value in enum_tuple.values:
-                    struct_define_name = self.genXrStructureName(
-                        cur_value.name)
-                    if struct_define_name:
-                        cur_struct = self.getStruct(struct_define_name)
-                        if cur_struct.protect_value:
-                            struct_union_check += '#if %s\n' % cur_struct.protect_string
-                        struct_union_check += self.writeIndent(3)
-                        struct_union_check += 'case %s:\n' % cur_value.name
-                        struct_union_check += self.writeIndent(4)
-                        struct_union_check += 'if (!ApiDumpOutputXrStruct(gen_dispatch_table, reinterpret_cast<const %s*>(value), prefix, "const %s*", true, contents)) {\n' % (
-                            struct_define_name, struct_define_name)
-                        struct_union_check += self.writeIndent(5)
-                        struct_union_check += 'return false;\n'
-                        struct_union_check += self.writeIndent(4)
-                        struct_union_check += '}\n'
-                        struct_union_check += self.writeIndent(4)
-                        struct_union_check += 'return true;\n'
-                        if cur_struct.protect_value:
-                            struct_union_check += '#endif // %s\n' % cur_struct.protect_string
-                if enum_tuple.protect_value:
-                    struct_union_check += '#endif // %s\n' % enum_tuple.protect_string
+        enum_tuple = [x for x in self.api_enums if x.name == 'XrStructureType'][0]
+        for cur_value in enum_tuple.values:
+            struct_define_name = self.genXrStructureName(
+                cur_value.name)
+            if struct_define_name:
+                cur_struct = self.getStruct(struct_define_name)
+                avoid_dupe = None
+                if cur_value.alias:
+                    aliased = [x for x in enum_tuple.values if x.name == cur_value.alias]
+                    aliased_value = aliased[0]
+                    if aliased_value.protect_value and aliased_value.protect_value != cur_value.protect_value and aliased_value.protect_value != enum_tuple.protect_value:
+                        avoid_dupe = aliased_value.protect_string
+                        struct_union_check += '#if !(%s)\n' % avoid_dupe
+                    else:
+                        # This would unconditionally cause a duplicate case
+                        continue
+                if cur_struct.protect_value:
+                    struct_union_check += '#if %s\n' % cur_struct.protect_string
+                struct_union_check += self.writeIndent(3)
+                struct_union_check += 'case %s:\n' % cur_value.name
+                struct_union_check += self.writeIndent(4)
+                struct_union_check += 'if (!ApiDumpOutputXrStruct(gen_dispatch_table, reinterpret_cast<const %s*>(value), prefix, "const %s*", true, contents)) {\n' % (
+                    struct_define_name, struct_define_name)
+                struct_union_check += self.writeIndent(5)
+                struct_union_check += 'return false;\n'
+                struct_union_check += self.writeIndent(4)
+                struct_union_check += '}\n'
+                struct_union_check += self.writeIndent(4)
+                struct_union_check += 'return true;\n'
+                if cur_struct.protect_value:
+                    struct_union_check += '#endif // %s\n' % cur_struct.protect_string
+                if avoid_dupe:
+                    enum_value_validate += '#endif // !(%s)\n' % avoid_dupe
         struct_union_check += self.writeIndent(3)
         struct_union_check += 'default:\n'
         struct_union_check += self.writeIndent(4)
@@ -1061,6 +1061,10 @@ class ApiDumpOutputGenerator(AutomaticSourceOutputGenerator):
                 if cur_cmd.name == 'xrGetInstanceProcAddr':
                     continue
 
+                # xrInitializeLoaderKHR is special
+                if cur_cmd.name == 'xrInitializeLoaderKHR':
+                    continue
+
                 is_create = False
                 is_destroy = False
                 has_return = False
@@ -1080,7 +1084,6 @@ class ApiDumpOutputGenerator(AutomaticSourceOutputGenerator):
                     generated_commands += '#if %s\n' % cur_cmd.protect_string
 
                 prototype = cur_cmd.cdecl.replace(" xr", " ApiDumpLayerXr")
-                prototype = prototype.replace(self.genOpts.apicall, "").replace(self.genOpts.apientry, "")
                 prototype = prototype.replace(";", " {\n")
                 generated_commands += prototype
 
@@ -1188,7 +1191,7 @@ class ApiDumpOutputGenerator(AutomaticSourceOutputGenerator):
 
         # Output the xrGetInstanceProcAddr command for the API Dump layer.
         generated_commands += '\n// Layer\'s xrGetInstanceProcAddr\n'
-        generated_commands += 'XrResult ApiDumpLayerXrGetInstanceProcAddr(\n'
+        generated_commands += 'XRAPI_ATTR XrResult XRAPI_CALL ApiDumpLayerXrGetInstanceProcAddr(\n'
         generated_commands += '    XrInstance                                  instance,\n'
         generated_commands += '    const char*                                 name,\n'
         generated_commands += '    PFN_xrVoidFunction*                         function) {\n'
@@ -1201,7 +1204,7 @@ class ApiDumpOutputGenerator(AutomaticSourceOutputGenerator):
         generated_commands += '        contents.emplace_back("const char*", "name", name);\n'
         generated_commands += '        contents.emplace_back("PFN_xrVoidFunction*", "function", PointerToHexString(reinterpret_cast<const void*>(function)));\n'
         generated_commands += '        ApiDumpLayerRecordContent(contents);\n'
-        
+
         generated_commands += '        // Set the function pointer to NULL so that the fall-through below actually works:\n'
         generated_commands += '        *function = nullptr;\n\n'
 

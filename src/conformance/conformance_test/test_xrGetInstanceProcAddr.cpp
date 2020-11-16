@@ -17,6 +17,7 @@
 #include "utils.h"
 #include "conformance_utils.h"
 #include "conformance_framework.h"
+#include "matchers.h"
 #include <array>
 #include <vector>
 #include <set>
@@ -41,16 +42,25 @@ namespace Conformance
 
             for (auto& functionInfo : functionInfoMap) {
                 CAPTURE(functionInfo.first);
+                CAPTURE(functionInfo.second.nullInstanceOk);
 
                 PFN_xrVoidFunction f;
-                XrResult expectedResult = (functionInfo.second.nullInstanceOk ? XR_SUCCESS : XR_ERROR_HANDLE_INVALID);
                 XrResult result = xrGetInstanceProcAddr(XR_NULL_HANDLE_CPP, functionInfo.first.c_str(), &f);
-                CHECK(result == expectedResult);
-                if (expectedResult == XR_SUCCESS) {
-                    REQUIRE_MSG(nullptr != f, "A valid pointer has to get returned");
+
+                // xrInitializeLoaderKHR support is optional and requires special handling.
+                if (functionInfo.first == "xrInitializeLoaderKHR") {
+                    CHECK_THAT(result, In<XrResult>({XR_SUCCESS, XR_ERROR_FUNCTION_UNSUPPORTED}));
                 }
                 else {
-                    REQUIRE_MSG(nullptr == f, "A NULL pointer has to get returned");
+                    XrResult expectedResult = (functionInfo.second.nullInstanceOk ? XR_SUCCESS : XR_ERROR_HANDLE_INVALID);
+                    CHECK(result == expectedResult);
+                }
+
+                if (result == XR_SUCCESS) {
+                    CHECK_MSG(nullptr != f, "Unexpected null function pointer returned from successful xrGetInstanceProcAddr call");
+                }
+                else {
+                    CHECK_MSG(nullptr == f, "Unexpected non-null function pointer returned from failed xrGetInstanceProcAddr call");
                 }
                 // To do: We should call the succeeding functions to verify they resolved OK.
             }
@@ -81,14 +91,21 @@ namespace Conformance
 
                 PFN_xrVoidFunction f;
                 XrResult result = xrGetInstanceProcAddr(instance, functionInfo.first.c_str(), &f);
-                CHECK(result == expectedResult);
-                if (expectedResult == XR_SUCCESS) {
-                    CHECK(nullptr != f);
+
+                // xrInitializeLoaderKHR support is optional and requires special handling.
+                if (functionInfo.first == "xrInitializeLoaderKHR") {
+                    CHECK_THAT(result, In<XrResult>({XR_SUCCESS, XR_ERROR_FUNCTION_UNSUPPORTED}));
                 }
                 else {
-                    REQUIRE_MSG(nullptr == f, "A NULL pointer has to get returned");
+                    CHECK(result == expectedResult);
                 }
-                // To do: We should call the succeeding functions to verify they resolved OK.
+
+                if (result == XR_SUCCESS) {
+                    CHECK_MSG(nullptr != f, "Unexpected null function pointer returned from successful xrGetInstanceProcAddr call");
+                }
+                else {
+                    CHECK_MSG(nullptr == f, "Unexpected non-null function pointer returned from failed xrGetInstanceProcAddr call");
+                }
             }
         }
 

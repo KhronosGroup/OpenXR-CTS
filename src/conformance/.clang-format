@@ -1,4 +1,7 @@
 ---
+# Copyright (c) 2017-2020 The Khronos Group Inc.
+#
+# SPDX-License-Identifier: Apache-2.0
 # https://clang.llvm.org/docs/ClangFormatStyleOptions.html
 # To dump the google format, execute: clang-format -style=google -dump-config > .clang-format
 Language: Cpp

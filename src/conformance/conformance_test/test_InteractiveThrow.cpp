@@ -38,7 +38,7 @@ namespace Conformance
     // Purpose: Verify behavior of action timing and action space linear/angular velocity through throwing
     // 1. Use action state changed timestamp to query velocities
     // 2. Use action space velocities at various rigid offsets to verify "lever arm" effect is computed by runtime.
-    TEST_CASE("Interactive Throw", "[.][scenario][interactive]")
+    TEST_CASE("Interactive Throw", "[scenario][interactive]")
     {
         const char* instructions =
             "Press and hold 'select' to spawn three rigidly-attached cubes to that controller. "
@@ -121,12 +121,9 @@ namespace Conformance
         compositionHelper.BeginSession();
 
         // Create the instructional quad layer placed to the left.
-        XrCompositionLayerQuad* const instructionsQuad = compositionHelper.CreateQuadLayer(
-            compositionHelper.CreateStaticSwapchainImage(CreateTextImage(1024, 512, instructions, 48)), localSpace);
-        instructionsQuad->size.width = 1.0f;
-        instructionsQuad->size.height = instructionsQuad->size.width * instructionsQuad->subImage.imageRect.extent.height /
-                                        instructionsQuad->subImage.imageRect.extent.width;
-        instructionsQuad->pose.position = {-1.5f, 0, -0.3f};  // Place off to the left side.
+        XrCompositionLayerQuad* const instructionsQuad =
+            compositionHelper.CreateQuadLayer(compositionHelper.CreateStaticSwapchainImage(CreateTextImage(1024, 512, instructions, 48)),
+                                              localSpace, 1, {{0, 0, 0, 1}, {-1.5f, 0, -0.3f}});
         XrQuaternionf_CreateFromAxisAngle(&instructionsQuad->pose.orientation, &Up, 70 * MATH_PI / 180);
 
         // Spaces attached to the hand (subaction).
