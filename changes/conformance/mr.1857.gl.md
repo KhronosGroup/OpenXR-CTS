@@ -1,1 +1,0 @@
-Improvement: Enable use of glslangValidator to compile shaders if shaderc is not available.

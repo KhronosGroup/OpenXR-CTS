@@ -746,6 +746,13 @@ LOADER_EXPORT XRAPI_ATTR XrResult XRAPI_CALL xrGetInstanceProcAddr(XrInstance in
     if (strcmp(name, "xrGetInstanceProcAddr") == 0) {
         *function = reinterpret_cast<PFN_xrVoidFunction>(xrGetInstanceProcAddr);
         return XR_SUCCESS;
+    } else if (strcmp(name, "xrInitializeLoaderKHR") == 0) {
+#ifdef XR_KHR_LOADER_INIT_SUPPORT
+        *function = reinterpret_cast<PFN_xrVoidFunction>(xrInitializeLoaderKHR);
+        return XR_SUCCESS;
+#else
+        return XR_ERROR_FUNCTION_UNSUPPORTED;
+#endif
     } else if (strcmp(name, "xrEnumerateApiLayerProperties") == 0) {
         *function = reinterpret_cast<PFN_xrVoidFunction>(xrEnumerateApiLayerProperties);
         return XR_SUCCESS;
