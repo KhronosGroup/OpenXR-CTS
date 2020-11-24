@@ -15,7 +15,7 @@
 
 namespace
 {
-    void XRAPI_CALL OnTestMessage(MessageType type, const char* message)
+    XRAPI_ATTR void XRAPI_CALL OnTestMessage(MessageType type, const char* message)
     {
         constexpr const char* ResetColorAndNewLine = "\033[0m\n";
         switch (type) {

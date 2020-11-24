@@ -35,11 +35,13 @@ CTS_TARNAME=OpenXR-CTS
 
 
 makeSubset "$CTS_TARNAME" $(getConformanceFilenames)
-# (
-#     cd github/conformance
-#     # Add the conformance-specific files
-#     add_to_tar "$CTS_TARNAME" *
-# )
+(
+    cd github
+    # Add a symlink to README
+    ln -s src/conformance/conformance_test/readme.md README.md
+    add_to_tar "$CTS_TARNAME" README.md
+    rm README.md
+)
 
 echo
 gzip_a_tar "$CTS_TARNAME"

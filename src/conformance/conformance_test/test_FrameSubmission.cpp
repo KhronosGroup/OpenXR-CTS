@@ -267,7 +267,7 @@ namespace Conformance
                 XrFrameState frameState{XR_TYPE_FRAME_STATE};
                 appThreadResult = xrWaitFrame(compositionHelper.GetSession(), nullptr, &frameState);
                 if (appThreadResult != XR_SUCCESS) {
-                    DETACH_THREAD
+                    DETACH_THREAD;
                     return;
                 }
 
@@ -286,7 +286,7 @@ namespace Conformance
                     Stopwatch waitTimer(true);
                     appThreadResult = xrWaitFrame(compositionHelper.GetSession(), nullptr, &frameState);
                     if (appThreadResult != XR_SUCCESS) {
-                        DETACH_THREAD
+                        DETACH_THREAD;
                         return;
                     }
 

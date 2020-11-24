@@ -38,6 +38,9 @@ add_library(conformance_test SHARED
     ${VULKAN_SHADERS}
     ${PROJECT_SOURCE_DIR}/src/common/platform_utils.hpp
 )
+if(ANDROID)
+    target_sources(conformance_test PRIVATE $<TARGET_OBJECTS:android_native_app_glue>)
+endif()
 
 compile_glsl(run_conformance_test_glsl_compiles ${VULKAN_SHADERS})
 
@@ -62,9 +65,9 @@ target_include_directories(conformance_test
     ${PROJECT_SOURCE_DIR}/external/include
 )
 
-if(VulkanHeaders_INCLUDE_DIRS)
+if(Vulkan_FOUND)
     target_include_directories(conformance_test
-        PRIVATE ${VulkanHeaders_INCLUDE_DIRS}
+        PRIVATE ${Vulkan_INCLUDE_DIRS}
     )
 endif()
 
@@ -78,9 +81,6 @@ if(Vulkan_LIBRARY)
     target_link_libraries(conformance_test PRIVATE ${Vulkan_LIBRARY})
 endif()
 
-if(Vulkan_LIBRARY)
-    target_link_libraries(conformance_test PRIVATE ${Vulkan_LIBRARY})
-endif()
 
 if(TARGET openxr-gfxwrapper)
     target_link_libraries(conformance_test PRIVATE openxr-gfxwrapper)
@@ -90,14 +90,13 @@ if(GLSLANG_VALIDATOR AND NOT GLSLC_COMMAND)
     target_compile_definitions(conformance_test PRIVATE USE_GLSLANGVALIDATOR)
 endif()
 
+target_link_libraries(conformance_test PRIVATE openxr_loader Threads::Threads)
 
 if(WIN32)
     target_compile_definitions(conformance_test PRIVATE _CRT_SECURE_NO_WARNINGS)
     if(MSVC)
         target_compile_options(conformance_test PRIVATE /Zc:wchar_t /Zc:forScope /W4 /WX /wd4996)
     endif()
-    target_link_libraries(conformance_test PRIVATE openxr_loader)
-
     if(MSVC)
         # Right now can't build this on MinGW because of directxcolors, etc.
         target_link_libraries(conformance_test PRIVATE d3d11 d3d12 d3dcompiler dxgi)
@@ -109,22 +108,42 @@ endif()
 
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     target_compile_options(conformance_test PRIVATE -Wall)
-    target_link_libraries(conformance_test PRIVATE openxr_loader m pthread)
+    target_link_libraries(conformance_test PRIVATE m)
+endif()
+if(ANDROID)
+    target_sources(
+        conformance_test
+        PRIVATE
+            "${CMAKE_CURRENT_SOURCE_DIR}/../platform_specific/android_main.cpp"
+    )
+    target_include_directories(
+        conformance_test
+        PRIVATE
+        "${CMAKE_CURRENT_SOURCE_DIR}")
+    target_link_libraries(
+        conformance_test
+        PRIVATE
+        ${ANDROID_LIBRARY}
+        ${ANDROID_LOG_LIBRARY}
+    )
 endif()
 
-# Copy conformance_test assets files to the conformance_cli binary folder
-foreach(ASSET ${ASSETS})
-    add_custom_command(TARGET conformance_test PRE_BUILD 
-        COMMAND ${CMAKE_COMMAND} -E copy ${ASSET} $<TARGET_PROPERTY:conformance_cli,BINARY_DIR>
-    )
-    install(FILES ${ASSET}
-        DESTINATION conformance)
-endforeach()
+if(BUILD_CONFORMANCE_CLI)
+    # Copy conformance_test assets files to the conformance_cli binary folder
+    foreach(ASSET ${ASSETS})
+        add_custom_command(TARGET conformance_test PRE_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy ${ASSET} $<TARGET_PROPERTY:conformance_cli,BINARY_DIR>
+        )
+        install(FILES ${ASSET}
+            DESTINATION conformance)
+    endforeach()
 
-# Copy conformance test binary to conformance_cli binary folder
-add_custom_command(TARGET conformance_test POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:conformance_test> $<TARGET_PROPERTY:conformance_cli,BINARY_DIR>
-)
+    # Copy conformance test binary to conformance_cli binary folder
+    add_custom_command(TARGET conformance_test POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:conformance_test> $<TARGET_PROPERTY:conformance_cli,BINARY_DIR>
+    )
+endif()
+
 install(
     TARGETS conformance_test
     LIBRARY DESTINATION conformance
