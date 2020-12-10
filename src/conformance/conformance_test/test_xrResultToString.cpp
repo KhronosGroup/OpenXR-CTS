@@ -47,7 +47,6 @@ namespace Conformance
             REQUIRE(result == XR_SUCCESS);
             bool allowGeneratedName = false;
             uint64_t ext_num = 0;
-            CHECK(std::string(buffer) == value.second);
             if (std::abs(value.first) >= 1000000000) {
                 // This is an extension
                 ext_num = (std::abs(value.first) - 1000000000) / 1000;
