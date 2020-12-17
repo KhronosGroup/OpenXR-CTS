@@ -2151,13 +2151,14 @@ namespace Conformance
                                 REQUIRE(floatState.isActive);
                                 REQUIRE(floatState.currentState == vectorState.currentState.x);
                                 ++combinedFloatCount;
+                                XrTime xTime = 0;
                                 if (!largestFloatState.isActive ||
                                     (std::fabs(largestFloatState.currentState) < std::fabs(floatState.currentState))) {
                                     largestFloatState = floatState;
                                 }
                                 if (floatState.changedSinceLastSync) {
                                     REQUIRE(floatState.changedSinceLastSync == vectorState.changedSinceLastSync);
-                                    REQUIRE(floatState.lastChangeTime == vectorState.lastChangeTime);
+                                    xTime = floatState.lastChangeTime;
                                     ++xyChanges;
                                 }
                                 if (!vectorState.changedSinceLastSync) {
@@ -2170,17 +2171,23 @@ namespace Conformance
                                 REQUIRE(floatState.isActive);
                                 REQUIRE(floatState.currentState == vectorState.currentState.y);
                                 ++combinedFloatCount;
+                                XrTime yTime = 0;
                                 if (!largestFloatState.isActive ||
                                     (std::fabs(largestFloatState.currentState) < std::fabs(floatState.currentState))) {
                                     largestFloatState = floatState;
                                 }
                                 if (floatState.changedSinceLastSync) {
                                     REQUIRE(floatState.changedSinceLastSync == vectorState.changedSinceLastSync);
-                                    REQUIRE(floatState.lastChangeTime == vectorState.lastChangeTime);
+                                    yTime = floatState.lastChangeTime;
                                     ++xyChanges;
                                 }
                                 if (!vectorState.changedSinceLastSync) {
                                     REQUIRE(floatState.changedSinceLastSync == XR_FALSE);
+                                }
+
+                                if ( xTime && yTime ) {
+                                    XrTime expectedTime = xTime > yTime ? xTime : yTime;
+                                    REQUIRE( expectedTime == vectorState.lastChangeTime );
                                 }
 
                                 if (vectorState.changedSinceLastSync) {
