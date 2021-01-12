@@ -358,10 +358,10 @@ namespace Conformance
         const double overheadFactor = (averageAppFrameTime.count() / (double)averageDisplayPeriod.count()) - 1.0;
         ReportF("Overhead score                   : %.1f%%", overheadFactor * 100);
 
-        // Allow up to 10% of frames to miss timing. This is number is arbitrary and open to debate.
-        // The point of this test is to fail runtims that get 1.0 (100% overhead) because they are
+        // Allow up to 50% of frames to miss timing. This is number is arbitrary and open to debate.
+        // The point of this test is to fail runtimes that get 1.0 (100% overhead) because they are
         // probably serializing the frame calls.
-        REQUIRE_MSG(overheadFactor < 0.1, "Frame timing overhead in pipelined frame submission is too high");
+        REQUIRE_MSG(overheadFactor < 0.5, "Frame timing overhead in pipelined frame submission is too high");
 
         // If the frame loop runs FASTER then the predictedDisplayPeriod is wrong or xrWaitFrame is not throttling correctly.
         REQUIRE_MSG(overheadFactor > -0.1, "Frame timing overhead in pipelined frame submission is too low");
