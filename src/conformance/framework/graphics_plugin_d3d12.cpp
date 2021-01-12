@@ -1005,6 +1005,7 @@ namespace Conformance
 
             XRC_CHECK_THROW_HRCMD(cmdList->Close());
             CHECK(ExecuteCommandList(cmdList.Get()));
+            WaitForGpu();
         }
     }
 
