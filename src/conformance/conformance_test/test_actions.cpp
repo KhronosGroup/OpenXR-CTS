@@ -2185,9 +2185,9 @@ namespace Conformance
                                     REQUIRE(floatState.changedSinceLastSync == XR_FALSE);
                                 }
 
-                                if ( xTime && yTime ) {
+                                if (xTime && yTime) {
                                     XrTime expectedTime = xTime > yTime ? xTime : yTime;
-                                    REQUIRE( expectedTime == vectorState.lastChangeTime );
+                                    REQUIRE(expectedTime == vectorState.lastChangeTime);
                                 }
 
                                 if (vectorState.changedSinceLastSync) {
@@ -2427,26 +2427,20 @@ namespace Conformance
                     XrActionStateGetInfo getInfo{XR_TYPE_ACTION_STATE_GET_INFO};
                     getInfo.action = booleanToFloatActionData.Action;
 
-                    inputDevice->SetButtonStateFloat(inputSourcePath, 0.0f, cEpsilon);
-
-                    actionLayerManager.SyncActionsUntilFocusWithMessage(syncInfo);
+                    inputDevice->SetButtonStateFloat(inputSourcePath, 0.0f, cEpsilon, false, actionSet );
 
                     REQUIRE_RESULT(xrGetActionStateBoolean(compositionHelper.GetSession(), &getInfo, &booleanState), XR_SUCCESS);
                     REQUIRE(booleanState.isActive);
                     REQUIRE_FALSE(booleanState.currentState);
 
-                    inputDevice->SetButtonStateFloat(inputSourcePath, 1.0f, cEpsilon);
-
-                    actionLayerManager.SyncActionsUntilFocusWithMessage(syncInfo);
+                    inputDevice->SetButtonStateFloat(inputSourcePath, 1.0f, cEpsilon, false, actionSet );
 
                     REQUIRE_RESULT(xrGetActionStateBoolean(compositionHelper.GetSession(), &getInfo, &booleanState), XR_SUCCESS);
                     REQUIRE(booleanState.isActive);
                     REQUIRE(booleanState.currentState);
                     REQUIRE(booleanState.lastChangeTime > 0);
 
-                    inputDevice->SetButtonStateFloat(inputSourcePath, 0.0f, cEpsilon);
-
-                    actionLayerManager.SyncActionsUntilFocusWithMessage(syncInfo);
+                    inputDevice->SetButtonStateFloat(inputSourcePath, 0.0f, cEpsilon, false, actionSet );
 
                     REQUIRE_RESULT(xrGetActionStateBoolean(compositionHelper.GetSession(), &getInfo, &booleanState), XR_SUCCESS);
                     REQUIRE(booleanState.isActive);
@@ -2461,26 +2455,20 @@ namespace Conformance
                     XrActionStateGetInfo getInfo{XR_TYPE_ACTION_STATE_GET_INFO};
                     getInfo.action = floatToBooleanActionData.Action;
 
-                    inputDevice->SetButtonStateBool(inputSourcePath, false);
-
-                    actionLayerManager.SyncActionsUntilFocusWithMessage(syncInfo);
+                    inputDevice->SetButtonStateBool(inputSourcePath, false, false, actionSet );
 
                     REQUIRE_RESULT(xrGetActionStateFloat(compositionHelper.GetSession(), &getInfo, &floatState), XR_SUCCESS);
                     REQUIRE(floatState.isActive);
                     REQUIRE(floatState.currentState == Approx(0.0f).margin(cLargeEpsilon));
 
-                    inputDevice->SetButtonStateBool(inputSourcePath, true);
-
-                    actionLayerManager.SyncActionsUntilFocusWithMessage(syncInfo);
+                    inputDevice->SetButtonStateBool(inputSourcePath, true, false, actionSet );
 
                     REQUIRE_RESULT(xrGetActionStateFloat(compositionHelper.GetSession(), &getInfo, &floatState), XR_SUCCESS);
                     REQUIRE(floatState.isActive);
                     REQUIRE(floatState.currentState == Approx(1.0f).margin(cLargeEpsilon));
                     REQUIRE(floatState.lastChangeTime > 0);
 
-                    inputDevice->SetButtonStateBool(inputSourcePath, false);
-
-                    actionLayerManager.SyncActionsUntilFocusWithMessage(syncInfo);
+                    inputDevice->SetButtonStateBool(inputSourcePath, false, false, actionSet );
 
                     REQUIRE_RESULT(xrGetActionStateFloat(compositionHelper.GetSession(), &getInfo, &floatState), XR_SUCCESS);
                     REQUIRE(floatState.isActive);
