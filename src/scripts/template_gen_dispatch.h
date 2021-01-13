@@ -77,7 +77,7 @@ struct ConformanceHooksBase {
 //#     if cur_cmd.name not in skip_hooks and cur_cmd.name != "xrGetInstanceProcAddr"
 /*{ protect_begin(cur_cmd) }*/
     /*{ cur_cmd.cdecl | collapse_whitespace
-    | replace("XrResult xr", "virtual XrResult xr")
+    | replace("XRAPI_ATTR XrResult XRAPI_CALL xr", "virtual XrResult xr")
     | replace(";", "")
 }*/;
 /*{ protect_end(cur_cmd) }*/

@@ -33,6 +33,7 @@ namespace Conformance
 
     TEST_CASE("XR_KHR_convert_timespec_time", "")
     {
+#ifdef XR_USE_TIMESPEC
         GlobalData& globalData = GetGlobalData();
         if (!globalData.IsInstanceExtensionSupported("XR_KHR_convert_timespec_time")) {
             return;
@@ -105,5 +106,6 @@ namespace Conformance
             CHECK(ValidateResultAllowed("xrConvertTimeToTimespecTimeKHR", result));
             CHECK(result == XR_ERROR_TIME_INVALID);
         }
+#endif  // XR_USE_TIMESPEC
     }
 }  // namespace Conformance

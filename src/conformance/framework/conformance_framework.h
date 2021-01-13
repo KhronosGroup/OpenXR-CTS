@@ -99,8 +99,13 @@ void Conformance_Android_Detach_Current_Thread();
 #define ATTACH_THREAD Conformance_Android_Attach_Current_Thread()
 #define DETACH_THREAD Conformance_Android_Detach_Current_Thread()
 #else
-#define ATTACH_THREAD
-#define DETACH_THREAD
+// We put an expression here so that forgetting the semicolon is an error on all platforms.
+#define ATTACH_THREAD \
+    do {              \
+    } while (0)
+#define DETACH_THREAD \
+    do {              \
+    } while (0)
 #endif
 
 namespace Conformance

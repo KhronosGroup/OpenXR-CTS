@@ -14,6 +14,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#ifndef PATH_PREFIX
+#define PATH_PREFIX "/sdcard"
+#endif
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
@@ -51,9 +55,9 @@
 #include "conformance_framework.h"
 
 /// #define DEBUG 1
-#define OVR_LOG_TAG "OpenXR_Conformance"
-#define ALOGE(...) __android_log_print(ANDROID_LOG_ERROR, OVR_LOG_TAG, __VA_ARGS__)
-#define ALOGV(...) __android_log_print(ANDROID_LOG_VERBOSE, OVR_LOG_TAG, __VA_ARGS__)
+#define LOG_TAG "OpenXR_Conformance"
+#define ALOGE(...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__)
+#define ALOGV(...) __android_log_print(ANDROID_LOG_VERBOSE, LOG_TAG, __VA_ARGS__)
 
 /*
 ================================================================================
@@ -139,7 +143,7 @@ static void app_handle_cmd(struct android_app* app, int32_t cmd)
     }
 }
 
-int32_t app_handle_input(struct android_app* app, AInputEvent* event)
+int32_t app_handle_input(struct android_app* /* app */, AInputEvent* event)
 {
     const int type = AInputEvent_getType(event);
     if (type == AINPUT_EVENT_TYPE_KEY) {

@@ -239,8 +239,8 @@ namespace Conformance
         return nullptr;
     }
 
-    void OpenGLESGraphicsPlugin::CopyRGBAImage(const XrSwapchainImageBaseHeader* swapchainImage, int64_t imageFormat, uint32_t arraySlice,
-                                               const RGBAImage& image)
+    void OpenGLESGraphicsPlugin::CopyRGBAImage(const XrSwapchainImageBaseHeader* swapchainImage, int64_t /* imageFormat */,
+                                               uint32_t arraySlice, const RGBAImage& image)
     {
         auto imageInfoIt = m_imageInfo.find(swapchainImage);
         CHECK(imageInfoIt != m_imageInfo.end());
@@ -469,7 +469,7 @@ namespace Conformance
     // Shorthand constants for usage below.
     static const uint64_t XRC_COLOR_TEXTURE_USAGE = (XR_SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT | XR_SWAPCHAIN_USAGE_SAMPLED_BIT);
 
-    static const uint64_t XRC_COLOR_TEXTURE_USAGE_MUTABLE = (XRC_COLOR_TEXTURE_USAGE | XRC_COLOR_TEXTURE_USAGE_MUTABLE);
+    static const uint64_t XRC_COLOR_TEXTURE_USAGE_MUTABLE = (XRC_COLOR_TEXTURE_USAGE | XR_SWAPCHAIN_USAGE_MUTABLE_FORMAT_BIT);
 
     static const uint64_t XRC_COLOR_TEXTURE_USAGE_COMPRESSED =
         (XR_SWAPCHAIN_USAGE_SAMPLED_BIT);  // Compressed textures can't be rendered to, so no XR_SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT.
