@@ -272,7 +272,8 @@ namespace Conformance
                 }
 
                 // Mimic a lot of time spent in game "simulation" phase.
-                YieldSleep(Stopwatch(true), ns((int32_t)(frameState.predictedDisplayPeriod * waitBlockPercentage)));
+                int64_t sleepTime = frameState.predictedDisplayPeriod * waitBlockPercentage;
+                YieldSleep(Stopwatch(true), ns(sleepTime));
 
                 queueFrameRender(frameState);
             }
@@ -296,7 +297,8 @@ namespace Conformance
                 totalFrameDisplayPeriod += ns(frameState.predictedDisplayPeriod);
 
                 // Mimic a lot of time spent in game "simulation" phase.
-                YieldSleep(Stopwatch(true), ns((int32_t)(frameState.predictedDisplayPeriod * waitBlockPercentage)));
+                int64_t sleepTime = frameState.predictedDisplayPeriod * waitBlockPercentage;
+                YieldSleep(Stopwatch(true), ns(sleepTime));
 
                 queueFrameRender(frameState);
             }
@@ -332,7 +334,8 @@ namespace Conformance
             std::vector<XrCompositionLayerBaseHeader*> layers{simpleProjectionLayerHelper.GetProjectionLayer()};
 
             // Mimic a lot of time spent in game render phase.
-            YieldSleep(sw, ns((int64_t)(frameState.predictedDisplayPeriod * renderBlockPercentage)));
+            int64_t sleepTime = frameState.predictedDisplayPeriod * renderBlockPercentage;
+            YieldSleep(sw, ns(sleepTime));
 
             compositionHelper.EndFrame(frameState.predictedDisplayTime, layers);
         }
