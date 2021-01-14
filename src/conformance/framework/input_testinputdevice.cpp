@@ -16,6 +16,7 @@
 
 #include <chrono>
 #include <thread>
+#include <array>
 
 #include <openxr/openxr.h>
 
@@ -181,7 +182,7 @@ namespace Conformance
             m_messageDisplay->DisplayMessage("");
         }
 
-        void SetButtonStateBool(XrPath button, bool state, bool skipInteraction) override
+        void SetButtonStateBool(XrPath button, bool state, bool skipInteraction, XrActionSet extraActionSet = XR_NULL_HANDLE ) override
         {
             if (m_conformanceAutomationExtensionEnabled) {
                 PFN_xrSetInputDeviceStateBoolEXT xrSetInputDeviceStateBoolEXT{nullptr};
@@ -208,10 +209,10 @@ namespace Conformance
             XrAction actionToDetect = m_actionMap.at(button);
 
             auto GetButtonState = [&](XrAction action) -> bool {
-                XrActiveActionSet activeActionSet{m_actionSet};
+                XrActiveActionSet activeActionSet[] = { {m_actionSet}, { extraActionSet } };
                 XrActionsSyncInfo syncInfo{XR_TYPE_ACTIONS_SYNC_INFO};
-                syncInfo.countActiveActionSets = 1;
-                syncInfo.activeActionSets = &activeActionSet;
+                syncInfo.countActiveActionSets = extraActionSet == XR_NULL_HANDLE ? 1 : 2;
+                syncInfo.activeActionSets = activeActionSet;
                 const XrResult syncRes = xrSyncActions(m_session, &syncInfo);
                 if (syncRes == XR_SESSION_NOT_FOCUSED) {
                     return false;
@@ -238,7 +239,7 @@ namespace Conformance
             m_messageDisplay->DisplayMessage("");
         }
 
-        void SetButtonStateFloat(XrPath button, float state, float epsilon, bool skipInteraction = false) override
+        void SetButtonStateFloat(XrPath button, float state, float epsilon, bool skipInteraction = false, XrActionSet extraActionSet = XR_NULL_HANDLE ) override
         {
             if (m_conformanceAutomationExtensionEnabled) {
                 PFN_xrSetInputDeviceStateFloatEXT xrSetInputDeviceStateFloatEXT{nullptr};
@@ -264,10 +265,10 @@ namespace Conformance
             XrAction actionToDetect = m_actionMap.at(button);
 
             auto FloatStateWithinEpsilon = [&](XrAction action, float target, float epsilon) -> bool {
-                XrActiveActionSet activeActionSet{m_actionSet};
+                XrActiveActionSet activeActionSet[] = {{m_actionSet}, {extraActionSet}};
                 XrActionsSyncInfo syncInfo{XR_TYPE_ACTIONS_SYNC_INFO};
-                syncInfo.countActiveActionSets = 1;
-                syncInfo.activeActionSets = &activeActionSet;
+                syncInfo.countActiveActionSets = extraActionSet == XR_NULL_HANDLE ? 1 : 2;
+                syncInfo.activeActionSets = activeActionSet;
                 const XrResult syncRes = xrSyncActions(m_session, &syncInfo);
                 if (syncRes == XR_SESSION_NOT_FOCUSED) {
                     return false;
@@ -297,7 +298,7 @@ namespace Conformance
             m_messageDisplay->DisplayMessage("");
         }
 
-        void SetButtonStateVector2(XrPath button, XrVector2f state, float epsilon, bool skipInteraction = false) override
+        void SetButtonStateVector2(XrPath button, XrVector2f state, float epsilon, bool skipInteraction = false, XrActionSet extraActionSet = XR_NULL_HANDLE ) override
         {
             if (m_conformanceAutomationExtensionEnabled) {
                 PFN_xrSetInputDeviceStateVector2fEXT xrSetInputDeviceStateVector2fEXT{nullptr};
@@ -324,10 +325,10 @@ namespace Conformance
             XrAction actionToDetect = m_actionMap.at(button);
 
             auto VectorStateWithinEpsilon = [&](XrAction action, XrVector2f target, float epsilon) -> bool {
-                XrActiveActionSet activeActionSet{m_actionSet};
+                XrActiveActionSet activeActionSet[] = {{m_actionSet}, {extraActionSet}};
                 XrActionsSyncInfo syncInfo{XR_TYPE_ACTIONS_SYNC_INFO};
-                syncInfo.countActiveActionSets = 1;
-                syncInfo.activeActionSets = &activeActionSet;
+                syncInfo.countActiveActionSets = extraActionSet == XR_NULL_HANDLE ? 1 : 2;
+                syncInfo.activeActionSets = activeActionSet;
                 const XrResult syncRes = xrSyncActions(m_session, &syncInfo);
                 if (syncRes == XR_SESSION_NOT_FOCUSED) {
                     return false;
