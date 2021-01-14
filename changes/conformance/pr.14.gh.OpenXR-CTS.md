@@ -1,2 +1,1 @@
 Fix: The test assumed that X and Y components of a vector2 action would have exactly the same timestamp. Changed that to check that the vector2 action would have the most recent of those two timestamps instead.
-Fix: The test checked for "float value == X" and then checked for its binary thresholded value after a subsequent call to xrSyncActions. Changed the test so both checks happen in the same input frame.
