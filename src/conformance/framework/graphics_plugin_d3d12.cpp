@@ -1005,6 +1005,12 @@ namespace Conformance
 
             XRC_CHECK_THROW_HRCMD(cmdList->Close());
             CHECK(ExecuteCommandList(cmdList.Get()));
+
+            // TODO: Track down exactly why this wait is needed. 
+            // On some drivers and/or hardware the test is generating the same image for the left and right eye,
+            // and generating images that fail the interactive tests. This did not seem to be the case several
+            // months ago, so it likely a driver change that flipped a race condition the other direction.
+            WaitForGpu();
         }
     }
 
