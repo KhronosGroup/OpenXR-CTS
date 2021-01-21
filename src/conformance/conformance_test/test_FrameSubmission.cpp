@@ -240,7 +240,7 @@ namespace Conformance
         constexpr int warmupFrameCount = 180;           // Prewarm the frame loop for this many frames.
         constexpr int testFrameCount = 200;             // Average this many frames for analysis.
         constexpr double waitBlockPercentage = 0.90;    // Block for 90% of the display period on waitframe thread.
-        constexpr double renderBlockPercentage = 0.90;  // Block for 90% of the display period on render thread.
+        constexpr double renderBlockPercentage = 0.70;  // Block for 70% of the display period on render thread.
 
         std::queue<XrFrameState> queuedFramesForRender;
         std::mutex displayMutex;
