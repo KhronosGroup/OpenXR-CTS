@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2020 The Khronos Group Inc.
+// Copyright (c) 2019-2021, The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -318,9 +318,12 @@ namespace Conformance
         virtual XrPath TopLevelPath() const = 0;
 
         virtual void SetDeviceActive(bool state, bool skipInteraction = false) = 0;
-        virtual void SetButtonStateBool(XrPath button, bool state, bool skipInteraction = false) = 0;
-        virtual void SetButtonStateFloat(XrPath button, float state, float epsilon = 0, bool skipInteraction = false) = 0;
-        virtual void SetButtonStateVector2(XrPath button, XrVector2f state, float epsilon = 0, bool skipInteraction = false) = 0;
+        virtual void SetButtonStateBool(XrPath button, bool state, bool skipInteraction = false,
+                                        XrActionSet extraActionSet = XR_NULL_HANDLE) = 0;
+        virtual void SetButtonStateFloat(XrPath button, float state, float epsilon = 0, bool skipInteraction = false,
+                                         XrActionSet extraActionSet = XR_NULL_HANDLE) = 0;
+        virtual void SetButtonStateVector2(XrPath button, XrVector2f state, float epsilon = 0, bool skipInteraction = false,
+                                           XrActionSet extraActionSet = XR_NULL_HANDLE) = 0;
     };
 
     struct ITestMessageDisplay

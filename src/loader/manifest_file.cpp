@@ -1,23 +1,10 @@
-// Copyright (c) 2017-2020 The Khronos Group Inc.
+// Copyright (c) 2017-2021, The Khronos Group Inc.
 // Copyright (c) 2017-2019 Valve Corporation
 // Copyright (c) 2017-2019 LunarG, Inc.
 //
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 OR MIT
 //
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-//
-// Author: Mark Young <marky@lunarg.com>
-// Author: Dave Houlton <daveh@lunarg.com>
+// Initial Authors: Mark Young <marky@lunarg.com>, Dave Houlton <daveh@lunarg.com>
 //
 
 #if defined(_MSC_VER) && !defined(_CRT_SECURE_NO_WARNINGS)
@@ -213,7 +200,7 @@ static void ReadDataFilesInSearchPaths(ManifestFileType type, const std::string 
         override_active = true;
     } else {
         override_active = false;
-#ifndef XR_OS_WINDOWS
+#if !defined(XR_OS_WINDOWS) && !defined(XR_OS_ANDROID)
         const char home_additional[] = ".local/share/";
 
         // Determine how much space is needed to generate the full search path
@@ -540,7 +527,7 @@ void RuntimeManifestFile::CreateIfValid(std::string const &filename,
     Json::CharReaderBuilder builder;
     std::string errors;
     Json::Value root_node = Json::nullValue;
-    if (!Json::parseFromStream(builder, json_stream, &root_node, &errors) || root_node.isNull()) {
+    if (!Json::parseFromStream(builder, json_stream, &root_node, &errors) || !root_node.isObject()) {
         error_ss << "failed to parse " << filename << ".";
         if (!errors.empty()) {
             error_ss << " (Error message: " << errors << ")";
@@ -677,7 +664,7 @@ void ApiLayerManifestFile::CreateIfValid(ManifestFileType type, const std::strin
     Json::CharReaderBuilder builder;
     std::string errors;
     Json::Value root_node = Json::nullValue;
-    if (!Json::parseFromStream(builder, json_stream, &root_node, &errors) || root_node.isNull()) {
+    if (!Json::parseFromStream(builder, json_stream, &root_node, &errors) || !root_node.isObject()) {
         error_ss << "failed to parse " << filename << ".";
         if (!errors.empty()) {
             error_ss << " (Error message: " << errors << ")";

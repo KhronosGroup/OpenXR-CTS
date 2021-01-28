@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2020 The Khronos Group Inc.
+// Copyright (c) 2019-2021, The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -83,6 +83,10 @@ namespace Conformance
 
         REQUIRE_MSG(viewCount != 0, "Unexpected XrViewConfigurationType. Update to XR_KHR_visibility_mask test needed.");
 
+        auto isCounterClockwise = [](XrVector2f& a, XrVector2f& b, XrVector2f& c) -> bool {
+            return (b.x - a.x) * (c.y - a.y) - (c.x - a.x) * (b.y - a.y) >= 0;
+        };
+
         for (uint32_t viewIndex = 0; viewIndex < viewCount; ++viewIndex) {
             std::array<XrVisibilityMaskTypeKHR, 3> maskTypeArray{XR_VISIBILITY_MASK_TYPE_HIDDEN_TRIANGLE_MESH_KHR,
                                                                  XR_VISIBILITY_MASK_TYPE_VISIBLE_TRIANGLE_MESH_KHR,
@@ -121,6 +125,15 @@ namespace Conformance
                             CHECK(visibilityMask.indices[i] < visibilityMask.vertexCountOutput);  // Index should be valid.
                         }
 
+                        REQUIRE((visibilityMask.indexCountOutput % 3) == 0);
+                        for (uint32_t i = 0; i < visibilityMask.indexCountOutput; i += 3) {
+                            // a, b, c should format a count-clockwise triangle
+                            XrVector2f& a = visibilityMask.vertices[visibilityMask.indices[i]];
+                            XrVector2f& b = visibilityMask.vertices[visibilityMask.indices[i + 1]];
+                            XrVector2f& c = visibilityMask.vertices[visibilityMask.indices[i + 2]];
+                            CHECK(isCounterClockwise(a, b, c));
+                        }
+
                         break;
                     }
 
@@ -128,6 +141,15 @@ namespace Conformance
                         CHECK(visibilityMask.indexCountOutput == visibilityMask.vertexCountOutput);
                         for (uint32_t i = 0; i < visibilityMask.indexCountOutput; ++i) {
                             CHECK(visibilityMask.indices[i] < visibilityMask.vertexCountOutput);  // Index should be valid.
+                        }
+
+                        for (uint32_t i = 0; i < visibilityMask.indexCountOutput; ++i) {
+                            // The line is counter-clockwise (around the origin)
+                            XrVector2f origin{0, 0};
+                            XrVector2f& a = visibilityMask.vertices[visibilityMask.indices[i]];
+                            // With the last point implicitly connecting to the first point.
+                            XrVector2f& b = visibilityMask.vertices[visibilityMask.indices[(i + 1) % visibilityMask.indexCountOutput]];
+                            CHECK(isCounterClockwise(origin, a, b));
                         }
 
                         break;

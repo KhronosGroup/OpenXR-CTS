@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2020 The Khronos Group Inc.
+// Copyright (c) 2019-2021, The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -793,7 +793,11 @@ namespace Conformance
             x += subImage.imageRect.extent.width;  // Each view is to the left of the previous view.
         }
 
-        const std::vector<Cube> cubes = {Cube::Make({-.2f, .2f, -2}), Cube::Make({.2f, .2f, -2}), Cube::Make({0, -.1f, -2})};
+        const std::vector<Cube> cubes = {Cube::Make({-.2f, -.2f, -2}), Cube::Make({.2f, -.2f, -2}), Cube::Make({0, .1f, -2})};
+
+        const XrVector3f Forward{0, 0, 1};
+        XrQuaternionf roll180;
+        XrQuaternionf_CreateFromAxisAngle(&roll180, &Forward, MATH_PI);
 
         auto updateLayers = [&](const XrFrameState& frameState) {
             auto viewData = compositionHelper.LocateViews(localSpace, frameState.predictedDisplayTime);
@@ -809,28 +813,29 @@ namespace Conformance
                     swapchain, [&](const XrSwapchainImageBaseHeader* swapchainImage, uint64_t format) {
                         GetGlobalData().graphicsPlugin->ClearImageSlice(swapchainImage, 0, format);
                         for (size_t view = 0; view < views.size(); view++) {
+                            // Copy over the provided FOV and pose but use 40% of the suggested FOV.
                             const_cast<XrFovf&>(projLayer->views[view].fov) = views[view].fov;
                             const_cast<XrPosef&>(projLayer->views[view].pose) = views[view].pose;
+                            const_cast<float&>(projLayer->views[view].fov.angleUp) *= 0.4f;
+                            const_cast<float&>(projLayer->views[view].fov.angleDown) *= 0.4f;
+                            const_cast<float&>(projLayer->views[view].fov.angleLeft) *= 0.4f;
+                            const_cast<float&>(projLayer->views[view].fov.angleRight) *= 0.4f;
 
-                            // Invert our render pose since we're going to submit this layer up-side down
-                            const_cast<float&>(projLayer->views[view].pose.orientation.y) *= -1.0f;
+                            // Render using a 180 degree roll on Z which effectively creates a flip on both the X and Y axis.
+                            XrCompositionLayerProjectionView rolled = projLayer->views[view];
+                            XrQuaternionf_Multiply(&rolled.pose.orientation, &roll180, &views[view].pose.orientation);
+                            GetGlobalData().graphicsPlugin->RenderView(rolled, swapchainImage, format, cubes);
 
-                            // Reduce the field-of-view by half
-                            const_cast<float&>(projLayer->views[view].fov.angleUp) *= 0.5f;
-                            const_cast<float&>(projLayer->views[view].fov.angleDown) *= 0.5f;
-                            const_cast<float&>(projLayer->views[view].fov.angleLeft) *= 0.5f;
-                            const_cast<float&>(projLayer->views[view].fov.angleRight) *= 0.5f;
-
-                            GetGlobalData().graphicsPlugin->RenderView(projLayer->views[view], swapchainImage, format, cubes);
+                            // After rendering, report a flipped FOV on X and Y without the 180 degree roll, which is effectively
+                            // has the same effect. This switcheroo is necessary since rendering with flipped FOV will result in
+                            // an inverted winding causing normally hidden triangles to be visible and visible triangles to be hidden.
+                            std::swap(const_cast<float&>(projLayer->views[view].fov.angleUp),
+                                      const_cast<float&>(projLayer->views[view].fov.angleDown));
+                            std::swap(const_cast<float&>(projLayer->views[view].fov.angleLeft),
+                                      const_cast<float&>(projLayer->views[view].fov.angleRight));
                         }
                     });
 
-                // Invert the pose back and flip the layer
-                for (size_t view = 0; view < views.size(); view++) {
-                    std::swap(const_cast<float&>(projLayer->views[view].fov.angleUp),
-                              const_cast<float&>(projLayer->views[view].fov.angleDown));
-                    const_cast<float&>(projLayer->views[view].pose.orientation.y) *= -1.0f;
-                }
                 layers.push_back(reinterpret_cast<XrCompositionLayerBaseHeader*>(projLayer));
             }
             return interactiveLayerManager.EndFrame(frameState, layers);

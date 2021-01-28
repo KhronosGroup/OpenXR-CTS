@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2020 The Khronos Group Inc.
+// Copyright (c) 2019-2021, The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 
@@ -23,7 +23,7 @@
 
 static const char* conformance_layer_name = "XR_APILAYER_KHRONOS_runtime_conformance";
 static const char* conformance_layer_description = "API Layer to validate OpenXR runtime conformance";
-extern "C" LAYER_EXPORT XrResult XRAPI_CALL XRAPI_CALL xrEnumerateApiLayerProperties(uint32_t propertyCapacityInput,
+extern "C" LAYER_EXPORT XRAPI_ATTR XrResult XRAPI_CALL xrEnumerateApiLayerProperties(uint32_t propertyCapacityInput,
                                                                                      uint32_t* propertyCountOutput,
                                                                                      XrApiLayerProperties* properties)
 {

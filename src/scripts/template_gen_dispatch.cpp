@@ -1,6 +1,8 @@
-// Copyright (c) 2017-2020 The Khronos Group Inc
+// Copyright (c) 2017-2021, The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
+//
+// Used in conformance layer.
 
 #include "gen_dispatch.h"
 
@@ -23,7 +25,7 @@
 //#         set handle_type = handle_param.type
 /*{ protect_begin(cur_cmd) }*/
 
-/*{ cur_cmd.cdecl | collapse_whitespace | replace(" xr", " XRAPI_CALL ConformanceLayer_xr") | replace(";", "")
+/*{ cur_cmd.cdecl | collapse_whitespace | replace(" xr", " ConformanceLayer_xr") | replace(";", "")
 }*/ {
 //#         set first_param_object_type = gen.genXrObjectType(handle_type)
     try {
@@ -37,7 +39,7 @@
 //##
 //## Generate the ConformanceHooksBase virtual method
 //##
-/*{ cur_cmd.cdecl | collapse_whitespace | replace("XrResult xr", "XrResult ConformanceHooksBase::xr") | replace(";", "")
+/*{ cur_cmd.cdecl | collapse_whitespace | replace("XRAPI_ATTR XrResult XRAPI_CALL xr", "XrResult ConformanceHooksBase::xr") | replace(";", "")
 }*/ {
     const /*{cur_cmd.return_type.text}*/ result =  this->dispatchTable./*{ cur_cmd.name | base_name }*/(/*{ cur_cmd.params | map(attribute="name") | join(", ") }*/);
 

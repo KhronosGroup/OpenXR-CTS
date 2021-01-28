@@ -1,4 +1,4 @@
-# Copyright (c) 2020 The Khronos Group Inc.
+# Copyright (c) 2020-2021, The Khronos Group Inc.
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -44,9 +44,9 @@ target_include_directories(conformance_cli
     ${PROJECT_SOURCE_DIR}/external/include
 )
 
-if(VulkanHeaders_INCLUDE_DIRS)
+if(Vulkan_FOUND)
     target_include_directories(conformance_cli
-        PRIVATE ${VulkanHeaders_INCLUDE_DIRS}
+        PRIVATE ${Vulkan_INCLUDE_DIRS}
     )
 endif()
 

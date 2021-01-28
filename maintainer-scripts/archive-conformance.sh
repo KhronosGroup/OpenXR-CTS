@@ -1,5 +1,5 @@
 #!/bin/sh
-# Copyright (c) 2019-2020 The Khronos Group Inc.
+# Copyright (c) 2019-2021, The Khronos Group Inc.
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -35,11 +35,13 @@ CTS_TARNAME=OpenXR-CTS
 
 
 makeSubset "$CTS_TARNAME" $(getConformanceFilenames)
-# (
-#     cd github/conformance
-#     # Add the conformance-specific files
-#     add_to_tar "$CTS_TARNAME" *
-# )
+(
+    cd github
+    # Add a symlink to README
+    ln -s src/conformance/conformance_test/readme.md README.md
+    add_to_tar "$CTS_TARNAME" README.md
+    rm README.md
+)
 
 echo
 gzip_a_tar "$CTS_TARNAME"

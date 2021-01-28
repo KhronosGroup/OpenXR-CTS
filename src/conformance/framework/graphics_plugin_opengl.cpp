@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2020 The Khronos Group Inc.
+// Copyright (c) 2019-2021, The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -905,6 +905,7 @@ namespace Conformance
         ADD_GL_COLOR_COPY_SAMPLED_FORMAT(GL_RGBA4),
         ADD_GL_COLOR_COPY_SAMPLED_FORMAT(GL_RGB5_A1),
 
+        ADD_GL_COLOR_COPY_SAMPLED_MUTABLE_FORMAT(GL_SRGB8),
         ADD_GL_COLOR_COPY_SAMPLED_MUTABLE_FORMAT(GL_SRGB8_ALPHA8),
 
         ADD_GL_COLOR_SAMPLED_FORMAT(GL_RGB565),
@@ -1093,7 +1094,7 @@ namespace Conformance
             // Set the generic vector of base pointers
             derivedResult->imagePtrVector.push_back(base);
             // Map every swapchainImage base pointer to this context
-            m_swapchainImageContextMap.emplace(std::make_pair(base, derivedResult));
+            m_swapchainImageContextMap[base] = derivedResult;
         }
 
         // Cast our derived type to the caller-expected type.

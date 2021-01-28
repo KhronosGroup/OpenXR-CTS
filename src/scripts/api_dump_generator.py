@@ -1,6 +1,6 @@
 #!/usr/bin/python3 -i
 #
-# Copyright (c) 2017-2020 The Khronos Group Inc.
+# Copyright (c) 2017-2021, The Khronos Group Inc.
 # Copyright (c) 2017-2019 Valve Corporation
 # Copyright (c) 2017-2019 LunarG, Inc.
 #
@@ -244,7 +244,7 @@ class ApiDumpOutputGenerator(AutomaticSourceOutputGenerator):
     def isExternalGraphicsApiHandle(self, name):
         if (name.startswith('Vk') or name.startswith('GLX') or name.startswith('ID3D') or
             name.startswith('wl_') or name.startswith('Mir') or name.startswith('xcb_') or
-                name == 'HGLRC' or name == 'HDC'):
+                name.startswith('EGL') or name == 'HGLRC' or name == 'HDC'):
             return True
         return False
 

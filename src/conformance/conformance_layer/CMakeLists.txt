@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2020 The Khronos Group Inc.
+# Copyright (c) 2019-2021, The Khronos Group Inc.
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -60,6 +60,7 @@ target_include_directories(XrApiLayer_runtime_conformance
     PRIVATE ${PROJECT_BINARY_DIR}/src
 )
 
+target_link_libraries(XrApiLayer_runtime_conformance Threads::Threads)
 
 if(MSVC)
     # Right now can't build this on MinGW because of directxcolors, etc.
@@ -75,22 +76,24 @@ set_source_files_properties(
     # ${PROJECT_BINARY_DIR}/src/conformance/conformance_layer/gen_dispatch.h
     PROPERTIES GENERATED TRUE
 )
-if(VulkanHeaders_INCLUDE_DIRS)
+if(Vulkan_FOUND)
     target_include_directories(XrApiLayer_runtime_conformance
-        PRIVATE ${VulkanHeaders_INCLUDE_DIRS}
+        PRIVATE ${Vulkan_INCLUDE_DIRS}
     )
 endif()
 
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     target_compile_options(XrApiLayer_runtime_conformance PRIVATE -Wall)
-    target_link_libraries(XrApiLayer_runtime_conformance m pthread)
+    target_link_libraries(XrApiLayer_runtime_conformance m)
 endif()
 
-# Copy conformance layer files to conformance_cli binary folder
-add_custom_command(TARGET XrApiLayer_runtime_conformance POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:XrApiLayer_runtime_conformance> $<TARGET_PROPERTY:conformance_cli,BINARY_DIR>
-    COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_BINARY_DIR}/XrApiLayer_runtime_conformance.json $<TARGET_PROPERTY:conformance_cli,BINARY_DIR>
-)
+if(BUILD_CONFORMANCE_CLI)
+    # Copy conformance layer files to conformance_cli binary folder
+    add_custom_command(TARGET XrApiLayer_runtime_conformance POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:XrApiLayer_runtime_conformance> $<TARGET_PROPERTY:conformance_cli,BINARY_DIR>
+        COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_BINARY_DIR}/XrApiLayer_runtime_conformance.json $<TARGET_PROPERTY:conformance_cli,BINARY_DIR>
+    )
+endif()
 
 install(
     FILES ${CMAKE_CURRENT_BINARY_DIR}/XrApiLayer_runtime_conformance.json

@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2020 The Khronos Group Inc.
+// Copyright (c) 2019-2021, The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -57,6 +57,10 @@ namespace Conformance
             XrFrameEndInfo frameEndInfo{XR_TYPE_FRAME_END_INFO};
             frameEndInfo.environmentBlendMode = globalData.GetOptions().environmentBlendModeValue;
 
+            {  // Fresh session, test xrBeginFrame with no corresponding xrWaitFrame.
+                CHECK(XR_ERROR_CALL_ORDER_INVALID == xrBeginFrame(session, nullptr));
+            }
+
             {  // Test discarded frame.
                 REQUIRE_RESULT_SUCCEEDED(xrWaitFrame(session, nullptr, &frameState));
                 REQUIRE_RESULT_SUCCEEDED(xrBeginFrame(session, nullptr));
@@ -64,6 +68,10 @@ namespace Conformance
                 CHECK(XR_FRAME_DISCARDED == xrBeginFrame(session, nullptr));
                 frameEndInfo.displayTime = frameState.predictedDisplayTime;
                 REQUIRE(XR_SUCCESS == xrEndFrame(session, &frameEndInfo));
+            }
+
+            {  // Successful frame submitted, test xrBeginFrame with no corresponding xrWaitFrame.
+                REQUIRE(XR_ERROR_CALL_ORDER_INVALID == xrBeginFrame(session, nullptr));
             }
 
             {  // Test the xrBeginFrame return code after a failed xrEndFrame
@@ -75,6 +83,13 @@ namespace Conformance
                 REQUIRE_RESULT_SUCCEEDED(xrWaitFrame(session, nullptr, &frameState));
                 CHECK(XR_FRAME_DISCARDED == xrBeginFrame(session, nullptr));
                 frameEndInfo.displayTime = frameState.predictedDisplayTime;
+                REQUIRE(XR_SUCCESS == xrEndFrame(session, &frameEndInfo));
+            }
+
+            {  // Test that bad xrBeginFrame doesn't discard frame.
+                REQUIRE(XR_SUCCESS == xrWaitFrame(session, nullptr, &frameState));
+                REQUIRE_RESULT_SUCCEEDED(xrBeginFrame(session, nullptr));  // In case of discarded.
+                REQUIRE(XR_ERROR_CALL_ORDER_INVALID == xrBeginFrame(session, nullptr));
                 REQUIRE(XR_SUCCESS == xrEndFrame(session, &frameEndInfo));
             }
 
@@ -225,7 +240,7 @@ namespace Conformance
         constexpr int warmupFrameCount = 180;           // Prewarm the frame loop for this many frames.
         constexpr int testFrameCount = 200;             // Average this many frames for analysis.
         constexpr double waitBlockPercentage = 0.90;    // Block for 90% of the display period on waitframe thread.
-        constexpr double renderBlockPercentage = 0.90;  // Block for 90% of the display period on render thread.
+        constexpr double renderBlockPercentage = 0.70;  // Block for 70% of the display period on render thread.
 
         std::queue<XrFrameState> queuedFramesForRender;
         std::mutex displayMutex;
@@ -252,12 +267,13 @@ namespace Conformance
                 XrFrameState frameState{XR_TYPE_FRAME_STATE};
                 appThreadResult = xrWaitFrame(compositionHelper.GetSession(), nullptr, &frameState);
                 if (appThreadResult != XR_SUCCESS) {
-                    DETACH_THREAD
+                    DETACH_THREAD;
                     return;
                 }
 
                 // Mimic a lot of time spent in game "simulation" phase.
-                YieldSleep(Stopwatch(true), ns((int32_t)(frameState.predictedDisplayPeriod * waitBlockPercentage)));
+                int64_t sleepTime = static_cast<int64_t>(frameState.predictedDisplayPeriod * waitBlockPercentage);
+                YieldSleep(Stopwatch(true), ns(sleepTime));
 
                 queueFrameRender(frameState);
             }
@@ -271,7 +287,7 @@ namespace Conformance
                     Stopwatch waitTimer(true);
                     appThreadResult = xrWaitFrame(compositionHelper.GetSession(), nullptr, &frameState);
                     if (appThreadResult != XR_SUCCESS) {
-                        DETACH_THREAD
+                        DETACH_THREAD;
                         return;
                     }
 
@@ -281,7 +297,8 @@ namespace Conformance
                 totalFrameDisplayPeriod += ns(frameState.predictedDisplayPeriod);
 
                 // Mimic a lot of time spent in game "simulation" phase.
-                YieldSleep(Stopwatch(true), ns((int32_t)(frameState.predictedDisplayPeriod * waitBlockPercentage)));
+                int64_t sleepTime = static_cast<int64_t>(frameState.predictedDisplayPeriod * waitBlockPercentage);
+                YieldSleep(Stopwatch(true), ns(sleepTime));
 
                 queueFrameRender(frameState);
             }
@@ -317,7 +334,8 @@ namespace Conformance
             std::vector<XrCompositionLayerBaseHeader*> layers{simpleProjectionLayerHelper.GetProjectionLayer()};
 
             // Mimic a lot of time spent in game render phase.
-            YieldSleep(sw, ns((int64_t)(frameState.predictedDisplayPeriod * renderBlockPercentage)));
+            int64_t sleepTime = static_cast<int64_t>(frameState.predictedDisplayPeriod * renderBlockPercentage);
+            YieldSleep(sw, ns(sleepTime));
 
             compositionHelper.EndFrame(frameState.predictedDisplayTime, layers);
         }
@@ -343,10 +361,10 @@ namespace Conformance
         const double overheadFactor = (averageAppFrameTime.count() / (double)averageDisplayPeriod.count()) - 1.0;
         ReportF("Overhead score                   : %.1f%%", overheadFactor * 100);
 
-        // Allow up to 10% of frames to miss timing. This is number is arbitrary and open to debate.
-        // The point of this test is to fail runtims that get 1.0 (100% overhead) because they are
+        // Allow up to 50% of frames to miss timing. This is number is arbitrary and open to debate.
+        // The point of this test is to fail runtimes that get 1.0 (100% overhead) because they are
         // probably serializing the frame calls.
-        REQUIRE_MSG(overheadFactor < 0.1, "Frame timing overhead in pipelined frame submission is too high");
+        REQUIRE_MSG(overheadFactor < 0.5, "Frame timing overhead in pipelined frame submission is too high");
 
         // If the frame loop runs FASTER then the predictedDisplayPeriod is wrong or xrWaitFrame is not throttling correctly.
         REQUIRE_MSG(overheadFactor > -0.1, "Frame timing overhead in pipelined frame submission is too low");

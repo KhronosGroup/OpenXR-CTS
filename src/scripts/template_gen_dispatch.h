@@ -1,6 +1,8 @@
-// Copyright (c) 2017-2020 The Khronos Group Inc
+// Copyright (c) 2017-2021, The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
+//
+// Used in conformance layer.
 
 #pragma once
 
@@ -77,7 +79,7 @@ struct ConformanceHooksBase {
 //#     if cur_cmd.name not in skip_hooks and cur_cmd.name != "xrGetInstanceProcAddr"
 /*{ protect_begin(cur_cmd) }*/
     /*{ cur_cmd.cdecl | collapse_whitespace
-    | replace("XrResult xr", "virtual XrResult xr")
+    | replace("XRAPI_ATTR XrResult XRAPI_CALL xr", "virtual XrResult xr")
     | replace(";", "")
 }*/;
 /*{ protect_end(cur_cmd) }*/

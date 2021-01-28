@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2020 The Khronos Group Inc.
+// Copyright (c) 2019-2021, The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -2393,7 +2393,7 @@ namespace Conformance
             // Set the generic vector of base pointers
             derivedResult->imagePtrVector.push_back(base);
             // Map every swapchainImage base pointer to this context
-            m_swapchainImageContextMap.emplace(std::make_pair(base, derivedResult));
+            m_swapchainImageContextMap[base] = derivedResult;
         }
 
 #if defined(USE_MIRROR_WINDOW)
@@ -2478,7 +2478,7 @@ namespace Conformance
         imgBarrier.srcQueueFamilyIndex = m_queueFamilyIndex;
         imgBarrier.dstQueueFamilyIndex = m_queueFamilyIndex;
         imgBarrier.image = swapchainImageVk->image;
-        imgBarrier.subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
+        imgBarrier.subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, arraySlice, 1};
         vkCmdPipelineBarrier(m_cmdBuffer.buf, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0, nullptr, 1,
                              &imgBarrier);
 
@@ -2498,7 +2498,7 @@ namespace Conformance
         imgBarrier.srcQueueFamilyIndex = m_queueFamilyIndex;
         imgBarrier.dstQueueFamilyIndex = m_queueFamilyIndex;
         imgBarrier.image = swapchainImageVk->image;
-        imgBarrier.subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
+        imgBarrier.subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, arraySlice, 1};
         vkCmdPipelineBarrier(m_cmdBuffer.buf, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr, 0,
                              nullptr, 1, &imgBarrier);
 

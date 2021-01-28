@@ -1,6 +1,6 @@
 #!/usr/bin/python3 -i
 #
-# Copyright (c) 2013-2020 The Khronos Group Inc.
+# Copyright (c) 2013-2021, The Khronos Group Inc.
 #
 # SPDX-License-Identifier: Apache-2.0
 
@@ -237,7 +237,7 @@ class OpenXRConventions(ConventionsBase):
         """Return a set of directories not to automatically descend into
            when reflowing spec text
         """
-        return ('loader', 'styleguide')
+        return ('styleguide',)
 
     @property
     def zero(self):

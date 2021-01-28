@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2020 The Khronos Group Inc.
+# Copyright (c) 2019-2021, The Khronos Group Inc.
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -19,4 +19,6 @@
 
 add_subdirectory(conformance_layer)
 add_subdirectory(conformance_test)
-add_subdirectory(conformance_cli)
+if(NOT ANDROID)
+    add_subdirectory(conformance_cli)
+endif()

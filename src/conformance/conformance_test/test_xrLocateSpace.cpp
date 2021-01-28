@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2020 The Khronos Group Inc.
+// Copyright (c) 2019-2021, The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -54,16 +54,17 @@ namespace Conformance
             // some variance due to numeric inaccuracies is OK
             float epsilon = 0.001f;
 
+            static auto QuaterionsAreEquivalent = [](const XrQuaternionf& q1, const XrQuaternionf& q2, float epsilon) {
+                return std::abs(q1.x * q2.x + q1.y * q2.y + q1.z * q2.z + q1.w * q2.w) >= (1.f - epsilon);
+            };
+
             if (spaceLocation.locationFlags & XR_SPACE_LOCATION_POSITION_VALID_BIT) {
                 CHECK(std::abs(spaceLocation.pose.position.x - expectedPose.position.x) < epsilon);
                 CHECK(std::abs(spaceLocation.pose.position.y - expectedPose.position.y) < epsilon);
                 CHECK(std::abs(spaceLocation.pose.position.z - expectedPose.position.z) < epsilon);
             }
             if (spaceLocation.locationFlags & XR_SPACE_LOCATION_ORIENTATION_VALID_BIT) {
-                CHECK(std::abs(spaceLocation.pose.orientation.x - expectedPose.orientation.x) < epsilon);
-                CHECK(std::abs(spaceLocation.pose.orientation.y - expectedPose.orientation.y) < epsilon);
-                CHECK(std::abs(spaceLocation.pose.orientation.z - expectedPose.orientation.z) < epsilon);
-                CHECK(std::abs(spaceLocation.pose.orientation.w - expectedPose.orientation.w) < epsilon);
+                CHECK(QuaterionsAreEquivalent(spaceLocation.pose.orientation, expectedPose.orientation, epsilon));
             }
         };
 
