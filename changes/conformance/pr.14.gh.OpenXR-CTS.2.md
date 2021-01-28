@@ -1,1 +1,0 @@
-Fix: The test checked for "float value == X" and then checked for its binary thresholded value after a subsequent call to xrSyncActions. Changed the test so both checks happen in the same input frame.

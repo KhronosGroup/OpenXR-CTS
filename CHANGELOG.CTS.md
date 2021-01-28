@@ -17,6 +17,83 @@ particular, since it is primarily software, pull requests may be integrated as
 they are accepted even between periodic updates. However, versions that are not
 signed tags on the `approved` branch are not valid for conformance submission.
 
+## OpenXR CTS 1.0.14.1 (2021-01-27)
+
+Note that the procedure for generating your conformance submission has changed slightly.
+
+- Registry
+  - All changes found in 1.0.13, and 1.0.14.
+- Conformance Tests
+  - Build: Initial setup of CMake for conformance build on Android. (Not complete -
+    no gradle part.)
+    ([internal MR 1910](https://gitlab.khronos.org/openxr/openxr/merge_requests/1910))
+  - Fix: Properly apply function attributes to fix build of conformance layer on
+    Android for ARM.
+    ([internal MR 1910](https://gitlab.khronos.org/openxr/openxr/merge_requests/1910),
+    [OpenXR-CTS/#3](https://github.com/KhronosGroup/OpenXR-CTS/issues/3),
+    [internal issue 1479](https://gitlab.khronos.org/openxr/openxr/issues/1479))
+  - Fix: Use `android.app.NativeActivity` correctly in place of NativeActivity
+    subclass for the conformance tests.
+    ([internal MR 1965](https://gitlab.khronos.org/openxr/openxr/merge_requests/1965),
+    [internal MR 1976](https://gitlab.khronos.org/openxr/openxr/merge_requests/1976))
+  - Fix: The D3D12, OpenGL, and Vulkan graphics plugins sometimes did not update
+    their swapchain image context maps due to rare key collisions.
+    ([OpenXR-CTS/#4](https://github.com/KhronosGroup/OpenXR-CTS/pull/4))
+  - Fix: Removed extra check that would fail if the CTS was compiled against a
+    version of `openxr.h` that included extensions that added results that were
+    newer than the results present in the version of `openxr.h` that the runtime
+    was compiled against.
+    ([OpenXR-CTS/#8](https://github.com/KhronosGroup/OpenXR-CTS/pull/8))
+  - Fix: Fixed conformance failures on runtimes where x and y components can have
+    different last changed times
+    ([OpenXR-CTS/#9](https://github.com/KhronosGroup/OpenXR-CTS/pull/9))
+  - Fix: "Projection Mutable Field-of-View" was an old, broken version of the test.
+    It is reset to the intended version of the code now.
+    ([OpenXR-CTS/#10](https://github.com/KhronosGroup/OpenXR-CTS/pull/10))
+  - Fix: `CopyRGBAImage` was using the wrong array slice when setting image
+    barriers. This broke the "Subimage Tests" case on some hardware/drivers.
+    ([OpenXR-CTS/#11](https://github.com/KhronosGroup/OpenXR-CTS/pull/11))
+  - Fix: Added `WaitForGpu` call at the end of `RenderView` in
+    `D3D12GraphicsPlugin`. Without this the array and wide swapchain tests failed
+    on some hardware/driver versions. This is not ideal behavior, but it fixes the
+    test for now, and has been noted for future fixing in a better way.
+    ([OpenXR-CTS/#12](https://github.com/KhronosGroup/OpenXR-CTS/pull/12))
+  - Fix: Allow negated quaternion to be equivalent to the expected orientation
+    value. This test only cares about orientation, not which path the rotation
+    took.
+    ([OpenXR-CTS/#13](https://github.com/KhronosGroup/OpenXR-CTS/pull/13))
+  - Fix: The test assumed that X and Y components of a vector2 action would have
+    exactly the same timestamp. Changed that to check that the vector2 action would
+    have the most recent of those two timestamps instead.
+    ([OpenXR-CTS/#14](https://github.com/KhronosGroup/OpenXR-CTS/pull/14),
+    [internal issue 1490](https://gitlab.khronos.org/openxr/openxr/issues/1490))
+  - Fix: The test checked for "float value == X" and then checked for its binary
+    thresholded value after a subsequent call to xrSyncActions. Changed the test so
+    both checks happen in the same input frame.
+    ([OpenXR-CTS/#14](https://github.com/KhronosGroup/OpenXR-CTS/pull/14))
+  - Fix: Added support for `GL_SRGB8` textures to OpenGL tests.
+    ([OpenXR-CTS/#15](https://github.com/KhronosGroup/OpenXR-CTS/pull/15))
+  - Fix: Increased allowed pipeline overhead threshold to 50%. The purpose of the
+    test is to ensure the runtime isn't serializing (100% overhead) so this is a
+    safe increase.
+    ([OpenXR-CTS/#16](https://github.com/KhronosGroup/OpenXR-CTS/pull/16))
+  - Fix: Use `int64_t` for YieldSleep calculations, to not overflow.
+    ([OpenXR-CTS/#17](https://github.com/KhronosGroup/OpenXR-CTS/pull/17))
+  - Improvement: Modify the test instructions to change the output format and
+    increase its content, and require the console output to be submitted as well.
+    This makes it easier to review and provides a more complete look at both passed
+    and failed tests.
+    ([internal MR 1953](https://gitlab.khronos.org/openxr/openxr/merge_requests/1953))
+  - Lower the amount of time that the renderer blocks. The CTS is not a highly
+    optimized application and due to thread scheduling and extra GPU waits 90% CPU
+    wait makes it fairly tight to fit everything inside of a single display period.
+    ([OpenXR-CTS/#18](https://github.com/KhronosGroup/OpenXR-CTS/pull/18))
+  - New test: Verify that triangles returned from `XR_KHR_visibility_mask` are
+    counter-clockwise.
+    ([internal MR 1943](https://gitlab.khronos.org/openxr/openxr/merge_requests/1943))
+  - New test: Add tests for `xrBeginFrame` call order violations
+    ([OpenXR-CTS/#7](https://github.com/KhronosGroup/OpenXR-CTS/pull/7))
+
 ## OpenXR CTS 1.0.12.1 (2020-10-01)
 
 - Registry

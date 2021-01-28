@@ -1,1 +1,0 @@
-Fix: Removed extra check that would fail if the CTS was compiled against a version of `openxr.h` that included extensions that added results that were newer than the results present in the version of `openxr.h` that the runtime was compiled against.

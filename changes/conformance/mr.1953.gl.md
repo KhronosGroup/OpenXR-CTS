@@ -1,1 +1,0 @@
-Improvement: Modify the test instructions to change the output format and increase its content, and require the console output to be submitted as well. This makes it easier to review and provides a more complete look at both passed and failed tests.
