@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2020 The Khronos Group Inc.
+// Copyright (c) 2019-2021, The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -2427,20 +2427,20 @@ namespace Conformance
                     XrActionStateGetInfo getInfo{XR_TYPE_ACTION_STATE_GET_INFO};
                     getInfo.action = booleanToFloatActionData.Action;
 
-                    inputDevice->SetButtonStateFloat(inputSourcePath, 0.0f, cEpsilon, false, actionSet );
+                    inputDevice->SetButtonStateFloat(inputSourcePath, 0.0f, cEpsilon, false, actionSet);
 
                     REQUIRE_RESULT(xrGetActionStateBoolean(compositionHelper.GetSession(), &getInfo, &booleanState), XR_SUCCESS);
                     REQUIRE(booleanState.isActive);
                     REQUIRE_FALSE(booleanState.currentState);
 
-                    inputDevice->SetButtonStateFloat(inputSourcePath, 1.0f, cEpsilon, false, actionSet );
+                    inputDevice->SetButtonStateFloat(inputSourcePath, 1.0f, cEpsilon, false, actionSet);
 
                     REQUIRE_RESULT(xrGetActionStateBoolean(compositionHelper.GetSession(), &getInfo, &booleanState), XR_SUCCESS);
                     REQUIRE(booleanState.isActive);
                     REQUIRE(booleanState.currentState);
                     REQUIRE(booleanState.lastChangeTime > 0);
 
-                    inputDevice->SetButtonStateFloat(inputSourcePath, 0.0f, cEpsilon, false, actionSet );
+                    inputDevice->SetButtonStateFloat(inputSourcePath, 0.0f, cEpsilon, false, actionSet);
 
                     REQUIRE_RESULT(xrGetActionStateBoolean(compositionHelper.GetSession(), &getInfo, &booleanState), XR_SUCCESS);
                     REQUIRE(booleanState.isActive);
@@ -2455,20 +2455,20 @@ namespace Conformance
                     XrActionStateGetInfo getInfo{XR_TYPE_ACTION_STATE_GET_INFO};
                     getInfo.action = floatToBooleanActionData.Action;
 
-                    inputDevice->SetButtonStateBool(inputSourcePath, false, false, actionSet );
+                    inputDevice->SetButtonStateBool(inputSourcePath, false, false, actionSet);
 
                     REQUIRE_RESULT(xrGetActionStateFloat(compositionHelper.GetSession(), &getInfo, &floatState), XR_SUCCESS);
                     REQUIRE(floatState.isActive);
                     REQUIRE(floatState.currentState == Approx(0.0f).margin(cLargeEpsilon));
 
-                    inputDevice->SetButtonStateBool(inputSourcePath, true, false, actionSet );
+                    inputDevice->SetButtonStateBool(inputSourcePath, true, false, actionSet);
 
                     REQUIRE_RESULT(xrGetActionStateFloat(compositionHelper.GetSession(), &getInfo, &floatState), XR_SUCCESS);
                     REQUIRE(floatState.isActive);
                     REQUIRE(floatState.currentState == Approx(1.0f).margin(cLargeEpsilon));
                     REQUIRE(floatState.lastChangeTime > 0);
 
-                    inputDevice->SetButtonStateBool(inputSourcePath, false, false, actionSet );
+                    inputDevice->SetButtonStateBool(inputSourcePath, false, false, actionSet);
 
                     REQUIRE_RESULT(xrGetActionStateFloat(compositionHelper.GetSession(), &getInfo, &floatState), XR_SUCCESS);
                     REQUIRE(floatState.isActive);

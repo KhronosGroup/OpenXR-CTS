@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2020 The Khronos Group Inc.
+// Copyright (c) 2019-2021, The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -827,7 +827,7 @@ namespace Conformance
                             GetGlobalData().graphicsPlugin->RenderView(rolled, swapchainImage, format, cubes);
 
                             // After rendering, report a flipped FOV on X and Y without the 180 degree roll, which is effectively
-                            // has the same effect. This switcheroo is necessary since rendering with flipped FOV will result in 
+                            // has the same effect. This switcheroo is necessary since rendering with flipped FOV will result in
                             // an inverted winding causing normally hidden triangles to be visible and visible triangles to be hidden.
                             std::swap(const_cast<float&>(projLayer->views[view].fov.angleUp),
                                       const_cast<float&>(projLayer->views[view].fov.angleDown));

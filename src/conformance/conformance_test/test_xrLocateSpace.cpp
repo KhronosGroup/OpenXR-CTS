@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2020 The Khronos Group Inc.
+// Copyright (c) 2019-2021, The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -64,8 +64,7 @@ namespace Conformance
                 CHECK(std::abs(spaceLocation.pose.position.z - expectedPose.position.z) < epsilon);
             }
             if (spaceLocation.locationFlags & XR_SPACE_LOCATION_ORIENTATION_VALID_BIT) {
-                CHECK(QuaterionsAreEquivalent(spaceLocation.pose.orientation, expectedPose.orientation, 
-                    epsilon));
+                CHECK(QuaterionsAreEquivalent(spaceLocation.pose.orientation, expectedPose.orientation, epsilon));
             }
         };
 

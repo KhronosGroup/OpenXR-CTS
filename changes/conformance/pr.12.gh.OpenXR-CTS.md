@@ -1,1 +1,1 @@
-Fix: Added `WaitForGpu` call at the end of `RenderView` in `D3D12GraphicsPlugin`. Without this the array and wide swapchain tests failed on some hardware/driver versions.
+Fix: Added `WaitForGpu` call at the end of `RenderView` in `D3D12GraphicsPlugin`. Without this the array and wide swapchain tests failed on some hardware/driver versions. This is not ideal behavior, but it fixes the test for now, and has been noted for future fixing in a better way.

@@ -1,1 +1,1 @@
-Use init64_t for YieldSleep calculations, to not overflow.
+Fix: Use `int64_t` for YieldSleep calculations, to not overflow.

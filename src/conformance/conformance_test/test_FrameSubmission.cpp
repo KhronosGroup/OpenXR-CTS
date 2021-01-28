@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2020 The Khronos Group Inc.
+// Copyright (c) 2019-2021, The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -272,7 +272,7 @@ namespace Conformance
                 }
 
                 // Mimic a lot of time spent in game "simulation" phase.
-                int64_t sleepTime = (int64_t)(frameState.predictedDisplayPeriod * waitBlockPercentage);
+                int64_t sleepTime = static_cast<int64_t>(frameState.predictedDisplayPeriod * waitBlockPercentage);
                 YieldSleep(Stopwatch(true), ns(sleepTime));
 
                 queueFrameRender(frameState);
@@ -297,7 +297,7 @@ namespace Conformance
                 totalFrameDisplayPeriod += ns(frameState.predictedDisplayPeriod);
 
                 // Mimic a lot of time spent in game "simulation" phase.
-                int64_t sleepTime = (int64_t)(frameState.predictedDisplayPeriod * waitBlockPercentage);
+                int64_t sleepTime = static_cast<int64_t>(frameState.predictedDisplayPeriod * waitBlockPercentage);
                 YieldSleep(Stopwatch(true), ns(sleepTime));
 
                 queueFrameRender(frameState);
@@ -334,7 +334,7 @@ namespace Conformance
             std::vector<XrCompositionLayerBaseHeader*> layers{simpleProjectionLayerHelper.GetProjectionLayer()};
 
             // Mimic a lot of time spent in game render phase.
-            int64_t sleepTime = (int64_t)(frameState.predictedDisplayPeriod * renderBlockPercentage);
+            int64_t sleepTime = static_cast<int64_t>(frameState.predictedDisplayPeriod * renderBlockPercentage);
             YieldSleep(sw, ns(sleepTime));
 
             compositionHelper.EndFrame(frameState.predictedDisplayTime, layers);

@@ -1,6 +1,8 @@
-// Copyright (c) 2017-2020 The Khronos Group Inc
+// Copyright (c) 2017-2021, The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
+//
+// Used in conformance layer.
 
 #include "gen_dispatch.h"
 
