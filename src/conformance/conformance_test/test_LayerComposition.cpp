@@ -826,13 +826,13 @@ namespace Conformance
                             XrQuaternionf_Multiply(&rolled.pose.orientation, &roll180, &views[view].pose.orientation);
                             GetGlobalData().graphicsPlugin->RenderView(rolled, swapchainImage, format, cubes);
 
-                            // After rendering, report a flipped FOV on X and Y without the 180 degree roll, which is effectively
-                            // has the same effect. This switcheroo is necessary since rendering with flipped FOV will result in
+                            // After rendering, report a flipped FOV on X and Y without the 180 degree roll, which has the same effect.
+                            // the same effect. This switcheroo is necessary since rendering with flipped FOV will result in
                             // an inverted winding causing normally hidden triangles to be visible and visible triangles to be hidden.
-                            std::swap(const_cast<float&>(projLayer->views[view].fov.angleUp),
-                                      const_cast<float&>(projLayer->views[view].fov.angleDown));
-                            std::swap(const_cast<float&>(projLayer->views[view].fov.angleLeft),
-                                      const_cast<float&>(projLayer->views[view].fov.angleRight));
+                            const_cast<float&>(projLayer->views[view].fov.angleUp) = -projLayer->views[view].fov.angleUp;
+                            const_cast<float&>(projLayer->views[view].fov.angleDown) = -projLayer->views[view].fov.angleDown;
+                            const_cast<float&>(projLayer->views[view].fov.angleLeft) = -projLayer->views[view].fov.angleLeft;
+                            const_cast<float&>(projLayer->views[view].fov.angleRight) = -projLayer->views[view].fov.angleRight;
                         }
                     });
 
