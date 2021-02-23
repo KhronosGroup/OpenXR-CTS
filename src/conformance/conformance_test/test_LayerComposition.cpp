@@ -751,7 +751,7 @@ namespace Conformance
         RenderLoop(compositionHelper.GetSession(), updateLayers).Loop();
     }
 
-    TEST_CASE("Projection Mutable Field-of-View", "[.][composition][interactive]")
+    TEST_CASE("Projection Mutable Field-of-View", "[composition][interactive]")
     {
         CompositionHelper compositionHelper("Projection Mutable Field-of-View");
         InteractiveLayerManager interactiveLayerManager(compositionHelper, "projection_mutable.png",
