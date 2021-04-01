@@ -43,6 +43,7 @@ namespace
     {
         constexpr XrColor4f Red = {1, 0, 0, 1};
         constexpr XrColor4f Green = {0, 1, 0, 1};
+        constexpr XrColor4f GreenZeroAlpha = {0, 1, 0, 0};
         constexpr XrColor4f Blue = {0, 0, 1, 1};
         constexpr XrColor4f Purple = {1, 0, 1, 1};
         constexpr XrColor4f Yellow = {1, 1, 0, 1};
@@ -349,21 +350,25 @@ namespace Conformance
                 const float t = y / 255.0f;
                 const XrColor4f dst = Colors::Green;
                 const XrColor4f src{0, 0, t, t};
-                const XrColor4f blended{dst.r * (1 - src.a) + src.r, dst.g * (1 - src.a) + src.g, dst.b * (1 - src.a) + src.b, 1};
+                const XrColor4f blended{dst.r * (1 - src.a) + src.r, dst.g * (1 - src.a) + src.g, dst.b * (1 - src.a) + src.b, 0};
                 blueGradientOverGreen.DrawRect(0, y, blueGradientOverGreen.width, 1, blended);
             }
 
             const XrSwapchain answerSwapchain = compositionHelper.CreateStaticSwapchainImage(blueGradientOverGreen);
-            interactiveLayerManager.AddLayer(
-                compositionHelper.CreateQuadLayer(answerSwapchain, viewSpace, 1.0f, XrPosef{Quat::Identity, {0, 0, QuadZ}}));
+            XrCompositionLayerQuad *truthQuad =
+                compositionHelper.CreateQuadLayer( answerSwapchain, viewSpace, 1.0f, XrPosef { Quat::Identity, {0, 0, QuadZ} } ));
+            truthQuad->layerFlags |= XR_COMPOSITION_LAYER_UNPREMULTIPLIED_ALPHA_BIT;
+            interactiveLayerManager.AddLayer( truthQuad );
         }
 
         auto createGradientTest = [&](bool premultiplied, float x, float y) {
             // A solid green quad layer will be composited under a blue gradient.
             {
-                const XrSwapchain greenSwapchain = compositionHelper.CreateStaticSwapchainSolidColor(Colors::Green);
-                interactiveLayerManager.AddLayer(
-                    compositionHelper.CreateQuadLayer(greenSwapchain, viewSpace, 1.0f, XrPosef{Quat::Identity, {x, y, QuadZ}}));
+                const XrSwapchain greenSwapchain = compositionHelper.CreateStaticSwapchainSolidColor(Colors::GreenZeroAlpha);
+                XrCompositionLayerQuad* greenQuad =
+                    compositionHelper.CreateQuadLayer( greenSwapchain, viewSpace, 1.0f, XrPosef { Quat::Identity, {x, y, QuadZ} } );
+                greenQuad->layerFlags |= XR_COMPOSITION_LAYER_UNPREMULTIPLIED_ALPHA_BIT;
+                interactiveLayerManager.AddLayer(greenQuad);
             }
 
             // Create gradient of blue lines from 0.0 to 1.0.
