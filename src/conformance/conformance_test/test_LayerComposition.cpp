@@ -356,7 +356,7 @@ namespace Conformance
 
             const XrSwapchain answerSwapchain = compositionHelper.CreateStaticSwapchainImage(blueGradientOverGreen);
             XrCompositionLayerQuad *truthQuad =
-                compositionHelper.CreateQuadLayer( answerSwapchain, viewSpace, 1.0f, XrPosef { Quat::Identity, {0, 0, QuadZ} } ));
+                compositionHelper.CreateQuadLayer( answerSwapchain, viewSpace, 1.0f, XrPosef { Quat::Identity, {0, 0, QuadZ} });
             truthQuad->layerFlags |= XR_COMPOSITION_LAYER_UNPREMULTIPLIED_ALPHA_BIT;
             interactiveLayerManager.AddLayer( truthQuad );
         }
