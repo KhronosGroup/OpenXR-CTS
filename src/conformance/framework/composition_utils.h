@@ -111,7 +111,7 @@ namespace Conformance
 
         XrSwapchain CreateStaticSwapchainSolidColor(const XrColor4f& color);
 
-        XrSwapchain CreateStaticSwapchainImage(const RGBAImage& rgbaImage, bool sRGB = false);
+        XrSwapchain CreateStaticSwapchainImage(const RGBAImage& rgbaImage);
 
         XrSwapchainSubImage MakeDefaultSubImage(XrSwapchain swapchain, uint32_t imageArrayIndex = 0);
 

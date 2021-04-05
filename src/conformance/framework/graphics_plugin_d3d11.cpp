@@ -82,7 +82,7 @@ namespace Conformance
         int64_t SelectDepthSwapchainFormat(const int64_t* imageFormatArray, size_t count) const override;
 
         // Format required by RGBAImage type.
-        int64_t GetRGBA8Format(bool sRGB) const override;
+        int64_t GetSRGBA8Format() const override;
 
         std::shared_ptr<SwapchainImageStructs> AllocateSwapchainImageStructs(size_t size,
                                                                              const XrSwapchainCreateInfo& swapchainCreateInfo) override;
@@ -490,9 +490,9 @@ namespace Conformance
         return *it;
     }
 
-    int64_t D3D11GraphicsPlugin::GetRGBA8Format(bool sRGB) const
+    int64_t D3D11GraphicsPlugin::GetSRGBA8Format() const
     {
-        return sRGB ? DXGI_FORMAT_R8G8B8A8_UNORM_SRGB : DXGI_FORMAT_R8G8B8A8_UNORM;
+        return DXGI_FORMAT_R8G8B8A8_UNORM_SRGB;
     }
 
     std::shared_ptr<IGraphicsPlugin::SwapchainImageStructs>

@@ -397,17 +397,20 @@ namespace Conformance
         return CreateStaticSwapchainImage(image);
     }
 
-    XrSwapchain CompositionHelper::CreateStaticSwapchainImage(const RGBAImage& rgbaImage, bool sRGB)
+    XrSwapchain CompositionHelper::CreateStaticSwapchainImage(const RGBAImage& rgbaImage)
     {
         // The swapchain format must be R8G8B8A8 UNORM to match the RGBAImage format.
-        const int64_t format = GetGlobalData().graphicsPlugin->GetRGBA8Format(sRGB);
+        const int64_t format = GetGlobalData().graphicsPlugin->GetSRGBA8Format();
         auto swapchainCreateInfo =
             DefaultColorSwapchainCreateInfo(rgbaImage.width, rgbaImage.height, XR_SWAPCHAIN_CREATE_STATIC_IMAGE_BIT, format);
 
         const XrSwapchain swapchain = CreateSwapchain(swapchainCreateInfo);
 
+        RGBAImage srgbImage = rgbaImage;
+        if (!rgbaImage.isSrgb)
+            srgbImage.ConvertToSRGB();
         AcquireWaitReleaseImage(swapchain, [&](const XrSwapchainImageBaseHeader* swapchainImage, uint64_t format) {
-            GetGlobalData().graphicsPlugin->CopyRGBAImage(swapchainImage, format, 0, rgbaImage);
+            GetGlobalData().graphicsPlugin->CopyRGBAImage(swapchainImage, format, 0, srgbImage);
         });
 
         return swapchain;

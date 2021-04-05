@@ -129,6 +129,9 @@ namespace Conformance
 
         free(uc);
 
+        // Images loaded from files are assumed to be SRGB
+        image.isSrgb = true;
+
         return image;
     }
 
@@ -255,4 +258,28 @@ namespace Conformance
             }
         }
     }
+
+    inline double ToSRGB(double linear)
+    {
+        if (linear < 0.04045 / 12.92)
+            return linear * 12.92;
+        else
+            return 1.055 * std::pow(linear, (1.0 / 2.4)) - 0.055;
+    }
+    inline double FromSRGB(double srgb)
+    {
+        if (srgb < 0.04045)
+            return srgb / 12.92;
+        return std::pow((srgb + .055) / 1.055, 2.4);
+    }
+
+    void RGBAImage::ConvertToSRGB()
+    {
+        for (RGBA8Color& pixel : pixels) {
+            pixel.Channels.R = (uint8_t)(ToSRGB((double)pixel.Channels.R / 255.0) * 255.0);
+            pixel.Channels.G = (uint8_t)(ToSRGB((double)pixel.Channels.G / 255.0) * 255.0);
+            pixel.Channels.B = (uint8_t)(ToSRGB((double)pixel.Channels.B / 255.0) * 255.0);
+        }
+    }
+
 }  // namespace Conformance

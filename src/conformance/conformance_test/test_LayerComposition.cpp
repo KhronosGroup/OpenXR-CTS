@@ -126,7 +126,7 @@ namespace
             {
                 XrSwapchain exampleSwapchain;
                 if (exampleImage) {
-                    exampleSwapchain = compositionHelper.CreateStaticSwapchainImage(RGBAImage::Load(exampleImage), true /* sRGB */);
+                    exampleSwapchain = compositionHelper.CreateStaticSwapchainImage(RGBAImage::Load(exampleImage));
                 }
                 else {
                     RGBAImage image(256, 256);
@@ -277,9 +277,9 @@ namespace Conformance
         const XrQuaternionf redRot = Quat::FromAxisAngle({0, 1, 0}, Math::DegToRad(180));
         interactiveLayerManager.AddLayer(compositionHelper.CreateQuadLayer(redSwapchain, viewSpace, 1.0f, XrPosef{redRot, {0, 0, -1}}));
 
-        RenderLoop(compositionHelper.GetSession(),
-                   [&](const XrFrameState& frameState) { return interactiveLayerManager.EndFrame(frameState); })
-            .Loop();
+        RenderLoop(compositionHelper.GetSession(), [&](const XrFrameState& frameState) {
+            return interactiveLayerManager.EndFrame(frameState);
+        }).Loop();
     }
 
     // Purpose: Verify order of transforms by exercising the two ways poses can be specified:
@@ -325,9 +325,9 @@ namespace Conformance
             interactiveLayerManager.AddLayer(quad2);
         }
 
-        RenderLoop(compositionHelper.GetSession(),
-                   [&](const XrFrameState& frameState) { return interactiveLayerManager.EndFrame(frameState); })
-            .Loop();
+        RenderLoop(compositionHelper.GetSession(), [&](const XrFrameState& frameState) {
+            return interactiveLayerManager.EndFrame(frameState);
+        }).Loop();
     }
 
     // Purpose: Validates alpha blending (both premultiplied and unpremultiplied).
@@ -355,10 +355,10 @@ namespace Conformance
             }
 
             const XrSwapchain answerSwapchain = compositionHelper.CreateStaticSwapchainImage(blueGradientOverGreen);
-            XrCompositionLayerQuad *truthQuad =
-                compositionHelper.CreateQuadLayer( answerSwapchain, viewSpace, 1.0f, XrPosef { Quat::Identity, {0, 0, QuadZ} } ));
+            XrCompositionLayerQuad* truthQuad =
+                compositionHelper.CreateQuadLayer(answerSwapchain, viewSpace, 1.0f, XrPosef{Quat::Identity, {0, 0, QuadZ}});
             truthQuad->layerFlags |= XR_COMPOSITION_LAYER_UNPREMULTIPLIED_ALPHA_BIT;
-            interactiveLayerManager.AddLayer( truthQuad );
+            interactiveLayerManager.AddLayer(truthQuad);
         }
 
         auto createGradientTest = [&](bool premultiplied, float x, float y) {
@@ -366,7 +366,7 @@ namespace Conformance
             {
                 const XrSwapchain greenSwapchain = compositionHelper.CreateStaticSwapchainSolidColor(Colors::GreenZeroAlpha);
                 XrCompositionLayerQuad* greenQuad =
-                    compositionHelper.CreateQuadLayer( greenSwapchain, viewSpace, 1.0f, XrPosef { Quat::Identity, {x, y, QuadZ} } );
+                    compositionHelper.CreateQuadLayer(greenSwapchain, viewSpace, 1.0f, XrPosef{Quat::Identity, {x, y, QuadZ}});
                 greenQuad->layerFlags |= XR_COMPOSITION_LAYER_UNPREMULTIPLIED_ALPHA_BIT;
                 interactiveLayerManager.AddLayer(greenQuad);
             }
@@ -399,9 +399,9 @@ namespace Conformance
         createGradientTest(true, -1.02f, 0);  // Test premultiplied (left of center "answer")
         createGradientTest(false, 1.02f, 0);  // Test unpremultiplied (right of center "answer")
 
-        RenderLoop(compositionHelper.GetSession(),
-                   [&](const XrFrameState& frameState) { return interactiveLayerManager.EndFrame(frameState); })
-            .Loop();
+        RenderLoop(compositionHelper.GetSession(), [&](const XrFrameState& frameState) {
+            return interactiveLayerManager.EndFrame(frameState);
+        }).Loop();
     }
 
     // Purpose: Validate eye visibility flags.
@@ -428,9 +428,9 @@ namespace Conformance
         quad2->eyeVisibility = XR_EYE_VISIBILITY_RIGHT;
         interactiveLayerManager.AddLayer(quad2);
 
-        RenderLoop(compositionHelper.GetSession(),
-                   [&](const XrFrameState& frameState) { return interactiveLayerManager.EndFrame(frameState); })
-            .Loop();
+        RenderLoop(compositionHelper.GetSession(), [&](const XrFrameState& frameState) {
+            return interactiveLayerManager.EndFrame(frameState);
+        }).Loop();
     }
 
     TEST_CASE("Subimage Tests", "[composition][interactive]")
@@ -456,7 +456,7 @@ namespace Conformance
         // Create an array swapchain
         auto swapchainCreateInfo =
             compositionHelper.DefaultColorSwapchainCreateInfo(ImageWidth, ImageHeight, XR_SWAPCHAIN_CREATE_STATIC_IMAGE_BIT);
-        swapchainCreateInfo.format = GetGlobalData().graphicsPlugin->GetRGBA8Format(false /* sRGB */);
+        swapchainCreateInfo.format = GetGlobalData().graphicsPlugin->GetSRGBA8Format();
         swapchainCreateInfo.arraySize = ImageArrayCount;
         const XrSwapchain swapchain = compositionHelper.CreateSwapchain(swapchainCreateInfo);
 
@@ -491,14 +491,14 @@ namespace Conformance
                     quad->size.height = 1.0f;  // Height needs to be corrected since the imageRect is customized.
                     interactiveLayerManager.AddLayer(quad);
                 }
-
+                numberGridImage.ConvertToSRGB();
                 GetGlobalData().graphicsPlugin->CopyRGBAImage(swapchainImage, format, arraySlice, numberGridImage);
             }
         });
 
-        RenderLoop(compositionHelper.GetSession(),
-                   [&](const XrFrameState& frameState) { return interactiveLayerManager.EndFrame(frameState); })
-            .Loop();
+        RenderLoop(compositionHelper.GetSession(), [&](const XrFrameState& frameState) {
+            return interactiveLayerManager.EndFrame(frameState);
+        }).Loop();
     }
 
     TEST_CASE("Projection Array Swapchain", "[composition][interactive]")
