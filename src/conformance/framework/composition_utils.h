@@ -154,10 +154,10 @@ namespace Conformance
     {
     public:
         SimpleProjectionLayerHelper(CompositionHelper& compositionHelper);
-        XrCompositionLayerBaseHeader* GetProjectionLayer() const;
-        void UpdateProjectionLayer(const XrFrameState& frameState,
-                                   const std::vector<Cube> cubes = {Cube::Make({-1, 0, -2}), Cube::Make({1, 0, -2}),
-                                                                    Cube::Make({0, -1, -2}), Cube::Make({0, 1, -2})});
+        XrCompositionLayerBaseHeader* TryGetUpdatedProjectionLayer(const XrFrameState& frameState,
+                                                                   const std::vector<Cube> cubes = {
+                                                                       Cube::Make({-1, 0, -2}), Cube::Make({1, 0, -2}),
+                                                                       Cube::Make({0, -1, -2}), Cube::Make({0, 1, -2})});
         XrSpace GetLocalSpace() const
         {
             return m_localSpace;
