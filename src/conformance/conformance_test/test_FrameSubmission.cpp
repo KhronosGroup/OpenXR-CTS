@@ -330,8 +330,10 @@ namespace Conformance
 
             Stopwatch sw(true);
 
-            simpleProjectionLayerHelper.UpdateProjectionLayer(frameState);
-            std::vector<XrCompositionLayerBaseHeader*> layers{simpleProjectionLayerHelper.GetProjectionLayer()};
+            std::vector<XrCompositionLayerBaseHeader*> layers;
+            if (XrCompositionLayerBaseHeader* projLayer = simpleProjectionLayerHelper.TryGetUpdatedProjectionLayer(frameState)) {
+                layers.push_back(projLayer);
+            }
 
             // Mimic a lot of time spent in game render phase.
             int64_t sleepTime = static_cast<int64_t>(frameState.predictedDisplayPeriod * renderBlockPercentage);
