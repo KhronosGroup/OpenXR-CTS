@@ -48,7 +48,7 @@ jobs:
       - task: PythonScript@0
         name: winmatrix
         inputs:
-          scriptPath: $(System.DefaultWorkingDirectory)/.azure-pipelines/generate_windows_matrix_build.py
+          scriptPath: $(System.DefaultWorkingDirectory)/.azure-pipelines/shared/generate_windows_matrix_build.py
           # argument sets the variable name defined by python script
           arguments: winbuild
 

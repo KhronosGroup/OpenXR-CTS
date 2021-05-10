@@ -12,11 +12,11 @@ variables:
 stages:
   - stage: Check
     jobs:
-      - template: check_clang_format.yml
-      # - template: check_file_format.yml
+      - template: shared/check_clang_format.yml
+      # - template: shared/check_file_format.yml
 
   - stage: Build
     jobs:
-      - template: build_jobs.yml
+      - template: shared/build_jobs.yml
         parameters:
           isSdk: false
