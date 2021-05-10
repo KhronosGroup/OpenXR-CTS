@@ -126,7 +126,7 @@ namespace
             {
                 XrSwapchain exampleSwapchain;
                 if (exampleImage) {
-                    exampleSwapchain = compositionHelper.CreateStaticSwapchainImage(RGBAImage::Load(exampleImage), true /* sRGB */);
+                    exampleSwapchain = compositionHelper.CreateStaticSwapchainImage(RGBAImage::Load(exampleImage));
                 }
                 else {
                     RGBAImage image(256, 256);
@@ -350,6 +350,10 @@ namespace Conformance
                 const float t = y / 255.0f;
                 const XrColor4f dst = Colors::Green;
                 const XrColor4f src{0, 0, t, t};
+
+                // The blended color here has a 0 alpha value to test that the runtime is ignoring the texture alpha when
+                // the XR_COMPOSITION_LAYER_BLEND_TEXTURE_SOURCE_ALPHA_BIT flag is not set. If the runtime is erroneously
+                // reading texture alpha, it is more likely to output black pixels.
                 const XrColor4f blended{dst.r * (1 - src.a) + src.r, dst.g * (1 - src.a) + src.g, dst.b * (1 - src.a) + src.b, 0};
                 blueGradientOverGreen.DrawRect(0, y, blueGradientOverGreen.width, 1, blended);
             }
@@ -357,7 +361,16 @@ namespace Conformance
             const XrSwapchain answerSwapchain = compositionHelper.CreateStaticSwapchainImage(blueGradientOverGreen);
             XrCompositionLayerQuad* truthQuad =
                 compositionHelper.CreateQuadLayer(answerSwapchain, viewSpace, 1.0f, XrPosef{Quat::Identity, {0, 0, QuadZ}});
+
+            // Set the unpremultiplied bit on this quad (and the green ones below) to make it more obvious when a runtime
+            // supports the premultiplied flag but not the texture flag. Without this bit set, the final color will be:
+            //   ( 1 - alpha ) * dst + src
+            // dst is black, and alpha is 0, so the output is just src.
+            // If we use unpremultiplied, the formula becomes:
+            //   ( 1 - alpha ) * dst + alpha * src
+            // which results in black pixels and is obviously wrong.
             truthQuad->layerFlags |= XR_COMPOSITION_LAYER_UNPREMULTIPLIED_ALPHA_BIT;
+
             interactiveLayerManager.AddLayer(truthQuad);
         }
 
@@ -456,7 +469,7 @@ namespace Conformance
         // Create an array swapchain
         auto swapchainCreateInfo =
             compositionHelper.DefaultColorSwapchainCreateInfo(ImageWidth, ImageHeight, XR_SWAPCHAIN_CREATE_STATIC_IMAGE_BIT);
-        swapchainCreateInfo.format = GetGlobalData().graphicsPlugin->GetRGBA8Format(false /* sRGB */);
+        swapchainCreateInfo.format = GetGlobalData().graphicsPlugin->GetSRGBA8Format();
         swapchainCreateInfo.arraySize = ImageArrayCount;
         const XrSwapchain swapchain = compositionHelper.CreateSwapchain(swapchainCreateInfo);
 
@@ -491,7 +504,7 @@ namespace Conformance
                     quad->size.height = 1.0f;  // Height needs to be corrected since the imageRect is customized.
                     interactiveLayerManager.AddLayer(quad);
                 }
-
+                numberGridImage.ConvertToSRGB();
                 GetGlobalData().graphicsPlugin->CopyRGBAImage(swapchainImage, format, arraySlice, numberGridImage);
             }
         });

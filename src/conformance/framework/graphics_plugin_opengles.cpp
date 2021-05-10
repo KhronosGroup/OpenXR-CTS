@@ -124,7 +124,7 @@ namespace Conformance
 
         int64_t SelectDepthSwapchainFormat(const int64_t* imageFormatArray, size_t count) const override;
 
-        int64_t GetRGBA8Format(bool sRGB) const override;
+        int64_t GetSRGBA8Format() const override;
 
         std::shared_ptr<IGraphicsPlugin::SwapchainImageStructs>
         AllocateSwapchainImageStructs(size_t size, const XrSwapchainCreateInfo& swapchainCreateInfo) override;
@@ -836,9 +836,9 @@ namespace Conformance
         return *it;
     }
 
-    int64_t OpenGLESGraphicsPlugin::GetRGBA8Format(bool sRGB) const
+    int64_t OpenGLESGraphicsPlugin::GetSRGBA8Format() const
     {
-        return sRGB ? GL_SRGB8_ALPHA8 : GL_RGBA8;
+        return GL_SRGB8_ALPHA8;
     }
 
     std::shared_ptr<IGraphicsPlugin::SwapchainImageStructs>
