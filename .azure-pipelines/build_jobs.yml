@@ -2,7 +2,12 @@
 # SPDX-License-Identifier: Apache-2.0
 
 parameters:
-  sourceDir: "$(System.DefaultWorkingDirectory)"
+  - name: sourceDir
+    type: string
+    default: "$(System.DefaultWorkingDirectory)"
+  - name: isSdk
+    type: boolean
+    default: true
 
 jobs:
   # Build the loader, API layers, and samples on Linux
@@ -91,6 +96,7 @@ jobs:
 
   - job: combine_artifacts
     dependsOn: windows_build
+    condition: ${{ eq(parameters.isSdk, true) }}
     displayName: "Organize artifacts"
     pool:
       vmImage: "windows-latest"
@@ -119,7 +125,7 @@ jobs:
       # Use the specified version of Python from the tool cache
       - task: UsePythonVersion@0
         inputs:
-          versionSpec: '3.9'
+          versionSpec: "3.9"
       - task: PythonScript@0
         displayName: Move artifact contents
         inputs:
