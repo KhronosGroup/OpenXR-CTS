@@ -141,6 +141,10 @@ getSDKSourceFilenames() {
         openxr-codespell.exclude \
         runClangFormat.sh \
         tox.ini \
+        .azure-pipelines/shared \
+        .azure-pipelines/nuget \
+        .azure-pipelines/openxr-sdk.yml \
+        .azure-pipelines/openxr-sdk-source.yml \
         changes/README.md \
         changes/template.md \
         changes/registry \
@@ -176,7 +180,9 @@ getSDKFilenames() {
         CHANGELOG.SDK.md \
         CMakeLists.txt \
         LICENSE \
-        .azure_pipelines \
+        .azure-pipelines/shared \
+        .azure-pipelines/nuget \
+        .azure-pipelines/openxr-sdk.yml \
         specification/registry/*.xml \
         include/ \
         src/CMakeLists.txt \
@@ -208,6 +214,8 @@ getConformanceFilenames() {
         openxr-codespell.exclude \
         runClangFormat.sh \
         tox.ini \
+        .azure-pipelines/shared \
+        .azure-pipelines/openxr-cts.yml \
         changes/README.md \
         changes/template.md \
         changes/registry \
