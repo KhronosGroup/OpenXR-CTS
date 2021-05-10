@@ -4,11 +4,9 @@ jobs:
 - job: check_file_format
   displayName: 'Check file formatting'
   pool:
-    vmImage: 'ubuntu-20.04'
-  container: khronosgroup/docker-images:openxr-sdk
+    vmImage: 'ubuntu-latest'
+  container: khronosgroup/docker-images:openxr-sdk.202102
   steps:
-    - script: apt-get install -qq dos2unix recode
-      displayName: Install dependencies
     - script: ./file_format.sh
       displayName: File formatting checks (file_format.sh)
 
