@@ -277,9 +277,9 @@ namespace Conformance
         const XrQuaternionf redRot = Quat::FromAxisAngle({0, 1, 0}, Math::DegToRad(180));
         interactiveLayerManager.AddLayer(compositionHelper.CreateQuadLayer(redSwapchain, viewSpace, 1.0f, XrPosef{redRot, {0, 0, -1}}));
 
-        RenderLoop(compositionHelper.GetSession(), [&](const XrFrameState& frameState) {
-            return interactiveLayerManager.EndFrame(frameState);
-        }).Loop();
+        RenderLoop(compositionHelper.GetSession(),
+                   [&](const XrFrameState& frameState) { return interactiveLayerManager.EndFrame(frameState); })
+            .Loop();
     }
 
     // Purpose: Verify order of transforms by exercising the two ways poses can be specified:
@@ -325,9 +325,9 @@ namespace Conformance
             interactiveLayerManager.AddLayer(quad2);
         }
 
-        RenderLoop(compositionHelper.GetSession(), [&](const XrFrameState& frameState) {
-            return interactiveLayerManager.EndFrame(frameState);
-        }).Loop();
+        RenderLoop(compositionHelper.GetSession(),
+                   [&](const XrFrameState& frameState) { return interactiveLayerManager.EndFrame(frameState); })
+            .Loop();
     }
 
     // Purpose: Validates alpha blending (both premultiplied and unpremultiplied).
@@ -412,9 +412,9 @@ namespace Conformance
         createGradientTest(true, -1.02f, 0);  // Test premultiplied (left of center "answer")
         createGradientTest(false, 1.02f, 0);  // Test unpremultiplied (right of center "answer")
 
-        RenderLoop(compositionHelper.GetSession(), [&](const XrFrameState& frameState) {
-            return interactiveLayerManager.EndFrame(frameState);
-        }).Loop();
+        RenderLoop(compositionHelper.GetSession(),
+                   [&](const XrFrameState& frameState) { return interactiveLayerManager.EndFrame(frameState); })
+            .Loop();
     }
 
     // Purpose: Validate eye visibility flags.
@@ -441,9 +441,9 @@ namespace Conformance
         quad2->eyeVisibility = XR_EYE_VISIBILITY_RIGHT;
         interactiveLayerManager.AddLayer(quad2);
 
-        RenderLoop(compositionHelper.GetSession(), [&](const XrFrameState& frameState) {
-            return interactiveLayerManager.EndFrame(frameState);
-        }).Loop();
+        RenderLoop(compositionHelper.GetSession(),
+                   [&](const XrFrameState& frameState) { return interactiveLayerManager.EndFrame(frameState); })
+            .Loop();
     }
 
     TEST_CASE("Subimage Tests", "[composition][interactive]")
@@ -509,9 +509,9 @@ namespace Conformance
             }
         });
 
-        RenderLoop(compositionHelper.GetSession(), [&](const XrFrameState& frameState) {
-            return interactiveLayerManager.EndFrame(frameState);
-        }).Loop();
+        RenderLoop(compositionHelper.GetSession(),
+                   [&](const XrFrameState& frameState) { return interactiveLayerManager.EndFrame(frameState); })
+            .Loop();
     }
 
     TEST_CASE("Projection Array Swapchain", "[composition][interactive]")
