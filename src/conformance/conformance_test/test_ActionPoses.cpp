@@ -149,8 +149,8 @@ namespace Conformance
 
         // Create a sample image quad layer placed to the right.
         XrCompositionLayerQuad* const exampleQuad =
-            compositionHelper.CreateQuadLayer(compositionHelper.CreateStaticSwapchainImage(RGBAImage::Load(exampleImage)),
-                                              localSpace, 1.25f, {{0, 0, 0, 1}, {1.5f, 0, -0.3f}});
+            compositionHelper.CreateQuadLayer(compositionHelper.CreateStaticSwapchainImage(RGBAImage::Load(exampleImage)), localSpace,
+                                              1.25f, {{0, 0, 0, 1}, {1.5f, 0, -0.3f}});
         XrQuaternionf_CreateFromAxisAngle(&exampleQuad->pose.orientation, &Up, -70 * MATH_PI / 180);
 
         const float PointerLength = 4.00f;
