@@ -129,7 +129,7 @@ jobs:
       - task: PythonScript@0
         displayName: Move artifact contents
         inputs:
-          scriptPath: $(System.DefaultWorkingDirectory)/.azure-pipelines/organize_windows_artifacts.py
+          scriptPath: $(System.DefaultWorkingDirectory)/.azure-pipelines/shared/organize_windows_artifacts.py
           arguments: $(Pipeline.Workspace) $(System.DefaultWorkingDirectory)/openxr_loader
       - task: PublishPipelineArtifact@1
         displayName: Publish combined artifact
