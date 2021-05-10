@@ -495,6 +495,13 @@ namespace Conformance
     {
         graphicsBinding = XrGraphicsBindingD3D12KHR{XR_TYPE_GRAPHICS_BINDING_D3D12_KHR};
         d3d12CmdQueue.Reset();
+        fence.Reset();
+        rootSignature.Reset();
+        pipelineStates.clear();
+        cubeVertexBuffer.Reset();
+        cubeIndexBuffer.Reset();
+        rtvHeap.Reset();
+        dsvHeap.Reset();
         d3d12Device.Reset();
         swapchainImageContextMap.clear();
         lastSwapchainImage = nullptr;

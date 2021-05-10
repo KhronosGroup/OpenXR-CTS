@@ -483,17 +483,12 @@ namespace Conformance
         }
     }
 
-    XrCompositionLayerBaseHeader* SimpleProjectionLayerHelper::GetProjectionLayer() const
-    {
-        return reinterpret_cast<XrCompositionLayerBaseHeader*>(m_projLayer);
-    }
-
-    void SimpleProjectionLayerHelper::UpdateProjectionLayer(const XrFrameState& frameState, const std::vector<Cube> cubes)
+    XrCompositionLayerBaseHeader* SimpleProjectionLayerHelper::TryGetUpdatedProjectionLayer(const XrFrameState& frameState,
+                                                                                            const std::vector<Cube> cubes)
     {
         auto viewData = m_compositionHelper.LocateViews(m_localSpace, frameState.predictedDisplayTime);
         const auto& viewState = std::get<XrViewState>(viewData);
 
-        std::vector<XrCompositionLayerBaseHeader*> layers;
         if (viewState.viewStateFlags & XR_VIEW_STATE_POSITION_VALID_BIT && viewState.viewStateFlags & XR_VIEW_STATE_ORIENTATION_VALID_BIT) {
             const auto& views = std::get<std::vector<XrView>>(viewData);
 
@@ -508,6 +503,12 @@ namespace Conformance
                         GetGlobalData().graphicsPlugin->RenderView(m_projLayer->views[view], swapchainImage, format, cubes);
                     });
             }
+
+            return reinterpret_cast<XrCompositionLayerBaseHeader*>(m_projLayer);
+        }
+        else {
+            // Cannot use the projection layer because the swapchains it uses may not have ever been acquired and released.
+            return nullptr;
         }
     }
 }  // namespace Conformance

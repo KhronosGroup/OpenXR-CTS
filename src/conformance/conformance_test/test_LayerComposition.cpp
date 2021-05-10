@@ -667,8 +667,10 @@ namespace Conformance
         SimpleProjectionLayerHelper simpleProjectionLayerHelper(compositionHelper);
 
         auto updateLayers = [&](const XrFrameState& frameState) {
-            simpleProjectionLayerHelper.UpdateProjectionLayer(frameState);
-            std::vector<XrCompositionLayerBaseHeader*> layers{simpleProjectionLayerHelper.GetProjectionLayer()};
+            std::vector<XrCompositionLayerBaseHeader*> layers;
+            if (XrCompositionLayerBaseHeader* projLayer = simpleProjectionLayerHelper.TryGetUpdatedProjectionLayer(frameState)) {
+                layers.push_back(projLayer);
+            }
             return interactiveLayerManager.EndFrame(frameState, layers);
         };
 
@@ -761,8 +763,10 @@ namespace Conformance
                     }
                 }
             }
-            simpleProjectionLayerHelper.UpdateProjectionLayer(frameState, cubes);
-            std::vector<XrCompositionLayerBaseHeader*> layers{simpleProjectionLayerHelper.GetProjectionLayer()};
+            std::vector<XrCompositionLayerBaseHeader*> layers;
+            if (XrCompositionLayerBaseHeader* projLayer = simpleProjectionLayerHelper.TryGetUpdatedProjectionLayer(frameState, cubes)) {
+                layers.push_back(projLayer);
+            }
             return interactiveLayerManager.EndFrame(frameState, layers);
         };
 
