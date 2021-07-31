@@ -94,6 +94,34 @@ namespace Conformance
             cleanup.Destroy();
             graphicsPlugin->ShutdownDevice();
         }
+
+        SECTION("Multiple session with same device")
+        {
+            auto createSwapchains = [](std::shared_ptr<IGraphicsPlugin> graphicsPlugin, XrSession session) {
+                for (int i = 0; i < 3; ++i) {
+                    XrSwapchain swapchain;
+                    XrExtent2Di widthHeight{0, 0};  // 0,0 means Use defaults.
+                    XrResult result = CreateColorSwapchain(session, graphicsPlugin.get(), &swapchain, &widthHeight);
+                    XRC_CHECK_THROW(XR_SUCCEEDED(result) || result == XR_ERROR_LIMIT_REACHED);
+
+                    if (XR_SUCCEEDED(result)) {
+                        XRC_CHECK_THROW_XRCMD(xrDestroySwapchain(swapchain));
+                    }
+                }
+            };
+
+            graphicsPlugin->InitializeDevice(instance, systemId, true);
+            XrGraphicsBindingD3D11KHR graphicsBinding =
+                *reinterpret_cast<const XrGraphicsBindingD3D11KHR*>(graphicsPlugin->GetGraphicsBinding());
+            sessionCreateInfo.next = reinterpret_cast<const void*>(&graphicsBinding);
+            for (int i = 0; i < 3; ++i) {
+                CHECK(xrCreateSession(instance, &sessionCreateInfo, &session) == XR_SUCCESS);
+                createSwapchains(graphicsPlugin, session);
+                CHECK(xrDestroySession(session) == XR_SUCCESS);
+                session = XR_NULL_HANDLE;
+            }
+            graphicsPlugin->ShutdownDevice();
+        }
     }
 }  // namespace Conformance
 

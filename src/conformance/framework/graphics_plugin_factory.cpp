@@ -32,6 +32,7 @@ namespace Conformance
 
 #ifdef XR_USE_GRAPHICS_API_VULKAN
     std::shared_ptr<IGraphicsPlugin> CreateGraphicsPlugin_Vulkan(std::shared_ptr<IPlatformPlugin> platformPlugin);
+    std::shared_ptr<IGraphicsPlugin> CreateGraphicsPlugin_Vulkan2(std::shared_ptr<IPlatformPlugin> platformPlugin);
 #endif
 
 #ifdef XR_USE_GRAPHICS_API_D3D11
@@ -56,6 +57,8 @@ namespace Conformance
 
 #ifdef XR_USE_GRAPHICS_API_VULKAN
         {"Vulkan", [](std::shared_ptr<IPlatformPlugin> platformPlugin) { return CreateGraphicsPlugin_Vulkan(std::move(platformPlugin)); }},
+        {"Vulkan2",
+         [](std::shared_ptr<IPlatformPlugin> platformPlugin) { return CreateGraphicsPlugin_Vulkan2(std::move(platformPlugin)); }},
 #endif
 
 #ifdef XR_USE_GRAPHICS_API_D3D11

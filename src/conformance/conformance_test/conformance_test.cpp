@@ -229,8 +229,8 @@ namespace
         // options.
         auto cli =
             Opt(options.graphicsPlugin,
-                "Vulkan|OpenGLES|OpenGL|D3D11|D3D12")  // graphics plugin
-                ["-G"]["--graphicsPlugin"]             //
+                "Vulkan|Vulkan2|OpenGLES|OpenGL|D3D11|D3D12")  // graphics plugin
+                ["-G"]["--graphicsPlugin"]                     //
             ("Specify a graphics plugin to use. Required.")
                 .required()
 

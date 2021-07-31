@@ -25,7 +25,7 @@
 #include <catch2/catch.hpp>
 #include <openxr/openxr.h>
 
-#ifdef XR_USE_GRAPHICS_API_OPENGL
+#ifdef XR_USE_GRAPHICS_API_OPENGL_ES
 
 #include "xr_dependencies.h"
 #include <openxr/openxr_platform.h>
@@ -33,10 +33,10 @@
 namespace Conformance
 {
 
-    TEST_CASE("XR_KHR_opengl_enable", "")
+    TEST_CASE("XR_KHR_opengl_es_enable", "")
     {
         GlobalData& globalData = GetGlobalData();
-        if (!globalData.IsInstanceExtensionEnabled("XR_KHR_opengl_enable")) {
+        if (!globalData.IsInstanceExtensionEnabled("XR_KHR_opengl_es_enable")) {
             return;
         }
 
@@ -69,76 +69,19 @@ namespace Conformance
             graphicsPlugin->ShutdownDevice();
         }
 
-#if defined(XR_USE_PLATFORM_WIN32)
+#if defined(XR_USE_PLATFORM_ANDROID)
         // tests related to the graphics binding are OS specific
-        SECTION("NULL context: both are NULL")
+        SECTION("NULL context: context is NULL")
         {
             graphicsPlugin->InitializeDevice(instance, systemId, true);
-            XrGraphicsBindingOpenGLWin32KHR graphicsBinding =
-                *reinterpret_cast<const XrGraphicsBindingOpenGLWin32KHR*>(graphicsPlugin->GetGraphicsBinding());
-            graphicsBinding.hDC = nullptr;
-            graphicsBinding.hGLRC = nullptr;
+            XrGraphicsBindingOpenGLESAndroidKHR graphicsBinding =
+                *reinterpret_cast<const XrGraphicsBindingOpenGLESAndroidKHR*>(graphicsPlugin->GetGraphicsBinding());
+            graphicsBinding.context = EGL_NO_CONTEXT;
             sessionCreateInfo.next = reinterpret_cast<const void*>(&graphicsBinding);
             CHECK(xrCreateSession(instance, &sessionCreateInfo, &session) == XR_ERROR_GRAPHICS_DEVICE_INVALID);
             cleanup.Destroy();
             graphicsPlugin->ShutdownDevice();
         }
-        SECTION("NULL context: DC is NULL")
-        {
-            graphicsPlugin->InitializeDevice(instance, systemId, true);
-            XrGraphicsBindingOpenGLWin32KHR graphicsBinding =
-                *reinterpret_cast<const XrGraphicsBindingOpenGLWin32KHR*>(graphicsPlugin->GetGraphicsBinding());
-            graphicsBinding.hDC = nullptr;
-            sessionCreateInfo.next = reinterpret_cast<const void*>(&graphicsBinding);
-            CHECK(xrCreateSession(instance, &sessionCreateInfo, &session) == XR_ERROR_GRAPHICS_DEVICE_INVALID);
-            cleanup.Destroy();
-            graphicsPlugin->ShutdownDevice();
-        }
-        SECTION("NULL context: GLRC is NULL")
-        {
-            graphicsPlugin->InitializeDevice(instance, systemId, true);
-            XrGraphicsBindingOpenGLWin32KHR graphicsBinding =
-                *reinterpret_cast<const XrGraphicsBindingOpenGLWin32KHR*>(graphicsPlugin->GetGraphicsBinding());
-            graphicsBinding.hGLRC = nullptr;
-            sessionCreateInfo.next = reinterpret_cast<const void*>(&graphicsBinding);
-            CHECK(xrCreateSession(instance, &sessionCreateInfo, &session) == XR_ERROR_GRAPHICS_DEVICE_INVALID);
-            cleanup.Destroy();
-            graphicsPlugin->ShutdownDevice();
-        }
-        // This test dies in the tear-down wglMakeCurrent in ksGpuContext_Destroy, turn it off for now.
-#if 0
-        SECTION("Context for runtime is not current")
-        {
-            graphicsPlugin->InitializeDevice(instance, systemId, true);
-            sessionCreateInfo.next = graphicsPlugin->GetGraphicsBinding();
-
-            // Exercise presence of unrecognized extensions, which the runtime should ignore.
-            InsertUnrecognizableExtension(&sessionCreateInfo);
-
-            GetGlobalData().graphicsPlugin->MakeCurrent(true);
-
-            // The currently set graphics context does not have to be the one the runtime should
-            // use. Here the context is unset, but the application might also use multiple contexts
-            // and have one of the other ones bound.
-            HDC dcAtFunctionCall = nullptr;
-            HGLRC gldcAtFunctionCall = nullptr;
-            wglMakeCurrent(dcAtFunctionCall, gldcAtFunctionCall);
-
-            CHECK(xrCreateSession(instance, &sessionCreateInfo, &session) == XR_SUCCESS);
-
-            // The runtime probably sets the context provided by the application to set up API interop.
-            // However, it should "clean up" afterwards by making the context current which had been
-            // current when the xrCreateSession was called.
-            HDC currentDC = wglGetCurrentDC();
-            CHECK(currentDC == dcAtFunctionCall);
-            HGLRC currentGLRC = wglGetCurrentContext();
-            CHECK(currentGLRC == gldcAtFunctionCall);
-
-            cleanup.Destroy();
-            graphicsPlugin->ShutdownDevice();
-        }
-#endif  // 0
-
         SECTION("Multiple session with same device")
         {
             auto createSwapchains = [](std::shared_ptr<IGraphicsPlugin> graphicsPlugin, XrSession session) {
@@ -155,8 +98,8 @@ namespace Conformance
             };
 
             graphicsPlugin->InitializeDevice(instance, systemId, true);
-            XrGraphicsBindingOpenGLWin32KHR graphicsBinding =
-                *reinterpret_cast<const XrGraphicsBindingOpenGLWin32KHR*>(graphicsPlugin->GetGraphicsBinding());
+            XrGraphicsBindingOpenGLESAndroidKHR graphicsBinding =
+                *reinterpret_cast<const XrGraphicsBindingOpenGLESAndroidKHR*>(graphicsPlugin->GetGraphicsBinding());
             sessionCreateInfo.next = reinterpret_cast<const void*>(&graphicsBinding);
             for (int i = 0; i < 3; ++i) {
                 CHECK(xrCreateSession(instance, &sessionCreateInfo, &session) == XR_SUCCESS);
@@ -166,9 +109,9 @@ namespace Conformance
             }
             graphicsPlugin->ShutdownDevice();
         }
-#endif  // XR_USE_PLATFORM_WIN32
+#endif  // defined(XR_USE_PLATFORM_ANDROID)
     }
 
 }  // namespace Conformance
 
-#endif  // XR_USE_GRAPHICS_API_OPENGL
+#endif  // XR_USE_GRAPHICS_API_OPENGL_ES

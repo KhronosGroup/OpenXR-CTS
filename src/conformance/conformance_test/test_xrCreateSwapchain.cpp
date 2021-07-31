@@ -100,7 +100,7 @@ namespace Conformance
                             const XrViewConfigurationView& view = viewConfigViews.front();
                             checkCreateSwapchain(session, format, view);
 
-                            // Do this to allow the graphics to potentially purge the memory associated with the swap chain.
+                            // Do this to allow the graphics to potentially purge the memory associated with the swapchain.
                             // Normally apps don't need to do this, but we are creating and destroying many swapchains
                             // in succession, which is an unusual thing.
                             GetGlobalData().graphicsPlugin->Flush();
