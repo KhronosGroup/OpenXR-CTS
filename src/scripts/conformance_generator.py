@@ -70,7 +70,6 @@ class ConformanceGenerator(AutomaticSourceOutputGenerator):
     #   self            the ConformanceLayerBaseGenerator object
     def endFile(self):
         sorted_cmds = self.core_commands + self.ext_commands
-        null_ok=set()
         file_data = self.template.render(
             gen=self,
             registry=self.registry,
