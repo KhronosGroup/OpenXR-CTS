@@ -92,6 +92,8 @@ namespace Conformance
     {
         D3D12GraphicsPlugin(std::shared_ptr<IPlatformPlugin>);
 
+        ~D3D12GraphicsPlugin();
+
         bool Initialize() override;
 
         bool IsInitialized() const override;
@@ -289,6 +291,12 @@ namespace Conformance
     {
     }
 
+    D3D12GraphicsPlugin::~D3D12GraphicsPlugin()
+    {
+        ShutdownDevice();
+        Shutdown();
+    }
+
     bool D3D12GraphicsPlugin::Initialize()
     {
         if (initialized)
@@ -427,7 +435,7 @@ namespace Conformance
 
             XRC_CHECK_THROW_HRCMD(d3d12Device->CreateFence(fenceValue, D3D12_FENCE_FLAG_NONE, __uuidof(ID3D12Fence),
                                                            reinterpret_cast<void**>(fence.ReleaseAndGetAddressOf())));
-            fenceEvent = CreateEvent(nullptr, FALSE, FALSE, nullptr);
+            fenceEvent = ::CreateEvent(nullptr, FALSE, FALSE, nullptr);
             CHECK(fenceEvent != nullptr);
 
             ComPtr<ID3D12GraphicsCommandList> cmdList;
@@ -496,14 +504,19 @@ namespace Conformance
         graphicsBinding = XrGraphicsBindingD3D12KHR{XR_TYPE_GRAPHICS_BINDING_D3D12_KHR};
         d3d12CmdQueue.Reset();
         fence.Reset();
+        if (fenceEvent != INVALID_HANDLE_VALUE) {
+            ::CloseHandle(fenceEvent);
+            fenceEvent = INVALID_HANDLE_VALUE;
+        }
         rootSignature.Reset();
         pipelineStates.clear();
         cubeVertexBuffer.Reset();
         cubeIndexBuffer.Reset();
         rtvHeap.Reset();
         dsvHeap.Reset();
-        d3d12Device.Reset();
         swapchainImageContextMap.clear();
+
+        d3d12Device.Reset();
         lastSwapchainImage = nullptr;
     }
 

@@ -64,11 +64,6 @@ class ConformanceLayerGenerator(AutomaticSourceOutputGenerator):
         AutomaticSourceOutputGenerator.beginFile(self, genOpts)
         self.template = JinjaTemplate(self.env, "template_{}".format(genOpts.filename))
 
-    def extensionReturnCodesForCommand(self, cur_cmd):
-        return (x for x
-                in self.registry.commandextensionerrors + self.registry.commandextensionsuccesses
-                if x.command == cur_cmd.name)
-
     # Write out all the information for the appropriate file,
     # and then call down to the base class to wrap everything up.
     #   self            the ConformanceLayerBaseGenerator object

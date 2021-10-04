@@ -460,6 +460,8 @@ XrcResult XRAPI_CALL xrcRunConformanceTests(const ConformanceLaunchSettings* con
         if (initialized) {
             *failureCount = catchSession.run();
             conformanceTestsRun = true;
+
+            GetGlobalData().Shutdown();
         }
         else {
             ReportStr("Test failure: Test data initialization failed.");

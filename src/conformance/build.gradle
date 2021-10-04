@@ -1,0 +1,72 @@
+// Copyright (c) 2020-2021 The Khronos Group Inc.
+//
+// SPDX-License-Identifier: Apache-2.0
+
+// Open this directory in Android Studio, or build with Gradle,
+// to build the conformance suite.
+buildscript {
+    repositories {
+        google()
+        mavenCentral()
+    }
+    dependencies {
+        classpath 'com.android.tools.build:gradle:4.1.3'
+    }
+}
+
+repositories {
+    google()
+    mavenCentral()
+}
+
+apply plugin: 'com.android.application'
+
+// These next few lines are just to make the version match the OpenXR release.
+project.ext.repoRoot = file('../../')
+apply from: file('../version.gradle')
+
+android {
+    compileSdkVersion 29
+    buildToolsVersion "30.0.3"
+    ndkVersion "21.3.6528147"
+
+    defaultConfig {
+        applicationId "com.khronos.openxr.cts"
+        // for Vulkan, need at least 24
+        minSdkVersion 24
+        compileSdkVersion 26
+
+        versionName = project.versionOpenXR.toString() + project.versionQualifier
+        versionCode = project.versionOpenXR.getPacked()
+
+        externalNativeBuild {
+            cmake {
+                arguments '-DANDROID_STL=c++_shared',
+                        '-DBUILD_API_LAYERS=ON',
+                        '-DBUILD_TESTS=OFF',
+                        '-DBUILD_LOADER=ON',
+                        '-DBUILD_CONFORMANCE_TESTS=ON',
+                        '-DBUILD_ALL_EXTENSIONS=ON'
+                targets 'conformance_test', 'openxr_loader', 'XrApiLayer_runtime_conformance'
+            }
+        }
+    }
+    sourceSets {
+        main {
+            manifest.srcFile 'platform_specific/AndroidManifest.xml'
+            res.srcDirs 'platform_specific/android_resources'
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+        }
+    }
+
+    externalNativeBuild {
+        cmake {
+            path "${project.repoRoot}/CMakeLists.txt"
+        }
+    }
+}

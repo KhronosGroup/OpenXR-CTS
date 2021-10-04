@@ -14,14 +14,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <map>
+
 #include "Common.h"
 #include "RuntimeFailure.h"
-#include "D3D11GraphicsValidator.h"
+#include "IGraphicsValidator.h"
 
-#if defined(XR_USE_GRAPHICS_API_D3D11) && !defined(MISSING_DIRECTX_COLORS)
+#if defined(XR_USE_GRAPHICS_API_D3D11)
 
-namespace
+namespace Conformance
 {
+#if !defined(MISSING_DIRECTX_COLORS)
     // Map type to typeless.
     const std::unordered_map<DXGI_FORMAT, DXGI_FORMAT> g_typelessMap{
         {DXGI_FORMAT_R32G32B32A32_FLOAT, DXGI_FORMAT_R32G32B32A32_TYPELESS},
@@ -126,36 +129,103 @@ namespace
         DXGI_FORMAT_V408 = 132,
         */
     };
+#endif
 
-#if 0
     struct D3D11GraphicsValidator : IGraphicsValidator
     {
-        void ValidateSwapchainFormats(uint32_t count, uint64_t* formats) override
+        void ValidateSwapchainFormats(ConformanceHooksBase* conformanceHooks, uint32_t count, uint64_t* formats) const override
         {
             // TODO: Do not allow types with typeless equivalents.
+            (void)conformanceHooks;
+            (void)count;
+            (void)formats;
         }
 
-        void ValidateSwapchainImageStructs(uint64_t swapchainFormat, uint32_t count, XrSwapchainImageBaseHeader* images) override
+        void ValidateSwapchainImageStructs(ConformanceHooksBase* conformanceHooks, uint64_t swapchainFormat, uint32_t count,
+                                           XrSwapchainImageBaseHeader* images) const override
         {
+#if !defined(MISSING_DIRECTX_COLORS)
             const auto it = g_typelessMap.find((DXGI_FORMAT)swapchainFormat);
             const DXGI_FORMAT expectedTextureFormat = it == g_typelessMap.end() ? (DXGI_FORMAT)swapchainFormat : it->second;
+#endif
 
             const XrSwapchainImageD3D11KHR* const d3d11Images = reinterpret_cast<const XrSwapchainImageD3D11KHR*>(images);
             for (uint32_t i = 0; i < count; i++) {
-                NONCONFORMANT_IF(d3d11Images[i].type != XR_TYPE_SWAPCHAIN_IMAGE_D3D11_KHR, "Swapchain image header structure not D3D11: %d",
-                                 d3d11Images[i].type);
+                if (d3d11Images[i].type != XR_TYPE_SWAPCHAIN_IMAGE_D3D11_KHR) {
+                    conformanceHooks->ConformanceFailure(XR_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT, "xrEnumerateSwapchainImages",
+                                                         "xrEnumerateSwapchainImages failed due to image header structure not D3D11: %d",
+                                                         d3d11Images[i].type);
+                }
 
+#if 0
                 D3D11_TEXTURE2D_DESC desc;
                 d3d11Images[i].texture->GetDesc(&desc);
 
-                NONCONFORMANT_IF(desc.Format != expectedTextureFormat, "Swapchain ID3D11Texture2D format is not expected format %d: %d",
-                                 expectedTextureFormat, desc.Format);
+#if !defined(MISSING_DIRECTX_COLORS)
+                if (desc.Format != expectedTextureFormat) {
+                    conformanceHooks->ConformanceFailure(XR_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT, "xrEnumerateSwapchainImages",
+                                                         "xrEnumerateSwapchainImages failed: ID3D11Texture2D format is not expected format %d: Swapchain : %d", expectedTextureFormat, desc.Format);
+                }
+#endif
+#endif  // 0
 
                 // TODO: Confirm texture is for same device(context)?
             }
         }
-    };
-#endif
-}  // namespace
 
-#endif  // XR_USE_GRAPHICS_API_D3D11
+        void ValidateUsageFlags(ConformanceHooksBase* conformanceHooks, uint64_t usageFlags, uint32_t count,
+                                XrSwapchainImageBaseHeader* images) const override
+        {
+            const XrSwapchainImageD3D11KHR* const d3d11Images = reinterpret_cast<const XrSwapchainImageD3D11KHR*>(images);
+            for (uint32_t i = 0; i < count; i++) {
+                if (d3d11Images[i].type != XR_TYPE_SWAPCHAIN_IMAGE_D3D11_KHR) {
+                    // This will already have caused a conformance failure above.
+                    continue;
+                }
+
+                D3D11_TEXTURE2D_DESC desc;
+                d3d11Images[i].texture->GetDesc(&desc);
+
+                const bool hasColorUsageFlag = (usageFlags & XR_SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT) != 0;
+                const bool hasColorBindFlag = ((desc.BindFlags & D3D11_BIND_RENDER_TARGET) != 0);
+                if (hasColorUsageFlag && !hasColorBindFlag) {
+                    conformanceHooks->ConformanceFailure(
+                        XR_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT, "xrEnumerateSwapchainImages",
+                        "xrEnumerateSwapchainImages failed: XR_SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT set but D3D11_BIND_RENDER_TARGET not set on texture");
+                }
+
+                const bool hasDepthUsageFlag = (usageFlags & XR_SWAPCHAIN_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT) != 0;
+                const bool hasDepthBindFlag = ((desc.BindFlags & D3D11_BIND_DEPTH_STENCIL) != 0);
+                if (hasDepthUsageFlag && !hasDepthBindFlag) {
+                    conformanceHooks->ConformanceFailure(
+                        XR_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT, "xrEnumerateSwapchainImages",
+                        "xrEnumerateSwapchainImages failed: XR_SWAPCHAIN_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT set but D3D11_BIND_DEPTH_STENCIL not set on texture");
+                }
+
+                const bool hasSampledUsageFlag = (usageFlags & XR_SWAPCHAIN_USAGE_SAMPLED_BIT) != 0;
+                const bool hasSampledBindFlag = ((desc.BindFlags & D3D11_BIND_SHADER_RESOURCE) != 0);
+                if (hasSampledUsageFlag && !hasSampledBindFlag) {
+                    conformanceHooks->ConformanceFailure(
+                        XR_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT, "xrEnumerateSwapchainImages",
+                        "xrEnumerateSwapchainImages failed: XR_SWAPCHAIN_USAGE_SAMPLED_BIT set but D3D11_BIND_SHADER_RESOURCE not set on texture");
+                }
+
+                const bool hasUnorderedUsageFlag = (usageFlags & XR_SWAPCHAIN_USAGE_UNORDERED_ACCESS_BIT) != 0;
+                const bool hasUnorderedBindFlag = ((desc.BindFlags & D3D11_BIND_UNORDERED_ACCESS) != 0);
+                if (hasUnorderedUsageFlag && !hasUnorderedBindFlag) {
+                    conformanceHooks->ConformanceFailure(
+                        XR_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT, "xrEnumerateSwapchainImages",
+                        "xrEnumerateSwapchainImages failed: XR_SWAPCHAIN_USAGE_UNORDERED_ACCESS_BIT set but D3D11_BIND_UNORDERED_ACCESS not set on texture");
+                }
+            }
+        }
+    };
+
+    std::shared_ptr<IGraphicsValidator> CreateGraphicsValidator_D3D11()
+    {
+        return std::make_shared<D3D11GraphicsValidator>();
+    }
+
+}  // namespace Conformance
+
+#endif  // defined(XR_USE_GRAPHICS_API_D3D11)

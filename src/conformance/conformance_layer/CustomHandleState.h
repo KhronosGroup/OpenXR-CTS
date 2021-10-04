@@ -32,6 +32,7 @@ namespace session
         bool sessionExitRequested{false};
         bool frameBegun{false};
         bool headless{false};  //< true if a headless extension is enabled *and* in use
+        XrStructureType graphicsBinding{XR_TYPE_UNKNOWN};
         XrTime lastPredictedDisplayTime{0};
         XrDuration lastPredictedDisplayPeriod{0};
         uint32_t frameCount{0};
@@ -72,8 +73,10 @@ namespace swapchain
 
     struct CustomSwapchainState : ICustomHandleState
     {
-        CustomSwapchainState(const XrSwapchainCreateInfo* createInfo)
+        CustomSwapchainState(const XrSwapchainCreateInfo* createInfo, const XrStructureType graphicsBinding)
             : isStatic((createInfo->createFlags & XR_SWAPCHAIN_CREATE_STATIC_IMAGE_BIT) != 0)
+            , graphicsBinding(graphicsBinding)
+            , createInfo(*createInfo)
         {
         }
 
@@ -81,6 +84,8 @@ namespace swapchain
         bool isStatic;
         std::vector<ImageState> imageStates;
         std::queue<int> acquiredSwapchains;
+        XrStructureType graphicsBinding;
+        XrSwapchainCreateInfo createInfo;
     };
 
     HandleState* GetSwapchainState(XrSwapchain handle);

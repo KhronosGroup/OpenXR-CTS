@@ -290,6 +290,7 @@ namespace Conformance
         std::lock_guard<std::recursive_mutex> lock(dataMutex);
 
         if (graphicsPlugin->IsInitialized()) {
+            graphicsPlugin->ShutdownDevice();
             graphicsPlugin->Shutdown();
         }
 

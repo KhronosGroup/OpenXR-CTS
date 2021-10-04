@@ -1451,6 +1451,8 @@ namespace Conformance
     {
         VulkanGraphicsPlugin(const std::shared_ptr<IPlatformPlugin>& /*unused*/);
 
+        ~VulkanGraphicsPlugin();
+
         std::vector<std::string> GetInstanceExtensions() const override
         {
             return {XR_KHR_VULKAN_ENABLE2_EXTENSION_NAME};
@@ -1734,6 +1736,12 @@ namespace Conformance
     VulkanGraphicsPlugin::VulkanGraphicsPlugin(const std::shared_ptr<IPlatformPlugin>& /*unused*/) : initialized(false)
     {
         m_graphicsBinding.type = GetGraphicsBindingType();
+    }
+
+    VulkanGraphicsPlugin::~VulkanGraphicsPlugin()
+    {
+        ShutdownDevice();
+        Shutdown();
     }
 
     VulkanGraphicsPluginLegacy::VulkanGraphicsPluginLegacy(const std::shared_ptr<IPlatformPlugin>& platformPlugin)

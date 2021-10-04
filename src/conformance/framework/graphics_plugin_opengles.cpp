@@ -228,7 +228,7 @@ namespace Conformance
 
     std::vector<std::string> OpenGLESGraphicsPlugin::GetInstanceExtensions() const
     {
-        return {XR_KHR_OPENGL_ES_ENABLE_EXTENSION_NAME, XR_KHR_ANDROID_SURFACE_SWAPCHAIN_EXTENSION_NAME};
+        return {XR_KHR_OPENGL_ES_ENABLE_EXTENSION_NAME};
     }
 
     const XrBaseInStructure* OpenGLESGraphicsPlugin::GetGraphicsBinding() const
@@ -1030,15 +1030,6 @@ namespace Conformance
         GL(glUseProgram(0));
         GL(glDisable(GL_SCISSOR_TEST));
         GL(glBindFramebuffer(GL_FRAMEBUFFER, 0));
-
-        // Not sure what's intended here, but it doesn't work for a pbuffer context,
-        // which is how this function is being called.
-
-        // Swap our window every other eye for RenderDoc
-        static int everyOther = 0;
-        if ((everyOther++ & 1) != 0) {
-            ksGpuWindow_SwapBuffers(&window);
-        }
     }
 
 }  // namespace Conformance

@@ -15,7 +15,7 @@
 // limitations under the License.
 
 #ifndef PATH_PREFIX
-#define PATH_PREFIX "/sdcard"
+#define PATH_PREFIX "/sdcard/"
 #endif
 
 #include <stdio.h>
@@ -348,7 +348,10 @@ void android_main(struct android_app* app)
 
                     // call JNI exit instead
                     exitApp = true;
+#ifdef BUILD_FOR_FB
+                    // Only needed for facebook runtime
                     DETACH_THREAD;
+#endif
                 });
             }
         }
@@ -369,7 +372,7 @@ void android_main(struct android_app* app)
     std::this_thread::sleep_for(std::chrono::milliseconds(200));
 
     /// Destroy this process so that catch2 globals can be clean again on relaunch
-    jclass processClass = Env->FindClass("android.os.Process");
+    jclass processClass = Env->FindClass("android/os/Process");
     ALOGV("... processClass = %p", processClass);
     jmethodID myPidMethodId = Env->GetStaticMethodID(processClass, "myPid", "()I");
     ALOGV("... myPidMethodId = %p", myPidMethodId);

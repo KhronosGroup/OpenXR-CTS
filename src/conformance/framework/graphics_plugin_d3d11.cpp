@@ -44,6 +44,8 @@ namespace Conformance
     public:
         D3D11GraphicsPlugin(std::shared_ptr<IPlatformPlugin>);
 
+        ~D3D11GraphicsPlugin();
+
         bool Initialize() override;
 
         bool IsInitialized() const override;
@@ -123,6 +125,12 @@ namespace Conformance
     D3D11GraphicsPlugin::D3D11GraphicsPlugin(std::shared_ptr<IPlatformPlugin>)
         : initialized(false), graphicsBinding{XR_TYPE_GRAPHICS_BINDING_D3D11_KHR}, d3d11Device(), d3d11DeviceContext()
     {
+    }
+
+    D3D11GraphicsPlugin::~D3D11GraphicsPlugin()
+    {
+        ShutdownDevice();
+        Shutdown();
     }
 
     bool D3D11GraphicsPlugin::Initialize()
@@ -287,9 +295,18 @@ namespace Conformance
     void D3D11GraphicsPlugin::ShutdownDevice()
     {
         graphicsBinding = XrGraphicsBindingD3D11KHR{XR_TYPE_GRAPHICS_BINDING_D3D11_KHR};
+
+        vertexShader.Reset();
+        pixelShader.Reset();
+        inputLayout.Reset();
+        modelCBuffer.Reset();
+        viewProjectionCBuffer.Reset();
+        cubeVertexBuffer.Reset();
+        cubeIndexBuffer.Reset();
+        colorToDepthMap.clear();
+
         d3d11DeviceContext.Reset();
         d3d11Device.Reset();
-        colorToDepthMap.clear();
     }
 
     const XrBaseInStructure* D3D11GraphicsPlugin::GetGraphicsBinding() const

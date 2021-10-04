@@ -19,4 +19,4 @@ stages:
     jobs:
       - template: shared/build_jobs.yml
         parameters:
-          isSdk: false
+          isSdkSourceRepo: false
