@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2021, The Khronos Group Inc.
+// Copyright (c) 2019-2022, The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -71,7 +71,7 @@ namespace Conformance
                 INFO("A headless extension is enabled - valid to omit graphics binding struct");
 
                 CHECK(result == XR_SUCCESS);
-                xrDestroySession(session);
+                cleanup.Destroy();
             }
         }
 

@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2021, The Khronos Group Inc.
+// Copyright (c) 2019-2022, The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -625,9 +625,11 @@ namespace Conformance
         // after the session is destroyed.
         if (sessionCreated && !graphicsSkipped) {
             GlobalData& globalData = GetGlobalData();
-            auto graphicsPlugin = globalData.GetGraphicsPlugin();
-            if (graphicsPlugin->IsInitialized()) {
-                graphicsPlugin->ShutdownDevice();
+            if (globalData.IsUsingGraphicsPlugin()) {
+                auto graphicsPlugin = globalData.GetGraphicsPlugin();
+                if (graphicsPlugin->IsInitialized()) {
+                    graphicsPlugin->ShutdownDevice();
+                }
             }
         }
 
@@ -724,6 +726,9 @@ namespace Conformance
 
     FrameIterator::RunResult FrameIterator::CycleToNextSwapchainImage()
     {
+        if (!GetGlobalData().IsUsingGraphicsPlugin())
+            return RunResult::Success;
+
         // App must have called SetAutoBasicSession and set flags enabling these.
         if (!autoBasicSession)
             return RunResult::Error;
@@ -794,7 +799,8 @@ namespace Conformance
             return RunResult::Error;
         if (autoBasicSession->environmentBlendModeVector.empty())
             return RunResult::Error;
-        if (autoBasicSession->swapchainVector.empty())
+
+        if (GetGlobalData().IsUsingGraphicsPlugin() && autoBasicSession->swapchainVector.empty())
             return RunResult::Error;
 
         frameEndInfo = XrFrameEndInfo{XR_TYPE_FRAME_END_INFO};
@@ -803,16 +809,21 @@ namespace Conformance
         frameEndInfo.layerCount = 0;    // To be filled in later by whoever will be constructing the layers.
         frameEndInfo.layers = nullptr;  // To be filled in later by ...
 
-        projectionViewVector.resize(viewVector.size(), {XR_TYPE_COMPOSITION_LAYER_PROJECTION_VIEW});
-        for (size_t v = 0; v < viewVector.size(); ++v) {
-            projectionViewVector[v].pose = viewVector[v].pose;
-            projectionViewVector[v].fov = viewVector[v].fov;
-            // Currently this swapchain handling is dumb; we just use the first swapchain image.
-            projectionViewVector[v].subImage.swapchain =
-                autoBasicSession->swapchainVector[0];  // Intentionally use just [0], in order to simplify our logic here.
-            projectionViewVector[v].subImage.imageRect = {0, 0, (int32_t)autoBasicSession->swapchainExtent.width,
-                                                          (int32_t)autoBasicSession->swapchainExtent.height};
-            projectionViewVector[v].subImage.imageArrayIndex = 0;
+        if (GetGlobalData().IsUsingGraphicsPlugin()) {
+            projectionViewVector.resize(viewVector.size(), {XR_TYPE_COMPOSITION_LAYER_PROJECTION_VIEW});
+            for (size_t v = 0; v < viewVector.size(); ++v) {
+                projectionViewVector[v].pose = viewVector[v].pose;
+                projectionViewVector[v].fov = viewVector[v].fov;
+                // Currently this swapchain handling is dumb; we just use the first swapchain image.
+                projectionViewVector[v].subImage.swapchain =
+                    autoBasicSession->swapchainVector[0];  // Intentionally use just [0], in order to simplify our logic here.
+                projectionViewVector[v].subImage.imageRect = {0, 0, (int32_t)autoBasicSession->swapchainExtent.width,
+                                                              (int32_t)autoBasicSession->swapchainExtent.height};
+                projectionViewVector[v].subImage.imageArrayIndex = 0;
+            }
+        }
+        else {
+            projectionViewVector.clear();
         }
 
         compositionLayerProjection = XrCompositionLayerProjection{XR_TYPE_COMPOSITION_LAYER_PROJECTION};
@@ -915,14 +926,12 @@ namespace Conformance
             case XR_SESSION_STATE_SYNCHRONIZED:
             case XR_SESSION_STATE_VISIBLE:
             case XR_SESSION_STATE_FOCUSED: {
-                if (GetGlobalData().IsUsingGraphicsPlugin()) {
-                    // In these states we need to submit frames. Otherwise the runtime won't
-                    // necessarily move us from synchronized to visible or focused.
-                    RunResult runResult = SubmitFrame();
+                // In these states we need to submit frames. Otherwise the runtime won't
+                // necessarily move us from synchronized to visible or focused.
+                RunResult runResult = SubmitFrame();
 
-                    if (runResult == RunResult::Error)
-                        return RunResult::Error;
-                }
+                if (runResult == RunResult::Error)
+                    return RunResult::Error;
                 // Just keep going. We haven't reached the target state yet.
                 break;
             }
@@ -947,8 +956,10 @@ namespace Conformance
             if (std::chrono::system_clock::now() >= timeoutTime) {
                 return false;
             }
-
-            std::this_thread::sleep_for(delay);
+            const std::chrono::nanoseconds minDelay{0};
+            if (delay > minDelay) {
+                std::this_thread::sleep_for(delay);
+            }
         }
 
         return true;

@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2021, The Khronos Group Inc.
+// Copyright (c) 2019-2022, The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -129,11 +129,11 @@ namespace Conformance
         XRC_CHECK_THROW_XRCMD(xrSyncActions(m_session, &syncInfo));
     }
 
-    CompositionHelper::CompositionHelper(const char* testName)
+    CompositionHelper::CompositionHelper(const char* testName, const std::vector<const char*>& additionalEnabledExtensions)
     {
         m_primaryViewType = GetGlobalData().GetOptions().viewConfigurationValue;
 
-        XRC_CHECK_THROW_XRCMD(CreateBasicInstance(m_instance.resetAndGetAddress()));
+        XRC_CHECK_THROW_XRCMD(CreateBasicInstance(m_instance.resetAndGetAddress(), true, additionalEnabledExtensions));
 
         m_eventQueue = std::unique_ptr<EventQueue>(new EventQueue(m_instance.get()));
         m_privateEventReader = std::unique_ptr<EventReader>(new EventReader(*m_eventQueue));
@@ -156,7 +156,13 @@ namespace Conformance
             }
         }
 
-        m_defaultColorFormat = GetGlobalData().graphicsPlugin->SelectColorSwapchainFormat(swapchainFormats.data(), swapchainFormats.size());
+        if (GetGlobalData().IsUsingGraphicsPlugin()) {
+            m_defaultColorFormat =
+                GetGlobalData().graphicsPlugin->SelectColorSwapchainFormat(swapchainFormats.data(), swapchainFormats.size());
+        }
+        else {
+            m_defaultColorFormat = static_cast<uint64_t>(-1);
+        }
 
         m_viewSpace = CreateReferenceSpace(XR_REFERENCE_SPACE_TYPE_VIEW, XrPosef{{0, 0, 0, 1}, {0, 0, 0}});
 
@@ -186,9 +192,11 @@ namespace Conformance
         xrDestroySession(m_session);
 
         GlobalData& globalData = GetGlobalData();
-        auto graphicsPlugin = globalData.GetGraphicsPlugin();
-        if (graphicsPlugin->IsInitialized()) {
-            graphicsPlugin->ShutdownDevice();
+        if (globalData.IsUsingGraphicsPlugin()) {
+            auto graphicsPlugin = globalData.GetGraphicsPlugin();
+            if (graphicsPlugin->IsInitialized()) {
+                graphicsPlugin->ShutdownDevice();
+            }
         }
     }
 
@@ -360,6 +368,10 @@ namespace Conformance
 
     XrSwapchain CompositionHelper::CreateSwapchain(const XrSwapchainCreateInfo& createInfo)
     {
+        if (!GetGlobalData().IsUsingGraphicsPlugin()) {
+            return XR_NULL_HANDLE;
+        }
+
         XrSwapchain swapchain;
         XRC_CHECK_THROW_XRCMD(xrCreateSwapchain(m_session, &createInfo, &swapchain));
 
@@ -371,6 +383,7 @@ namespace Conformance
         // Cache the swapchain image structs.
         uint32_t imageCount;
         XRC_CHECK_THROW_XRCMD(xrEnumerateSwapchainImages(swapchain, 0, &imageCount, nullptr));
+
         std::shared_ptr<Conformance::IGraphicsPlugin::SwapchainImageStructs> swapchainImages =
             GetGlobalData().graphicsPlugin->AllocateSwapchainImageStructs(imageCount, createInfo);
         XRC_CHECK_THROW_XRCMD(xrEnumerateSwapchainImages(swapchain, imageCount, &imageCount, swapchainImages->imagePtrVector[0]));
@@ -399,6 +412,10 @@ namespace Conformance
 
     XrSwapchain CompositionHelper::CreateStaticSwapchainImage(const RGBAImage& rgbaImage)
     {
+        if (!GetGlobalData().IsUsingGraphicsPlugin()) {
+            return XR_NULL_HANDLE;
+        }
+
         // The swapchain format must be R8G8B8A8 UNORM to match the RGBAImage format.
         const int64_t format = GetGlobalData().graphicsPlugin->GetSRGBA8Format();
         auto swapchainCreateInfo =
@@ -420,13 +437,14 @@ namespace Conformance
     {
         std::lock_guard<std::mutex> lock(m_mutex);
 
-        // Look up the swapchain creation details to get default width/height.
-        auto swapchainInfoIt = m_createdSwapchains.find(swapchain);
-        XRC_CHECK_THROW_MSG(swapchainInfoIt != m_createdSwapchains.end(), "Not a tracked swapchain");
-
         XrSwapchainSubImage subImage;
         subImage.swapchain = swapchain;
-        subImage.imageRect = {{0, 0}, {(int32_t)swapchainInfoIt->second.width, (int32_t)swapchainInfoIt->second.height}};
+        if (GetGlobalData().IsUsingGraphicsPlugin()) {
+            // Look up the swapchain creation details to get default width/height.
+            auto swapchainInfoIt = m_createdSwapchains.find(swapchain);
+            XRC_CHECK_THROW_MSG(swapchainInfoIt != m_createdSwapchains.end(), "Not a tracked swapchain");
+            subImage.imageRect = {{0, 0}, {(int32_t)swapchainInfoIt->second.width, (int32_t)swapchainInfoIt->second.height}};
+        }
         subImage.imageArrayIndex = imageArrayIndex;
         return subImage;
     }

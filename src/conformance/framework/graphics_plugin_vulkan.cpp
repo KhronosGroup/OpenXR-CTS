@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2021, The Khronos Group Inc.
+// Copyright (c) 2019-2022, The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -422,12 +422,12 @@ namespace Conformance
             if (m_vkDevice != nullptr) {
                 for (auto& si : shaderInfo) {
                     if (si.module != VK_NULL_HANDLE) {
-                        vkDestroyShaderModule(m_vkDevice, shaderInfo[0].module, nullptr);
+                        vkDestroyShaderModule(m_vkDevice, si.module, nullptr);
                     }
                     si.module = VK_NULL_HANDLE;
                 }
             }
-            shaderInfo = {};
+            shaderInfo = {{{VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO}, {VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO}}};
             m_vkDevice = nullptr;
         }
 
@@ -2228,6 +2228,10 @@ namespace Conformance
             vkDestroyDevice(m_vkDevice, nullptr);
             m_vkDevice = VK_NULL_HANDLE;
         }
+        if (m_vkDebugReporter != VK_NULL_HANDLE) {
+            vkDestroyDebugReportCallbackEXT(m_vkInstance, m_vkDebugReporter, nullptr);
+            m_vkDebugReporter = VK_NULL_HANDLE;
+        }
         if (m_vkInstance != VK_NULL_HANDLE) {
             vkDestroyInstance(m_vkInstance, nullptr);
             m_vkInstance = VK_NULL_HANDLE;
@@ -2666,10 +2670,18 @@ namespace Conformance
         vkCmdPipelineBarrier(m_cmdBuffer.buf, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0, nullptr, 1,
                              &imgBarrier);
 
-        // Switch the destination image from UNDEFINED -> TRANSFER_DST_OPTIMAL
+        // Switch the destination image from COLOR_ATTACHMENT_OPTIMAL -> TRANSFER_DST_OPTIMAL
+        //
+        // XR_KHR_vulkan_enable / XR_KHR_vulkan_enable2
+        // When an application acquires a swapchain image by calling xrAcquireSwapchainImage
+        // in a session created using XrGraphicsBindingVulkanKHR, the OpenXR runtime must
+        // guarantee that:
+        // - The image has a memory layout compatible with VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
+        //   for color images, or VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL for depth images.
+        // - The VkQueue specified in XrGraphicsBindingVulkanKHR has ownership of the image.
         imgBarrier.srcAccessMask = 0;
         imgBarrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-        imgBarrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+        imgBarrier.oldLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
         imgBarrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
         imgBarrier.srcQueueFamilyIndex = m_queueFamilyIndex;
         imgBarrier.dstQueueFamilyIndex = m_queueFamilyIndex;
@@ -2686,17 +2698,26 @@ namespace Conformance
         vkCmdBlitImage(m_cmdBuffer.buf, stagingImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, swapchainImageVk->image,
                        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &blit, VK_FILTER_NEAREST);
 
-        // Switch the destination image from TRANSFER_DST_OPTIMAL -> SHADER_READ_ONLY_OPTIMAL
+        // Switch the destination image from TRANSFER_DST_OPTIMAL -> COLOR_ATTACHMENT_OPTIMAL
+        //
+        // XR_KHR_vulkan_enable / XR_KHR_vulkan_enable2:
+        // When an application releases a swapchain image by calling xrReleaseSwapchainImage,
+        // in a session created using XrGraphicsBindingVulkanKHR, the OpenXR runtime must
+        // interpret the image as:
+        //  - Having a memory layout compatible with VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
+        //    for color images, or VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL for depth
+        //    images.
+        //  - Being owned by the VkQueue specified in XrGraphicsBindingVulkanKHR.
         imgBarrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-        imgBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+        imgBarrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT;
         imgBarrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-        imgBarrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        imgBarrier.newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
         imgBarrier.srcQueueFamilyIndex = m_queueFamilyIndex;
         imgBarrier.dstQueueFamilyIndex = m_queueFamilyIndex;
         imgBarrier.image = swapchainImageVk->image;
         imgBarrier.subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, arraySlice, 1};
-        vkCmdPipelineBarrier(m_cmdBuffer.buf, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr, 0,
-                             nullptr, 1, &imgBarrier);
+        vkCmdPipelineBarrier(m_cmdBuffer.buf, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, 0, 0, nullptr,
+                             0, nullptr, 1, &imgBarrier);
 
         m_cmdBuffer.End();
         m_cmdBuffer.Exec(m_vkQueue);

@@ -30,6 +30,10 @@
 #include <catch2/catch.hpp>
 #include <openxr/openxr.h>
 
+// Include all dependencies of openxr_platform as configured
+#include "xr_dependencies.h"
+#include <openxr/openxr_platform.h>
+
 namespace Conformance
 {
     // The way we do the primary test here, we create an instance and session, then exercise
@@ -165,6 +169,25 @@ namespace Conformance
 
         // gripPoseAction is an XrAction for grip pose.
         XrAction gripPoseAction;
+
+#if defined(XR_USE_GRAPHICS_API_VULKAN)
+        // Guards access to vulkan queue
+        //
+        // XR_KHR_vulkan_enable / XR_KHR_vulkan_enable2
+        // Access to the VkQueue must be externally synchronized for xrBeginFrame, xrEndFrame, xrAcquireSwapchainImage, xrReleaseSwapchainImage
+        std::mutex vulkanQueueMutex;
+#endif  // defined(XR_USE_GRAPHICS_API_VULKAN)
+
+#if defined(XR_USE_GRAPHICS_API_OPENGL)
+        // Guards access to OpenGL context
+        //
+        // XR_KHR_opengl_enable
+        // The OpenGL context given to the call xrCreateSession must not be bound in another thread when calling the functions
+        // xrCreateSession, xrDestroySession, xrBeginFrame, xrEndFrame, xrCreateSwapchain, xrDestroySwapchain, xrEnumerateSwapchainImages,
+        // xrAcquireSwapchainImage, xrWaitSwapchainImageand xrReleaseSwapchainImage.
+        // It may be bound in the thread calling those functions.
+        std::mutex openGlContextMutex;
+#endif  // defined(XR_USE_GRAPHICS_API_OPENGL)
 
     protected:
         // If true then each thread should begin executing.
@@ -303,6 +326,32 @@ namespace Conformance
                 strcpy(actionInfo.localizedActionName, "Grip pose");
                 XRC_CHECK_THROW_XRCMD(xrCreateAction(env.GetAutoBasicSession().actionSet, &actionInfo, &env.gripPoseAction));
 
+                // Ensure the actions are bound
+                XrPath interactionProfilePath = XR_NULL_PATH;
+                XRC_CHECK_THROW_XRCMD(xrStringToPath(env.GetAutoBasicSession().GetInstance(), "/interaction_profiles/khr/simple_controller",
+                                                     &interactionProfilePath));
+                XrPath gripPathL = XR_NULL_PATH;
+                XRC_CHECK_THROW_XRCMD(
+                    xrStringToPath(env.GetAutoBasicSession().GetInstance(), "/user/hand/left/input/grip/pose", &gripPathL));
+                XrPath gripPathR = XR_NULL_PATH;
+                XRC_CHECK_THROW_XRCMD(
+                    xrStringToPath(env.GetAutoBasicSession().GetInstance(), "/user/hand/right/input/grip/pose", &gripPathR));
+                XrPath hapticPathL = XR_NULL_PATH;
+                XRC_CHECK_THROW_XRCMD(
+                    xrStringToPath(env.GetAutoBasicSession().GetInstance(), "/user/hand/left/output/haptic", &hapticPathL));
+                XrPath hapticPathR = XR_NULL_PATH;
+                XRC_CHECK_THROW_XRCMD(
+                    xrStringToPath(env.GetAutoBasicSession().GetInstance(), "/user/hand/right/output/haptic", &hapticPathR));
+                std::vector<XrActionSuggestedBinding> bindings{{env.gripPoseAction, gripPathL},
+                                                               {env.gripPoseAction, gripPathR},
+                                                               {env.hapticsAction, hapticPathL},
+                                                               {env.hapticsAction, hapticPathR}};
+                XrInteractionProfileSuggestedBinding suggestedBindings = {XR_TYPE_INTERACTION_PROFILE_SUGGESTED_BINDING};
+                suggestedBindings.interactionProfile = interactionProfilePath;
+                suggestedBindings.suggestedBindings = (const XrActionSuggestedBinding*)bindings.data();
+                suggestedBindings.countSuggestedBindings = (uint32_t)bindings.size();
+                XRC_CHECK_THROW_XRCMD(xrSuggestInteractionProfileBindings(env.GetAutoBasicSession().GetInstance(), &suggestedBindings));
+
                 XrSessionActionSetsAttachInfo attachInfo{XR_TYPE_SESSION_ACTION_SETS_ATTACH_INFO};
                 attachInfo.countActionSets = 1;
                 attachInfo.actionSets = &env.GetAutoBasicSession().actionSet;
@@ -316,7 +365,12 @@ namespace Conformance
 
             env.lastFrameTime = frameIterator.frameState.predictedDisplayTime;
 
+            GlobalData& globalData = GetGlobalData();
+            globalData.GetGraphicsPlugin()->MakeCurrent(false);
+
             RunTestEnvironment(env);
+
+            globalData.GetGraphicsPlugin()->MakeCurrent(true);
         }
     }
 
@@ -426,10 +480,12 @@ namespace Conformance
     void Exercise_xrCreateSession(ThreadTestEnvironment& env)
     {
         GlobalData& globalData = GetGlobalData();
-        const XrBaseInStructure* graphicsBinding = globalData.graphicsPlugin->GetGraphicsBinding();
 
         XrSessionCreateInfo createInfo{XR_TYPE_SESSION_CREATE_INFO};
-        createInfo.next = graphicsBinding;
+        if (globalData.IsUsingGraphicsPlugin()) {
+            const XrBaseInStructure* graphicsBinding = globalData.graphicsPlugin->GetGraphicsBinding();
+            createInfo.next = graphicsBinding;
+        }
         createInfo.systemId = env.GetAutoBasicSession().GetSystemId();
         XrSession session;
         XrResult result = xrCreateSession(env.GetAutoBasicSession().GetInstance(), &createInfo, &session);
@@ -569,6 +625,13 @@ namespace Conformance
     {
         GlobalData& globalData = GetGlobalData();
         std::shared_ptr<IGraphicsPlugin> graphicsPlugin = globalData.GetGraphicsPlugin();
+
+#if defined(XR_USE_GRAPHICS_API_OPENGL)
+        bool isOpenGL = globalData.IsInstanceExtensionEnabled(XR_KHR_OPENGL_ENABLE_EXTENSION_NAME);
+        std::unique_lock<std::mutex> glLock =
+            isOpenGL ? std::unique_lock<std::mutex>(env.openGlContextMutex) : std::unique_lock<std::mutex>();
+#endif  // defined(XR_USE_GRAPHICS_API_OPENGL)
+
         XrSwapchain swapchain;
         XrExtent2Di widthHeight{0, 0};  // 0,0 means Use defaults.
         XrResult result = CreateColorSwapchain(env.GetAutoBasicSession().GetSession(), graphicsPlugin.get(), &swapchain, &widthHeight);
@@ -608,6 +671,20 @@ namespace Conformance
     {
         GlobalData& globalData = GetGlobalData();
         std::shared_ptr<IGraphicsPlugin> graphicsPlugin = globalData.GetGraphicsPlugin();
+
+#if defined(XR_USE_GRAPHICS_API_VULKAN)
+        bool isVulkan = globalData.IsInstanceExtensionEnabled(XR_KHR_VULKAN_ENABLE_EXTENSION_NAME) ||
+                        globalData.IsInstanceExtensionEnabled(XR_KHR_VULKAN_ENABLE2_EXTENSION_NAME);
+        std::unique_lock<std::mutex> vkLock =
+            isVulkan ? std::unique_lock<std::mutex>(env.vulkanQueueMutex) : std::unique_lock<std::mutex>();
+#endif  // defined(XR_USE_GRAPHICS_API_VULKAN)
+
+#if defined(XR_USE_GRAPHICS_API_OPENGL)
+        bool isOpenGL = globalData.IsInstanceExtensionEnabled(XR_KHR_OPENGL_ENABLE_EXTENSION_NAME);
+        std::unique_lock<std::mutex> glLock =
+            isOpenGL ? std::unique_lock<std::mutex>(env.openGlContextMutex) : std::unique_lock<std::mutex>();
+#endif  // defined(XR_USE_GRAPHICS_API_OPENGL)
+
         XrSwapchain swapchain;
         XrExtent2Di widthHeight{0, 0};  // 0,0 means Use defaults.
         XRC_CHECK_THROW_XRCMD(CreateColorSwapchain(env.GetAutoBasicSession().GetSession(), graphicsPlugin.get(), &swapchain, &widthHeight));

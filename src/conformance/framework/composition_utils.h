@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2021, The Khronos Group Inc.
+// Copyright (c) 2019-2022, The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -76,7 +76,7 @@ namespace Conformance
 
     struct CompositionHelper
     {
-        CompositionHelper(const char* testName);
+        CompositionHelper(const char* testName, const std::vector<const char*>& additionalEnabledExtensions = std::vector<const char*>());
         ~CompositionHelper();
 
         InteractionManager& GetInteractionManager();

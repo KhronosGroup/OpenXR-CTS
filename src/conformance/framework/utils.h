@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2021, The Khronos Group Inc.
+// Copyright (c) 2019-2022, The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -410,7 +410,7 @@ namespace Conformance
         using const_iterator = typename inner::const_iterator;
 
         /// "Conversion" operator to the contained vector of C string pointers.
-        operator inner const&() const
+        operator inner const &() const
         {
             return strPtrVector;
         }

@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2021, The Khronos Group Inc.
+// Copyright (c) 2019-2022, The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -37,8 +37,8 @@ namespace Conformance
         //
         // When operating with a headless session, the function xrEnumerateSwapchainFormats must return
         // an empty list of formats. Calls to functions xrCreateSwapchain, xrDestroySwapchain,
-        // xrAcquireSwapchainImage, xrWaitFrame are invalid. All other functions, including those
-        // related to tracking, input and haptics, are unaffected.
+        // xrAcquireSwapchainImage are invalid. All other functions, including those related to
+        // tracking, input and haptics, are unaffected.
         if (!globalData.IsInstanceExtensionEnabled("XR_MND_headless")) {
             return;
         }
@@ -57,8 +57,8 @@ namespace Conformance
             REQUIRE(countOutput == 0);
         }
 
-        // Calls to functions xrCreateSwapchain, xrDestroySwapchain, xrAcquireSwapchainImage,
-        // xrWaitFrame are invalid, but there isn't a specification for what happens when called.
+        // Calls to functions xrCreateSwapchain, xrDestroySwapchain, xrAcquireSwapchainImage
+        // are invalid, but there isn't a specification for what happens when called.
 
         // We begin a session and call valid session functions.
         XrSessionBeginInfo sessionBeginInfo{XR_TYPE_SESSION_BEGIN_INFO, nullptr, globalData.options.viewConfigurationValue};

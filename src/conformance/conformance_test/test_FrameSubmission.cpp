@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2021, The Khronos Group Inc.
+// Copyright (c) 2019-2022, The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -247,7 +247,7 @@ namespace Conformance
         std::condition_variable displayCv;
         bool frameSubmissionCompleted = false;
 
-        ns totalFrameDisplayPeriod(0), totalWaitTime(0);
+        ns totalFrameDisplayPeriod(0), totalWaitTime(0), totalBeginTime(0);
         Stopwatch frameLoopTimer;
 
         XrResult appThreadResult = XR_SUCCESS;
@@ -326,9 +326,11 @@ namespace Conformance
                 queuedFramesForRender.pop();
             }
 
-            XRC_CHECK_THROW_XRCMD(xrBeginFrame(compositionHelper.GetSession(), nullptr));
-
             Stopwatch sw(true);
+            XRC_CHECK_THROW_XRCMD(xrBeginFrame(compositionHelper.GetSession(), nullptr));
+            totalBeginTime += sw.Elapsed();
+
+            sw.Restart();
 
             std::vector<XrCompositionLayerBaseHeader*> layers;
             if (XrCompositionLayerBaseHeader* projLayer = simpleProjectionLayerHelper.TryGetUpdatedProjectionLayer(frameState)) {
@@ -357,6 +359,9 @@ namespace Conformance
         const ns averageDisplayPeriod = totalFrameDisplayPeriod / testFrameCount;
         ReportF("Average predicted display period : %.3fms", std::chrono::duration_cast<ms>(averageDisplayPeriod).count());
 
+        const ns averageBeginTime = totalBeginTime / testFrameCount;
+        ReportF("Average xrBeginFrame wait time   : %.3fms", std::chrono::duration_cast<ms>(averageBeginTime).count());
+
         // Higher is worse. An overhead of 50% means a 16.66ms display period ran with an average of 25ms per frame.
         // Since frames should be discrete multiples of the display period 50% implies that half of the frames
         // took two display periods to complete, 100% implies every frame took two periods.
@@ -370,5 +375,11 @@ namespace Conformance
 
         // If the frame loop runs FASTER then the predictedDisplayPeriod is wrong or xrWaitFrame is not throttling correctly.
         REQUIRE_MSG(overheadFactor > -0.1, "Frame timing overhead in pipelined frame submission is too low");
+
+        // Allow up to 10% of the display period to be spent in xrBeginFrame.  This number is arbitrary and open to debate.
+        // The point of this test is to fail runtimes that attempt to use xrBeginFrame as a blocking function
+        // instead of using xrWaitFrame.
+        REQUIRE_MSG(averageBeginTime.count() / (double)averageDisplayPeriod.count() < 0.1,
+                    "Begin frame overhead in pipelined frame submission is too high");
     }
 }  // namespace Conformance
