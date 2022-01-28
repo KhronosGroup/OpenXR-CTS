@@ -42,7 +42,6 @@ android {
         externalNativeBuild {
             cmake {
                 arguments '-DANDROID_STL=c++_shared',
-                        '-DBUILD_API_LAYERS=ON',
                         '-DBUILD_TESTS=OFF',
                         '-DBUILD_LOADER=ON',
                         '-DBUILD_CONFORMANCE_TESTS=ON',
