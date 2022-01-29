@@ -1,0 +1,32 @@
+# Copyright 2022, Collabora, Ltd.
+# SPDX-License-Identifier: CC0-1.0
+
+name: Android OpenXR-CTS - Check
+on:
+  pull_request:
+    branches:
+      - 'devel'
+
+jobs:
+  build-helloxr:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Install ninja-build tool
+        uses: seanmiddleditch/gha-setup-ninja@v3
+      - name: set up JDK 11
+        uses: actions/setup-java@v2
+        with:
+          java-version: "11"
+          distribution: "adopt"
+          cache: gradle
+
+      - name: Build OpenXR-CTS for Android
+        run: |
+          cd src/conformance
+          ./gradlew clean && ./gradlew build
+      - name: Upload OpenXR-CTS Android
+        uses: actions/upload-artifact@v2
+        with:
+          name: OpenXR-CTS Android
+          path: ./src/conformance/build/outputs/apk/debug/conformance-debug.apk
