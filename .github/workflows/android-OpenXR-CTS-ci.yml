@@ -8,7 +8,7 @@ on:
       - 'devel'
 
 jobs:
-  build-helloxr:
+  build-OpenXR-CTS:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
