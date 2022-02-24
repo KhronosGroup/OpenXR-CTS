@@ -25,10 +25,27 @@ apply plugin: 'com.android.application'
 project.ext.repoRoot = file('../../')
 apply from: file('../version.gradle')
 
+def assetDest = layout.buildDir.dir('intermediates/assets')
+
+task copyFont(type: Copy) {
+    from('conformance_test') {
+        include '*.otf'
+    }
+    into assetDest
+}
+
+task copyAssets(type: Copy) {
+    from('conformance_test/composition_examples') {
+        include '*.png'
+    }
+    into assetDest
+    dependsOn copyFont
+}
+
 android {
     compileSdkVersion 29
     buildToolsVersion "30.0.3"
-    ndkVersion "21.3.6528147"
+    ndkVersion "21.4.7075529"
 
     defaultConfig {
         applicationId "com.khronos.openxr.cts"
@@ -49,11 +66,13 @@ android {
                 targets 'conformance_test', 'openxr_loader', 'XrApiLayer_runtime_conformance'
             }
         }
+        preBuild.dependsOn(copyAssets)
     }
     sourceSets {
         main {
             manifest.srcFile 'platform_specific/AndroidManifest.xml'
             res.srcDirs 'platform_specific/android_resources'
+            assets.srcDirs assetDest
         }
     }
 

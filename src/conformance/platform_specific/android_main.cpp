@@ -71,6 +71,7 @@ Native Activity
 static JavaVM* AndroidApplicationVM = NULL;
 static jobject AndroidApplicationActivity = NULL;
 static void* AndroidApplicationNativeWindow = NULL;
+static AAssetManager* AndroidAssetManager = NULL;
 void* Conformance_Android_Get_Application_VM()
 {
     ALOGV("AndroidApplicationVM = %p", AndroidApplicationVM);
@@ -81,6 +82,12 @@ void* Conformance_Android_Get_Application_Activity()
 {
     ALOGV("AndroidApplicationActivity = %p", AndroidApplicationActivity);
     return AndroidApplicationActivity;
+}
+
+void* Conformance_Android_Get_Asset_Manager()
+{
+    ALOGV("AndroidAssetManager = %p", AndroidAssetManager);
+    return AndroidAssetManager;
 }
 
 void Conformance_Android_Attach_Current_Thread()
@@ -172,30 +179,6 @@ XRAPI_ATTR void XRAPI_CALL OnTestMessage(MessageType type, const char* message)
     }
 }
 
-void copy_assets(AAssetManager* mgr)
-{
-    AAssetDir* assetDir = AAssetManager_openDir(mgr, "");
-    const char* filename = (const char*)NULL;
-    static const int SZ = 1 << 20;
-    char* buf = new char[SZ];
-    while ((filename = AAssetDir_getNextFileName(assetDir)) != NULL) {
-        AAsset* asset = AAssetManager_open(mgr, filename, AASSET_MODE_STREAMING);
-        int nb_read = 0;
-        char fullPath[512];
-        strcpy(fullPath, PATH_PREFIX);
-        strcat(fullPath, filename);
-        FILE* out = fopen(fullPath, "w");
-        ALOGV("writing file: %s", fullPath);
-        while ((nb_read = AAsset_read(asset, buf, SZ)) > 0) {
-            fwrite(buf, nb_read, 1, out);
-        }
-        fclose(out);
-        AAsset_close(asset);
-    }
-    delete[] buf;
-    AAssetDir_close(assetDir);
-}
-
 /**
  * This is the main entry point of a native application that is using
  * android_native_app_glue.  It runs in its own thread, with its own
@@ -217,15 +200,15 @@ void android_main(struct android_app* app)
     // Note that AttachCurrentThread will reset the thread name.
     prctl(PR_SET_NAME, (long)"OVR::Main", 0, 0, 0);
 
-    copy_assets(app->activity->assetManager);
+    AndroidAssetManager = app->activity->assetManager;
 
     // Hook up android handlers
     app->onAppCmd = app_handle_cmd;
     app->onInputEvent = app_handle_input;
 
     PFN_xrInitializeLoaderKHR xrInitializeLoaderKHR;
-    xrGetInstanceProcAddr(XR_NULL_HANDLE, "xrInitializeLoaderKHR", (PFN_xrVoidFunction*)&xrInitializeLoaderKHR);
-    if (xrInitializeLoaderKHR != NULL) {
+    if (XR_SUCCEEDED(xrGetInstanceProcAddr(XR_NULL_HANDLE, "xrInitializeLoaderKHR", (PFN_xrVoidFunction*)(&xrInitializeLoaderKHR))) &&
+        xrInitializeLoaderKHR != NULL) {
         XrLoaderInitInfoAndroidKHR loaderInitializeInfoAndroid;
         memset(&loaderInitializeInfoAndroid, 0, sizeof(loaderInitializeInfoAndroid));
         loaderInitializeInfoAndroid.type = XR_TYPE_LOADER_INIT_INFO_ANDROID_KHR;
