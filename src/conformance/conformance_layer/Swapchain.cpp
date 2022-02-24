@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2021, The Khronos Group Inc.
+// Copyright (c) 2019-2022, The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -16,6 +16,7 @@
 
 #include "ConformanceHooks.h"
 #include "CustomHandleState.h"
+#include "IGraphicsValidator.h"
 #include "RuntimeFailure.h"
 
 using namespace swapchain;
@@ -62,7 +63,9 @@ XrResult ConformanceHooks::xrCreateSwapchain(XrSession session, const XrSwapchai
     const XrResult result = ConformanceHooksBase::xrCreateSwapchain(session, createInfo, swapchain);
     if (XR_SUCCEEDED(result)) {
         // Tag on the custom swapchain state to the generated handle state.
-        GetSwapchainState(*swapchain)->customState = std::unique_ptr<CustomSwapchainState>(new CustomSwapchainState(createInfo));
+        session::CustomSessionState* const customSessionState = session::GetCustomSessionState(session);
+        GetSwapchainState(*swapchain)->customState =
+            std::make_unique<CustomSwapchainState>(createInfo, customSessionState->graphicsBinding);
     }
     return result;
 }
@@ -91,7 +94,11 @@ XrResult ConformanceHooks::xrEnumerateSwapchainImages(XrSwapchain swapchain, uin
                              (uint32_t)customSwapchainState->imageStates.size());
 
             if (images != nullptr) {
-                // TODO: Validate structs using graphics validator.
+                auto validator = Conformance::CreateGraphicsValidator(customSwapchainState->graphicsBinding);
+                if (validator) {
+                    validator->ValidateSwapchainImageStructs(this, customSwapchainState->createInfo.format, *imageCountOutput, images);
+                    validator->ValidateUsageFlags(this, customSwapchainState->createInfo.usageFlags, *imageCountOutput, images);
+                }
             }
         }
     }

@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2021, The Khronos Group Inc.
+// Copyright (c) 2019-2022, The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -36,7 +36,7 @@ namespace Conformance
     constexpr XrVector3f Up{0, 1, 0};
 
     // Purpose: Ensure that the action space for grip can be used for a grippable object, in this case a sword, and the action space for aim can be used for comfortable aiming.
-    TEST_CASE("Grip and Aim Pose", "[.][scenario][interactive]")
+    TEST_CASE("Grip and Aim Pose", "[scenario][interactive]")
     {
         const char* exampleImage = "grip_and_aim_pose.png";
         const char* instructions =
@@ -149,8 +149,8 @@ namespace Conformance
 
         // Create a sample image quad layer placed to the right.
         XrCompositionLayerQuad* const exampleQuad =
-            compositionHelper.CreateQuadLayer(compositionHelper.CreateStaticSwapchainImage(RGBAImage::Load(exampleImage), true /* sRGB */),
-                                              localSpace, 1.25f, {{0, 0, 0, 1}, {1.5f, 0, -0.3f}});
+            compositionHelper.CreateQuadLayer(compositionHelper.CreateStaticSwapchainImage(RGBAImage::Load(exampleImage)), localSpace,
+                                              1.25f, {{0, 0, 0, 1}, {1.5f, 0, -0.3f}});
         XrQuaternionf_CreateFromAxisAngle(&exampleQuad->pose.orientation, &Up, -70 * MATH_PI / 180);
 
         const float PointerLength = 4.00f;

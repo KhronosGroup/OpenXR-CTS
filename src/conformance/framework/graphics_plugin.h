@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2021, The Khronos Group Inc.
+// Copyright (c) 2019-2022, The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -167,7 +167,7 @@ namespace Conformance
         virtual int64_t SelectDepthSwapchainFormat(const int64_t* /*imageFormatArray*/, size_t /*count*/) const = 0;
 
         // Select the preferred swapchain format.
-        virtual int64_t GetRGBA8Format(bool sRGB = false) const = 0;
+        virtual int64_t GetSRGBA8Format() const = 0;
 
         struct SwapchainImageStructs
         {

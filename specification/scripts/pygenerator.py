@@ -1,6 +1,6 @@
 #!/usr/bin/python3 -i
 #
-# Copyright (c) 2013-2021, The Khronos Group Inc.
+# Copyright (c) 2013-2022, The Khronos Group Inc.
 #
 # SPDX-License-Identifier: Apache-2.0
 
@@ -228,7 +228,7 @@ class PyOutputGenerator(OutputGenerator):
         self.enums[groupName] = enumerants
 
     def genEnum(self, enuminfo, name, alias):
-        """Generate enumerant (compile-time constants).
+        """Generate enumerant (compile time constants).
 
         - Add the constant name to the 'consts' dictionary, with the
           value being None to indicate that the constant isn't

@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 #
-# Copyright (c) 2016-2021, The Khronos Group Inc.
+# Copyright (c) 2016-2022, The Khronos Group Inc.
 #
 # SPDX-License-Identifier: Apache-2.0
 
@@ -52,7 +52,7 @@ def printCopyrightSourceComments(fp):
 
     Writes an asciidoc comment block, which copyrights the source
     file."""
-    print('// Copyright (c) 2014-2021, The Khronos Group Inc.', file=fp)
+    print('// Copyright (c) 2014-2022, The Khronos Group Inc.', file=fp)
     print('//', file=fp)
     # This works around constraints of the 'reuse' tool
     print('// SPDX' + '-License-Identifier: CC-BY-4.0', file=fp)
@@ -524,7 +524,8 @@ def genRef(specFile, baseDir):
 
     - specFile - filename to extract from
     - baseDir - output directory to generate page in"""
-    file = loadFile(specFile)
+    # We don't care the newline format used here.
+    file, _ = loadFile(specFile)
     if file is None:
         return
 
@@ -686,7 +687,8 @@ def genExtension(baseDir, name, info):
             continue
 
         if req_name not in genDict:
-            logWarn('ERROR: {} (in extension {}) does not have a ref page.'.format(req_name, name))
+            logWarn('ERROR: {} (in extension {}) does not have a ref page, skipping the link.'.format(req_name, name))
+            continue
 
         declares.append(req_name)
     pageName = baseDir + '/' + name + '.txt'

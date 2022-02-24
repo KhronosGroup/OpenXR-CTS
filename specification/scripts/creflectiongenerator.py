@@ -1,6 +1,6 @@
 #!/usr/bin/python3 -i
 #
-# Copyright (c) 2013-2021, The Khronos Group Inc.
+# Copyright (c) 2013-2022, The Khronos Group Inc.
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -132,7 +132,7 @@ class CReflectionOutputGenerator(OutputGenerator):
             protect.update(localProtect.split(','))
 
         if protect:
-            protect = tuple(protect)
+            protect = tuple(sorted(protect))
         else:
             protect = None
 

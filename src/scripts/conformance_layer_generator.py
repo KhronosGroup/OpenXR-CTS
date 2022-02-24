@@ -1,6 +1,6 @@
 #!/usr/bin/python3 -i
 #
-# Copyright (c) 2017-2021, The Khronos Group Inc.
+# Copyright (c) 2017-2022, The Khronos Group Inc.
 # Copyright (c) 2017-2019 Valve Corporation
 # Copyright (c) 2017-2019 LunarG, Inc.
 #
@@ -63,11 +63,6 @@ class ConformanceLayerGenerator(AutomaticSourceOutputGenerator):
     def beginFile(self, genOpts):
         AutomaticSourceOutputGenerator.beginFile(self, genOpts)
         self.template = JinjaTemplate(self.env, "template_{}".format(genOpts.filename))
-
-    def extensionReturnCodesForCommand(self, cur_cmd):
-        return (x for x
-                in self.registry.commandextensionerrors + self.registry.commandextensionsuccesses
-                if x.command == cur_cmd.name)
 
     # Write out all the information for the appropriate file,
     # and then call down to the base class to wrap everything up.

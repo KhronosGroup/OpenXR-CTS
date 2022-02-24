@@ -1,6 +1,6 @@
 #!/usr/bin/python3 -i
 #
-# Copyright (c) 2013-2021, The Khronos Group Inc.
+# Copyright (c) 2013-2022, The Khronos Group Inc.
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -10,8 +10,11 @@
 
 import os
 import re
-from generator import (GeneratorOptions, OutputGenerator, noneStr,
-                       regSortFeatures, write)
+
+from generator import (GeneratorOptions,
+                       MissingGeneratorOptionsConventionsError,
+                       MissingGeneratorOptionsError, MissingRegistryError,
+                       OutputGenerator, noneStr, write)
 
 
 class CGeneratorOptions(GeneratorOptions):
@@ -27,6 +30,8 @@ class CGeneratorOptions(GeneratorOptions):
                  protectFeature=True,
                  protectProto=None,
                  protectProtoStr=None,
+                 protectExtensionProto=None,
+                 protectExtensionProtoStr=None,
                  apicall='',
                  apientry='',
                  apientryp='',
@@ -56,6 +61,13 @@ class CGeneratorOptions(GeneratorOptions):
         set to None.
         - protectProtoStr - #ifdef/#ifndef symbol to use around prototype
         declarations, if protectProto is set
+        - protectExtensionProto - If conditional protection should be generated
+        around extension prototype declarations, set to either '#ifdef'
+        to require opt-in (#ifdef protectExtensionProtoStr) or '#ifndef'
+        to require opt-out (#ifndef protectExtensionProtoStr). Otherwise
+        set to None.
+        - protectExtensionProtoStr - #ifdef/#ifndef symbol to use around
+        extension prototype declarations, if protectExtensionProto is set
         - apicall - string to use for the function declaration prefix,
         such as APICALL on Windows.
         - apientry - string to use for the calling convention macro,
@@ -92,6 +104,12 @@ class CGeneratorOptions(GeneratorOptions):
 
         self.protectProtoStr = protectProtoStr
         """#ifdef/#ifndef symbol to use around prototype declarations, if protectProto is set"""
+
+        self.protectExtensionProto = protectExtensionProto
+        """If conditional protection should be generated around extension prototype declarations, set to either '#ifdef' to require opt-in (#ifdef protectExtensionProtoStr) or '#ifndef' to require opt-out (#ifndef protectExtensionProtoStr). Otherwise set to None."""
+
+        self.protectExtensionProtoStr = protectExtensionProtoStr
+        """#ifdef/#ifndef symbol to use around extension prototype declarations, if protectExtensionProto is set"""
 
         self.apicall = apicall
         """string to use for the function declaration prefix, such as APICALL on Windows."""
@@ -141,10 +159,12 @@ class COutputGenerator(OutputGenerator):
 
     def beginFile(self, genOpts):
         OutputGenerator.beginFile(self, genOpts)
+        if self.genOpts is None:
+            raise MissingGeneratorOptionsError()
         # C-specific
         #
         # Multiple inclusion protection & C++ wrappers.
-        if genOpts.protectFile and self.genOpts.filename:
+        if self.genOpts.protectFile and self.genOpts.filename:
             headerSym = re.sub(r'\.h', '_h_',
                                os.path.basename(self.genOpts.filename)).upper()
             write('#ifndef', headerSym, file=self.outFile)
@@ -166,6 +186,8 @@ class COutputGenerator(OutputGenerator):
     def endFile(self):
         # C-specific
         # Finish C++ wrapper and multiple inclusion protection
+        if self.genOpts is None:
+            raise MissingGeneratorOptionsError()
         self.newline()
         write('#ifdef __cplusplus', file=self.outFile)
         write('}', file=self.outFile)
@@ -186,11 +208,24 @@ class COutputGenerator(OutputGenerator):
         self.sections = {section: [] for section in self.ALL_SECTIONS}
         self.feature_not_empty = False
 
+    def _endProtectComment(self, protect_str, protect_directive="#ifdef"):
+        if protect_directive is None or protect_str is None:
+            raise RuntimeError("Shouldn't call in here without something to protect")
+        if "ifdef" in protect_directive:
+            return '/* ' + protect_str + ' */'
+        else:
+            return '/* !' + protect_str + ' */'
+
     def endFeature(self):
         "Actually write the interface to the output file."
         # C-specific
         if self.emit:
             if self.feature_not_empty:
+                if self.genOpts is None:
+                    raise MissingGeneratorOptionsError()
+                if self.genOpts.conventions is None:
+                    raise MissingGeneratorOptionsConventionsError()
+                is_core = self.featureName and self.featureName.startswith(self.conventions.api_prefix + "VERSION_")
                 if self.genOpts.conventions.writeFeature(self.featureExtraProtect, self.genOpts.filename):
                     self.newline()
                     if self.genOpts.protectFeature:
@@ -213,15 +248,30 @@ class COutputGenerator(OutputGenerator):
                         if self.genOpts.protectProto:
                             write(self.genOpts.protectProto,
                                   self.genOpts.protectProtoStr, file=self.outFile)
+                        if self.genOpts.protectExtensionProto and not is_core:
+                            write(self.genOpts.protectExtensionProto,
+                                  self.genOpts.protectExtensionProtoStr, file=self.outFile)
                         write('\n'.join(self.sections['command']), end='', file=self.outFile)
+                        if self.genOpts.protectExtensionProto and not is_core:
+                            write('#endif',
+                                  self._endProtectComment(protect_directive=self.genOpts.protectExtensionProto,
+                                                          protect_str=self.genOpts.protectExtensionProtoStr),
+                                  file=self.outFile)
                         if self.genOpts.protectProto:
-                            write('#endif', file=self.outFile)
+                            write('#endif',
+                                  self._endProtectComment(protect_directive=self.genOpts.protectProto,
+                                                          protect_str=self.genOpts.protectProtoStr),
+                                  file=self.outFile)
                         else:
                             self.newline()
                     if self.featureExtraProtect is not None:
-                        write('#endif /*', self.featureExtraProtect, '*/', file=self.outFile)
+                        write('#endif',
+                              self._endProtectComment(protect_str=self.featureExtraProtect),
+                              file=self.outFile)
                     if self.genOpts.protectFeature:
-                        write('#endif /*', self.featureName, '*/', file=self.outFile)
+                        write('#endif',
+                              self._endProtectComment(protect_str=self.featureName),
+                              file=self.outFile)
         # Finish processing in superclass
         OutputGenerator.endFeature(self)
 
@@ -253,6 +303,8 @@ class COutputGenerator(OutputGenerator):
             # special-purpose generator.
             self.genStruct(typeinfo, name, alias)
         else:
+            if self.genOpts is None:
+                raise MissingGeneratorOptionsError()
             # OpenXR: this section was not under 'else:' previously, just fell through
             if alias:
                 # If the type is an alias, just emit a typedef declaration
@@ -299,6 +351,8 @@ class COutputGenerator(OutputGenerator):
 
     def typeMayAlias(self, typeName):
         if not self.may_alias:
+            if self.registry is None:
+                raise MissingRegistryError()
             # First time we've asked if a type may alias.
             # So, let's populate the set of all names of types that may.
 
@@ -337,12 +391,15 @@ class COutputGenerator(OutputGenerator):
             (protect_begin, protect_end) = self.genProtectString(typeElem.get('protect'))
             if protect_begin:
                 body += protect_begin
+
+            structextends = typeElem.get('structextends')
+            body += '// ' + typeName + ' extends ' + structextends + '\n' if structextends else ''
             body += 'typedef ' + typeElem.get('category')
 
             # This is an OpenXR-specific alternative where aliasing refers
             # to an inheritance hierarchy of types rather than C-level type
             # aliases.
-            if self.genOpts.genAliasMacro and self.typeMayAlias(typeName):
+            if self.genOpts and self.genOpts.genAliasMacro and self.typeMayAlias(typeName):
                 body += ' ' + self.genOpts.aliasMacro
 
             body += ' ' + typeName + ' {\n'
@@ -380,6 +437,8 @@ class COutputGenerator(OutputGenerator):
             body = 'typedef ' + alias + ' ' + groupName + ';\n'
             self.appendSection(section, body)
         else:
+            if self.genOpts is None:
+                raise MissingGeneratorOptionsError()
             (section, body) = self.buildEnumCDecl(self.genOpts.genEnumBeginEndRange, groupinfo, groupName)
             self.appendSection(section, "\n" + body)
 
@@ -401,6 +460,8 @@ class COutputGenerator(OutputGenerator):
         #     prefix = '// ' + name + ' is an alias of command ' + alias + '\n'
         # else:
         #     prefix = ''
+        if self.genOpts is None:
+            raise MissingGeneratorOptionsError()
 
         prefix = ''
         decls = self.makeCDecls(cmdinfo.elem)

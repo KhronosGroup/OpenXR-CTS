@@ -52,7 +52,7 @@ def startTimer(timeit):
 def endTimer(timeit, msg):
     global startTime
     endTime = time.process_time()
-    if timeit:
+    if timeit and startTime is not None:
         write(msg, endTime - startTime, file=sys.stderr)
         startTime = None
 
@@ -91,7 +91,7 @@ def makeGenOpts(args):
     # Copyright text prefixing all headers (list of strings).
     prefixStrings = [
         '/*',
-        '** Copyright (c) 2017-2021, The Khronos Group Inc.',
+        '** Copyright (c) 2017-2022, The Khronos Group Inc.',
         '**',
         '** Licensed under the Apache License, Version 2.0 (the "License");',
         '** you may not use this file except in compliance with the License.',
@@ -453,15 +453,8 @@ if __name__ == '__main__':
         reg.dumpReg(filehandle = open('regdump.txt', 'w', encoding='utf-8'))
 
     # create error/warning & diagnostic files
-    if args.errfile:
-        errWarn = open(args.errfile, 'w', encoding='utf-8')
-    else:
-        errWarn = sys.stderr
-
-    if args.diagfile:
-        diag = open(args.diagfile, 'w', encoding='utf-8')
-    else:
-        diag = None
+    errWarn = open(args.errfile, 'w', encoding='utf-8') if args.errfile else sys.stderr
+    diag = open(args.diagfile, 'w', encoding='utf-8') if args.diagfile else None
 
     if args.debug:
         import pdb

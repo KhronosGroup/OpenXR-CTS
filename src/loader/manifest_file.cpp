@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2021, The Khronos Group Inc.
+// Copyright (c) 2017-2022, The Khronos Group Inc.
 // Copyright (c) 2017-2019 Valve Corporation
 // Copyright (c) 2017-2019 LunarG, Inc.
 //
@@ -56,6 +56,8 @@
     "Loader is configured to not catch exceptions, but jsoncpp was built with exception-throwing enabled, which could violate the C ABI. One of those two things needs to change."
 #endif  // JSON_USE_EXCEPTIONS
 #endif  // !XRLOADER_DISABLE_EXCEPTION_HANDLING
+
+#include "runtime_interface.hpp"
 
 // Utility functions for finding files in the appropriate paths
 
@@ -169,10 +171,8 @@ static void CopyIncludedPaths(bool is_directory_list, const std::string &cur_pat
 }
 
 // Look for data files in the provided paths, but first check the environment override to determine if we should use that instead.
-static void ReadDataFilesInSearchPaths(ManifestFileType type, const std::string &override_env_var, const std::string &relative_path,
-                                       bool &override_active, std::vector<std::string> &manifest_files) {
-    bool is_directory_list = true;
-    bool is_runtime = (type == MANIFEST_TYPE_RUNTIME);
+static void ReadDataFilesInSearchPaths(const std::string &override_env_var, const std::string &relative_path, bool &override_active,
+                                       std::vector<std::string> &manifest_files) {
     std::string override_path;
     std::string search_path;
 
@@ -186,17 +186,11 @@ static void ReadDataFilesInSearchPaths(ManifestFileType type, const std::string 
 #endif
         if (permit_override) {
             override_path = PlatformUtilsGetSecureEnv(override_env_var.c_str());
-            if (!override_path.empty()) {
-                // The runtime override is actually a specific list of filenames, not directories
-                if (is_runtime) {
-                    is_directory_list = false;
-                }
-            }
         }
     }
 
     if (!override_path.empty()) {
-        CopyIncludedPaths(is_directory_list, override_path, "", search_path);
+        CopyIncludedPaths(true, override_path, "", search_path);
         override_active = true;
     } else {
         override_active = false;
@@ -240,7 +234,7 @@ static void ReadDataFilesInSearchPaths(ManifestFileType type, const std::string 
     }
 
     // Now, parse the paths and add any manifest files found in them.
-    AddFilesInPath(search_path, is_directory_list, manifest_files);
+    AddFilesInPath(search_path, true, manifest_files);
 }
 
 #ifdef XR_OS_LINUX
@@ -537,6 +531,12 @@ void RuntimeManifestFile::CreateIfValid(std::string const &filename,
         return;
     }
 
+    CreateIfValid(root_node, filename, manifest_files);
+}
+
+void RuntimeManifestFile::CreateIfValid(const Json::Value &root_node, const std::string &filename,
+                                        std::vector<std::unique_ptr<RuntimeManifestFile>> &manifest_files) {
+    std::ostringstream error_ss("RuntimeManifestFile::CreateIfValid ");
     JsonVersion file_version = {};
     if (!ManifestFile::IsValidJson(root_node, file_version)) {
         error_ss << "isValidJson indicates " << filename << " is not a valid manifest file.";
@@ -544,8 +544,8 @@ void RuntimeManifestFile::CreateIfValid(std::string const &filename,
         return;
     }
     const Json::Value &runtime_root_node = root_node["runtime"];
-    // The Runtime manifest file needs the "runtime" root as well as sub-nodes for "api_version" and
-    // "library_path".  If any of those aren't there, fail.
+    // The Runtime manifest file needs the "runtime" root as well as a sub-node for "library_path".  If any of those aren't there,
+    // fail.
     if (runtime_root_node.isNull() || runtime_root_node["library_path"].isNull() || !runtime_root_node["library_path"].isString()) {
         error_ss << filename << " is missing required fields.  Verify all proper fields exist.";
         LoaderLogger::LogErrorMessage("", error_ss.str());
@@ -593,13 +593,8 @@ void RuntimeManifestFile::CreateIfValid(std::string const &filename,
 }
 
 // Find all manifest files in the appropriate search paths/registries for the given type.
-XrResult RuntimeManifestFile::FindManifestFiles(ManifestFileType type,
-                                                std::vector<std::unique_ptr<RuntimeManifestFile>> &manifest_files) {
+XrResult RuntimeManifestFile::FindManifestFiles(std::vector<std::unique_ptr<RuntimeManifestFile>> &manifest_files) {
     XrResult result = XR_SUCCESS;
-    if (MANIFEST_TYPE_RUNTIME != type) {
-        LoaderLogger::LogErrorMessage("", "RuntimeManifestFile::FindManifestFiles - unknown manifest file requested");
-        return XR_ERROR_FILE_ACCESS_ERROR;
-    }
     std::string filename = PlatformUtilsGetSecureEnv(OPENXR_RUNTIME_JSON_ENV_VAR);
     if (!filename.empty()) {
         LoaderLogger::LogInfoMessage(
@@ -611,7 +606,7 @@ XrResult RuntimeManifestFile::FindManifestFiles(ManifestFileType type,
         if (filenames.size() == 0) {
             LoaderLogger::LogErrorMessage(
                 "", "RuntimeManifestFile::FindManifestFiles - failed to find active runtime file in registry");
-            return XR_ERROR_FILE_ACCESS_ERROR;
+            return XR_ERROR_RUNTIME_UNAVAILABLE;
         }
         if (filenames.size() > 1) {
             LoaderLogger::LogWarningMessage(
@@ -626,18 +621,29 @@ XrResult RuntimeManifestFile::FindManifestFiles(ManifestFileType type,
         if (!FindXDGConfigFile(relative_path, filename)) {
             LoaderLogger::LogErrorMessage(
                 "", "RuntimeManifestFile::FindManifestFiles - failed to determine active runtime file path for this environment");
-            return XR_ERROR_FILE_ACCESS_ERROR;
+            return XR_ERROR_RUNTIME_UNAVAILABLE;
         }
 #else
+
+#if defined(XR_KHR_LOADER_INIT_SUPPORT)
+        Json::Value virtualManifest;
+        result = GetPlatformRuntimeVirtualManifest(virtualManifest);
+        if (XR_SUCCESS == result) {
+            RuntimeManifestFile::CreateIfValid(virtualManifest, "", manifest_files);
+            return result;
+        }
+#endif  // defined(XR_KHR_LOADER_INIT_SUPPORT)
         if (!PlatformGetGlobalRuntimeFileName(XR_VERSION_MAJOR(XR_CURRENT_API_VERSION), filename)) {
             LoaderLogger::LogErrorMessage(
                 "", "RuntimeManifestFile::FindManifestFiles - failed to determine active runtime file path for this environment");
-            return XR_ERROR_FILE_ACCESS_ERROR;
+            return XR_ERROR_RUNTIME_UNAVAILABLE;
         }
-#endif
+        result = XR_SUCCESS;
         LoaderLogger::LogInfoMessage("", "RuntimeManifestFile::FindManifestFiles - using global runtime file " + filename);
+#endif
     }
     RuntimeManifestFile::CreateIfValid(filename, manifest_files);
+
     return result;
 }
 
@@ -822,7 +828,7 @@ XrResult ApiLayerManifestFile::FindManifestFiles(ManifestFileType type,
 
     bool override_active = false;
     std::vector<std::string> filenames;
-    ReadDataFilesInSearchPaths(type, override_env_var, relative_path, override_active, filenames);
+    ReadDataFilesInSearchPaths(override_env_var, relative_path, override_active, filenames);
 
 #ifdef XR_OS_WINDOWS
     // Read the registry if the override wasn't active.
@@ -831,15 +837,8 @@ XrResult ApiLayerManifestFile::FindManifestFiles(ManifestFileType type,
     }
 #endif
 
-    switch (type) {
-        case MANIFEST_TYPE_IMPLICIT_API_LAYER:
-        case MANIFEST_TYPE_EXPLICIT_API_LAYER:
-            for (std::string &cur_file : filenames) {
-                ApiLayerManifestFile::CreateIfValid(type, cur_file, manifest_files);
-            }
-            break;
-        default:
-            break;
+    for (std::string &cur_file : filenames) {
+        ApiLayerManifestFile::CreateIfValid(type, cur_file, manifest_files);
     }
 
     return XR_SUCCESS;

@@ -1,4 +1,4 @@
-// Copyright (c) 2018-2021, The Khronos Group Inc.
+// Copyright (c) 2018-2022, The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 //
@@ -31,6 +31,7 @@
 #endif  // !WIN32_LEAN_AND_MEAN
 
 #include <windows.h>
+#include <unknwn.h>
 
 #endif  // XR_USE_PLATFORM_WIN32
 

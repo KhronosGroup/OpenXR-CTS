@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2021, The Khronos Group Inc.
+// Copyright (c) 2019-2022, The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -44,6 +44,8 @@ namespace Conformance
     public:
         D3D11GraphicsPlugin(std::shared_ptr<IPlatformPlugin>);
 
+        ~D3D11GraphicsPlugin();
+
         bool Initialize() override;
 
         bool IsInitialized() const override;
@@ -82,7 +84,7 @@ namespace Conformance
         int64_t SelectDepthSwapchainFormat(const int64_t* imageFormatArray, size_t count) const override;
 
         // Format required by RGBAImage type.
-        int64_t GetRGBA8Format(bool sRGB) const override;
+        int64_t GetSRGBA8Format() const override;
 
         std::shared_ptr<SwapchainImageStructs> AllocateSwapchainImageStructs(size_t size,
                                                                              const XrSwapchainCreateInfo& swapchainCreateInfo) override;
@@ -123,6 +125,12 @@ namespace Conformance
     D3D11GraphicsPlugin::D3D11GraphicsPlugin(std::shared_ptr<IPlatformPlugin>)
         : initialized(false), graphicsBinding{XR_TYPE_GRAPHICS_BINDING_D3D11_KHR}, d3d11Device(), d3d11DeviceContext()
     {
+    }
+
+    D3D11GraphicsPlugin::~D3D11GraphicsPlugin()
+    {
+        ShutdownDevice();
+        Shutdown();
     }
 
     bool D3D11GraphicsPlugin::Initialize()
@@ -287,9 +295,18 @@ namespace Conformance
     void D3D11GraphicsPlugin::ShutdownDevice()
     {
         graphicsBinding = XrGraphicsBindingD3D11KHR{XR_TYPE_GRAPHICS_BINDING_D3D11_KHR};
+
+        vertexShader.Reset();
+        pixelShader.Reset();
+        inputLayout.Reset();
+        modelCBuffer.Reset();
+        viewProjectionCBuffer.Reset();
+        cubeVertexBuffer.Reset();
+        cubeIndexBuffer.Reset();
+        colorToDepthMap.clear();
+
         d3d11DeviceContext.Reset();
         d3d11Device.Reset();
-        colorToDepthMap.clear();
     }
 
     const XrBaseInStructure* D3D11GraphicsPlugin::GetGraphicsBinding() const
@@ -490,9 +507,9 @@ namespace Conformance
         return *it;
     }
 
-    int64_t D3D11GraphicsPlugin::GetRGBA8Format(bool sRGB) const
+    int64_t D3D11GraphicsPlugin::GetSRGBA8Format() const
     {
-        return sRGB ? DXGI_FORMAT_R8G8B8A8_UNORM_SRGB : DXGI_FORMAT_R8G8B8A8_UNORM;
+        return DXGI_FORMAT_R8G8B8A8_UNORM_SRGB;
     }
 
     std::shared_ptr<IGraphicsPlugin::SwapchainImageStructs>

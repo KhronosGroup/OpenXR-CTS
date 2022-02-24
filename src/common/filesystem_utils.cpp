@@ -20,40 +20,7 @@
 #define USE_FINAL_FS 0
 
 #else
-// If the C++ macro is set to the version containing C++17, it must support
-// the final C++17 package
-#if __cplusplus >= 201703L
-#define USE_EXPERIMENTAL_FS 0
-#define USE_FINAL_FS 1
-
-#elif defined(_MSC_VER) && _MSC_VER >= 1900
-
-#if defined(_HAS_CXX17) && _HAS_CXX17
-// When MSC supports c++17 use <filesystem> package.
-#define USE_EXPERIMENTAL_FS 0
-#define USE_FINAL_FS 1
-#endif  // !_HAS_CXX17
-
-// Right now, GCC still only supports the experimental filesystem items starting in GCC 6
-#elif (__GNUC__ >= 6)
-#define USE_EXPERIMENTAL_FS 1
-#define USE_FINAL_FS 0
-
-// If Clang, check for feature support
-#elif defined(__clang__) && (__cpp_lib_filesystem || __cpp_lib_experimental_filesystem)
-#if __cpp_lib_filesystem
-#define USE_EXPERIMENTAL_FS 0
-#define USE_FINAL_FS 1
-#else
-#define USE_EXPERIMENTAL_FS 1
-#define USE_FINAL_FS 0
-#endif
-
-// If all above fails, fall back to standard C++ and OS-specific items
-#else
-#define USE_EXPERIMENTAL_FS 0
-#define USE_FINAL_FS 0
-#endif
+#include "stdfs_conditions.h"
 #endif
 
 #if USE_FINAL_FS == 1
@@ -73,10 +40,6 @@
 #include <limits.h>
 #include <stdlib.h>
 #include <dirent.h>
-#endif
-
-#if defined(XR_USE_PLATFORM_WIN32)
-#include <pathcch.h>
 #endif
 
 #if defined(XR_USE_PLATFORM_WIN32)
@@ -121,14 +84,10 @@ bool FileSysUtilsGetAbsolutePath(const std::string& path, std::string& absolute)
 
 bool FileSysUtilsGetCanonicalPath(const std::string& path, std::string& canonical) {
 #if defined(XR_USE_PLATFORM_WIN32)
-    // std::filesystem::canonical fails on UWP and must be avoided. This alternative will not
-    // follow symbolic links but symbolic links are not needed on Windows since the loader uses
-    // the registry as a form of indirection instead.
-    wchar_t canonical_wide_path[MAX_PATH];
-    if (FAILED(PathCchCanonicalize(canonical_wide_path, MAX_PATH, utf8_to_wide(path).c_str()))) {
-        return false;
-    }
-    canonical = wide_to_utf8(canonical_wide_path);
+    // std::filesystem::canonical fails on UWP and must be avoided. Further, PathCchCanonicalize is not available on Windows 7 and
+    // PathCanonicalizeW is not available on UWP. However, symbolic links are not important on Windows since the loader uses the
+    // registry for indirection instead, and so this function can be a no-op on Windows.
+    canonical = path;
 #else
     canonical = FS_PREFIX::canonical(path).string();
 #endif
@@ -218,12 +177,11 @@ bool FileSysUtilsGetAbsolutePath(const std::string& path, std::string& absolute)
 }
 
 bool FileSysUtilsGetCanonicalPath(const std::string& path, std::string& absolute) {
-    wchar_t tmp_path[MAX_PATH];
-    if (SUCCEEDED(PathCchCanonicalize(tmp_path, MAX_PATH, utf8_to_wide(path).c_str()))) {
-        absolute = wide_to_utf8(tmp_path);
-        return true;
-    }
-    return false;
+    // PathCchCanonicalize is not available on Windows 7 and PathCanonicalizeW is not available on UWP. However, symbolic links are
+    // not important on Windows since the loader uses the registry for indirection instead, and so this function can be a no-op on
+    // Windows.
+    absolute = path;
+    return true;
 }
 
 bool FileSysUtilsCombinePaths(const std::string& parent, const std::string& child, std::string& combined) {

@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2021, The Khronos Group Inc.
+// Copyright (c) 2019-2022, The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -92,6 +92,8 @@ namespace Conformance
     {
         D3D12GraphicsPlugin(std::shared_ptr<IPlatformPlugin>);
 
+        ~D3D12GraphicsPlugin();
+
         bool Initialize() override;
 
         bool IsInitialized() const override;
@@ -128,7 +130,7 @@ namespace Conformance
         int64_t SelectDepthSwapchainFormat(const int64_t* imageFormatArray, size_t count) const override;
 
         // Format required by RGBAImage type.
-        int64_t GetRGBA8Format(bool sRGB) const override;
+        int64_t GetSRGBA8Format() const override;
 
         std::shared_ptr<SwapchainImageStructs> AllocateSwapchainImageStructs(size_t size,
                                                                              const XrSwapchainCreateInfo& swapchainCreateInfo) override;
@@ -289,6 +291,12 @@ namespace Conformance
     {
     }
 
+    D3D12GraphicsPlugin::~D3D12GraphicsPlugin()
+    {
+        ShutdownDevice();
+        Shutdown();
+    }
+
     bool D3D12GraphicsPlugin::Initialize()
     {
         if (initialized)
@@ -427,7 +435,7 @@ namespace Conformance
 
             XRC_CHECK_THROW_HRCMD(d3d12Device->CreateFence(fenceValue, D3D12_FENCE_FLAG_NONE, __uuidof(ID3D12Fence),
                                                            reinterpret_cast<void**>(fence.ReleaseAndGetAddressOf())));
-            fenceEvent = CreateEvent(nullptr, FALSE, FALSE, nullptr);
+            fenceEvent = ::CreateEvent(nullptr, FALSE, FALSE, nullptr);
             CHECK(fenceEvent != nullptr);
 
             ComPtr<ID3D12GraphicsCommandList> cmdList;
@@ -495,8 +503,20 @@ namespace Conformance
     {
         graphicsBinding = XrGraphicsBindingD3D12KHR{XR_TYPE_GRAPHICS_BINDING_D3D12_KHR};
         d3d12CmdQueue.Reset();
-        d3d12Device.Reset();
+        fence.Reset();
+        if (fenceEvent != INVALID_HANDLE_VALUE) {
+            ::CloseHandle(fenceEvent);
+            fenceEvent = INVALID_HANDLE_VALUE;
+        }
+        rootSignature.Reset();
+        pipelineStates.clear();
+        cubeVertexBuffer.Reset();
+        cubeIndexBuffer.Reset();
+        rtvHeap.Reset();
+        dsvHeap.Reset();
         swapchainImageContextMap.clear();
+
+        d3d12Device.Reset();
         lastSwapchainImage = nullptr;
     }
 
@@ -780,9 +800,9 @@ namespace Conformance
         return *it;
     }
 
-    int64_t D3D12GraphicsPlugin::GetRGBA8Format(bool sRGB) const
+    int64_t D3D12GraphicsPlugin::GetSRGBA8Format() const
     {
-        return sRGB ? DXGI_FORMAT_R8G8B8A8_UNORM_SRGB : DXGI_FORMAT_R8G8B8A8_UNORM;
+        return DXGI_FORMAT_R8G8B8A8_UNORM_SRGB;
     }
 
     std::shared_ptr<IGraphicsPlugin::SwapchainImageStructs>

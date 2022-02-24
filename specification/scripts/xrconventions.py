@@ -1,6 +1,6 @@
 #!/usr/bin/python3 -i
 #
-# Copyright (c) 2013-2021, The Khronos Group Inc.
+# Copyright (c) 2013-2022, The Khronos Group Inc.
 #
 # SPDX-License-Identifier: Apache-2.0
 
@@ -10,7 +10,7 @@
 import re
 from pathlib import Path
 
-from conventions import ConventionsBase
+from spec_tools.conventions import ConventionsBase
 
 # Tokenize into "words"
 # The leading named groups are for "special cases" per spec "Implicit Valid Usage" section 2.7.7

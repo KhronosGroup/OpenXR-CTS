@@ -1,6 +1,6 @@
 #!/usr/bin/python3 -i
 #
-# Copyright (c) 2017-2021, The Khronos Group Inc.
+# Copyright (c) 2017-2022, The Khronos Group Inc.
 # Copyright (c) 2017-2019 Valve Corporation
 # Copyright (c) 2017-2019 LunarG, Inc.
 #
@@ -70,7 +70,6 @@ class ConformanceGenerator(AutomaticSourceOutputGenerator):
     #   self            the ConformanceLayerBaseGenerator object
     def endFile(self):
         sorted_cmds = self.core_commands + self.ext_commands
-        null_ok=set()
         file_data = self.template.render(
             gen=self,
             registry=self.registry,

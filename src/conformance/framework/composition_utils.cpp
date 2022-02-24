@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2021, The Khronos Group Inc.
+// Copyright (c) 2019-2022, The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -129,11 +129,11 @@ namespace Conformance
         XRC_CHECK_THROW_XRCMD(xrSyncActions(m_session, &syncInfo));
     }
 
-    CompositionHelper::CompositionHelper(const char* testName)
+    CompositionHelper::CompositionHelper(const char* testName, const std::vector<const char*>& additionalEnabledExtensions)
     {
         m_primaryViewType = GetGlobalData().GetOptions().viewConfigurationValue;
 
-        XRC_CHECK_THROW_XRCMD(CreateBasicInstance(m_instance.resetAndGetAddress()));
+        XRC_CHECK_THROW_XRCMD(CreateBasicInstance(m_instance.resetAndGetAddress(), true, additionalEnabledExtensions));
 
         m_eventQueue = std::unique_ptr<EventQueue>(new EventQueue(m_instance.get()));
         m_privateEventReader = std::unique_ptr<EventReader>(new EventReader(*m_eventQueue));
@@ -156,7 +156,13 @@ namespace Conformance
             }
         }
 
-        m_defaultColorFormat = GetGlobalData().graphicsPlugin->SelectColorSwapchainFormat(swapchainFormats.data(), swapchainFormats.size());
+        if (GetGlobalData().IsUsingGraphicsPlugin()) {
+            m_defaultColorFormat =
+                GetGlobalData().graphicsPlugin->SelectColorSwapchainFormat(swapchainFormats.data(), swapchainFormats.size());
+        }
+        else {
+            m_defaultColorFormat = static_cast<uint64_t>(-1);
+        }
 
         m_viewSpace = CreateReferenceSpace(XR_REFERENCE_SPACE_TYPE_VIEW, XrPosef{{0, 0, 0, 1}, {0, 0, 0}});
 
@@ -186,9 +192,11 @@ namespace Conformance
         xrDestroySession(m_session);
 
         GlobalData& globalData = GetGlobalData();
-        auto graphicsPlugin = globalData.GetGraphicsPlugin();
-        if (graphicsPlugin->IsInitialized()) {
-            graphicsPlugin->ShutdownDevice();
+        if (globalData.IsUsingGraphicsPlugin()) {
+            auto graphicsPlugin = globalData.GetGraphicsPlugin();
+            if (graphicsPlugin->IsInitialized()) {
+                graphicsPlugin->ShutdownDevice();
+            }
         }
     }
 
@@ -360,6 +368,10 @@ namespace Conformance
 
     XrSwapchain CompositionHelper::CreateSwapchain(const XrSwapchainCreateInfo& createInfo)
     {
+        if (!GetGlobalData().IsUsingGraphicsPlugin()) {
+            return XR_NULL_HANDLE;
+        }
+
         XrSwapchain swapchain;
         XRC_CHECK_THROW_XRCMD(xrCreateSwapchain(m_session, &createInfo, &swapchain));
 
@@ -371,6 +383,7 @@ namespace Conformance
         // Cache the swapchain image structs.
         uint32_t imageCount;
         XRC_CHECK_THROW_XRCMD(xrEnumerateSwapchainImages(swapchain, 0, &imageCount, nullptr));
+
         std::shared_ptr<Conformance::IGraphicsPlugin::SwapchainImageStructs> swapchainImages =
             GetGlobalData().graphicsPlugin->AllocateSwapchainImageStructs(imageCount, createInfo);
         XRC_CHECK_THROW_XRCMD(xrEnumerateSwapchainImages(swapchain, imageCount, &imageCount, swapchainImages->imagePtrVector[0]));
@@ -397,17 +410,24 @@ namespace Conformance
         return CreateStaticSwapchainImage(image);
     }
 
-    XrSwapchain CompositionHelper::CreateStaticSwapchainImage(const RGBAImage& rgbaImage, bool sRGB)
+    XrSwapchain CompositionHelper::CreateStaticSwapchainImage(const RGBAImage& rgbaImage)
     {
+        if (!GetGlobalData().IsUsingGraphicsPlugin()) {
+            return XR_NULL_HANDLE;
+        }
+
         // The swapchain format must be R8G8B8A8 UNORM to match the RGBAImage format.
-        const int64_t format = GetGlobalData().graphicsPlugin->GetRGBA8Format(sRGB);
+        const int64_t format = GetGlobalData().graphicsPlugin->GetSRGBA8Format();
         auto swapchainCreateInfo =
             DefaultColorSwapchainCreateInfo(rgbaImage.width, rgbaImage.height, XR_SWAPCHAIN_CREATE_STATIC_IMAGE_BIT, format);
 
         const XrSwapchain swapchain = CreateSwapchain(swapchainCreateInfo);
 
+        RGBAImage srgbImage = rgbaImage;
+        if (!rgbaImage.isSrgb)
+            srgbImage.ConvertToSRGB();
         AcquireWaitReleaseImage(swapchain, [&](const XrSwapchainImageBaseHeader* swapchainImage, uint64_t format) {
-            GetGlobalData().graphicsPlugin->CopyRGBAImage(swapchainImage, format, 0, rgbaImage);
+            GetGlobalData().graphicsPlugin->CopyRGBAImage(swapchainImage, format, 0, srgbImage);
         });
 
         return swapchain;
@@ -417,13 +437,14 @@ namespace Conformance
     {
         std::lock_guard<std::mutex> lock(m_mutex);
 
-        // Look up the swapchain creation details to get default width/height.
-        auto swapchainInfoIt = m_createdSwapchains.find(swapchain);
-        XRC_CHECK_THROW_MSG(swapchainInfoIt != m_createdSwapchains.end(), "Not a tracked swapchain");
-
         XrSwapchainSubImage subImage;
         subImage.swapchain = swapchain;
-        subImage.imageRect = {{0, 0}, {(int32_t)swapchainInfoIt->second.width, (int32_t)swapchainInfoIt->second.height}};
+        if (GetGlobalData().IsUsingGraphicsPlugin()) {
+            // Look up the swapchain creation details to get default width/height.
+            auto swapchainInfoIt = m_createdSwapchains.find(swapchain);
+            XRC_CHECK_THROW_MSG(swapchainInfoIt != m_createdSwapchains.end(), "Not a tracked swapchain");
+            subImage.imageRect = {{0, 0}, {(int32_t)swapchainInfoIt->second.width, (int32_t)swapchainInfoIt->second.height}};
+        }
         subImage.imageArrayIndex = imageArrayIndex;
         return subImage;
     }
@@ -480,17 +501,12 @@ namespace Conformance
         }
     }
 
-    XrCompositionLayerBaseHeader* SimpleProjectionLayerHelper::GetProjectionLayer() const
-    {
-        return reinterpret_cast<XrCompositionLayerBaseHeader*>(m_projLayer);
-    }
-
-    void SimpleProjectionLayerHelper::UpdateProjectionLayer(const XrFrameState& frameState, const std::vector<Cube> cubes)
+    XrCompositionLayerBaseHeader* SimpleProjectionLayerHelper::TryGetUpdatedProjectionLayer(const XrFrameState& frameState,
+                                                                                            const std::vector<Cube> cubes)
     {
         auto viewData = m_compositionHelper.LocateViews(m_localSpace, frameState.predictedDisplayTime);
         const auto& viewState = std::get<XrViewState>(viewData);
 
-        std::vector<XrCompositionLayerBaseHeader*> layers;
         if (viewState.viewStateFlags & XR_VIEW_STATE_POSITION_VALID_BIT && viewState.viewStateFlags & XR_VIEW_STATE_ORIENTATION_VALID_BIT) {
             const auto& views = std::get<std::vector<XrView>>(viewData);
 
@@ -505,6 +521,12 @@ namespace Conformance
                         GetGlobalData().graphicsPlugin->RenderView(m_projLayer->views[view], swapchainImage, format, cubes);
                     });
             }
+
+            return reinterpret_cast<XrCompositionLayerBaseHeader*>(m_projLayer);
+        }
+        else {
+            // Cannot use the projection layer because the swapchains it uses may not have ever been acquired and released.
+            return nullptr;
         }
     }
 }  // namespace Conformance

@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2021, The Khronos Group Inc.
+// Copyright (c) 2019-2022, The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -58,6 +58,9 @@ void ValidateXrVector3f(ConformanceHooksBase* conformanceHook, const XrVector3f&
 
 MAKE_IS_VALID_ENUM_VALUE(XrSessionState, false);
 MAKE_IS_VALID_ENUM_VALUE(XrReferenceSpaceType, false);
+MAKE_IS_VALID_ENUM_VALUE(XrPerfSettingsDomainEXT, false);
+MAKE_IS_VALID_ENUM_VALUE(XrPerfSettingsSubDomainEXT, false);
+MAKE_IS_VALID_ENUM_VALUE(XrPerfSettingsNotificationLevelEXT, true);
 
 template <typename TEnum>
 void ValidateXrEnum(ConformanceHooksBase* conformanceHook, TEnum value, const char* valueName, const char* xrFunctionName)

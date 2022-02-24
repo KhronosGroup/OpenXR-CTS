@@ -1,4 +1,4 @@
-# Copyright (c) 2013-2021, The Khronos Group Inc.
+# Copyright (c) 2013-2022, The Khronos Group Inc.
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -44,7 +44,7 @@ ifneq (,$(strip $(VERY_STRICT)))
 ASCIIDOC := $(ASCIIDOC) --failure-level WARN
 endif
 
-SPECREVISION = 1.0.14
+SPECREVISION = 1.0.22
 REVISION_COMPONENTS = $(subst ., ,$(SPECREVISION))
 MAJORMINORVER = $(word 1,$(REVISION_COMPONENTS)).$(word 2,$(REVISION_COMPONENTS))
 
@@ -64,6 +64,8 @@ SCRIPTS       := ./scripts
 SPECTOOLS     := $(SCRIPTS)/spec_tools
 XRAPI         := scripts/xrapi.py
 METADIR       := sources/chapters/extensions/meta
+
+VK_REF_PAGE_ROOT := https://www.khronos.org/registry/vulkan/specs/1.2-extensions/man/html
 
 # Gets built automatically
 ASCIIDOCTOR_TARGETS :=
@@ -96,8 +98,9 @@ default:
 	$(ECHO) "all:              build as many of these as possible: header header-test html pdf styleguide loader build-examples check-spec-links"
 
 	@if [ -d sources/chapters ] && [ -d loader ]; then \
-	    echo "release:          build header html pdf manhtmlpages and copy output to an OpenXR-Registry-like layout"; fi
-
+	    echo "release-htmlpdf:  build html pdf and copy output to an OpenXR-Registry-like layout"; \
+	    echo "release:          build html pdf manhtmlpages loader styleguide extprocess and copy output to an OpenXR-Registry-like layout"; \
+	fi
 	$(ECHO) "reflow:           reflow AsciiDoctor source files in-place"
 	$(ECHO) "clean_dirt:       remove intermediate files"
 	$(ECHO) "clean:            remove targets and intermediate files"
@@ -107,6 +110,9 @@ default:
 	$(ECHO) "Pass VERBOSE=1 to invoke asciidoctor with the --verbose option and genxr.py without the -q option"
 	$(ECHO) "Pass STRICT=1 to invoke asciidoctor with the --failure-level ERROR option"
 	$(ECHO) "Pass VERY_STRICT=1 to invoke asciidoctor with the --failure-level WARN option"
+	$(ECHO) "Pass RELEASE=1 to turn off all asciidoctor date/timestamps for a reproducible release build"
+	@if [ -d sources/chapters ] && [ -d loader ]; then \
+	    echo "Pass some string for RELEASE_SPECS_SUFFIX to add a suffix to the version-numbered directory for the release targets"; fi
 
 ################################################
 # Store our build configuration in a file, and force re-generation if it changes.
@@ -141,7 +147,7 @@ $(DEFINESHEAD): ../include/openxr/openxr_platform_defines.h
 	$(QUIET)$(MKDIR) $(@D)
 	$(QUIET)$(CP) $< $@
 
-# Named target to geneate all headers
+# Named target to generate all headers
 header: $(GENHEADERS) $(DEFINESHEAD)
 .PHONY: header
 
@@ -166,7 +172,7 @@ BASIC_GENERATED_DEPENDS := \
   $(SCRIPTS)/reg.py \
   $(SCRIPTS)/generator.py \
   $(SPECTOOLS)/util.py \
-  $(SCRIPTS)/conventions.py \
+  $(SPECTOOLS)/conventions.py \
   $(SCRIPTS)/xrconventions.py \
   config_stamp \
   Makefile
@@ -277,8 +283,10 @@ $(EXTPROCESSGUIDE): $(EXTPROCESSSRC)
 
 COMMONDOCS = $(SPECSRC) $(SPECFILES) $(GENINCLUDE) $(GENDEPENDS)
 
+SPEC_FILENAME_STEM := openxr
+
 ## HTML
-HTMLSPEC      := $(OUTDIR)/openxr.html
+HTMLSPEC      := $(OUTDIR)/$(SPEC_FILENAME_STEM).html
 html: $(HTMLSPEC)
 
 # Use the AsciiDoctor rule
@@ -291,8 +299,8 @@ $(HTMLSPEC): $(COMMONDOCS)
 $(HTMLSPEC): POSTPROCESS=$(QUIET)$(PYTHON) $(SCRIPTS)/genanchorlinks.py $@ $@
 
 ## PDF
-PDFSPEC       := $(OUTDIR)/openxr.pdf
-PDFA4SPEC       := $(OUTDIR)/openxr.a4.pdf
+PDFSPEC       := $(OUTDIR)/$(SPEC_FILENAME_STEM).pdf
+PDFA4SPEC     := $(OUTDIR)/$(SPEC_FILENAME_STEM).a4.pdf
 
 pdf pdfLetter: $(PDFSPEC)
 pdfA4: $(PDFA4SPEC)
@@ -326,11 +334,8 @@ ifeq ($(GITBRANCH),)
 GITBRANCH  := $(shell echo `git symbolic-ref --short HEAD`)
 endif
 GITREMARK  ?= from git branch: $(GITBRANCH)
-SPECREMARK ?= $(GITREMARK) \
-             commit: $(shell echo `git log -1 --format="%H"`)
 
 ATTRIBOPTS   = -a revnumber="$(SPECREVISION)" \
-               -a revdate="$(SPECDATE)" \
                -a revremark="$(SPECREMARK)" \
                -a apititle="$(APITITLE)" \
                -a stem=latexmath \
@@ -341,6 +346,20 @@ ATTRIBOPTS   = -a revnumber="$(SPECREVISION)" \
                $(EXTATTRIBS)
 
 ADOCOPTS = --doctype book -a data-uri -r $(CURDIR)/scripts/openxr-macros.rb $(ATTRIBOPTS)
+
+ifneq (,$(strip $(RELEASE)))
+# No dates or internal commit hashes in release builds for reproducibility
+ATTRIBOPTS   += -a revdate!
+ATTRIBOPTS   += -a last-update-label!
+ATTRIBOPTS   += -a reproducible
+SPECREMARK   ?= $(GITREMARK)
+
+else
+ATTRIBOPTS   += -a revdate="$(SPECDATE)"
+SPECREMARK   ?= $(GITREMARK) \
+                commit: $(shell echo `git log -1 --format="%H"`)
+
+endif
 
 ifneq (,$(strip $(KHRONOS_SPEC_LICENSED)))
 # Enable photo of JP in dedication: not CC-BY-4.0,
@@ -390,9 +409,13 @@ MANCOPYRIGHT = $(MANDIR)/copyright-ccby.txt $(MANDIR)/footer.txt
 MANGENERATED = $(filter-out $(MANCOPYRIGHT),$(wildcard $(MANDIR)/*))
 MANHTML      = $(MANSOURCES:$(MANDIR)/%.txt=$(MANHTMLDIR)/%.html)
 MANDEPS      = $(MANCOPYRIGHT) $(GENINCLUDE) $(GENDEPENDS)
+HTML_SPEC_RELATIVE ?= ../../$(SPEC_FILENAME_STEM).html
 MANATTRIBOPTS := -a stylesheet=khronos.css \
-				-a stylesdir=$(CURDIR)/config \
-				-a html_spec_relative='../../openxr.html' \
+				 -a stylesdir=$(CURDIR)/config \
+				 -a html_spec_relative='$(HTML_SPEC_RELATIVE)' \
+				 -a imagesdir=$(CURDIR)/sources \
+				 -a vkRefPageRoot='$(VK_REF_PAGE_ROOT)'
+
 
 # Pure makefile lowercase function, generated by a script.
 make_lower = $(subst A,a,$(subst B,b,$(subst C,c,$(subst D,d,$(subst E,e,$(subst F,f,$(subst G,g,$(subst H,h,$(subst I,i,$(subst J,j,$(subst K,k,$(subst L,l,$(subst M,m,$(subst N,n,$(subst O,o,$(subst P,p,$(subst Q,q,$(subst R,r,$(subst S,s,$(subst T,t,$(subst U,u,$(subst V,v,$(subst W,w,$(subst X,x,$(subst Y,y,$(subst Z,z,$(1)))))))))))))))))))))))))))
@@ -463,7 +486,7 @@ endif
 $(EXAMPLES_MAKEFILE): $(EXAMPLES_SCRIPT)
 	$(QUIET)$(PYTHON) $< --makefile=$@ --line_numbers $(EXTRACT_QUIET)
 
-build-examples: $(EXAMPLES_MAKEFILE) $(HEADER)
+build-examples: $(EXAMPLES_MAKEFILE) header
 	$(QUIET)$(MAKE) -f $(EXAMPLES_MAKEFILE)
 .PHONY: build-examples
 
@@ -482,6 +505,7 @@ check-spec-links:
 	$(QUIET)if [ -f $(CHECK_MARKUP_SCRIPT) ] && [ -f $(SPECSRC) ]; then $(CHECK_MARKUP_SCRIPT) -Werror; fi
 	$(QUIET)if [ -f $(SPECSRC) ]; then $(PYTHON) $(CHECK_SPEC_LINKS_SCRIPT); fi
 	$(QUIET)if [ -f checkXml.sh ] && [ -f registry/registry.rnc ]; then env FAIL_IF_COULD_NOT_VALIDATE=false ./checkXml.sh; fi
+	$(QUIET)if [ -f checkSchematron.sh ] && [ -f registry/registry.sch ]; then ./checkSchematron.sh; fi
 	$(QUIET)$(PYTHON) $(SCRIPTS)/xml_consistency.py
 
 .PHONY: check-spec-links
@@ -511,17 +535,29 @@ all:
 
 
 ################################################
-# Meta build for releases. Also copies into approximately the right layout for the OpenXR-Registry repo.
-REGISTRYOUTDIR = $(OUTDIR)/../registry-release/specs/$(MAJORMINORVER)
-release: header html pdf manhtmlpages loader styleguide extprocess
+# Meta builds for releases. Also copies into approximately the right layout for the OpenXR-Registry repo.
+REGISTRYOUTDIR = $(OUTDIR)/../registry-release/specs/$(MAJORMINORVER)$(RELEASE_SPECS_SUFFIX)
+
+$(REGISTRYOUTDIR):
+	$(QUIET)$(MKDIR) $@
+
+$(REGISTRYOUTDIR)/pdf $(REGISTRYOUTDIR)/html $(REGISTRYOUTDIR)/man $(REGISTRYOUTDIR)/headers: $(REGISTRYOUTDIR)
+	$(QUIET)$(MKDIR) $@
+
+$(REGISTRYOUTDIR)/headers/openxr: $(REGISTRYOUTDIR)/headers
+	$(QUIET)$(MKDIR) $@
+
+release-htmlpdf: html pdf $(REGISTRYOUTDIR)/pdf $(REGISTRYOUTDIR)/html
 	-asciidoctor-pdf-optimize $(PDFSPEC)
-	$(QUIET)$(MKDIR) $(REGISTRYOUTDIR)/pdf
-	$(QUIET)$(CP) $(PDFSPEC) $(REGISTRYOUTDIR)/pdf/xrspec.pdf
-	$(QUIET)$(MKDIR) $(REGISTRYOUTDIR)/html
-	$(QUIET)$(CP) $(HTMLSPEC) $(REGISTRYOUTDIR)/html/xrspec.html
-	$(QUIET)$(CP) $(OUTDIR)/styleguide.html $(OUTDIR)/extprocess.html $(REGISTRYOUTDIR)
-	$(QUIET)$(MKDIR) $(REGISTRYOUTDIR)/man
+	$(QUIET)$(CP) $(PDFSPEC) $(REGISTRYOUTDIR)/pdf/$(SPEC_FILENAME_STEM).pdf
+	$(QUIET)$(CP) $(HTMLSPEC) $(REGISTRYOUTDIR)/html/$(SPEC_FILENAME_STEM).html
+.PHONY: release-htmlpdf
+
+
+release: release-htmlpdf manhtmlpages loader styleguide extprocess $(REGISTRYOUTDIR) $(REGISTRYOUTDIR)/man
+	$(QUIET)$(CP) $(OUTDIR)/styleguide.html $(OUTDIR)/extprocess.html $(OUTDIR)/loader.html $(REGISTRYOUTDIR)
 	$(QUIET)$(CP) -R $(MANHTMLDIR) $(REGISTRYOUTDIR)/man/html
+.PHONY: release
 
 ################################################
 ## Clean targets

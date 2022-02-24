@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 #
-# Copyright (c) 2016-2021, The Khronos Group Inc.
+# Copyright (c) 2016-2022, The Khronos Group Inc.
 #
 # SPDX-License-Identifier: Apache-2.0
 
@@ -33,6 +33,7 @@ import re
 import sys
 from reflib import loadFile, logDiag, logWarn, setLogFile
 from reflow_count import startVUID
+from pathlib import Path
 
 from xrconventions import OpenXRConventions as APIConventions
 conventions = APIConventions()
@@ -63,7 +64,8 @@ pnamePat = re.compile(r'pname:(?P<param>\w+)')
 # Markup that's OK in a contiguous paragraph but otherwise passed through
 #   .anything
 #   === Section Titles
-endParaContinue = re.compile(r'^(\..*|=+ .+)$')
+#   image::path_to_image[attributes]  (apparently a single colon is OK but less idiomatic)
+endParaContinue = re.compile(r'^(\..*|=+ .+|image:.*\[.*\])$')
 
 # Markup for block delimiters whose contents *should* be reformatted
 #   --   (exactly two)  (open block)
@@ -92,7 +94,8 @@ blockPassthrough = re.compile(r'^(\|={3,}|[`]{3}|[-.+/]{4,})$')
 #   :: bullet (no longer supported by asciidoctor 2)
 #   {empty}:: bullet
 #   1. list item
-beginBullet = re.compile(r'^ *([-*.]+|\{empty\}::|::|[0-9]+[.]) ')
+#   <1> source listing callout
+beginBullet = re.compile(r'^ *([-*.]+|\{empty\}::|::|[0-9]+[.]|<([0-9]+)>) ')
 
 # Text that (may) not end sentences
 
@@ -542,7 +545,7 @@ def apiMatch(oldname, newname):
 def reflowFile(filename, args):
     logDiag('reflow: filename', filename)
 
-    lines = loadFile(filename)
+    lines, newline_string = loadFile(filename)
     if lines is None:
         return
 
@@ -553,12 +556,19 @@ def reflowFile(filename, args):
     if args.overwrite:
         outFilename = filename
     else:
-        outFilename = args.outDir + '/' + os.path.basename(filename) + args.suffix
+        outDir = Path(args.outDir).resolve()
+        # TOCTOU-safe directory creation
+        try:
+            outDir.mkdir()
+        except FileExistsError:
+            pass
+
+        outFilename = str(outDir / (os.path.basename(filename) + args.suffix))
 
     try:
-        fp = open(outFilename, 'w', encoding='utf8')
+        fp = open(outFilename, 'w', encoding='utf8', newline=newline_string)
     except:
-        logWarn('Cannot open output file', filename, ':', sys.exc_info()[0])
+        logWarn('Cannot open output file', outFilename, ':', sys.exc_info()[0])
         return
 
     state = ReflowState(filename,

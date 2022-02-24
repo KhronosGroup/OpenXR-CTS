@@ -1,6 +1,6 @@
 #!/usr/bin/python3 -i
 #
-# Copyright (c) 2017-2021, The Khronos Group Inc.
+# Copyright (c) 2017-2022, The Khronos Group Inc.
 # Copyright (c) 2017-2019 Valve Corporation
 # Copyright (c) 2017-2019 LunarG, Inc.
 #
@@ -82,7 +82,7 @@ class LoaderSourceOutputGenerator(AutomaticSourceOutputGenerator):
 
     def outputGeneratedHeaderWarning(self):
         generated_warning = ''
-        generated_warning += '// Copyright (c) 2017-2021, The Khronos Group Inc.\n'
+        generated_warning += '// Copyright (c) 2017-2022, The Khronos Group Inc.\n'
         generated_warning += '// Copyright (c) 2017-2019 Valve Corporation\n'
         generated_warning += '// Copyright (c) 2017-2019 LunarG, Inc.\n'
         # Broken string is to avoid confusing the REUSE tool here.
@@ -234,7 +234,7 @@ class LoaderSourceOutputGenerator(AutomaticSourceOutputGenerator):
 
                         # These should be mutually exclusive - verify it.
                         assert((not cur_cmd.is_destroy_disconnect) or
-                                (pointer_count == 0))
+                               (pointer_count == 0))
                     else:
                         tramp_variable_defines += self.printCodeGenErrorMessage(
                             'Command %s does not have an OpenXR Object handle as the first parameter.' % cur_cmd.name)
@@ -285,7 +285,6 @@ class LoaderSourceOutputGenerator(AutomaticSourceOutputGenerator):
             generated_funcs += ');\n'
 
             generated_funcs += '    }\n'
-
 
             if has_return:
                 generated_funcs += '    return result;\n'

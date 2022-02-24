@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2021, The Khronos Group Inc.
+// Copyright (c) 2017-2022, The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 #pragma once
@@ -18,7 +18,7 @@ namespace Conformance
         DirectX::XMFLOAT4X4 ViewProjection;
     };
 
-    // Separate entrypoints for the vertex and pixel shader functions.
+    // Separate entry points for the vertex and pixel shader functions.
     constexpr char ShaderHlsl[] = R"_(
     struct PSVertex {
         float4 Pos : SV_POSITION;

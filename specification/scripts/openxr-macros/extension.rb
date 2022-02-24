@@ -1,4 +1,4 @@
-# Copyright (c) 2016-2021, The Khronos Group Inc.
+# Copyright (c) 2016-2022, The Khronos Group Inc.
 #
 # SPDX-License-Identifier: Apache-2.0
 
@@ -33,21 +33,21 @@ end
 
 class CodeInlineMacroBase < OpenXRInlineMacroBase
     def process parent, target, attributes
-        
+
         create_inline parent, :quoted, '<code>' + target + '</code>'
     end
 end
 
 class StrongInlineMacroBase < OpenXRInlineMacroBase
     def process parent, target, attributes
-        
+
         create_inline parent, :quoted, '<code>' + target + '</code>'
     end
 end
 
 class ParamInlineMacroBase < OpenXRInlineMacroBase
     def process parent, target, attributes
-        
+
         create_inline parent, :quoted, '<code>' + target + '</code>'
     end
 end

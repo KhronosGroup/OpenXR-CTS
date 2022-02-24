@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2021, The Khronos Group Inc.
+// Copyright (c) 2019-2022, The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -39,7 +39,6 @@ namespace Conformance
         REQUIRE(runResult == FrameIterator::RunResult::Success);
 
         // Render one frame to get a predicted display time for the xrLocateSpace calls.
-        //! @todo can't get a time this way for headless - abstract "get a time"?
         runResult = frameIterator.SubmitFrame();
         REQUIRE(runResult == FrameIterator::RunResult::Success);
 

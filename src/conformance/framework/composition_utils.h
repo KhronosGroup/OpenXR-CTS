@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2021, The Khronos Group Inc.
+// Copyright (c) 2019-2022, The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -76,7 +76,7 @@ namespace Conformance
 
     struct CompositionHelper
     {
-        CompositionHelper(const char* testName);
+        CompositionHelper(const char* testName, const std::vector<const char*>& additionalEnabledExtensions = std::vector<const char*>());
         ~CompositionHelper();
 
         InteractionManager& GetInteractionManager();
@@ -111,7 +111,7 @@ namespace Conformance
 
         XrSwapchain CreateStaticSwapchainSolidColor(const XrColor4f& color);
 
-        XrSwapchain CreateStaticSwapchainImage(const RGBAImage& rgbaImage, bool sRGB = false);
+        XrSwapchain CreateStaticSwapchainImage(const RGBAImage& rgbaImage);
 
         XrSwapchainSubImage MakeDefaultSubImage(XrSwapchain swapchain, uint32_t imageArrayIndex = 0);
 
@@ -154,10 +154,10 @@ namespace Conformance
     {
     public:
         SimpleProjectionLayerHelper(CompositionHelper& compositionHelper);
-        XrCompositionLayerBaseHeader* GetProjectionLayer() const;
-        void UpdateProjectionLayer(const XrFrameState& frameState,
-                                   const std::vector<Cube> cubes = {Cube::Make({-1, 0, -2}), Cube::Make({1, 0, -2}),
-                                                                    Cube::Make({0, -1, -2}), Cube::Make({0, 1, -2})});
+        XrCompositionLayerBaseHeader* TryGetUpdatedProjectionLayer(const XrFrameState& frameState,
+                                                                   const std::vector<Cube> cubes = {
+                                                                       Cube::Make({-1, 0, -2}), Cube::Make({1, 0, -2}),
+                                                                       Cube::Make({0, -1, -2}), Cube::Make({0, 1, -2})});
         XrSpace GetLocalSpace() const
         {
             return m_localSpace;

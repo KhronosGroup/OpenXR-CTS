@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2021, The Khronos Group Inc.
+// Copyright (c) 2019-2022, The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -124,7 +124,7 @@ namespace Conformance
 
         int64_t SelectDepthSwapchainFormat(const int64_t* imageFormatArray, size_t count) const override;
 
-        int64_t GetRGBA8Format(bool sRGB) const override;
+        int64_t GetSRGBA8Format() const override;
 
         std::shared_ptr<IGraphicsPlugin::SwapchainImageStructs>
         AllocateSwapchainImageStructs(size_t size, const XrSwapchainCreateInfo& swapchainCreateInfo) override;
@@ -228,7 +228,7 @@ namespace Conformance
 
     std::vector<std::string> OpenGLESGraphicsPlugin::GetInstanceExtensions() const
     {
-        return {XR_KHR_OPENGL_ES_ENABLE_EXTENSION_NAME, XR_KHR_ANDROID_SURFACE_SWAPCHAIN_EXTENSION_NAME};
+        return {XR_KHR_OPENGL_ES_ENABLE_EXTENSION_NAME};
     }
 
     const XrBaseInStructure* OpenGLESGraphicsPlugin::GetGraphicsBinding() const
@@ -836,9 +836,9 @@ namespace Conformance
         return *it;
     }
 
-    int64_t OpenGLESGraphicsPlugin::GetRGBA8Format(bool sRGB) const
+    int64_t OpenGLESGraphicsPlugin::GetSRGBA8Format() const
     {
-        return sRGB ? GL_SRGB8_ALPHA8 : GL_RGBA8;
+        return GL_SRGB8_ALPHA8;
     }
 
     std::shared_ptr<IGraphicsPlugin::SwapchainImageStructs>
@@ -1030,15 +1030,6 @@ namespace Conformance
         GL(glUseProgram(0));
         GL(glDisable(GL_SCISSOR_TEST));
         GL(glBindFramebuffer(GL_FRAMEBUFFER, 0));
-
-        // Not sure what's intended here, but it doesn't work for a pbuffer context,
-        // which is how this function is being called.
-
-        // Swap our window every other eye for RenderDoc
-        static int everyOther = 0;
-        if ((everyOther++ & 1) != 0) {
-            ksGpuWindow_SwapBuffers(&window);
-        }
     }
 
 }  // namespace Conformance

@@ -438,7 +438,7 @@ class MacroCheckerFile(object):
         if self.pname_data is not None and '* pname:' in line:
             context_entity = self.pname_data.entity
             if self.pname_mentions[context_entity] is None:
-                # First time seeting * pname: after an api include, prepare the set that
+                # First time seeing * pname: after an api include, prepare the set that
                 # tracks
                 self.pname_mentions[context_entity] = set()
 
@@ -1135,14 +1135,24 @@ class MacroCheckerFile(object):
         line_context -- A MessageContext referring to the entire line.
         """
         data = self.checker.findEntity(referenced_entity)
-        if data:
-            # This is OK
-            return
         context = line_context
         match = re.search(r'\b{}\b'.format(referenced_entity), self.line)
         if match:
             context = self.storeMessageContext(
                 group=None, match=match)
+
+        if data and data.category == "enumvalues":
+            msg = ["Found reference page markup, with an enum value listed: {}".format(
+                referenced_entity)]
+            self.error(MessageId.REFPAGE_XREFS,
+                    msg,
+                    context=context)
+            return
+
+        if data:
+            # This is OK: we found it, and it's not an enum value
+            return
+
         msg = ["Found reference page markup, with an unrecognized entity listed: {}".format(
             referenced_entity)]
 

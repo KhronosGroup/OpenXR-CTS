@@ -1,6 +1,6 @@
 #!/usr/bin/python3 -i
 #
-# Copyright (c) 2013-2021, The Khronos Group Inc.
+# Copyright (c) 2013-2022, The Khronos Group Inc.
 #
 # SPDX-License-Identifier: Apache-2.0
 
@@ -9,16 +9,18 @@ from enum import Enum
 from functools import reduce
 from pathlib import Path
 
-from conventions import ProseListFormats as plf
 from generator import OutputGenerator, write
-from spec_tools.attributes import ExternSyncEntry, LengthEntry
+from spec_tools.attributes import (ExternSyncEntry, LengthEntry,
+                                   has_any_optional_in_param,
+                                   parse_optional_from_param)
+from spec_tools.conventions import ProseListFormats as plf
 from spec_tools.data_structures import DictOfStringSets
 from spec_tools.util import (findNamedElem, findTypedElem, getElemName,
                              getElemType)
 from spec_tools.validity import ValidityCollection, ValidityEntry
 
 
-class UnhandledCaseError(RuntimeError):
+class UnhandledCaseError(NotImplementedError):
     def __init__(self, msg=None):
         if msg:
             super().__init__('Got a case in the validity generator that we have not explicitly handled: ' + msg)
@@ -57,6 +59,11 @@ def _genericIsDisjoint(a, b):
         return False
     # if we never enter the loop...
     return True
+
+
+_WCHAR = "wchar_t"
+_CHAR = "char"
+_CHARACTER_TYPES = {_CHAR, _WCHAR}
 
 
 class StateRelationship(Enum):
@@ -396,10 +403,6 @@ class ValidityOutputGenerator(OutputGenerator):
                 write('****', file=fp)
                 write('', file=fp)
 
-    def paramIsPointer(self, param):
-        """Check if the parameter passed in is a pointer."""
-        tail = param.find('type').tail
-        return tail is not None and '*' in tail
 
     def paramIsStaticArray(self, param):
         """Check if the parameter passed in is a static array."""
@@ -418,9 +421,6 @@ class ValidityOutputGenerator(OutputGenerator):
 
         return param.find('name').tail[1:-1]
 
-    def paramIsArray(self, param):
-        """Check if the parameter passed in is a pointer to an array."""
-        return param.get('len') is not None
 
     def getHandleDispatchableAncestors(self, typename):
         """Get the ancestors of a handle object."""
@@ -444,7 +444,7 @@ class ValidityOutputGenerator(OutputGenerator):
 
     def isHandleOptional(self, param, params):
         # Simple, if it's optional, return true
-        if param.get('optional') is not None:
+        if has_any_optional_in_param(param):
             return True
 
         # If no validity is being generated, it usually means that validity is complex and not absolute, so let's say yes.
@@ -462,7 +462,7 @@ class ValidityOutputGenerator(OutputGenerator):
                 if other_param is None:
                     self.logMsg('warn', length.other_param_name,
                                 'is listed as a length for parameter', param, 'but no such parameter exists')
-                if other_param and other_param.get('optional'):
+                if other_param and has_any_optional_in_param(other_param):
                     return True
 
         return False
@@ -476,11 +476,12 @@ class ValidityOutputGenerator(OutputGenerator):
         entry = ValidityEntry(anchor=(param_name, 'parameter'))
 
         if self.paramIsStaticArray(param):
-            if paramtype != 'char':
+            if paramtype not in _CHARACTER_TYPES:
                 entry += 'Any given element of '
             return entry
 
-        is_optional = param.get('optional') is not None
+        optional = parse_optional_from_param(param)
+        is_optional = optional[0]
 
         if self.paramIsArray(param) and param.get('len') != LengthEntry.NULL_TERMINATED_STRING:
             # Find all the parameters that are called out as optional,
@@ -492,8 +493,7 @@ class ValidityOutputGenerator(OutputGenerator):
                     continue
 
                 other_param = findNamedElem(params, length.other_param_name)
-                other_param_optional = (other_param is not None) and (
-                    other_param.get('optional') is not None)
+                other_param_optional = has_any_optional_in_param(other_param)
 
                 if other_param is None or not other_param_optional:
                     # Don't care about not-found params or non-optional params
@@ -524,10 +524,9 @@ class ValidityOutputGenerator(OutputGenerator):
 
             return entry
 
-        if param.get('optional'):
+        if any(optional):
             # Don't generate this stub for bitflags
             type_category = self.getTypeCategory(paramtype)
-            is_optional = param.get('optional').split(',')[0] == 'true'
             if type_category != 'bitmask' and is_optional:
                 if self.paramIsArray(param) or self.paramIsPointer(param):
                     optional_val = self.null
@@ -568,14 +567,20 @@ class ValidityOutputGenerator(OutputGenerator):
                 entry += '. '
                 entry += see_also
 
-        if self.paramIsStaticArray(param) and paramtype == 'char':
+        optional = parse_optional_from_param(param)
+        if self.paramIsStaticArray(param) and paramtype in _CHARACTER_TYPES:
             # TODO this is a minor hack to determine if this is a command parameter or a struct member
             if self.paramIsConst(param) or blockname.startswith(self.conventions.type_prefix):
+                if paramtype != _CHAR:
+                    raise UnhandledCaseError("input arrays of wchar_t are not yet handled")
                 entry += 'a null-terminated UTF-8 string whose length is less than or equal to '
                 entry += self.staticArrayLength(param)
             else:
                 # This is a command's output parameter
-                entry += 'a character array of length %s ' % self.staticArrayLength(param)
+                entry += 'a '
+                if paramtype == _WCHAR:
+                    entry += "wide "
+                entry += 'character array of length %s ' % self.staticArrayLength(param)
             add_see_also(entry)
             validity += entry
             return validity
@@ -584,8 +589,10 @@ class ValidityOutputGenerator(OutputGenerator):
             # Arrays. These are hard to get right, apparently
 
             lengths = LengthEntry.parse_len_from_param(param)
+            if lengths is None:
+                raise RuntimeError("Logic error: decided this was an array but there's no len attribute")
 
-            for i, length in enumerate(LengthEntry.parse_len_from_param(param)):
+            for i, length in enumerate(lengths):
                 if i == 0:
                     # If the first index, make it singular.
                     entry += 'a '
@@ -630,7 +637,7 @@ class ValidityOutputGenerator(OutputGenerator):
                     # An array of void values is a byte array.
                     entry += 'byte'
 
-            elif paramtype == 'char':
+            elif paramtype == _CHAR:
                 # A null terminated array of chars is a string
                 if lengths[-1].null_terminated:
                     entry += 'UTF-8 string'
@@ -645,6 +652,12 @@ class ValidityOutputGenerator(OutputGenerator):
                     if not self.isStructAlwaysValid(paramtype):
                         entry += 'valid '
 
+            # Check if the array elements are optional
+            array_element_optional = len(optional) == len(lengths) + 1 \
+                and optional[-1]
+            if array_element_optional and self.getTypeCategory(paramtype) != 'bitmask':  # bitmask is handled later
+                entry += 'or dlink:' + self.conventions.api_prefix + 'NULL_HANDLE '
+
             entry += typetext
 
             # pluralize
@@ -658,12 +671,10 @@ class ValidityOutputGenerator(OutputGenerator):
             # Handle pointers - which are really special case arrays (i.e. they don't have a length)
             # TODO  should do something here if someone ever uses some intricate comma-separated `optional`
             pointercount = param.find('type').tail.count('*')
-
             # Treat void* as an int
             if paramtype == 'void':
-                optional = param.get('optional')
                 # If there is only void*, it is just optional int - we don't need any language.
-                if pointercount == 1 and optional is not None:
+                if pointercount == 1 and optional[0]:
                     return None  # early return
                 # Treat the inner-most void* as an int
                 pointercount -= 1
@@ -674,9 +685,14 @@ class ValidityOutputGenerator(OutputGenerator):
 
             # Handle void* and pointers to it
             if paramtype == 'void':
-                if optional is None or optional.split(',')[pointercount]:
-                    # The last void* is just optional int (e.g. to be filled by the impl.)
+                if not optional[pointercount]:
                     typetext = 'pointer value'
+                else:
+                    # The old conditional added "pointer value" if optional was not specified (which implies "false"),
+                    # or if optional[pointercount] was truthy, which just means non-empty string.
+                    # old comment:
+                    # The last void* is just optional int (e.g. to be filled by the impl.)
+                    raise UnhandledCaseError("Conditional previously was mixed")
 
             # If a value is "const" that means it won't get modified, so it must be valid going into the function.
             elif self.paramIsConst(param) and paramtype != 'void':
@@ -691,7 +707,7 @@ class ValidityOutputGenerator(OutputGenerator):
             # TODO does not really handle if someone tries something like optional="true,false"
             # TODO OpenXR has 0 or a valid combination of flags, for optional things.
             # Vulkan doesn't...
-            isMandatory = param.get('optional') is None
+            isMandatory = not optional[0]
             if not isMandatory:
                 entry += self.conventions.zero
                 entry += ' or '
@@ -707,8 +723,9 @@ class ValidityOutputGenerator(OutputGenerator):
 
     def handleRequiredBitmask(self, blockname, param, paramtype, entry):
         # TODO does not really handle if someone tries something like optional="true,false"
+        optional = parse_optional_from_param(param)
         if self.getTypeCategory(paramtype) != 'bitmask' or \
-                param.get('optional') is not None:
+                any(optional):
             return entry
         if self.paramIsPointer(param) and not self.paramIsArray(param):
             # This is presumably an output parameter
@@ -751,7 +768,7 @@ class ValidityOutputGenerator(OutputGenerator):
                                     or is_pointer
                                     or not self.isStructAlwaysValid(paramtype))
         typetext = None
-        if paramtype in ('void', 'char'):
+        if paramtype in ('void', _CHAR):
             # Chars and void are special cases - we call the impl function,
             # but don't use the typetext.
             # A null-terminated char array is a string, else it's chars.
@@ -1151,7 +1168,7 @@ class ValidityOutputGenerator(OutputGenerator):
                                if getElemName(param) in arraylengths)
 
         for param, param_name in array_length_params:
-            if param.get('optional') is not None:
+            if has_any_optional_in_param(param):
                 continue
 
             length = arraylengths[param_name]

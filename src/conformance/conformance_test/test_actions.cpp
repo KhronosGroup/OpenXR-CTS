@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2021, The Khronos Group Inc.
+// Copyright (c) 2019-2022, The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -36,6 +36,13 @@ using namespace Conformance;
 // If the component was included, 6 and 7 will be matched with the parent and component, otherwise 5 will be matched.
 const std::regex cInteractionSourcePathRegex("^((.+)/(input|output))/(([^/]+)|([^/]+)/([^/]+))$");
 
+// On android platforms sleeping the main thread stalls the interactive tests
+#ifdef XR_USE_PLATFORM_ANDROID
+const std::chrono::nanoseconds waitDelay = 0ms;
+#else
+const std::chrono::nanoseconds waitDelay = 5ms;
+#endif  // XR_USE_PLATFORM_ANDROID
+
 namespace
 {
     // Manages showing a quad with help text.
@@ -69,7 +76,7 @@ namespace
                     }
                     return false;
                 },
-                20s, 5ms);
+                20s, waitDelay);
 
             REQUIRE_MSG(focused, "Time out waiting for session focus");
             DisplayMessage("");
@@ -110,11 +117,19 @@ namespace
                     }
                 }
                 m_renderLoop.IterateFrame();
-
-                std::this_thread::sleep_for(5ms);
             }
 
             FAIL("Time out waiting for session focus on xrSyncActions");
+        }
+
+        // "Sleep", but keep the render loop going on this thread
+        template <class Rep, class Period>
+        void Sleep_For(const std::chrono::duration<Rep, Period>& sleep_duration)
+        {
+            const auto startTime = std::chrono::system_clock::now();
+            while (std::chrono::system_clock::now() - startTime < sleep_duration) {
+                m_renderLoop.IterateFrame();
+            }
         }
 
         bool EndFrame(const XrFrameState& frameState)
@@ -1108,8 +1123,7 @@ namespace Conformance
                             latestEventData = eventData;
                             return true;
                         }
-
-                        std::this_thread::sleep_for(10ms);
+                        actionLayerManager.IterateFrame();
                     }
                     return false;
                 };
@@ -1241,7 +1255,7 @@ namespace Conformance
                                 REQUIRE(actionStateBoolean.currentState);
                                 return false;
                             },
-                            20s, 100ms);
+                            20s, waitDelay);
 
                         actionLayerManager.DisplayMessage("Wait for 5s");
 
@@ -1256,7 +1270,7 @@ namespace Conformance
                                 REQUIRE_FALSE(actionStateBoolean.currentState);
                                 return false;
                             },
-                            5s, 100ms);
+                            5s, waitDelay);
                     }
                 }
 
@@ -1986,7 +2000,7 @@ namespace Conformance
                 XrActionStateGetInfo getInfo{XR_TYPE_ACTION_STATE_GET_INFO};
 
                 actionLayerManager.DisplayMessage("Use all controller inputs on\n" + topLevelPathString);
-                std::this_thread::sleep_for(1s);
+                actionLayerManager.Sleep_For(1s);
 
                 XrActionStateBoolean combinedBoolState{XR_TYPE_ACTION_STATE_BOOLEAN};
                 XrActionStateFloat combinedFloatState{XR_TYPE_ACTION_STATE_FLOAT};
@@ -2280,7 +2294,7 @@ namespace Conformance
 
                         return false;
                     },
-                    600s, 10ms);
+                    600s, waitDelay);
 
                 REQUIRE(seenActions.size() == actionCount);
                 REQUIRE_FALSE(waitForCombinedBools);
@@ -2288,7 +2302,7 @@ namespace Conformance
                 REQUIRE_FALSE(waitForCombinedVectors);
 
                 actionLayerManager.DisplayMessage("Release all inputs");
-                std::this_thread::sleep_for(2s);
+                actionLayerManager.Sleep_For(2s);
             }
 
             OPTIONAL_DISCONNECTABLE_DEVICE_INFO
@@ -2354,8 +2368,8 @@ namespace Conformance
                         };
 
                         actionLayerManager.DisplayMessage("Press any button when you feel the 3 second haptic vibration");
-                        actionLayerManager.GetRenderLoop().IterateFrame();
-                        std::this_thread::sleep_for(3s);
+                        actionLayerManager.IterateFrame();
+                        actionLayerManager.Sleep_For(3s);
 
                         hapticPacket.duration = std::chrono::duration_cast<std::chrono::nanoseconds>(3s).count();
                         REQUIRE_RESULT(xrApplyHapticFeedback(compositionHelper.GetSession(), &hapticActionInfo,
@@ -2374,7 +2388,7 @@ namespace Conformance
                                 actionLayerManager.GetRenderLoop().IterateFrame();
                                 return GetBooleanButtonState();
                             },
-                            15s, 100ms);
+                            15s, waitDelay);
                         REQUIRE_FALSE(currentBooleanAction == XR_NULL_HANDLE);
 
                         {
@@ -2385,8 +2399,8 @@ namespace Conformance
                         REQUIRE_RESULT(xrStopHapticFeedback(compositionHelper.GetSession(), &hapticActionInfo), XR_SUCCESS);
 
                         actionLayerManager.DisplayMessage("Press any button when you feel the short haptic pulse");
-                        actionLayerManager.GetRenderLoop().IterateFrame();
-                        std::this_thread::sleep_for(3s);
+                        actionLayerManager.IterateFrame();
+                        actionLayerManager.Sleep_For(3s);
 
                         hapticPacket.duration = XR_MIN_HAPTIC_DURATION;
                         REQUIRE_RESULT(xrApplyHapticFeedback(compositionHelper.GetSession(), &hapticActionInfo,
@@ -2404,7 +2418,7 @@ namespace Conformance
                                 actionLayerManager.GetRenderLoop().IterateFrame();
                                 return GetBooleanButtonState();
                             },
-                            15s, 100ms);
+                            15s, waitDelay);
                         REQUIRE_FALSE(currentBooleanAction == XR_NULL_HANDLE);
 
                         {
@@ -2414,7 +2428,7 @@ namespace Conformance
                     }
 
                     actionLayerManager.DisplayMessage("Release all inputs");
-                    std::this_thread::sleep_for(2s);
+                    actionLayerManager.Sleep_For(2s);
                 }
             }
 
@@ -2877,7 +2891,7 @@ namespace Conformance
                     }
                     return isExpected;
                 },
-                15s, 50ms);
+                15s, 1ns);
 
             if (messageShown) {
                 actionLayerManager.DisplayMessage("");
@@ -2899,7 +2913,7 @@ namespace Conformance
 
             leftHandInputDevice->SetDeviceActive(false);
             actionLayerManager.DisplayMessage("Place left controller somewhere static but trackable");
-            std::this_thread::sleep_for(5s);
+            actionLayerManager.Sleep_For(5s);
             leftHandInputDevice->SetDeviceActive(true);
             REQUIRE(WaitForLocatability("left", leftSpace, &leftRelation, false));
             actionLayerManager.SyncActionsUntilFocusWithMessage(syncInfo);
@@ -2908,7 +2922,7 @@ namespace Conformance
             rightHandInputDevice->SetDeviceActive(false);
             actionLayerManager.DisplayMessage(
                 "Place right controller somewhere static but trackable. Keep left controller on and trackable.");
-            std::this_thread::sleep_for(5s);
+            actionLayerManager.Sleep_For(5s);
             rightHandInputDevice->SetDeviceActive(true);
             REQUIRE(WaitForLocatability("right", rightSpace, &rightRelation, false));
             actionLayerManager.SyncActionsUntilFocusWithMessage(syncInfo);

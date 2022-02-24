@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2021, The Khronos Group Inc.
+// Copyright (c) 2019-2022, The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -43,6 +43,7 @@ namespace
     {
         constexpr XrColor4f Red = {1, 0, 0, 1};
         constexpr XrColor4f Green = {0, 1, 0, 1};
+        constexpr XrColor4f GreenZeroAlpha = {0, 1, 0, 0};
         constexpr XrColor4f Blue = {0, 0, 1, 1};
         constexpr XrColor4f Purple = {1, 0, 1, 1};
         constexpr XrColor4f Yellow = {1, 1, 0, 1};
@@ -125,7 +126,7 @@ namespace
             {
                 XrSwapchain exampleSwapchain;
                 if (exampleImage) {
-                    exampleSwapchain = compositionHelper.CreateStaticSwapchainImage(RGBAImage::Load(exampleImage), true /* sRGB */);
+                    exampleSwapchain = compositionHelper.CreateStaticSwapchainImage(RGBAImage::Load(exampleImage));
                 }
                 else {
                     RGBAImage image(256, 256);
@@ -276,9 +277,9 @@ namespace Conformance
         const XrQuaternionf redRot = Quat::FromAxisAngle({0, 1, 0}, Math::DegToRad(180));
         interactiveLayerManager.AddLayer(compositionHelper.CreateQuadLayer(redSwapchain, viewSpace, 1.0f, XrPosef{redRot, {0, 0, -1}}));
 
-        RenderLoop(compositionHelper.GetSession(),
-                   [&](const XrFrameState& frameState) { return interactiveLayerManager.EndFrame(frameState); })
-            .Loop();
+        RenderLoop(compositionHelper.GetSession(), [&](const XrFrameState& frameState) {
+            return interactiveLayerManager.EndFrame(frameState);
+        }).Loop();
     }
 
     // Purpose: Verify order of transforms by exercising the two ways poses can be specified:
@@ -324,9 +325,9 @@ namespace Conformance
             interactiveLayerManager.AddLayer(quad2);
         }
 
-        RenderLoop(compositionHelper.GetSession(),
-                   [&](const XrFrameState& frameState) { return interactiveLayerManager.EndFrame(frameState); })
-            .Loop();
+        RenderLoop(compositionHelper.GetSession(), [&](const XrFrameState& frameState) {
+            return interactiveLayerManager.EndFrame(frameState);
+        }).Loop();
     }
 
     // Purpose: Validates alpha blending (both premultiplied and unpremultiplied).
@@ -349,21 +350,38 @@ namespace Conformance
                 const float t = y / 255.0f;
                 const XrColor4f dst = Colors::Green;
                 const XrColor4f src{0, 0, t, t};
-                const XrColor4f blended{dst.r * (1 - src.a) + src.r, dst.g * (1 - src.a) + src.g, dst.b * (1 - src.a) + src.b, 1};
+
+                // The blended color here has a 0 alpha value to test that the runtime is ignoring the texture alpha when
+                // the XR_COMPOSITION_LAYER_BLEND_TEXTURE_SOURCE_ALPHA_BIT flag is not set. If the runtime is erroneously
+                // reading texture alpha, it is more likely to output black pixels.
+                const XrColor4f blended{dst.r * (1 - src.a) + src.r, dst.g * (1 - src.a) + src.g, dst.b * (1 - src.a) + src.b, 0};
                 blueGradientOverGreen.DrawRect(0, y, blueGradientOverGreen.width, 1, blended);
             }
 
             const XrSwapchain answerSwapchain = compositionHelper.CreateStaticSwapchainImage(blueGradientOverGreen);
-            interactiveLayerManager.AddLayer(
-                compositionHelper.CreateQuadLayer(answerSwapchain, viewSpace, 1.0f, XrPosef{Quat::Identity, {0, 0, QuadZ}}));
+            XrCompositionLayerQuad* truthQuad =
+                compositionHelper.CreateQuadLayer(answerSwapchain, viewSpace, 1.0f, XrPosef{Quat::Identity, {0, 0, QuadZ}});
+
+            // Set the unpremultiplied bit on this quad (and the green ones below) to make it more obvious when a runtime
+            // supports the premultiplied flag but not the texture flag. Without this bit set, the final color will be:
+            //   ( 1 - alpha ) * dst + src
+            // dst is black, and alpha is 0, so the output is just src.
+            // If we use unpremultiplied, the formula becomes:
+            //   ( 1 - alpha ) * dst + alpha * src
+            // which results in black pixels and is obviously wrong.
+            truthQuad->layerFlags |= XR_COMPOSITION_LAYER_UNPREMULTIPLIED_ALPHA_BIT;
+
+            interactiveLayerManager.AddLayer(truthQuad);
         }
 
         auto createGradientTest = [&](bool premultiplied, float x, float y) {
             // A solid green quad layer will be composited under a blue gradient.
             {
-                const XrSwapchain greenSwapchain = compositionHelper.CreateStaticSwapchainSolidColor(Colors::Green);
-                interactiveLayerManager.AddLayer(
-                    compositionHelper.CreateQuadLayer(greenSwapchain, viewSpace, 1.0f, XrPosef{Quat::Identity, {x, y, QuadZ}}));
+                const XrSwapchain greenSwapchain = compositionHelper.CreateStaticSwapchainSolidColor(Colors::GreenZeroAlpha);
+                XrCompositionLayerQuad* greenQuad =
+                    compositionHelper.CreateQuadLayer(greenSwapchain, viewSpace, 1.0f, XrPosef{Quat::Identity, {x, y, QuadZ}});
+                greenQuad->layerFlags |= XR_COMPOSITION_LAYER_UNPREMULTIPLIED_ALPHA_BIT;
+                interactiveLayerManager.AddLayer(greenQuad);
             }
 
             // Create gradient of blue lines from 0.0 to 1.0.
@@ -394,9 +412,9 @@ namespace Conformance
         createGradientTest(true, -1.02f, 0);  // Test premultiplied (left of center "answer")
         createGradientTest(false, 1.02f, 0);  // Test unpremultiplied (right of center "answer")
 
-        RenderLoop(compositionHelper.GetSession(),
-                   [&](const XrFrameState& frameState) { return interactiveLayerManager.EndFrame(frameState); })
-            .Loop();
+        RenderLoop(compositionHelper.GetSession(), [&](const XrFrameState& frameState) {
+            return interactiveLayerManager.EndFrame(frameState);
+        }).Loop();
     }
 
     // Purpose: Validate eye visibility flags.
@@ -423,9 +441,9 @@ namespace Conformance
         quad2->eyeVisibility = XR_EYE_VISIBILITY_RIGHT;
         interactiveLayerManager.AddLayer(quad2);
 
-        RenderLoop(compositionHelper.GetSession(),
-                   [&](const XrFrameState& frameState) { return interactiveLayerManager.EndFrame(frameState); })
-            .Loop();
+        RenderLoop(compositionHelper.GetSession(), [&](const XrFrameState& frameState) {
+            return interactiveLayerManager.EndFrame(frameState);
+        }).Loop();
     }
 
     TEST_CASE("Subimage Tests", "[composition][interactive]")
@@ -451,7 +469,7 @@ namespace Conformance
         // Create an array swapchain
         auto swapchainCreateInfo =
             compositionHelper.DefaultColorSwapchainCreateInfo(ImageWidth, ImageHeight, XR_SWAPCHAIN_CREATE_STATIC_IMAGE_BIT);
-        swapchainCreateInfo.format = GetGlobalData().graphicsPlugin->GetRGBA8Format(false /* sRGB */);
+        swapchainCreateInfo.format = GetGlobalData().graphicsPlugin->GetSRGBA8Format();
         swapchainCreateInfo.arraySize = ImageArrayCount;
         const XrSwapchain swapchain = compositionHelper.CreateSwapchain(swapchainCreateInfo);
 
@@ -486,14 +504,14 @@ namespace Conformance
                     quad->size.height = 1.0f;  // Height needs to be corrected since the imageRect is customized.
                     interactiveLayerManager.AddLayer(quad);
                 }
-
+                numberGridImage.ConvertToSRGB();
                 GetGlobalData().graphicsPlugin->CopyRGBAImage(swapchainImage, format, arraySlice, numberGridImage);
             }
         });
 
-        RenderLoop(compositionHelper.GetSession(),
-                   [&](const XrFrameState& frameState) { return interactiveLayerManager.EndFrame(frameState); })
-            .Loop();
+        RenderLoop(compositionHelper.GetSession(), [&](const XrFrameState& frameState) {
+            return interactiveLayerManager.EndFrame(frameState);
+        }).Loop();
     }
 
     TEST_CASE("Projection Array Swapchain", "[composition][interactive]")
@@ -649,8 +667,10 @@ namespace Conformance
         SimpleProjectionLayerHelper simpleProjectionLayerHelper(compositionHelper);
 
         auto updateLayers = [&](const XrFrameState& frameState) {
-            simpleProjectionLayerHelper.UpdateProjectionLayer(frameState);
-            std::vector<XrCompositionLayerBaseHeader*> layers{simpleProjectionLayerHelper.GetProjectionLayer()};
+            std::vector<XrCompositionLayerBaseHeader*> layers;
+            if (XrCompositionLayerBaseHeader* projLayer = simpleProjectionLayerHelper.TryGetUpdatedProjectionLayer(frameState)) {
+                layers.push_back(projLayer);
+            }
             return interactiveLayerManager.EndFrame(frameState, layers);
         };
 
@@ -743,15 +763,17 @@ namespace Conformance
                     }
                 }
             }
-            simpleProjectionLayerHelper.UpdateProjectionLayer(frameState, cubes);
-            std::vector<XrCompositionLayerBaseHeader*> layers{simpleProjectionLayerHelper.GetProjectionLayer()};
+            std::vector<XrCompositionLayerBaseHeader*> layers;
+            if (XrCompositionLayerBaseHeader* projLayer = simpleProjectionLayerHelper.TryGetUpdatedProjectionLayer(frameState, cubes)) {
+                layers.push_back(projLayer);
+            }
             return interactiveLayerManager.EndFrame(frameState, layers);
         };
 
         RenderLoop(compositionHelper.GetSession(), updateLayers).Loop();
     }
 
-    TEST_CASE("Projection Mutable Field-of-View", "[.][composition][interactive]")
+    TEST_CASE("Projection Mutable Field-of-View", "[composition][interactive]")
     {
         CompositionHelper compositionHelper("Projection Mutable Field-of-View");
         InteractiveLayerManager interactiveLayerManager(compositionHelper, "projection_mutable.png",
@@ -826,13 +848,13 @@ namespace Conformance
                             XrQuaternionf_Multiply(&rolled.pose.orientation, &roll180, &views[view].pose.orientation);
                             GetGlobalData().graphicsPlugin->RenderView(rolled, swapchainImage, format, cubes);
 
-                            // After rendering, report a flipped FOV on X and Y without the 180 degree roll, which is effectively
-                            // has the same effect. This switcheroo is necessary since rendering with flipped FOV will result in
-                            // an inverted winding causing normally hidden triangles to be visible and visible triangles to be hidden.
-                            std::swap(const_cast<float&>(projLayer->views[view].fov.angleUp),
-                                      const_cast<float&>(projLayer->views[view].fov.angleDown));
-                            std::swap(const_cast<float&>(projLayer->views[view].fov.angleLeft),
-                                      const_cast<float&>(projLayer->views[view].fov.angleRight));
+                            // After rendering, report a flipped FOV on X and Y without the 180 degree roll, which has the same
+                            // effect. This switcheroo is necessary since rendering with flipped FOV will result in an inverted
+                            // winding causing normally hidden triangles to be visible and visible triangles to be hidden.
+                            const_cast<float&>(projLayer->views[view].fov.angleUp) = -projLayer->views[view].fov.angleUp;
+                            const_cast<float&>(projLayer->views[view].fov.angleDown) = -projLayer->views[view].fov.angleDown;
+                            const_cast<float&>(projLayer->views[view].fov.angleLeft) = -projLayer->views[view].fov.angleLeft;
+                            const_cast<float&>(projLayer->views[view].fov.angleRight) = -projLayer->views[view].fov.angleRight;
                         }
                     });
 

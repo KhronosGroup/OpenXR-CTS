@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2021, The Khronos Group Inc.
+// Copyright (c) 2019-2022, The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -229,8 +229,8 @@ namespace
         // options.
         auto cli =
             Opt(options.graphicsPlugin,
-                "Vulkan|OpenGLES|OpenGL|D3D11|D3D12")  // graphics plugin
-                ["-G"]["--graphicsPlugin"]             //
+                "Vulkan|Vulkan2|OpenGLES|OpenGL|D3D11|D3D12")  // graphics plugin
+                ["-G"]["--graphicsPlugin"]                     //
             ("Specify a graphics plugin to use. Required.")
                 .required()
 
@@ -460,6 +460,8 @@ XrcResult XRAPI_CALL xrcRunConformanceTests(const ConformanceLaunchSettings* con
         if (initialized) {
             *failureCount = catchSession.run();
             conformanceTestsRun = true;
+
+            GetGlobalData().Shutdown();
         }
         else {
             ReportStr("Test failure: Test data initialization failed.");

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 #
-# Copyright (c) 2017-2021, The Khronos Group Inc.
+# Copyright (c) 2017-2022, The Khronos Group Inc.
 #
 # SPDX-License-Identifier: Apache-2.0
 """Generate a mapping of extension name -> all required extension names for that extension.
@@ -169,7 +169,11 @@ if __name__ == '__main__':
 
     for elem in tree.findall('extensions/extension'):
         name = elem.get('name')
+        if name is None:
+            raise RuntimeError("Extension missing 'name' attribute!")
         supported = elem.get('supported')
+        if supported is None:
+            raise RuntimeError("Extension missing 'supported' attribute: " + name)
 
         # This works for the present form of the 'supported' attribute,
         # which is a comma-separate list of XML API names
@@ -181,9 +185,7 @@ if __name__ == '__main__':
 
             deps = elem.get('requires')
             if deps:
-                deps = deps.split(',')
-
-                for dep in deps:
+                for dep in deps.split(','):
                     g.add_edge(name, dep)
             else:
                 g.add_node(name)

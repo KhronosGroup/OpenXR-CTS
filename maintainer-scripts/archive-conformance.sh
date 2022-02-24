@@ -1,5 +1,5 @@
 #!/bin/sh
-# Copyright (c) 2019-2021, The Khronos Group Inc.
+# Copyright (c) 2019-2022, The Khronos Group Inc.
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -23,26 +23,31 @@
 set -e
 
 (
-SCRIPTS=$(cd $(dirname $0) && pwd)
-cd $(dirname $0)/..
+# shellcheck disable=SC2086
+SCRIPTS=$(cd "$(dirname $0)" && pwd)
+# shellcheck disable=SC2086
+cd "$(dirname $0)/.."
 ROOT=$(pwd)
 export ROOT
 
-# shellcheck source=common.sh
-. $SCRIPTS/common.sh
+# shellcheck disable=SC1091
+. "$SCRIPTS/common.sh"
 
-CTS_TARNAME=OpenXR-CTS
+TARNAME=OpenXR-CTS
 
-
-makeSubset "$CTS_TARNAME" $(getConformanceFilenames)
+# shellcheck disable=SC2046
+makeSubset "$TARNAME" $(getConformanceFilenames)
 (
     cd github
-    # Add a symlink to README
-    ln -s src/conformance/conformance_test/readme.md README.md
-    add_to_tar "$CTS_TARNAME" README.md
+    # Add the shared COPYING.adoc used in all GitHub projects derived from the internal openxr repo
+    add_to_tar "$TARNAME" COPYING.adoc
+
+    # Copy the README
+    cp ../src/conformance/conformance_test/readme.md README.md
+    add_to_tar "$TARNAME" README.md
     rm README.md
 )
 
 echo
-gzip_a_tar "$CTS_TARNAME"
+gzip_a_tar "$TARNAME"
 )

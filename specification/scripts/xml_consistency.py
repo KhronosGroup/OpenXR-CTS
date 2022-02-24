@@ -11,6 +11,7 @@
 import re
 import sys
 from pathlib import Path
+from typing import Dict, List, Set, Tuple, Union
 
 from check_spec_links import XREntityDatabase as OrigEntityDatabase
 from reg import Registry
@@ -26,6 +27,21 @@ TWO_CALL_STRING_NAME = "buffer"
 
 CAPACITY_INPUT_RE = re.compile(r'(?P<itemname>[a-z]*)CapacityInput')
 COUNT_OUTPUT_RE = re.compile(r'(?P<itemname>[a-z]*)CountOutput')
+
+_CREATE_PREFIX = "xrCreate"
+_DESTROY_PREFIX = "xrDestroy"
+_TYPEENUM = "XrStructureType"
+
+_CREATE_REQUIRED_CODES = {
+    "XR_ERROR_LIMIT_REACHED",
+    "XR_ERROR_OUT_OF_MEMORY",
+}
+_DESTROY_FORBIDDEN_CODES = {
+    "XR_ERROR_INSTANCE_LOST",
+    "XR_ERROR_SESSION_LOST",
+    "XR_SESSION_LOSS_PENDING",
+    "XR_ERROR_VALIDATION_FAILURE",
+}
 
 
 def get_extension_commands(reg):
@@ -44,13 +60,17 @@ def get_enum_value_names(reg, enum_type):
     return names
 
 
-DESTROY_PREFIX = "xrDestroy"
-TYPEENUM = "XrStructureType"
-
 # Enum type "names" whose value names don't fit the standard pattern.
 ENUM_NAMING_EXCEPTIONS = set((
-    # Intentional exceptions
-    TYPEENUM, "XrResult", "API Constants",
+    # Intentional exceptions:
+    # shortened
+    _TYPEENUM,
+    # shortened/more useful
+    "XrResult",
+    # not actually a single cohesive enum, just a collection of defines
+    "API Constants",
+
+    # Legacy mistake (shortened and not caught before release)
     # See https://gitlab.khronos.org/openxr/openxr/issues/1317
     "XrPerfSettingsNotificationLevelEXT",
 ))
@@ -70,6 +90,13 @@ def get_extension_source(extname):
     lower_name = match.group('name').lower()
     fn = '{}_{}.adoc'.format(lower_tag, lower_name)
     return str(SPECIFICATION_DIR / 'sources' / 'chapters' / 'extensions' / lower_tag / fn)
+
+
+def get_extension_vendor(extname):
+    match = EXT_DECOMPOSE_RE.match(extname)
+    if not match:
+        raise RuntimeError("Could not decompose " + extname)
+    return match.group('tag')
 
 
 def pluralize(s):
@@ -148,17 +175,23 @@ class Checker(XMLChecker):
         )
 
         # Keys are entity names, values are tuples or lists of message text to suppress.
-        suppressions = {
+        suppressions: Dict[str, Union[Tuple[str, ...], List[str]]] = {
             # path to string can take any path
-            "xrPathToString": ("Missing expected return code(s) XR_ERROR_PATH_UNSUPPORTED implied because of input of type XrPath",)
+            "xrPathToString": ("Missing expected return code(s) XR_ERROR_PATH_UNSUPPORTED implied because of input of type XrPath",),
+            # Just a case error, vendor declined to modify
+            "XR_OCULUS_audio_device_guid": ("Extension-defined name xrGetAudioInputDeviceGuidOculus has wrong or missing vendor tag: expected to end with OCULUS",
+                                            "Extension-defined name xrGetAudioOutputDeviceGuidOculus has wrong or missing vendor tag: expected to end with OCULUS",),
+            # This is warning about compatibility aliases, we already fixed this.
+            "XR_FB_hand_tracking_capsules": ("Extension-defined name XR_FB_HAND_TRACKING_CAPSULE_POINT_COUNT has wrong or missing vendor tag: expected to end with FB",
+                                             "Extension-defined name XR_FB_HAND_TRACKING_CAPSULE_COUNT has wrong or missing vendor tag: expected to end with FB",),
         }
 
         conventions = APIConventions()
         db = EntityDatabase()
 
         self.extension_cmds = get_extension_commands(db.registry)
-        self.return_codes = get_enum_value_names(db.registry, 'XrResult')
-        self.structure_types = get_enum_value_names(db.registry, TYPEENUM)
+        self.return_codes: Set[str] = get_enum_value_names(db.registry, 'XrResult')
+        self.structure_types: Set[str] = get_enum_value_names(db.registry, _TYPEENUM)
 
         # Initialize superclass
         super().__init__(entity_db=db, conventions=conventions,
@@ -227,19 +260,32 @@ class Checker(XMLChecker):
             types_to_codes.add(type_name, INVALID_HANDLE)
 
     def get_codes_for_command_and_type(self, cmd_name, type_name):
-        """Return a set of error codes expected due to having
+        """Return a set of return codes expected due to having
         an input argument of type type_name."""
         codes = super().get_codes_for_command_and_type(cmd_name, type_name)
 
         # Filter out any based on the specific command
-        if cmd_name.startswith(DESTROY_PREFIX):
-            # xrDestroyX can't return XR_ERROR_X_LOST or XR_X_LOSS_PENDING
-            # (right?)
-            handle = cmd_name[len(DESTROY_PREFIX):].upper()
-            codes = codes.copy()
-            codes.discard("XR_ERROR_{}_LOST".format(handle))
-            codes.discard("XR_{}_LOSS_PENDING".format(handle))
+        if cmd_name.startswith(_DESTROY_PREFIX):
+            # xrDestroyX should not return XR_ERROR_anything_LOST or XR_anything_LOSS_PENDING
+            codes = {x for x in codes if not x.endswith("_LOST")}
+            codes = {x for x in codes if not x.endswith("_LOSS_PENDING")}
+
         return codes
+
+    def get_required_codes_for_command(self, cmd_name):
+        """Return a set of return codes required due to having a particular name."""
+        codes = set()
+
+        if cmd_name.startswith(_CREATE_PREFIX):
+            codes.update(_CREATE_REQUIRED_CODES)
+
+        return codes
+
+    def get_forbidden_codes_for_command(self, cmd_name):
+        """Return a set of return codes not permittted due to having a particular name."""
+        if cmd_name.startswith(_DESTROY_PREFIX):
+            return _DESTROY_FORBIDDEN_CODES
+        return set()
 
     def check_command_return_codes_basic(self, name, info,
                                          successcodes, errorcodes):
@@ -328,22 +374,26 @@ class Checker(XMLChecker):
 
         # Only valid reason to have more than 1 comma-separated entry in len is for strings,
         # which are named "buffer".
-        if len(length) > 2:
+        if length is None:
             self.record_error('Two-call-idiom call has array parameter', param_name,
-                              'with too many lengths - should be 1 or 2 comma-separated lengths, not', len(length))
-        if len(length) == 2:
-            if not length[1].null_terminated:
-                self.record_error('Two-call-idiom call has two-length array parameter', param_name,
-                                  'whose second length is not "null-terminated":', length[1])
+                              'with no length attribute specified')
+        else:
+            if len(length) > 2:
+                self.record_error('Two-call-idiom call has array parameter', param_name,
+                                  'with too many lengths - should be 1 or 2 comma-separated lengths, not', len(length))
+            if len(length) == 2:
+                if not length[1].null_terminated:
+                    self.record_error('Two-call-idiom call has two-length array parameter', param_name,
+                                      'whose second length is not "null-terminated":', length[1])
 
-            param_type = getElemType(param_elem)
-            if param_type != 'char':
-                self.record_error('Two-call-idiom call has two-length array parameter', param_name,
-                                  'that is not a string:', param_type)
+                param_type = getElemType(param_elem)
+                if param_type != 'char':
+                    self.record_error('Two-call-idiom call has two-length array parameter', param_name,
+                                      'that is not a string:', param_type)
 
-            if param_name != TWO_CALL_STRING_NAME:
-                self.record_error('Two-call-idiom call has two-length array parameter', param_name,
-                                  'that is not named "buffer"')
+                if param_name != TWO_CALL_STRING_NAME:
+                    self.record_error('Two-call-idiom call has two-length array parameter', param_name,
+                                      'that is not named "buffer"')
 
     def check_two_call_command(self, name, info, params):
         """Check a two-call-idiom command."""
@@ -434,7 +484,14 @@ class Checker(XMLChecker):
             errorcodes = info.elem.get('errorcodes').split(',')
             if not required_errors.issubset(set(errorcodes)):
                 self.record_error('Missing required error code')
-                exit(1)
+
+        if name.startswith(_DESTROY_PREFIX):
+            if len(params) != 1:
+                self.record_error('A destroy command should have exactly one parameter')
+            if params:
+                param = params[0]
+                if param.get("externsync") is None:
+                    self.record_error('A destroy command parameter should have an externsync attribute, probably externsync="true_with_children"')
 
         super().check_command(name, info)
 
@@ -446,11 +503,11 @@ class Checker(XMLChecker):
         elem = info.elem
         type_elts = [elt
                      for elt in elem.findall("member")
-                     if getElemType(elt) == TYPEENUM]
+                     if getElemType(elt) == _TYPEENUM]
         if category == 'struct' and type_elts:
             if len(type_elts) > 1:
                 self.record_error(
-                    "Have more than one member of type", TYPEENUM)
+                    "Have more than one member of type", _TYPEENUM)
             else:
                 type_elt = type_elts[0]
                 val = type_elt.get('values')
@@ -521,6 +578,21 @@ class Checker(XMLChecker):
             if name_val != expected_name:
                 self.record_error("Incorrect name enum: expected", expected_name,
                                   "got", name_val)
+
+        vendor = get_extension_vendor(name)
+        for category in ('enum', 'type', 'command'):
+            items = elem.findall('./require/%s' % category)
+            for item in items:
+                item_name = item.get('name')
+                # print(item.attrib)
+                if not item_name:
+                    continue
+                if item_name in (version_name, name_define):
+                    continue
+                # print(name, item_name)
+                if not item_name.endswith(vendor):
+                    self.record_warning("Extension-defined name", item_name,
+                                        "has wrong or missing vendor tag: expected to end with", vendor)
 
 
 if __name__ == "__main__":

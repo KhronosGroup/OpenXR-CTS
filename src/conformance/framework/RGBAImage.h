@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2021, The Khronos Group Inc.
+// Copyright (c) 2017-2022, The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 
@@ -6,6 +6,7 @@
 
 #include <vector>
 #include <openxr/openxr.h>
+#include <cmath>
 
 namespace Conformance
 {
@@ -33,9 +34,12 @@ namespace Conformance
         void PutText(const XrRect2Di& rect, const char* text, int pixelHeight, XrColor4f color);
         void DrawRect(int x, int y, int w, int h, XrColor4f color);
         void DrawRectBorder(int x, int y, int w, int h, int thickness, XrColor4f color);
+        void ConvertToSRGB();
 
+        bool isSrgb = false;
         std::vector<RGBA8Color> pixels;
         int width;
         int height;
     };
+
 }  // namespace Conformance

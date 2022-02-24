@@ -70,11 +70,13 @@ class ManifestFile {
 class RuntimeManifestFile : public ManifestFile {
    public:
     // Factory method
-    static XrResult FindManifestFiles(ManifestFileType type, std::vector<std::unique_ptr<RuntimeManifestFile>> &manifest_files);
+    static XrResult FindManifestFiles(std::vector<std::unique_ptr<RuntimeManifestFile>> &manifest_files);
 
    private:
     RuntimeManifestFile(const std::string &filename, const std::string &library_path);
     static void CreateIfValid(const std::string &filename, std::vector<std::unique_ptr<RuntimeManifestFile>> &manifest_files);
+    static void CreateIfValid(const Json::Value &root_node, const std::string &filename,
+                              std::vector<std::unique_ptr<RuntimeManifestFile>> &manifest_files);
 };
 
 // ApiLayerManifestFile class -

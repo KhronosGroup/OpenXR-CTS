@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2021, The Khronos Group Inc.
+// Copyright (c) 2019-2022, The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -100,7 +100,7 @@ namespace Conformance
                             const XrViewConfigurationView& view = viewConfigViews.front();
                             checkCreateSwapchain(session, format, view);
 
-                            // Do this to allow the graphics to potentially purge the memory associated with the swap chain.
+                            // Do this to allow the graphics to potentially purge the memory associated with the swapchain.
                             // Normally apps don't need to do this, but we are creating and destroying many swapchains
                             // in succession, which is an unusual thing.
                             GetGlobalData().graphicsPlugin->Flush();

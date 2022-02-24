@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2021, The Khronos Group Inc.
+// Copyright (c) 2019-2022, The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -65,6 +65,10 @@ XrResult ConformanceHooks::xrPollEvent(XrInstance instance, XrEventDataBuffer* e
         }
         case XR_TYPE_EVENT_DATA_PERF_SETTINGS_EXT: {
             const auto perfSettings = reinterpret_cast<const XrEventDataPerfSettingsEXT*>(eventData);
+            VALIDATE_XRENUM(perfSettings->domain);
+            VALIDATE_XRENUM(perfSettings->subDomain);
+            VALIDATE_XRENUM(perfSettings->fromLevel);
+            VALIDATE_XRENUM(perfSettings->toLevel);
             break;
         }
         case XR_TYPE_EVENT_DATA_VISIBILITY_MASK_CHANGED_KHR: {

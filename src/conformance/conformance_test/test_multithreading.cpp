@@ -30,6 +30,10 @@
 #include <catch2/catch.hpp>
 #include <openxr/openxr.h>
 
+// Include all dependencies of openxr_platform as configured
+#include "xr_dependencies.h"
+#include <openxr/openxr_platform.h>
+
 namespace Conformance
 {
     // The way we do the primary test here, we create an instance and session, then exercise
@@ -38,7 +42,7 @@ namespace Conformance
 
     enum class CallRequirement
     {
-        global,    // The function can can be called without an instance.
+        global,    // The function can be called without an instance.
         instance,  // The function requires an instance to be active.
         systemId,  // The function requires a systemID (and thus also an instance) to be active.
         session    // The function requires a session (and thus also a systemId and instance) to be active.
@@ -66,6 +70,8 @@ namespace Conformance
         ThreadTestEnvironment(uint32_t invocationCountInitial)
             : envMutex()
             , autoBasicSession(AutoBasicSession::none)  // Do nothing yet.
+            , lastFrameTime(0)
+            , hapticsAction(XR_NULL_HANDLE)
             , shouldBegin(false)
             , threadStartSignal()
             , invocationCount(invocationCountInitial)
@@ -153,6 +159,37 @@ namespace Conformance
         // The session and systemId may be XR_NULL_HANDLE if the environment is testing the case of session not being active.
         AutoBasicSession autoBasicSession;
 
+    public:
+        // For focused tests we need to know the last frame time
+        // lastFrameTime may be 0 if the environment is testing the case of a session not being active.
+        XrTime lastFrameTime;
+
+        // hapticsAction is an XrAction for haptics.
+        XrAction hapticsAction;
+
+        // gripPoseAction is an XrAction for grip pose.
+        XrAction gripPoseAction;
+
+#if defined(XR_USE_GRAPHICS_API_VULKAN)
+        // Guards access to vulkan queue
+        //
+        // XR_KHR_vulkan_enable / XR_KHR_vulkan_enable2
+        // Access to the VkQueue must be externally synchronized for xrBeginFrame, xrEndFrame, xrAcquireSwapchainImage, xrReleaseSwapchainImage
+        std::mutex vulkanQueueMutex;
+#endif  // defined(XR_USE_GRAPHICS_API_VULKAN)
+
+#if defined(XR_USE_GRAPHICS_API_OPENGL)
+        // Guards access to OpenGL context
+        //
+        // XR_KHR_opengl_enable
+        // The OpenGL context given to the call xrCreateSession must not be bound in another thread when calling the functions
+        // xrCreateSession, xrDestroySession, xrBeginFrame, xrEndFrame, xrCreateSwapchain, xrDestroySwapchain, xrEnumerateSwapchainImages,
+        // xrAcquireSwapchainImage, xrWaitSwapchainImageand xrReleaseSwapchainImage.
+        // It may be bound in the thread calling those functions.
+        std::mutex openGlContextMutex;
+#endif  // defined(XR_USE_GRAPHICS_API_OPENGL)
+
+    protected:
         // If true then each thread should begin executing.
         bool shouldBegin;
 
@@ -247,7 +284,7 @@ namespace Conformance
             REQUIRE_MSG(env.ErrorCount() == 0, env.OutputText())
         };
 
-        // Exerise instanceless multithreading
+        // Exercise instanceless multithreading
         {
             // Leave instance and session NULL.
             ThreadTestEnvironment env(invocationCount);
@@ -265,17 +302,77 @@ namespace Conformance
 
         // Exercise session multithreading.
         {
+            // how long the test should wait for the app to get focus: 10 seconds in release, infinite in debug builds.
+            auto timeout = (GetGlobalData().options.debugMode ? 3600_sec : 10_sec);
+            CAPTURE(timeout);
+
             ThreadTestEnvironment env(invocationCount);
             env.GetAutoBasicSession().Init(AutoBasicSession::beginSession | AutoBasicSession::createActions |
                                            AutoBasicSession::createSpaces | AutoBasicSession::createSwapchains);
 
+            // AutoBasicSession does not add vibrations or attach action sets
+            {
+                XrActionCreateInfo actionInfo = {XR_TYPE_ACTION_CREATE_INFO};
+                actionInfo.subactionPaths = env.GetAutoBasicSession().handSubactionArray.data();
+                actionInfo.countSubactionPaths = (uint32_t)env.GetAutoBasicSession().handSubactionArray.size();
+
+                actionInfo.actionType = XR_ACTION_TYPE_VIBRATION_OUTPUT;
+                strcpy(actionInfo.actionName, "haptics");
+                strcpy(actionInfo.localizedActionName, "haptics");
+                XRC_CHECK_THROW_XRCMD(xrCreateAction(env.GetAutoBasicSession().actionSet, &actionInfo, &env.hapticsAction));
+
+                actionInfo.actionType = XR_ACTION_TYPE_POSE_INPUT;
+                strcpy(actionInfo.actionName, "grip_pose");
+                strcpy(actionInfo.localizedActionName, "Grip pose");
+                XRC_CHECK_THROW_XRCMD(xrCreateAction(env.GetAutoBasicSession().actionSet, &actionInfo, &env.gripPoseAction));
+
+                // Ensure the actions are bound
+                XrPath interactionProfilePath = XR_NULL_PATH;
+                XRC_CHECK_THROW_XRCMD(xrStringToPath(env.GetAutoBasicSession().GetInstance(), "/interaction_profiles/khr/simple_controller",
+                                                     &interactionProfilePath));
+                XrPath gripPathL = XR_NULL_PATH;
+                XRC_CHECK_THROW_XRCMD(
+                    xrStringToPath(env.GetAutoBasicSession().GetInstance(), "/user/hand/left/input/grip/pose", &gripPathL));
+                XrPath gripPathR = XR_NULL_PATH;
+                XRC_CHECK_THROW_XRCMD(
+                    xrStringToPath(env.GetAutoBasicSession().GetInstance(), "/user/hand/right/input/grip/pose", &gripPathR));
+                XrPath hapticPathL = XR_NULL_PATH;
+                XRC_CHECK_THROW_XRCMD(
+                    xrStringToPath(env.GetAutoBasicSession().GetInstance(), "/user/hand/left/output/haptic", &hapticPathL));
+                XrPath hapticPathR = XR_NULL_PATH;
+                XRC_CHECK_THROW_XRCMD(
+                    xrStringToPath(env.GetAutoBasicSession().GetInstance(), "/user/hand/right/output/haptic", &hapticPathR));
+                std::vector<XrActionSuggestedBinding> bindings{{env.gripPoseAction, gripPathL},
+                                                               {env.gripPoseAction, gripPathR},
+                                                               {env.hapticsAction, hapticPathL},
+                                                               {env.hapticsAction, hapticPathR}};
+                XrInteractionProfileSuggestedBinding suggestedBindings = {XR_TYPE_INTERACTION_PROFILE_SUGGESTED_BINDING};
+                suggestedBindings.interactionProfile = interactionProfilePath;
+                suggestedBindings.suggestedBindings = (const XrActionSuggestedBinding*)bindings.data();
+                suggestedBindings.countSuggestedBindings = (uint32_t)bindings.size();
+                XRC_CHECK_THROW_XRCMD(xrSuggestInteractionProfileBindings(env.GetAutoBasicSession().GetInstance(), &suggestedBindings));
+
+                XrSessionActionSetsAttachInfo attachInfo{XR_TYPE_SESSION_ACTION_SETS_ATTACH_INFO};
+                attachInfo.countActionSets = 1;
+                attachInfo.actionSets = &env.GetAutoBasicSession().actionSet;
+                XRC_CHECK_THROW_XRCMD(xrAttachSessionActionSets(env.GetAutoBasicSession().session, &attachInfo));
+            }
+
+            // Get frames iterating to the point of app focused state. This will draw frames along the way.
+            FrameIterator frameIterator(&env.GetAutoBasicSession());
+            FrameIterator::RunResult runResult = frameIterator.RunToSessionState(XR_SESSION_STATE_FOCUSED, timeout);
+            REQUIRE(runResult == FrameIterator::RunResult::Success);
+
+            env.lastFrameTime = frameIterator.frameState.predictedDisplayTime;
+
+            GlobalData& globalData = GetGlobalData();
+            globalData.GetGraphicsPlugin()->MakeCurrent(false);
+
             RunTestEnvironment(env);
+
+            globalData.GetGraphicsPlugin()->MakeCurrent(true);
         }
     }
-
-#if defined(_MSC_VER)
-#pragma warning(disable : 4189)
-#endif  // defined(_MSC_VER)
 
     // To consider: We could have exercise functions below auto-add themselves to a vector on startup.
     // A challenge with that is that code linkers will often elide such auto-add functions unless you
@@ -383,10 +480,12 @@ namespace Conformance
     void Exercise_xrCreateSession(ThreadTestEnvironment& env)
     {
         GlobalData& globalData = GetGlobalData();
-        const XrBaseInStructure* graphicsBinding = globalData.graphicsPlugin->GetGraphicsBinding();
 
         XrSessionCreateInfo createInfo{XR_TYPE_SESSION_CREATE_INFO};
-        createInfo.next = graphicsBinding;
+        if (globalData.IsUsingGraphicsPlugin()) {
+            const XrBaseInStructure* graphicsBinding = globalData.graphicsPlugin->GetGraphicsBinding();
+            createInfo.next = graphicsBinding;
+        }
         createInfo.systemId = env.GetAutoBasicSession().GetSystemId();
         XrSession session;
         XrResult result = xrCreateSession(env.GetAutoBasicSession().GetInstance(), &createInfo, &session);
@@ -434,29 +533,40 @@ namespace Conformance
             xrGetReferenceSpaceBoundsRect(env.GetAutoBasicSession().GetSession(), XR_REFERENCE_SPACE_TYPE_LOCAL, &bounds));
     }
 
-    void Exercise_xrCreateActionSpace(ThreadTestEnvironment& /*env*/)
+    void Exercise_xrCreateActionSpace(ThreadTestEnvironment& env)
     {
-// TODO: Need an action handle.
-#if 0
+        std::array<XrPath, 2>& handSubactionArray = env.GetAutoBasicSession().handSubactionArray;
+
+        RandEngine& randEngine = GetGlobalData().GetRandEngine();
+        size_t a = randEngine.RandSizeT(0, handSubactionArray.size());
+
         XrActionSpaceCreateInfo actionSpaceCreateInfo{XR_TYPE_ACTION_SPACE_CREATE_INFO};
-        actionSpaceCreateInfo.subactionPath = XR_NULL_PATH;
+        actionSpaceCreateInfo.action = env.gripPoseAction;
+        actionSpaceCreateInfo.subactionPath = handSubactionArray[a];
         actionSpaceCreateInfo.poseInActionSpace = XrPosefCPP();
 
         XrSpace space;
-        XrResult result = xrCreateActionSpace(XrAction action, &actionSpaceCreateInfo, XrSpace * space));
+        XrResult result = xrCreateActionSpace(env.GetAutoBasicSession().GetSession(), &actionSpaceCreateInfo, &space);
         XRC_CHECK_THROW(XR_SUCCEEDED(result) || result == XR_ERROR_LIMIT_REACHED);
 
-            SleepMs(50);
-            XRC_CHECK_THROW_XRCMD(xrDestroySpace(space));
-#endif
+        SleepMs(50);
+        XRC_CHECK_THROW_XRCMD(xrDestroySpace(space));
     }
 
     void Exercise_xrLocateSpace(ThreadTestEnvironment& env)
     {
-        // XrTime Conformance::GetCurrentXrTime(XrInstance instance)
-        // XrResult xrLocateSpace(XrSpace space, XrSpace baseSpace, XrTime time, XrSpaceRelation* relation);
-        (void)env;
-        // return false;
+        RandEngine& randEngine = GetGlobalData().GetRandEngine();
+        auto spaces = env.GetAutoBasicSession().spaceVector;
+
+        const size_t iterationCount = 100;  // To do: Make this configurable.
+
+        for (size_t i = 0; i < iterationCount; ++i) {
+            size_t i1 = randEngine.RandSizeT(0, spaces.size());
+            size_t i2 = randEngine.RandSizeT(0, spaces.size());
+
+            XrSpaceLocation location{XR_TYPE_SPACE_LOCATION};
+            XRC_CHECK_THROW_XRCMD(xrLocateSpace(spaces[i1], spaces[i2], env.lastFrameTime, &location));
+        }
     }
 
     void Exercise_xrDestroySpace(ThreadTestEnvironment& env)
@@ -498,8 +608,6 @@ namespace Conformance
             (uint32_t)viewConfigurationViews.size(), &countOutput, viewConfigurationViews.data()));
 
         // Could potentially validate viewConfigurationViewArray.
-
-        // return XR_SUCCEEDED(result);
     }
 
     void Exercise_xrEnumerateSwapchainFormats(ThreadTestEnvironment& env)
@@ -517,6 +625,13 @@ namespace Conformance
     {
         GlobalData& globalData = GetGlobalData();
         std::shared_ptr<IGraphicsPlugin> graphicsPlugin = globalData.GetGraphicsPlugin();
+
+#if defined(XR_USE_GRAPHICS_API_OPENGL)
+        bool isOpenGL = globalData.IsInstanceExtensionEnabled(XR_KHR_OPENGL_ENABLE_EXTENSION_NAME);
+        std::unique_lock<std::mutex> glLock =
+            isOpenGL ? std::unique_lock<std::mutex>(env.openGlContextMutex) : std::unique_lock<std::mutex>();
+#endif  // defined(XR_USE_GRAPHICS_API_OPENGL)
+
         XrSwapchain swapchain;
         XrExtent2Di widthHeight{0, 0};  // 0,0 means Use defaults.
         XrResult result = CreateColorSwapchain(env.GetAutoBasicSession().GetSession(), graphicsPlugin.get(), &swapchain, &widthHeight);
@@ -556,6 +671,20 @@ namespace Conformance
     {
         GlobalData& globalData = GetGlobalData();
         std::shared_ptr<IGraphicsPlugin> graphicsPlugin = globalData.GetGraphicsPlugin();
+
+#if defined(XR_USE_GRAPHICS_API_VULKAN)
+        bool isVulkan = globalData.IsInstanceExtensionEnabled(XR_KHR_VULKAN_ENABLE_EXTENSION_NAME) ||
+                        globalData.IsInstanceExtensionEnabled(XR_KHR_VULKAN_ENABLE2_EXTENSION_NAME);
+        std::unique_lock<std::mutex> vkLock =
+            isVulkan ? std::unique_lock<std::mutex>(env.vulkanQueueMutex) : std::unique_lock<std::mutex>();
+#endif  // defined(XR_USE_GRAPHICS_API_VULKAN)
+
+#if defined(XR_USE_GRAPHICS_API_OPENGL)
+        bool isOpenGL = globalData.IsInstanceExtensionEnabled(XR_KHR_OPENGL_ENABLE_EXTENSION_NAME);
+        std::unique_lock<std::mutex> glLock =
+            isOpenGL ? std::unique_lock<std::mutex>(env.openGlContextMutex) : std::unique_lock<std::mutex>();
+#endif  // defined(XR_USE_GRAPHICS_API_OPENGL)
+
         XrSwapchain swapchain;
         XrExtent2Di widthHeight{0, 0};  // 0,0 means Use defaults.
         XRC_CHECK_THROW_XRCMD(CreateColorSwapchain(env.GetAutoBasicSession().GetSession(), graphicsPlugin.get(), &swapchain, &widthHeight));
@@ -707,11 +836,9 @@ namespace Conformance
         return Exercise_xrCreateAction(env);
     }
 
-    void Exercise_xrSyncActions(ThreadTestEnvironment& /*env*/)
+    void Exercise_xrSyncActions(ThreadTestEnvironment& env)
     {
-        XrResult result = XR_SUCCESS;
-
-        /* Disabled while this API is still in flux.
+        RandEngine& randEngine = GetGlobalData().GetRandEngine();
 
         // References to AutoBasicSession members.
         XrSession& session = env.GetAutoBasicSession().session;
@@ -726,78 +853,109 @@ namespace Conformance
             XrActionsSyncInfo actionsSyncInfo{XR_TYPE_ACTIONS_SYNC_INFO, 0, (uint32_t)activeActionSetVector.size(),
                                               activeActionSetVector.data()};
 
-            result = xrSyncActions(session, &actionsSyncInfo);
-            if (FAILED(result))
-                break;
+            XRC_CHECK_THROW_XRCMD(xrSyncActions(session, &actionsSyncInfo));
 
             // Call xrGetActionStateBoolean
-            size_t a = GenerateRandomSizeT(0, actionVector.size());
-            XrActionStateGetInfo actionStateGetInfo{XR_TYPE_ACTION_STATE_GET_INFO};
-            actionStateGetInfo.action = actionVector[a];
-            actionStateGetInfo.countSubactionPaths = (uint32_t)handSubactionArray.size();
-            actionStateGetInfo.subactionPaths = handSubactionArray.data();
-            XrActionStateBoolean actionStateBoolean{XR_TYPE_ACTION_STATE_BOOLEAN};
-            result = xrGetActionStateBoolean(session, &actionStateGetInfo, &actionStateBoolean);
-            if (FAILED(result))
-                break;
-            // actionStateBoolean.currentState; // Possibly validate these.
-            // actionStateBoolean.changedSinceLastSync;
-            // actionStateBoolean.lastChangeTime;
-            // actionStateBoolean.isActive;
+            {
+                size_t a = randEngine.RandSizeT(0, actionVector.size());
+                size_t h = randEngine.RandSizeT(0, handSubactionArray.size());
+                XrActionStateGetInfo actionStateGetInfo{XR_TYPE_ACTION_STATE_GET_INFO};
+                actionStateGetInfo.action = actionVector[a];
+                actionStateGetInfo.subactionPath = handSubactionArray[h];
+
+                XrActionStateBoolean actionStateBoolean{XR_TYPE_ACTION_STATE_BOOLEAN};
+                XrResult result = xrGetActionStateBoolean(session, &actionStateGetInfo, &actionStateBoolean);
+                XRC_CHECK_THROW(XR_SUCCEEDED(result) || result == XR_ERROR_ACTION_TYPE_MISMATCH);
+
+                // Possibly validate these.
+                // actionStateBoolean.currentState;
+                // actionStateBoolean.changedSinceLastSync;
+                // actionStateBoolean.lastChangeTime;
+                // actionStateBoolean.isActive;
+            }
 
             // Call xrGetActionStateFloat
-            a = GenerateRandomSizeT(0, actionVector.size());
-            actionStateGetInfo.action = actionVector[a];
-            XrActionStateFloat actionStateFloat{XR_TYPE_ACTION_STATE_FLOAT};
-            result = xrGetActionStateFloat(session, &actionStateGetInfo, &actionStateFloat);
-            if (FAILED(result))
-                break;
-            // actionStateBoolean.currentState; // Possibly validate these.
-            // actionStateBoolean.changedSinceLastSync;
-            // actionStateBoolean.lastChangeTime;
-            // actionStateBoolean.isActive;
+            {
+                size_t a = randEngine.RandSizeT(0, actionVector.size());
+                size_t h = randEngine.RandSizeT(0, handSubactionArray.size());
+                XrActionStateGetInfo actionStateGetInfo{XR_TYPE_ACTION_STATE_GET_INFO};
+                actionStateGetInfo.action = actionVector[a];
+                actionStateGetInfo.subactionPath = handSubactionArray[h];
+
+                XrActionStateFloat actionStateFloat{XR_TYPE_ACTION_STATE_FLOAT};
+                XrResult result = xrGetActionStateFloat(session, &actionStateGetInfo, &actionStateFloat);
+                XRC_CHECK_THROW(XR_SUCCEEDED(result) || result == XR_ERROR_ACTION_TYPE_MISMATCH);
+
+                // Possibly validate these.
+                // actionStateFloat.currentState;
+                // actionStateFloat.changedSinceLastSync;
+                // actionStateFloat.lastChangeTime;
+                // actionStateFloat.isActive;
+            }
 
             // Call xrGetActionStateVector2f
-            a = GenerateRandomSizeT(0, actionVector.size());
-            actionStateGetInfo.action = actionVector[a];
-            XrActionStateVector2f actionStateVector2F{XR_TYPE_ACTION_STATE_VECTOR2F};
-            result = xrGetActionStateVector2f(session, &actionStateGetInfo, &actionStateVector2F);
-            if (FAILED(result))
-                break;
-            // actionStateBoolean.currentState; // Possibly validate these.
-            // actionStateBoolean.changedSinceLastSync;
-            // actionStateBoolean.lastChangeTime;
-            // actionStateBoolean.isActive;
+            {
+                size_t a = randEngine.RandSizeT(0, actionVector.size());
+                size_t h = randEngine.RandSizeT(0, handSubactionArray.size());
+                XrActionStateGetInfo actionStateGetInfo{XR_TYPE_ACTION_STATE_GET_INFO};
+                actionStateGetInfo.action = actionVector[a];
+                actionStateGetInfo.subactionPath = handSubactionArray[h];
 
-            // To do:
-            // result = xrGetActionStatePose(session, XrActionStateGetInfo* getInfo, XrActionStatePose* state);
+                XrActionStateVector2f actionStateVector2F{XR_TYPE_ACTION_STATE_VECTOR2F};
+                XrResult result = xrGetActionStateVector2f(session, &actionStateGetInfo, &actionStateVector2F);
+                XRC_CHECK_THROW(XR_SUCCEEDED(result) || result == XR_ERROR_ACTION_TYPE_MISMATCH);
 
-            // Call xrGetBoundSourcesForAction
-            XrBoundSourcesForActionGetInfo boundSources{XR_TYPE_BOUND_SOURCES_FOR_ACTION_GET_INFO};
-            std::vector<XrPath> boundSourcePathVector;
-            uint32_t countOutput;
-            result = xrGetBoundSourcesForAction(session, &boundSources, 0, &countOutput, nullptr);
-            if (FAILED(result))
-                break;
-            boundSourcePathVector.resize(countOutput);
-            result = xrGetBoundSourcesForAction(session, &boundSources, countOutput, &countOutput, boundSourcePathVector.data());
-            if (FAILED(result))
-                break;
+                // Possibly validate these.
+                // actionStateVector2F.currentState;
+                // actionStateVector2F.changedSinceLastSync;
+                // actionStateVector2F.lastChangeTime;
+                // actionStateVector2F.isActive;
+            }
 
-            if (countOutput) {  // If there were bound sources...
-                // Call xrGetInputSourceLocalizedName
-                XrInputSourceLocalizedNameGetInfo nameGetInfo{XR_TYPE_INPUT_SOURCE_LOCALIZED_NAME_GET_INFO};
-                nameGetInfo.sourcePath = boundSourcePathVector[0];  // Could test others..
-                nameGetInfo.whichComponents =
-                    (XR_INPUT_SOURCE_LOCALIZED_NAME_USER_PATH_BIT | XR_INPUT_SOURCE_LOCALIZED_NAME_INTERACTION_PROFILE_BIT |
-                     XR_INPUT_SOURCE_LOCALIZED_NAME_COMPONENT_BIT);
-                char nameBuffer[512];
-                result = xrGetInputSourceLocalizedName(session, &nameGetInfo, (uint32_t)sizeof(nameBuffer), &countOutput, nameBuffer);
-                if (FAILED(result))
-                    break;
-                if (!ValidateStringUTF8(nameBuffer, sizeof(nameBuffer))) {
-                    env.AppendError("xrGetInputSourceLocalizedName failure");
-                    break;
+            // Call xrGetActionStatePose
+            {
+                size_t a = randEngine.RandSizeT(0, actionVector.size());
+                size_t h = randEngine.RandSizeT(0, handSubactionArray.size());
+                XrActionStateGetInfo actionStateGetInfo{XR_TYPE_ACTION_STATE_GET_INFO};
+                actionStateGetInfo.action = actionVector[a];
+                actionStateGetInfo.subactionPath = handSubactionArray[h];
+
+                XrActionStatePose actionStatePose{XR_TYPE_ACTION_STATE_POSE};
+                XrResult result = xrGetActionStatePose(session, &actionStateGetInfo, &actionStatePose);
+                XRC_CHECK_THROW(XR_SUCCEEDED(result) || result == XR_ERROR_ACTION_TYPE_MISMATCH);
+
+                // Possibly validate these.
+                // actionStatePose.isActive;
+            }
+
+            // Call xrEnumerateBoundSourcesForAction
+            {
+                size_t a = randEngine.RandSizeT(0, actionVector.size());
+
+                // to do: Add bindings here to test more of this
+
+                XrBoundSourcesForActionEnumerateInfo boundSources{XR_TYPE_BOUND_SOURCES_FOR_ACTION_ENUMERATE_INFO};
+                boundSources.action = actionVector[a];
+
+                uint32_t countOutput;
+                XRC_CHECK_THROW_XRCMD(xrEnumerateBoundSourcesForAction(session, &boundSources, 0, &countOutput, nullptr));
+
+                std::vector<XrPath> boundSourcePathVector(countOutput);
+                XRC_CHECK_THROW_XRCMD(
+                    xrEnumerateBoundSourcesForAction(session, &boundSources, countOutput, &countOutput, boundSourcePathVector.data()));
+
+                if (countOutput) {  // If there were bound sources...
+                    // Call xrGetInputSourceLocalizedName
+                    XrInputSourceLocalizedNameGetInfo nameGetInfo{XR_TYPE_INPUT_SOURCE_LOCALIZED_NAME_GET_INFO};
+                    nameGetInfo.sourcePath = boundSourcePathVector[0];  // Could test others..
+                    nameGetInfo.whichComponents =
+                        (XR_INPUT_SOURCE_LOCALIZED_NAME_USER_PATH_BIT | XR_INPUT_SOURCE_LOCALIZED_NAME_INTERACTION_PROFILE_BIT |
+                         XR_INPUT_SOURCE_LOCALIZED_NAME_COMPONENT_BIT);
+                    char nameBuffer[512];
+                    XRC_CHECK_THROW_XRCMD(
+                        xrGetInputSourceLocalizedName(session, &nameGetInfo, (uint32_t)sizeof(nameBuffer), &countOutput, nameBuffer));
+
+                    XRC_CHECK_THROW(ValidateStringUTF8(nameBuffer, sizeof(nameBuffer)));
                 }
             }
 
@@ -810,8 +968,6 @@ namespace Conformance
             // if(FAILED(result))
             //     break;
         }
-*/
-        // return XR_SUCCEEDED(result);
     }
 
     void Exercise_xrSetInteractionProfileSuggestedBindings(ThreadTestEnvironment& env)
@@ -854,52 +1010,28 @@ namespace Conformance
         return Exercise_xrSyncActions(env);
     }
 
-    void Exercise_xrApplyHapticFeedback(ThreadTestEnvironment& /*env*/)
+    void Exercise_xrApplyHapticFeedback(ThreadTestEnvironment& env)
     {
-        // Test fails because the actionset is not bound to the session.
-#if 0
-        // Create an action set.
-        XrActionSetCreateInfo actionSetInfo = {XR_TYPE_ACTION_SET_CREATE_INFO};
-        std::string strActionSet = "actionset_" + std::to_string(reinterpret_cast<uintptr_t>(&actionSetInfo));
-        strcpy(actionSetInfo.actionSetName, strActionSet.c_str());
-        strcpy(actionSetInfo.localizedActionSetName, strActionSet.c_str());
-        XrActionSet inGameActionSet;
-        XrResult result = xrCreateActionSet(env.GetAutoBasicSession().GetInstance(), &actionSetInfo, &inGameActionSet);
-        XRC_CHECK_THROW(XR_SUCCEEDED(result) || result == XR_ERROR_LIMIT_REACHED);
-        if (result == XR_ERROR_LIMIT_REACHED) {
-            return;  // Nothing more can be tested.
-        }
-
-        // Create a "player_hit" output action.
-        XrActionCreateInfo actionCreateInfo = {XR_TYPE_ACTION_CREATE_INFO};
-        std::string strAction = "action_" + std::to_string(reinterpret_cast<uintptr_t>(&actionSetInfo));
-        strcpy(actionCreateInfo.actionName, strAction.c_str());
-        actionCreateInfo.actionType = XR_ACTION_TYPE_VIBRATION_OUTPUT;
-        strcpy(actionCreateInfo.localizedActionName, strAction.c_str());
-
-        XrAction hapticsAction;
-        XRC_CHECK_THROW_XRCMD(xrCreateAction(inGameActionSet, &actionCreateInfo, &hapticsAction));
-
         XrPath hapticsPath;
         xrStringToPath(env.GetAutoBasicSession().GetInstance(), "/user/hand/right/output/haptic", &hapticsPath);
 
         XrHapticActionInfo hapticActionInfo = {XR_TYPE_HAPTIC_ACTION_INFO};
-        hapticActionInfo.action = hapticsAction;
+        hapticActionInfo.action = env.hapticsAction;
 
         XrHapticVibration vibration = {XR_TYPE_HAPTIC_VIBRATION};
         vibration.amplitude = 0.5;
         vibration.duration = 200000000;  // 200ms
         vibration.frequency = 320;       // 320 cycles per second
-        XRC_CHECK_THROW_XRCMD(
-            xrApplyHapticFeedback(env.GetAutoBasicSession().GetSession(), &hapticActionInfo, (const XrHapticBaseHeader*)&vibration));
 
-        // Possibly wait a little.
-        XRC_CHECK_THROW_XRCMD(xrStopHapticFeedback(env.GetAutoBasicSession().GetSession(), &hapticActionInfo));
+        const size_t iterationCount = 100;  // To do: Make this configurable.
 
-        XRC_CHECK_THROW_XRCMD(xrDestroyAction(hapticsAction));
+        for (size_t i = 0; i < iterationCount; ++i) {
+            XRC_CHECK_THROW_XRCMD(
+                xrApplyHapticFeedback(env.GetAutoBasicSession().GetSession(), &hapticActionInfo, (const XrHapticBaseHeader*)&vibration));
 
-        XRC_CHECK_THROW_XRCMD(xrDestroyActionSet(inGameActionSet));
-#endif
+            // Possibly wait a little.
+            XRC_CHECK_THROW_XRCMD(xrStopHapticFeedback(env.GetAutoBasicSession().GetSession(), &hapticActionInfo));
+        }
     }
 
     void Exercise_xrStopHapticFeedback(ThreadTestEnvironment& env)
@@ -927,8 +1059,8 @@ namespace Conformance
         {"xrGetReferenceSpaceBoundsRect", CallRequirement::session, Exercise_xrGetReferenceSpaceBoundsRect},
 
         {"xrGetReferenceSpaceBoundsRect", CallRequirement::session, Exercise_xrGetReferenceSpaceBoundsRect},
-        //{"xrCreateActionSpace", CallRequirement::session, Exercise_xrCreateActionSpace},
-        //{"xrLocateSpace", CallRequirement::session, Exercise_xrLocateSpace},
+        {"xrCreateActionSpace", CallRequirement::session, Exercise_xrCreateActionSpace},
+        {"xrLocateSpace", CallRequirement::session, Exercise_xrLocateSpace},
         {"xrDestroySpace", CallRequirement::session, Exercise_xrDestroySpace},
         {"xrEnumerateViewConfigurations", CallRequirement::session, Exercise_xrEnumerateViewConfigurations},
         {"xrGetViewConfigurationProperties", CallRequirement::session, Exercise_xrGetViewConfigurationProperties},

@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2021, The Khronos Group Inc.
+// Copyright (c) 2017-2022, The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 
@@ -9,6 +9,11 @@
 #include <memory>
 #include <unordered_map>
 #include "RGBAImage.h"
+
+#ifdef XR_USE_PLATFORM_ANDROID
+#include <android_native_app_glue.h>
+extern void* Conformance_Android_Get_Asset_Manager();
+#endif
 
 // Only one compilation unit can have the STB implementations.
 #define STB_IMAGE_IMPLEMENTATION
@@ -24,6 +29,47 @@
 
 namespace
 {
+#ifdef XR_USE_PLATFORM_ANDROID
+
+    /// Wrapper for AAsset
+    class UniqueAsset
+    {
+    public:
+        explicit UniqueAsset(AAsset* asset) : asset_(asset)
+        {
+        }
+        UniqueAsset(UniqueAsset const&) = delete;
+        UniqueAsset(UniqueAsset&&) = delete;
+        UniqueAsset& operator=(UniqueAsset const&) = delete;
+        UniqueAsset& operator=(UniqueAsset&&) = delete;
+        ~UniqueAsset()
+        {
+            reset();
+        }
+        explicit operator bool() const
+        {
+            return asset_ != nullptr;
+        }
+
+        void reset() noexcept
+        {
+
+            if (asset_ != nullptr) {
+                AAsset_close(asset_);
+                asset_ = nullptr;
+            }
+        }
+
+        AAsset* get() const noexcept
+        {
+            return asset_;
+        }
+
+    private:
+        AAsset* asset_;
+    };
+
+#endif
     // Convert R32G32B32A_FLOAT to R8G8B8A8_UNORM.
     Conformance::RGBA8Color AsRGBA(float r, float g, float b, float a)
     {
@@ -37,6 +83,21 @@ namespace
         {
             constexpr const char* FontPath = PATH_PREFIX "SourceCodePro-Regular.otf";
 
+#ifdef XR_USE_PLATFORM_ANDROID
+            AAssetManager* assetManager = (AAssetManager*)Conformance_Android_Get_Asset_Manager();
+            UniqueAsset asset(AAssetManager_open(assetManager, "SourceCodePro-Regular.otf", AASSET_MODE_BUFFER));
+
+            if (!asset) {
+                throw std::runtime_error((std::string("Unable to open font ") + FontPath).c_str());
+            }
+
+            size_t length = AAsset_getLength(asset.get());
+            const uint8_t* buf = (const uint8_t*)AAsset_getBuffer(asset.get());
+            if (!buf) {
+                throw std::runtime_error((std::string("Unable to open font ") + FontPath).c_str());
+            }
+            std::vector<uint8_t> fontData(buf, buf + length);
+#else
             std::ifstream file;
             file.open(FontPath, std::ios::in | std::ios::binary);
             if (!file) {
@@ -48,7 +109,7 @@ namespace
             file.seekg(0, std::ios::beg);
 
             file.read(reinterpret_cast<char*>(fontData.data()), fontData.size());
-
+#endif
             // This is just a starting size.
             m_bitmapWidth = 1024;
             m_bitmapHeight = 64;
@@ -114,12 +175,36 @@ namespace Conformance
     {
         constexpr int RequiredComponents = 4;  // RGBA
 
+        int width, height;
+
+#ifdef XR_USE_PLATFORM_ANDROID
+        // for use by the exception, if required.
+        auto fullPath = path;
+        stbi_uc* uc = nullptr;
+        {
+            AAssetManager* assetManager = (AAssetManager*)Conformance_Android_Get_Asset_Manager();
+            UniqueAsset asset(AAssetManager_open(assetManager, path, AASSET_MODE_BUFFER));
+
+            if (!asset) {
+                throw std::runtime_error((std::string("Unable to load asset ") + path).c_str());
+            }
+
+            size_t length = AAsset_getLength(asset.get());
+
+            auto buf = AAsset_getBuffer(asset.get());
+
+            if (!buf) {
+                throw std::runtime_error((std::string("Unable to load asset ") + path).c_str());
+            }
+
+            uc = stbi_load_from_memory((const stbi_uc*)buf, length, &width, &height, nullptr, RequiredComponents);
+        }
+#else
         char fullPath[512];
         strcpy(fullPath, PATH_PREFIX);
         strcat(fullPath, path);
-
-        int width, height;
         stbi_uc* const uc = stbi_load(fullPath, &width, &height, nullptr, RequiredComponents);
+#endif
         if (uc == nullptr) {
             throw std::runtime_error((std::string("Unable to load file ") + fullPath).c_str());
         }
@@ -127,7 +212,10 @@ namespace Conformance
         RGBAImage image(width, height);
         memcpy(image.pixels.data(), uc, width * height * RequiredComponents);
 
-        free(uc);
+        stbi_image_free(uc);
+
+        // Images loaded from files are assumed to be SRGB
+        image.isSrgb = true;
 
         return image;
     }
@@ -255,4 +343,28 @@ namespace Conformance
             }
         }
     }
+
+    inline double ToSRGB(double linear)
+    {
+        if (linear < 0.04045 / 12.92)
+            return linear * 12.92;
+        else
+            return 1.055 * std::pow(linear, (1.0 / 2.4)) - 0.055;
+    }
+    inline double FromSRGB(double srgb)
+    {
+        if (srgb < 0.04045)
+            return srgb / 12.92;
+        return std::pow((srgb + .055) / 1.055, 2.4);
+    }
+
+    void RGBAImage::ConvertToSRGB()
+    {
+        for (RGBA8Color& pixel : pixels) {
+            pixel.Channels.R = (uint8_t)(ToSRGB((double)pixel.Channels.R / 255.0) * 255.0);
+            pixel.Channels.G = (uint8_t)(ToSRGB((double)pixel.Channels.G / 255.0) * 255.0);
+            pixel.Channels.B = (uint8_t)(ToSRGB((double)pixel.Channels.B / 255.0) * 255.0);
+        }
+    }
+
 }  // namespace Conformance

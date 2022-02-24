@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2021, The Khronos Group Inc.
+// Copyright (c) 2019-2022, The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -141,22 +141,29 @@ XrResult ConformanceHooks::xrCreateSession(XrInstance instance, const XrSessionC
         ForEachExtension(createInfo->next,
                          [&](const XrBaseInStructure* ext) { customSessionState->creationExtensionTypes.push_back(ext->type); });
 
+        static_assert(XR_TYPE_GRAPHICS_BINDING_VULKAN_KHR == XR_TYPE_GRAPHICS_BINDING_VULKAN2_KHR, "vulkan binding mismatch");
+        std::initializer_list<XrStructureType> graphicsBindingStructures{
+            XR_TYPE_GRAPHICS_BINDING_OPENGL_WIN32_KHR,
+            XR_TYPE_GRAPHICS_BINDING_OPENGL_XLIB_KHR,
+            XR_TYPE_GRAPHICS_BINDING_OPENGL_XCB_KHR,
+            XR_TYPE_GRAPHICS_BINDING_OPENGL_WAYLAND_KHR,
+            XR_TYPE_GRAPHICS_BINDING_OPENGL_ES_ANDROID_KHR,
+            XR_TYPE_GRAPHICS_BINDING_VULKAN_KHR,
+            XR_TYPE_GRAPHICS_BINDING_D3D11_KHR,
+            XR_TYPE_GRAPHICS_BINDING_D3D12_KHR,
+        };
+        auto it = std::find_first_of(customSessionState->creationExtensionTypes.begin(), customSessionState->creationExtensionTypes.end(),
+                                     graphicsBindingStructures.begin(), graphicsBindingStructures.end());
+
         if (this->enabledExtensions.mnd_headless) {
-            std::initializer_list<XrStructureType> graphicsBindingStructures{
-                XR_TYPE_GRAPHICS_BINDING_OPENGL_WIN32_KHR,
-                XR_TYPE_GRAPHICS_BINDING_OPENGL_XLIB_KHR,
-                XR_TYPE_GRAPHICS_BINDING_OPENGL_XCB_KHR,
-                XR_TYPE_GRAPHICS_BINDING_OPENGL_WAYLAND_KHR,
-                XR_TYPE_GRAPHICS_BINDING_OPENGL_ES_ANDROID_KHR,
-                XR_TYPE_GRAPHICS_BINDING_VULKAN_KHR,
-                XR_TYPE_GRAPHICS_BINDING_D3D11_KHR,
-                XR_TYPE_GRAPHICS_BINDING_D3D12_KHR,
-            };
-            auto it =
-                std::find_first_of(customSessionState->creationExtensionTypes.begin(), customSessionState->creationExtensionTypes.end(),
-                                   graphicsBindingStructures.begin(), graphicsBindingStructures.end());
             if (it == customSessionState->creationExtensionTypes.end()) {
                 customSessionState->headless = true;
+            }
+        }
+        else {
+            NONCONFORMANT_IF(it == customSessionState->creationExtensionTypes.end(), "Graphics Binding not found");
+            if (it != customSessionState->creationExtensionTypes.end()) {
+                customSessionState->graphicsBinding = *it;
             }
         }
 

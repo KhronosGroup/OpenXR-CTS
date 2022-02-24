@@ -31,6 +31,7 @@ endif()
 # List of all files externally generated outside of the loader that the loader
 # needs to build with.
 set(LOADER_EXTERNAL_GEN_FILES ${COMMON_GENERATED_OUTPUT})
+set(LOADER_EXTERNAL_GEN_DEPENDS ${COMMON_GENERATED_DEPENDS})
 run_xr_xml_generate(loader_source_generator.py xr_generated_loader.hpp)
 run_xr_xml_generate(loader_source_generator.py xr_generated_loader.cpp)
 
@@ -45,6 +46,8 @@ else() # build static lib
 endif()
 
 add_library(openxr_loader ${LIBRARY_TYPE}
+    android_utilities.cpp
+    android_utilities.h
     api_layer_interface.cpp
     api_layer_interface.hpp
     loader_core.cpp
@@ -86,15 +89,17 @@ else()
 endif()
 set_target_properties(openxr_loader PROPERTIES FOLDER ${LOADER_FOLDER})
 
-set_source_files_properties(${LOADER_EXTERNAL_GEN_FILES} PROPERTIES GENERATED TRUE)
+if(LOADER_EXTERNAL_GEN_DEPENDS)
+    set_source_files_properties(${LOADER_EXTERNAL_GEN_DEPENDS} PROPERTIES GENERATED TRUE)
+endif()
 add_dependencies(openxr_loader generate_openxr_header xr_global_generated_files)
 target_include_directories(
     openxr_loader
-    PRIVATE ${PROJECT_SOURCE_DIR}/src/common
+    # for OpenXR headers
+    PUBLIC $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
+           $<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/include>
 
-            # for OpenXR headers
-            ${PROJECT_SOURCE_DIR}/include
-            ${PROJECT_BINARY_DIR}/include
+    PRIVATE ${PROJECT_SOURCE_DIR}/src/common
 
             # for generated dispatch table, common_config.h
             ${CMAKE_CURRENT_SOURCE_DIR}/..
@@ -193,7 +198,7 @@ elseif(WIN32)
         target_compile_options(openxr_loader PRIVATE /wd6386)
     endif()
 
-    target_link_libraries(openxr_loader PUBLIC advapi32 pathcch)
+    target_link_libraries(openxr_loader PUBLIC advapi32)
 
     # Need to copy DLL to client directories so clients can easily load it.
     if(DYNAMIC_LOADER AND (CMAKE_GENERATOR MATCHES "^Visual Studio.*"))
@@ -218,6 +223,26 @@ elseif(WIN32)
             COMMAND if exist ${COPY_PDB_SRC_PATH} xcopy /Y /I ${COPY_PDB_SRC_PATH} ${COPY_DST_CONFORMANCE_TEST_PATH}
         )
     endif()
+elseif(ANDROID)
+    set(JNIPP_ROOT ${CMAKE_CURRENT_SOURCE_DIR}/../external/jnipp)
+    set(JNIWRAPPER_ROOT ${CMAKE_CURRENT_SOURCE_DIR}/../external/android-jni-wrappers)
+    file(GLOB ANDROID_WRAP_SOURCES ${JNIWRAPPER_ROOT}/wrap/*.cpp)
+    set_target_properties(openxr_loader
+        PROPERTIES
+        CXX_STANDARD 17
+        CXX_STANDARD_REQUIRED TRUE)
+    target_sources(openxr_loader
+        PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/android_utilities.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/android_utilities.h
+        ${ANDROID_WRAP_SOURCES}
+        ${JNIPP_ROOT}/jnipp.cpp
+    )
+    target_include_directories(openxr_loader
+        PRIVATE
+        ${JNIPP_ROOT}
+        ${JNIWRAPPER_ROOT}
+    )
 endif()
 
 # Copy loader to conformance_cli binary folder if built as dynamic
@@ -251,11 +276,17 @@ endif()
 add_library(headers INTERFACE)
 target_include_directories(headers INTERFACE $<INSTALL_INTERFACE:include>)
 
+# We will never actually install here, but it's easier to set something than block all install code.
+if(ANDROID AND NOT INSTALL_TO_ARCHITECTURE_PREFIXES)
+    set(CMAKE_INSTALL_BINDIR bin)
+    set(CMAKE_INSTALL_LIBDIR lib)
+endif()
+
 install(
     TARGETS openxr_loader headers EXPORT openxr_loader_export
-    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
-    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}" COMPONENT Loader
+    LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}" COMPONENT Loader
+    ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}" COMPONENT Loader
 )
 
 export(
@@ -275,6 +306,7 @@ install(
     FILE OpenXRTargets.cmake
     NAMESPACE OpenXR::
     DESTINATION ${TARGET_DESTINATION}
+    COMPONENT CMakeConfigs
 )
 
 include(CMakePackageConfigHelpers)
@@ -294,6 +326,7 @@ install(
     FILES ${CMAKE_CURRENT_BINARY_DIR}/OpenXRConfig.cmake
           ${CMAKE_CURRENT_BINARY_DIR}/OpenXRConfigVersion.cmake
     DESTINATION ${TARGET_DESTINATION}
+    COMPONENT CMakeConfigs
 )
 
 if(WIN32 AND DYNAMIC_LOADER)
@@ -311,6 +344,7 @@ if(WIN32 AND INSTALL_TO_ARCHITECTURE_PREFIXES)
     install(FILES ${CMAKE_CURRENT_BINARY_DIR}/metaconfig.cmake
         DESTINATION .
         RENAME OpenXRConfig.cmake
+        COMPONENT CMakeConfigs
     )
 
     set(FN OpenXRConfigVersion)
@@ -320,5 +354,33 @@ if(WIN32 AND INSTALL_TO_ARCHITECTURE_PREFIXES)
     install(FILES ${CMAKE_CURRENT_BINARY_DIR}/metaconfigversion.cmake
         DESTINATION .
         RENAME OpenXRConfigVersion.cmake
+        COMPONENT CMakeConfigs
     )
+elseif(ANDROID AND INSTALL_TO_ARCHITECTURE_PREFIXES)
+    configure_file(${CMAKE_CURRENT_SOURCE_DIR}/abi.json
+        ${CMAKE_CURRENT_BINARY_DIR}/abi.json
+        @ONLY)
+    install(FILES ${CMAKE_CURRENT_BINARY_DIR}/abi.json
+        DESTINATION ${CMAKE_INSTALL_LIBDIR}
+        COMPONENT Prefab)
+
+    configure_file(${CMAKE_CURRENT_SOURCE_DIR}/prefab.json
+        ${CMAKE_CURRENT_BINARY_DIR}/prefab.json
+        @ONLY)
+    install(FILES ${CMAKE_CURRENT_BINARY_DIR}/prefab.json
+        DESTINATION ${PREFAB_INSTALL_DIR}
+        COMPONENT Prefab)
+
+    configure_file(${CMAKE_CURRENT_SOURCE_DIR}/AndroidManifest.xml.in
+        ${CMAKE_CURRENT_BINARY_DIR}/AndroidManifest.xml)
+    install(FILES ${CMAKE_CURRENT_BINARY_DIR}/AndroidManifest.xml
+        DESTINATION .
+        COMPONENT Prefab)
+    install(FILES module.json
+        DESTINATION ${PREFAB_MODULE_INSTALL_DIR}
+        COMPONENT Prefab)
+
+    # This gets used directly by build-aar.sh
+    configure_file(${CMAKE_CURRENT_SOURCE_DIR}/openxr_loader_for_android.pom
+        ${CMAKE_CURRENT_BINARY_DIR}/openxr_loader_for_android-${MAJOR}.${MINOR}.${PATCH}${OPENXR_ANDROID_VERSION_SUFFIX}.pom)
 endif()

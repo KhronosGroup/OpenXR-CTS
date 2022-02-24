@@ -1,15 +1,15 @@
 #!/usr/bin/env bash
-# Copyright 2020, Collabora, Ltd.
+# Copyright 2020-2021, Collabora, Ltd.
 # SPDX-License-Identifier: Apache-2.0
 
 set -e
 
 if [ $# -eq 0 ]; then
     TOPIC=HEAD
-    MAINLINE=origin/master
+    MAINLINE=origin/main
 elif [ $# -eq 1 ]; then
     TOPIC=$1
-    MAINLINE=origin/master
+    MAINLINE=origin/main
 elif [ $# -eq 2 ]; then
     TOPIC=$1
     MAINLINE=$2
@@ -40,10 +40,10 @@ check_tree_and_changelog() {
     changelog_dir=$1
     shift
     if changes_in_tree "$@"; then
-        if changes_in_tree $changelog_dir; then
-            echo "OK: Found changes in $@ and changelog fragment in $changelog_dir"
+        if changes_in_tree "$changelog_dir"; then
+            echo "OK: Found changes in $* and changelog fragment in $changelog_dir"
         else
-            echo "Error: Found changes in $@ but no changelog fragment in $changelog_dir"
+            echo "Error: Found changes in $* but no changelog fragment in $changelog_dir"
             RESULT=false
             export RESULT
         fi
@@ -57,11 +57,14 @@ check_tree_and_changelog() {
     check_tree_and_changelog changes/specification specification/sources
     check_tree_and_changelog changes/registry specification/registry
 
-    if [ "x$CI_MERGE_REQUEST_ID" != "x" ]; then
+    if [ "$CI_OPEN_MERGE_REQUESTS" != "" ]; then
         # This is a CI build of a merge request.
-        echo "Merge request $CI_MERGE_REQUEST_IID"
-        if ! find changes -name "mr.$CI_MERGE_REQUEST_IID.gl.md" | grep -q "."; then
-            echo "Warning: Could not find a changelog fragment named mr.$CI_MERGE_REQUEST_IID.gl.md"
+        # shellcheck disable=SC2001
+        mr_num=$(echo "${CI_OPEN_MERGE_REQUESTS}" | sed 's/.*!//')
+        fragment_fn="mr.$mr_num.gl.md"
+        echo "Merge request $CI_OPEN_MERGE_REQUESTS: expecting one or more fragments named $fragment_fn"
+        if ! find changes -name "$fragment_fn" | grep -q "."; then
+            echo "Warning: Could not find a changelog fragment named $fragment_fn"
             # RESULT=false
         fi
     fi

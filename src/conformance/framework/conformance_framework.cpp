@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2021, The Khronos Group Inc.
+// Copyright (c) 2019-2022, The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -289,8 +289,11 @@ namespace Conformance
     {
         std::lock_guard<std::recursive_mutex> lock(dataMutex);
 
-        if (graphicsPlugin->IsInitialized()) {
-            graphicsPlugin->Shutdown();
+        if (IsUsingGraphicsPlugin()) {
+            if (graphicsPlugin->IsInitialized()) {
+                graphicsPlugin->ShutdownDevice();
+                graphicsPlugin->Shutdown();
+            }
         }
 
         if (platformPlugin->IsInitialized()) {

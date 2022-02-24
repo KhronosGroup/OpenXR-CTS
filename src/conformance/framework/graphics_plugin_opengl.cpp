@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2021, The Khronos Group Inc.
+// Copyright (c) 2019-2022, The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -396,7 +396,7 @@ namespace Conformance
         int64_t SelectDepthSwapchainFormat(const int64_t* imageFormatArray, size_t count) const override;
 
         // Format required by RGBAImage type.
-        int64_t GetRGBA8Format(bool sRGB) const override;
+        int64_t GetSRGBA8Format() const override;
 
         std::shared_ptr<SwapchainImageStructs> AllocateSwapchainImageStructs(size_t size,
                                                                              const XrSwapchainCreateInfo& swapchainCreateInfo) override;
@@ -1043,8 +1043,18 @@ namespace Conformance
 
     int64_t OpenGLGraphicsPlugin::SelectColorSwapchainFormat(const int64_t* imageFormatArray, size_t count) const
     {
-        // List of supported color swapchain formats.
-        const std::array<GLenum, 5> f{GL_RGBA8, GL_SRGB8_ALPHA8, GL_RGBA16, GL_RGBA16F, GL_RGBA32F};
+        // List of supported color swapchain formats, note sRGB formats skipped due to CTS bug.
+        // The order of this list does not effect the priority of selecting formats, the runtime list defines that.
+        const std::array<GLenum, 6> f{
+            GL_RGB10_A2,
+            GL_RGBA16,
+            GL_RGBA16F,
+            GL_RGBA32F,
+            // The two below should only be used as a fallback, as they are linear color formats without enough bits for color
+            // depth, thus leading to banding.
+            GL_RGBA8,
+            GL_RGBA8_SNORM,
+        };
 
         const int64_t* formatArrayEnd = imageFormatArray + count;
         auto it = std::find_first_of(imageFormatArray, formatArrayEnd, f.begin(), f.end());
@@ -1074,9 +1084,9 @@ namespace Conformance
         return *it;
     }
 
-    int64_t OpenGLGraphicsPlugin::GetRGBA8Format(bool sRGB) const
+    int64_t OpenGLGraphicsPlugin::GetSRGBA8Format() const
     {
-        return sRGB ? GL_SRGB8_ALPHA8 : GL_RGBA8;
+        return GL_SRGB8_ALPHA8;
     }
 
     std::shared_ptr<IGraphicsPlugin::SwapchainImageStructs>

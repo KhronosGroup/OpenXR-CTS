@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2021, The Khronos Group Inc.
+// Copyright (c) 2019-2022, The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -87,7 +87,7 @@
 #define REQUIRE_RESULT_UNQUALIFIED_SUCCESS(result) REQUIRE(result == XR_SUCCESS)
 
 // XRC_FILE_AND_LINE
-// Represents a compile-time file and line location as a single string.
+// Represents a compile time file and line location as a single string.
 //
 #define XRC_CHECK_STRINGIFY(x) #x
 #define XRC_TO_STRING(x) XRC_CHECK_STRINGIFY(x)

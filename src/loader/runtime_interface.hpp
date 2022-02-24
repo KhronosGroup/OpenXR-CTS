@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2021, The Khronos Group Inc.
+// Copyright (c) 2017-2022, The Khronos Group Inc.
 // Copyright (c) 2017-2019 Valve Corporation
 // Copyright (c) 2017-2019 LunarG, Inc.
 //
@@ -23,13 +23,18 @@
 #define XR_KHR_LOADER_INIT_SUPPORT
 #endif
 
-class RuntimeManifestFile;
-struct XrGeneratedDispatchTable;
+namespace Json {
+class Value;
+}
 
 #ifdef XR_KHR_LOADER_INIT_SUPPORT
 //! Initialize loader, where required.
 XrResult InitializeLoader(const XrLoaderInitInfoBaseHeaderKHR* loaderInitInfo);
+XrResult GetPlatformRuntimeVirtualManifest(Json::Value& out_manifest);
 #endif
+
+class RuntimeManifestFile;
+struct XrGeneratedDispatchTable;
 
 class RuntimeInterface {
    public:
@@ -62,8 +67,7 @@ class RuntimeInterface {
    private:
     RuntimeInterface(LoaderPlatformLibraryHandle runtime_library, PFN_xrGetInstanceProcAddr get_instance_proc_addr);
     void SetSupportedExtensions(std::vector<std::string>& supported_extensions);
-    static void TryLoadingSingleRuntime(const std::string& openxr_command, std::unique_ptr<RuntimeManifestFile>& manifest_file,
-                                        bool& any_loaded, XrResult& last_error);
+    static XrResult TryLoadingSingleRuntime(const std::string& openxr_command, std::unique_ptr<RuntimeManifestFile>& manifest_file);
 
     static std::unique_ptr<RuntimeInterface>& GetInstance() {
         static std::unique_ptr<RuntimeInterface> instance;
