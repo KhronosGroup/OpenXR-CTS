@@ -83,6 +83,10 @@ XrResult ApiLayerInterface::GetApiLayerProperties(const std::string& openxr_comm
         return result;
     }
 
+#ifdef XR_USE_PLATFORM_ANDROID
+    ApiLayerManifestFile::AddManifestFilesAndroid(manifest_files);
+#endif  // XR_USE_PLATFORM_ANDROID
+
     manifest_count = static_cast<uint32_t>(manifest_files.size());
     if (nullptr == outgoing_count) {
         LoaderLogger::LogErrorMessage("xrEnumerateInstanceExtensionProperties",
@@ -204,6 +208,10 @@ XrResult ApiLayerInterface::LoadApiLayers(const std::string& openxr_command, uin
     if (XR_SUCCEEDED(result)) {
         result = ApiLayerManifestFile::FindManifestFiles(MANIFEST_TYPE_EXPLICIT_API_LAYER, explicit_layer_manifest_files);
     }
+
+#ifdef XR_USE_PLATFORM_ANDROID
+    ApiLayerManifestFile::AddManifestFilesAndroid(explicit_layer_manifest_files);
+#endif  // XR_USE_PLATFORM_ANDROID
 
     bool found_all_layers = true;
 

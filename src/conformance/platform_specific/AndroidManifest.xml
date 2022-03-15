@@ -25,6 +25,7 @@ SPDX-License-Identifier: Apache-2.0
 		android:allowBackup="true"
 		android:hasCode="false"
 		android:label="OpenXR CTS"
+		android:extractNativeLibs="true"
 		android:icon="@mipmap/ic_launcher"
 		android:roundIcon="@mipmap/ic_launcher_round">
 

@@ -85,6 +85,9 @@ class ApiLayerManifestFile : public ManifestFile {
    public:
     // Factory method
     static XrResult FindManifestFiles(ManifestFileType type, std::vector<std::unique_ptr<ApiLayerManifestFile>> &manifest_files);
+#ifdef XR_USE_PLATFORM_ANDROID
+    static void AddManifestFilesAndroid(std::vector<std::unique_ptr<ApiLayerManifestFile>> &manifest_files);
+#endif
 
     const std::string &LayerName() const { return _layer_name; }
     void PopulateApiLayerProperties(XrApiLayerProperties &props) const;

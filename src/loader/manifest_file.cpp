@@ -50,6 +50,10 @@
 #define SYSCONFDIR "/etc"
 #endif  // !SYSCONFDIR
 
+#ifdef XR_USE_PLATFORM_ANDROID
+#include <android_native_app_glue.h>
+#endif
+
 #ifdef XRLOADER_DISABLE_EXCEPTION_HANDLING
 #if JSON_USE_EXCEPTIONS
 #error \
@@ -655,6 +659,106 @@ ApiLayerManifestFile::ApiLayerManifestFile(ManifestFileType type, const std::str
       _layer_name(layer_name),
       _description(description),
       _implementation_version(implementation_version) {}
+
+#ifdef XR_USE_PLATFORM_ANDROID
+void ApiLayerManifestFile::AddManifestFilesAndroid(std::vector<std::unique_ptr<ApiLayerManifestFile>> &manifest_files) {
+    AAssetManager *assetManager = (AAssetManager *)Android_Get_Asset_Manager();
+    std::string filename = "XrApiLayer_runtime_conformance.json";
+    AAsset *asset = AAssetManager_open(assetManager, filename.c_str(), AASSET_MODE_BUFFER);
+    if (!asset) {
+        throw std::runtime_error(std::string("Unable to open ") + filename);
+    }
+    size_t length = AAsset_getLength(asset);
+    const char *buf = reinterpret_cast<const char *>(AAsset_getBuffer(asset));
+    if (!buf) {
+        throw std::runtime_error(std::string("Unable to open ") + filename);
+    }
+    std::istringstream json_stream(buf);
+
+    std::ostringstream error_ss("ApiLayerManifestFile::CreateIfValid ");
+    Json::CharReaderBuilder builder;
+    std::string errors;
+    Json::Value root_node = Json::nullValue;
+    if (!Json::parseFromStream(builder, json_stream, &root_node, &errors) || !root_node.isObject()) {
+        error_ss << "failed to parse " << filename << ".";
+        if (!errors.empty()) {
+            error_ss << " (Error message: " << errors << ")";
+        }
+        error_ss << "Is it a valid layer manifest file?";
+        LoaderLogger::LogErrorMessage("", error_ss.str());
+        return;
+    }
+    JsonVersion file_version = {};
+    if (!ManifestFile::IsValidJson(root_node, file_version)) {
+        error_ss << "isValidJson indicates " << filename << " is not a valid manifest file.";
+        LoaderLogger::LogErrorMessage("", error_ss.str());
+        return;
+    }
+
+    Json::Value layer_root_node = root_node["api_layer"];
+
+    // The API Layer manifest file needs the "api_layer" root as well as other sub-nodes.
+    // If any of those aren't there, fail.
+    if (layer_root_node.isNull() || layer_root_node["name"].isNull() || !layer_root_node["name"].isString() ||
+        layer_root_node["api_version"].isNull() || !layer_root_node["api_version"].isString() ||
+        layer_root_node["library_path"].isNull() || !layer_root_node["library_path"].isString() ||
+        layer_root_node["implementation_version"].isNull() || !layer_root_node["implementation_version"].isString()) {
+        error_ss << filename << " is missing required fields.  Verify all proper fields exist.";
+        LoaderLogger::LogErrorMessage("", error_ss.str());
+        return;
+    }
+    std::string layer_name = layer_root_node["name"].asString();
+    std::string api_version_string = layer_root_node["api_version"].asString();
+    JsonVersion api_version = {};
+    const int num_fields = sscanf(api_version_string.c_str(), "%u.%u", &api_version.major, &api_version.minor);
+    api_version.patch = 0;
+
+    if ((num_fields != 2) || (api_version.major == 0 && api_version.minor == 0) ||
+        api_version.major > XR_VERSION_MAJOR(XR_CURRENT_API_VERSION)) {
+        error_ss << "layer " << filename << " has invalid API Version.  Skipping layer.";
+        LoaderLogger::LogWarningMessage("", error_ss.str());
+        return;
+    }
+
+    uint32_t implementation_version = atoi(layer_root_node["implementation_version"].asString().c_str());
+    std::string library_path = layer_root_node["library_path"].asString();
+
+    // If the library_path variable has no directory symbol, it's just a file name and should be accessible on the
+    // global library path.
+    if (library_path.find('\\') != std::string::npos || library_path.find('/') != std::string::npos) {
+        // If the library_path is an absolute path, just use that if it exists
+        if (FileSysUtilsIsAbsolutePath(library_path)) {
+            if (!FileSysUtilsPathExists(library_path)) {
+                error_ss << filename << " library " << library_path << " does not appear to exist";
+                LoaderLogger::LogErrorMessage("", error_ss.str());
+                return;
+            }
+        } else {
+            // Otherwise, treat the library path as a relative path based on the JSON file.
+            std::string combined_path;
+            std::string file_parent = GetAndroidNativeLibraryDir();
+            if (!FileSysUtilsCombinePaths(file_parent, library_path, combined_path) || !FileSysUtilsPathExists(combined_path)) {
+                error_ss << filename << " library " << combined_path << " does not appear to exist";
+                LoaderLogger::LogErrorMessage("", error_ss.str());
+                return;
+            }
+            library_path = combined_path;
+        }
+    }
+
+    std::string description;
+    if (!layer_root_node["description"].isNull() && layer_root_node["description"].isString()) {
+        description = layer_root_node["description"].asString();
+    }
+
+    // Add this layer manifest file
+    manifest_files.emplace_back(new ApiLayerManifestFile(ManifestFileType::MANIFEST_TYPE_EXPLICIT_API_LAYER, filename, layer_name,
+                                                         description, api_version, implementation_version, library_path));
+
+    // Add any extensions to it after the fact.
+    manifest_files.back()->ParseCommon(layer_root_node);
+}
+#endif  // XR_USE_PLATFORM_ANDROID
 
 void ApiLayerManifestFile::CreateIfValid(ManifestFileType type, const std::string &filename,
                                          std::vector<std::unique_ptr<ApiLayerManifestFile>> &manifest_files) {

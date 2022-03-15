@@ -27,11 +27,19 @@ apply from: file('../version.gradle')
 
 def assetDest = layout.buildDir.dir('intermediates/assets')
 
+task copyApiLayerManifest(type: Copy) {
+    from('.cxx/cmake/debug/x86_64/src/conformance/conformance_layer/') {
+        include '*.json'
+    }
+    into assetDest
+}
+
 task copyFont(type: Copy) {
     from('conformance_test') {
         include '*.otf'
     }
     into assetDest
+    dependsOn copyApiLayerManifest
 }
 
 task copyAssets(type: Copy) {

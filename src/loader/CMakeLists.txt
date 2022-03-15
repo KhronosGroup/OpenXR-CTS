@@ -69,6 +69,11 @@ add_library(openxr_loader ${LIBRARY_TYPE}
     ${LOADER_EXTERNAL_GEN_FILES}
     ${openxr_loader_RESOURCE_FILE}
 )
+
+if(ANDROID)
+    target_include_directories(openxr_loader PUBLIC ${ANDROID_NATIVE_APP_GLUE})
+endif()
+
 if(BUILD_WITH_SYSTEM_JSONCPP)
     target_link_libraries(openxr_loader PRIVATE JsonCpp::JsonCpp)
 else()
@@ -128,7 +133,8 @@ if(ANDROID)
     target_link_libraries(
         openxr_loader
         PRIVATE
-        ${ANDROID_LOG_LIBRARY})
+        ${ANDROID_LOG_LIBRARY}
+        ${ANDROID_LIBRARY})
 endif()
 
 target_compile_definitions(openxr_loader PRIVATE API_NAME="OpenXR")
