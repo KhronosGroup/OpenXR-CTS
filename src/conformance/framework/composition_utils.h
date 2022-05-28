@@ -98,7 +98,7 @@ namespace Conformance
 
         void EndFrame(XrTime predictedDisplayTime, std::vector<XrCompositionLayerBaseHeader*> layers);
 
-        void AcquireWaitReleaseImage(XrSwapchain swapchain, std::function<void(const XrSwapchainImageBaseHeader*, uint64_t)> doUpdate);
+        void AcquireWaitReleaseImage(XrSwapchain swapchain, std::function<void(const XrSwapchainImageBaseHeader*, int64_t)> doUpdate);
 
         XrSpace CreateReferenceSpace(XrReferenceSpaceType type, XrPosef pose = XrPosefCPP());
 

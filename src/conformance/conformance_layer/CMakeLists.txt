@@ -87,6 +87,10 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     target_link_libraries(XrApiLayer_runtime_conformance m)
 endif()
 
+if(ANDROID)
+    target_link_libraries(XrApiLayer_runtime_conformance ${ANDROID_LOG_LIBRARY})
+endif()
+
 if(BUILD_CONFORMANCE_CLI)
     # Copy conformance layer files to conformance_cli binary folder
     add_custom_command(TARGET XrApiLayer_runtime_conformance POST_BUILD

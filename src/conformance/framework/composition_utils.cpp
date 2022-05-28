@@ -311,7 +311,7 @@ namespace Conformance
     }
 
     void CompositionHelper::AcquireWaitReleaseImage(XrSwapchain swapchain,
-                                                    std::function<void(const XrSwapchainImageBaseHeader*, uint64_t)> doUpdate)
+                                                    std::function<void(const XrSwapchainImageBaseHeader*, int64_t)> doUpdate)
     {
         uint32_t imageIndex;
         XrSwapchainImageAcquireInfo acquireInfo{XR_TYPE_SWAPCHAIN_IMAGE_ACQUIRE_INFO};

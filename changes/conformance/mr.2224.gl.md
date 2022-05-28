@@ -1,0 +1,2 @@
+- Fix: Resolve some warnings and a use-after-move.
+- Improvement: In case of internal error in the conformance layer, provide some logging to support troubleshooting.

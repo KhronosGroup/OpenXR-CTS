@@ -28,7 +28,7 @@ namespace Conformance
     public:
         PlatformPluginWin32() = default;
 
-        ~PlatformPluginWin32()
+        ~PlatformPluginWin32() override
         {
             Shutdown();
         }

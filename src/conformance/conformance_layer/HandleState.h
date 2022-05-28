@@ -74,7 +74,7 @@ struct HandleState
 // Inherit from std::runtime_error so it can be caught in the ABI boundary.
 struct HandleException : public std::runtime_error
 {
-    HandleException(std::string message) : std::runtime_error(std::move(message))
+    HandleException(const std::string& message) : std::runtime_error(message)
     {
     }
 };

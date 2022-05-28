@@ -240,10 +240,10 @@ namespace Conformance
 
             // Word wrap.
             {
-                int remainingWordWidth = 0;
-                for (const char* w = text; *w > 32; w++) {
+                float remainingWordWidth = 0;
+                for (const char* w = text; *w > ' '; w++) {
                     const stbtt_bakedchar& bakedChar = font->GetBakedChar(*text);
-                    remainingWordWidth += (int)(bakedChar.x1 - bakedChar.x0);
+                    remainingWordWidth += bakedChar.xadvance;
                 }
 
                 // Wrap to new line if there isn't enough room for this word.

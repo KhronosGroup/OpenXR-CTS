@@ -1247,12 +1247,6 @@ namespace Conformance
         glBindVertexArray(0);
         glUseProgram(0);
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
-        // Swap our window every other eye for RenderDoc
-        static int everyOther = 0;
-        if ((everyOther++ & 1) != 0) {
-            ksGpuWindow_SwapBuffers(&window);
-        }
     }
 
     std::shared_ptr<IGraphicsPlugin> CreateGraphicsPlugin_OpenGL(std::shared_ptr<IPlatformPlugin> platformPlugin)

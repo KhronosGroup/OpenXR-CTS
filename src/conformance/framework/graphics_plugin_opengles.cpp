@@ -925,8 +925,6 @@ namespace Conformance
         GLuint height = swapchainInfo.createInfo.height;
         GLenum target = isArray ? GL_TEXTURE_2D_ARRAY : GL_TEXTURE_2D;
 
-        const uint32_t colorTexture = reinterpret_cast<const XrSwapchainImageOpenGLESKHR*>(colorSwapchainImage)->image;
-
         // If a depth-stencil view has already been created for this back-buffer, use it.
         auto depthBufferIt = m_colorToDepthMap.find(colorSwapchainImage);
         if (depthBufferIt != m_colorToDepthMap.end()) {

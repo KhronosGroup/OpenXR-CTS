@@ -92,7 +92,7 @@ namespace Conformance
     {
         D3D12GraphicsPlugin(std::shared_ptr<IPlatformPlugin>);
 
-        ~D3D12GraphicsPlugin();
+        ~D3D12GraphicsPlugin() override;
 
         bool Initialize() override;
 
@@ -901,7 +901,6 @@ namespace Conformance
         auto& swapchainContext = GetSwapchainImageContext(colorSwapchainImage);
 
         ID3D12Resource* const colorTexture = reinterpret_cast<const XrSwapchainImageD3D12KHR*>(colorSwapchainImage)->texture;
-        const D3D12_RESOURCE_DESC colorTextureDesc = colorTexture->GetDesc();
 
         ComPtr<ID3D12GraphicsCommandList> cmdList;
         XRC_CHECK_THROW_HRCMD(d3d12Device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, swapchainContext.GetCommandAllocator(),
@@ -939,7 +938,6 @@ namespace Conformance
             cmdList->SetGraphicsRootSignature(rootSignature.Get());
 
             ID3D12Resource* const colorTexture = reinterpret_cast<const XrSwapchainImageD3D12KHR*>(colorSwapchainImage)->texture;
-            const D3D12_RESOURCE_DESC colorTextureDesc = colorTexture->GetDesc();
 
             const D3D12_VIEWPORT viewport = {(float)layerView.subImage.imageRect.offset.x,
                                              (float)layerView.subImage.imageRect.offset.y,

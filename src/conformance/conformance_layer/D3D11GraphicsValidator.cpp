@@ -45,7 +45,9 @@ namespace Conformance
         {DXGI_FORMAT_X32_TYPELESS_G8X24_UINT, DXGI_FORMAT_R32_FLOAT_X8X24_TYPELESS},
         {DXGI_FORMAT_R10G10B10A2_UNORM, DXGI_FORMAT_R10G10B10A2_TYPELESS},
         {DXGI_FORMAT_R10G10B10A2_UINT, DXGI_FORMAT_R10G10B10A2_TYPELESS},
-        {DXGI_FORMAT_R11G11B10_FLOAT, DXGI_FORMAT_R10G10B10A2_TYPELESS},
+        /* 
+        DXGI_FORMAT_R11G11B10_FLOAT = 26,
+        */
         {DXGI_FORMAT_R8G8B8A8_UNORM, DXGI_FORMAT_R8G8B8A8_TYPELESS},
         {DXGI_FORMAT_R8G8B8A8_UNORM_SRGB, DXGI_FORMAT_R8G8B8A8_TYPELESS},
         {DXGI_FORMAT_R8G8B8A8_UINT, DXGI_FORMAT_R8G8B8A8_TYPELESS},
@@ -96,8 +98,10 @@ namespace Conformance
         /*
         DXGI_FORMAT_B5G6R5_UNORM = 85,
         DXGI_FORMAT_B5G5R5A1_UNORM = 86,
-        DXGI_FORMAT_B8G8R8A8_UNORM = 87,
-        DXGI_FORMAT_B8G8R8X8_UNORM = 88,
+        */
+        {DXGI_FORMAT_B8G8R8A8_UNORM, DXGI_FORMAT_B8G8R8A8_TYPELESS},
+        {DXGI_FORMAT_B8G8R8X8_UNORM, DXGI_FORMAT_B8G8R8X8_TYPELESS},
+        /*
         DXGI_FORMAT_R10G10B10_XR_BIAS_A2_UNORM = 89,
         */
         {DXGI_FORMAT_B8G8R8A8_UNORM_SRGB, DXGI_FORMAT_B8G8R8A8_TYPELESS},
@@ -147,6 +151,8 @@ namespace Conformance
 #if !defined(MISSING_DIRECTX_COLORS)
             const auto it = g_typelessMap.find((DXGI_FORMAT)swapchainFormat);
             const DXGI_FORMAT expectedTextureFormat = it == g_typelessMap.end() ? (DXGI_FORMAT)swapchainFormat : it->second;
+#else
+            (void)swapchainFormat;
 #endif
 
             const XrSwapchainImageD3D11KHR* const d3d11Images = reinterpret_cast<const XrSwapchainImageD3D11KHR*>(images);
@@ -157,17 +163,19 @@ namespace Conformance
                                                          d3d11Images[i].type);
                 }
 
-#if 0
                 D3D11_TEXTURE2D_DESC desc;
                 d3d11Images[i].texture->GetDesc(&desc);
 
 #if !defined(MISSING_DIRECTX_COLORS)
                 if (desc.Format != expectedTextureFormat) {
-                    conformanceHooks->ConformanceFailure(XR_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT, "xrEnumerateSwapchainImages",
-                                                         "xrEnumerateSwapchainImages failed: ID3D11Texture2D format is not expected format %d: Swapchain : %d", expectedTextureFormat, desc.Format);
+                    conformanceHooks->ConformanceFailure(
+                        XR_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT, "xrEnumerateSwapchainImages",
+                        "xrEnumerateSwapchainImages failed: ID3D11Texture2D format is not expected format %d: Swapchain : %d",
+                        expectedTextureFormat, desc.Format);
                 }
+#else
+                (void)desc;
 #endif
-#endif  // 0
 
                 // TODO: Confirm texture is for same device(context)?
             }

@@ -26,7 +26,7 @@ namespace Conformance
     public:
         PlatformPluginWayland() = default;
 
-        ~PlatformPluginWayland()
+        ~PlatformPluginWayland() override
         {
             Shutdown();
         }

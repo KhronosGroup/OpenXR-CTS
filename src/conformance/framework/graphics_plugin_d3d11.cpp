@@ -44,7 +44,7 @@ namespace Conformance
     public:
         D3D11GraphicsPlugin(std::shared_ptr<IPlatformPlugin>);
 
-        ~D3D11GraphicsPlugin();
+        ~D3D11GraphicsPlugin() override;
 
         bool Initialize() override;
 

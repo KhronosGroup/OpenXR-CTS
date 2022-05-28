@@ -51,6 +51,22 @@ namespace Conformance
     class HumanDrivenInputdevice : public IInputTestDevice
     {
     public:
+        HumanDrivenInputdevice(ITestMessageDisplay* const messageDisplay, XrInstance instance, XrSession session, XrPath interactionProfile,
+                               XrPath topLevelPath, XrActionSet actionSet, XrAction firstBooleanAction,
+                               std::map<XrPath, XrAction>& actionMap)
+            : m_messageDisplay(messageDisplay)
+            , m_instance(instance)
+            , m_session(session)
+            , m_interactionProfile(interactionProfile)
+            , m_topLevelPath(topLevelPath)
+            , m_conformanceAutomationExtensionEnabled(GetGlobalData().IsInstanceExtensionEnabled("XR_EXT_conformance_automation"))
+        {
+            m_actionSet = actionSet;
+            m_actionMap = actionMap;
+            m_firstBooleanAction = firstBooleanAction;  // will be used for testing active controller
+            m_shouldDestroyActionSet = false;           // actions and action sets are handled by the test, so do not destroy
+        }
+
         HumanDrivenInputdevice(ITestMessageDisplay* const messageDisplay, InteractionManager* const interactionManager, XrInstance instance,
                                XrSession session, XrPath interactionProfile, XrPath topLevelPath,
                                InteractionProfileWhitelistData interactionProfilePaths)
@@ -61,7 +77,6 @@ namespace Conformance
             , m_topLevelPath(topLevelPath)
             , m_conformanceAutomationExtensionEnabled(GetGlobalData().IsInstanceExtensionEnabled("XR_EXT_conformance_automation"))
         {
-
             std::string actionSetName = "test_device_action_set_" + std::to_string(m_topLevelPath);
             std::string localizedActionSetName = "Test Device Action Set " + std::to_string(m_topLevelPath);
 
@@ -110,12 +125,14 @@ namespace Conformance
             interactionManager->AddActionSet(m_actionSet);
         }
 
-        ~HumanDrivenInputdevice()
+        ~HumanDrivenInputdevice() override
         {
-            for (const auto& pair : m_actionMap) {
-                REQUIRE_RESULT(xrDestroyAction(pair.second), XR_SUCCESS);
+            if (m_shouldDestroyActionSet) {
+                for (const auto& pair : m_actionMap) {
+                    REQUIRE_RESULT(xrDestroyAction(pair.second), XR_SUCCESS);
+                }
+                REQUIRE_RESULT(xrDestroyActionSet(m_actionSet), XR_SUCCESS);
             }
-            REQUIRE_RESULT(xrDestroyActionSet(m_actionSet), XR_SUCCESS);
         }
 
         XrPath TopLevelPath() const override
@@ -396,6 +413,7 @@ namespace Conformance
         std::map<XrPath, XrAction> m_actionMap;
 
         XrAction m_firstBooleanAction{XR_NULL_PATH};  // Used to detect controller state
+        bool m_shouldDestroyActionSet = true;         // Don't destroy the action set if the test provided one
     };
 
     std::unique_ptr<IInputTestDevice> CreateTestDevice(ITestMessageDisplay* const messageDisplay,
@@ -405,5 +423,13 @@ namespace Conformance
     {
         return std::make_unique<HumanDrivenInputdevice>(messageDisplay, interactionManager, instance, session, interactionProfile,
                                                         topLevelPath, interactionProfilePaths);
+    }
+
+    std::unique_ptr<IInputTestDevice> CreateTestDevice(ITestMessageDisplay* const messageDisplay, XrInstance instance, XrSession session,
+                                                       XrPath interactionProfile, XrPath topLevelPath, XrActionSet actionSet,
+                                                       XrAction firstBooleanAction, std::map<XrPath, XrAction>& actionMap)
+    {
+        return std::make_unique<HumanDrivenInputdevice>(messageDisplay, instance, session, interactionProfile, topLevelPath, actionSet,
+                                                        firstBooleanAction, actionMap);
     }
 }  // namespace Conformance

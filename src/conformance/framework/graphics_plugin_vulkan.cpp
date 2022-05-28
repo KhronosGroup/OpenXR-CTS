@@ -1451,7 +1451,7 @@ namespace Conformance
     {
         VulkanGraphicsPlugin(const std::shared_ptr<IPlatformPlugin>& /*unused*/);
 
-        ~VulkanGraphicsPlugin();
+        ~VulkanGraphicsPlugin() override;
 
         std::vector<std::string> GetInstanceExtensions() const override
         {

@@ -817,8 +817,10 @@ namespace Conformance
                 // Currently this swapchain handling is dumb; we just use the first swapchain image.
                 projectionViewVector[v].subImage.swapchain =
                     autoBasicSession->swapchainVector[0];  // Intentionally use just [0], in order to simplify our logic here.
-                projectionViewVector[v].subImage.imageRect = {0, 0, (int32_t)autoBasicSession->swapchainExtent.width,
-                                                              (int32_t)autoBasicSession->swapchainExtent.height};
+                projectionViewVector[v].subImage.imageRect = {
+                    {0, 0},
+                    {(int32_t)autoBasicSession->swapchainExtent.width, (int32_t)autoBasicSession->swapchainExtent.height},
+                };
                 projectionViewVector[v].subImage.imageArrayIndex = 0;
             }
         }
@@ -1230,45 +1232,4 @@ namespace Conformance
 
         return result;
     }
-
-    bool GetRuntimeMajorMinorVersion(XrVersion& version)
-    {
-        XrInstanceCreateInfo createInfo{XR_TYPE_INSTANCE_CREATE_INFO};
-        XrInstance instance;
-
-        for (int32_t major = 10; major >= 0; major--) {
-            createInfo.applicationInfo.apiVersion = XR_MAKE_VERSION(major, 0, 0);
-
-            XrResult result = xrCreateInstance(&createInfo, &instance);
-            if (result == XR_ERROR_API_VERSION_UNSUPPORTED) {
-                continue;  // Try the next lower number.
-            }
-            if (XR_SUCCEEDED(result)) {  // This is the highest major version. Try minor versions now.
-                xrDestroyInstance(instance);
-
-                // Try successive minor versions.
-                for (int32_t minor = 99; minor >= 0; minor--) {
-                    createInfo.applicationInfo.apiVersion = XR_MAKE_VERSION(major, minor, 0);
-                    result = xrCreateInstance(&createInfo, &instance);
-                    if (result == XR_ERROR_API_VERSION_UNSUPPORTED) {
-                        continue;  // Try the next lower number.
-                    }
-                    if (XR_SUCCEEDED(result)) {  // This is the highest major version. Try minor versions now.
-                        xrDestroyInstance(instance);
-                        version = createInfo.applicationInfo.apiVersion;
-                        return true;
-                    }
-
-                    break;
-                }
-            }
-            else {
-                break;
-            }
-        }
-
-        version = 0;
-        return false;  // Error occurred above.
-    };
-
 }  // namespace Conformance

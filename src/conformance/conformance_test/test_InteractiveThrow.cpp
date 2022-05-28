@@ -43,6 +43,7 @@ namespace Conformance
         const char* instructions =
             "Press and hold 'select' to spawn three rigidly-attached cubes to that controller. "
             "Release 'select' to throw the three cubes. "
+            "The cubes should fly in the same direction as your controller motion and should feel natural. "
             "The rotation of the thrown cubes should match that of the controller. "
             "The velocity should match the lever-arm effect of the controller. "
             "Hit the three target cubes to complete the test. Press the menu button to fail the test. ";
@@ -122,7 +123,7 @@ namespace Conformance
 
         // Create the instructional quad layer placed to the left.
         XrCompositionLayerQuad* const instructionsQuad =
-            compositionHelper.CreateQuadLayer(compositionHelper.CreateStaticSwapchainImage(CreateTextImage(1024, 512, instructions, 48)),
+            compositionHelper.CreateQuadLayer(compositionHelper.CreateStaticSwapchainImage(CreateTextImage(1024, 768, instructions, 48)),
                                               localSpace, 1, {{0, 0, 0, 1}, {-1.5f, 0, -0.3f}});
         XrQuaternionf_CreateFromAxisAngle(&instructionsQuad->pose.orientation, &Up, 70 * MATH_PI / 180);
 
@@ -171,7 +172,7 @@ namespace Conformance
         auto update = [&](const XrFrameState& frameState) {
             std::vector<Cube> cubes;
 
-            const std::array<XrActiveActionSet, 1> activeActionSets = {{actionSet, XR_NULL_PATH}};
+            const std::array<XrActiveActionSet, 1> activeActionSets = {{{actionSet, XR_NULL_PATH}}};
             XrActionsSyncInfo syncInfo{XR_TYPE_ACTIONS_SYNC_INFO};
             syncInfo.activeActionSets = activeActionSets.data();
             syncInfo.countActiveActionSets = (uint32_t)activeActionSets.size();

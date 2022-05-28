@@ -154,14 +154,14 @@ int32_t app_handle_input(struct android_app* /* app */, AInputEvent* event)
 {
     const int type = AInputEvent_getType(event);
     if (type == AINPUT_EVENT_TYPE_KEY) {
-        const int keyCode = AKeyEvent_getKeyCode(event);
-        const int action = AKeyEvent_getAction(event);
+        AKeyEvent_getKeyCode(event);
+        AKeyEvent_getAction(event);
         return 1;  // we eat all other key events
     }
     else if (type == AINPUT_EVENT_TYPE_MOTION) {
-        const int action = AKeyEvent_getAction(event) & AMOTION_EVENT_ACTION_MASK;
-        const float x = AMotionEvent_getRawX(event, 0);
-        const float y = AMotionEvent_getRawY(event, 0);
+        AKeyEvent_getAction(event);
+        AMotionEvent_getRawX(event, 0);
+        AMotionEvent_getRawY(event, 0);
         return 1;  // we eat all touch events
     }
     return 0;

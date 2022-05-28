@@ -45,10 +45,8 @@ namespace
         constexpr XrColor4f Green = {0, 1, 0, 1};
         constexpr XrColor4f GreenZeroAlpha = {0, 1, 0, 0};
         constexpr XrColor4f Blue = {0, 0, 1, 1};
-        constexpr XrColor4f Purple = {1, 0, 1, 1};
         constexpr XrColor4f Yellow = {1, 1, 0, 1};
         constexpr XrColor4f Orange = {1, 0.65f, 0, 1};
-        constexpr XrColor4f White = {1, 1, 1, 1};
         constexpr XrColor4f Transparent = {0, 0, 0, 0};
 
         // Avoid including red which is a "failure color".
@@ -232,9 +230,9 @@ namespace
 
         CompositionHelper& m_compositionHelper;
 
-        XrActionSet m_actionSet;
-        XrAction m_select;
-        XrAction m_menu;
+        XrActionSet m_actionSet{XR_NULL_HANDLE};
+        XrAction m_select{XR_NULL_HANDLE};
+        XrAction m_menu{XR_NULL_HANDLE};
 
         XrSpace m_viewSpace;
         XrSwapchain m_sceneActionsSwapchain;
@@ -475,7 +473,7 @@ namespace Conformance
 
         // Render a grid of numbers (1,2,3,4) in slice 0 and (5,6,7,8) in slice 1 of the swapchain
         // Create a quad layer referencing each number cell.
-        compositionHelper.AcquireWaitReleaseImage(swapchain, [&](const XrSwapchainImageBaseHeader* swapchainImage, uint64_t format) {
+        compositionHelper.AcquireWaitReleaseImage(swapchain, [&](const XrSwapchainImageBaseHeader* swapchainImage, int64_t format) {
             int number = 1;
             for (int arraySlice = 0; arraySlice < ImageArrayCount; arraySlice++) {
                 Conformance::RGBAImage numberGridImage(ImageWidth, ImageHeight);
@@ -568,17 +566,16 @@ namespace Conformance
                 const auto& views = std::get<std::vector<XrView>>(viewData);
 
                 // Render into each slice of the array swapchain using the projection layer view fov and pose.
-                compositionHelper.AcquireWaitReleaseImage(
-                    swapchain, [&](const XrSwapchainImageBaseHeader* swapchainImage, uint64_t format) {
-                        for (uint32_t slice = 0; slice < (uint32_t)views.size(); slice++) {
-                            GetGlobalData().graphicsPlugin->ClearImageSlice(swapchainImage,
-                                                                            projLayer->views[slice].subImage.imageArrayIndex, format);
+                compositionHelper.AcquireWaitReleaseImage(swapchain, [&](const XrSwapchainImageBaseHeader* swapchainImage, int64_t format) {
+                    for (uint32_t slice = 0; slice < (uint32_t)views.size(); slice++) {
+                        GetGlobalData().graphicsPlugin->ClearImageSlice(swapchainImage, projLayer->views[slice].subImage.imageArrayIndex,
+                                                                        format);
 
-                            const_cast<XrFovf&>(projLayer->views[slice].fov) = views[slice].fov;
-                            const_cast<XrPosef&>(projLayer->views[slice].pose) = views[slice].pose;
-                            GetGlobalData().graphicsPlugin->RenderView(projLayer->views[slice], swapchainImage, format, cubes);
-                        }
-                    });
+                        const_cast<XrFovf&>(projLayer->views[slice].fov) = views[slice].fov;
+                        const_cast<XrPosef&>(projLayer->views[slice].pose) = views[slice].pose;
+                        GetGlobalData().graphicsPlugin->RenderView(projLayer->views[slice], swapchainImage, format, cubes);
+                    }
+                });
 
                 layers.push_back(reinterpret_cast<XrCompositionLayerBaseHeader*>(projLayer));
             }

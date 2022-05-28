@@ -114,7 +114,10 @@ namespace Conformance
                 XrCompositionLayerDepthInfoKHR depthInfoLayer{XR_TYPE_COMPOSITION_LAYER_DEPTH_INFO_KHR};
 
                 depthInfoLayer.subImage.imageArrayIndex = 0;
-                depthInfoLayer.subImage.imageRect = {0, 0, (int32_t)session.swapchainExtent.width, (int32_t)session.swapchainExtent.height};
+                depthInfoLayer.subImage.imageRect = {
+                    {0, 0},
+                    {(int32_t)session.swapchainExtent.width, (int32_t)session.swapchainExtent.height},
+                };
                 depthInfoLayer.minDepth = varyingInfo.minDepth;
                 depthInfoLayer.maxDepth = varyingInfo.maxDepth;
                 depthInfoLayer.nearZ = varyingInfo.nearZ;

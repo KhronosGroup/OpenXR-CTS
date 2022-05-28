@@ -143,7 +143,7 @@ namespace Conformance
         // (e.g. in APIs which have optional extensions).
         virtual bool IsImageFormatKnown(int64_t /*imageFormat*/) const = 0;
 
-        // Retrieves SwapchainCreateTestParameters for the caller, handling plaform-specific functionality
+        // Retrieves SwapchainCreateTestParameters for the caller, handling platform-specific functionality
         // internally.
         // Executes testing CHECK/REQUIRE directives, and may throw a Catch2 failure exception.
         virtual bool GetSwapchainCreateTestParameters(XrInstance /*unused*/, XrSession /*unused*/, XrSystemId /*unused*/,

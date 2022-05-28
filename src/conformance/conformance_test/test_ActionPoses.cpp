@@ -39,10 +39,13 @@ namespace Conformance
     TEST_CASE("Grip and Aim Pose", "[scenario][interactive]")
     {
         const char* exampleImage = "grip_and_aim_pose.png";
+        const char* diagramImage = "grip_axes_diagram.png";
         const char* instructions =
-            "A sword is rendered in one hand using the grip action space. "
-            "A pointing ray is rendered in the other hand using the aim action space with a small axis to show +X and +Y. "
-            "Press select to swap hands. Press menu to complete the validation.";
+            "Ensure the sword feels natural like how it would in real life. "
+            "Ensure the aim ray is comfortable and natural for pointing to any area in front of you. "
+            "Ensure the red/blue/green sides are pointing in the same direction as the above diagram. "
+            "Press select to swap hands and ensure the reverse hands are good too. "
+            "Press menu to complete the validation.";
 
         CompositionHelper compositionHelper("Grip and Aim Pose");
 
@@ -141,11 +144,17 @@ namespace Conformance
 
         compositionHelper.BeginSession();
 
-        // Create the instructional quad layer placed to the left.
+        // Create the instructional quad layer placed to the left bottom.
         XrCompositionLayerQuad* const instructionsQuad =
             compositionHelper.CreateQuadLayer(compositionHelper.CreateStaticSwapchainImage(CreateTextImage(1024, 512, instructions, 48)),
-                                              localSpace, 1.0f, {{0, 0, 0, 1}, {-1.5f, 0, -0.3f}});
+                                              localSpace, 1.0f, {{0, 0, 0, 1}, {-1.5f, -0.33f, -0.3f}});
         XrQuaternionf_CreateFromAxisAngle(&instructionsQuad->pose.orientation, &Up, 70 * MATH_PI / 180);
+
+        // Create the diagram quad layer placed to the left top.
+        XrCompositionLayerQuad* const diagramQuad =
+            compositionHelper.CreateQuadLayer(compositionHelper.CreateStaticSwapchainImage(RGBAImage::Load(diagramImage)), localSpace, 1.0f,
+                                              {{0, 0, 0, 1}, {-1.5f, 0.33f, -0.3f}});
+        XrQuaternionf_CreateFromAxisAngle(&diagramQuad->pose.orientation, &Up, 70 * MATH_PI / 180);
 
         // Create a sample image quad layer placed to the right.
         XrCompositionLayerQuad* const exampleQuad =
@@ -203,7 +212,7 @@ namespace Conformance
         auto update = [&](const XrFrameState& frameState) {
             std::vector<Cube> renderedCubes;
 
-            const std::array<XrActiveActionSet, 1> activeActionSets = {{actionSet, XR_NULL_PATH}};
+            const std::array<XrActiveActionSet, 1> activeActionSets = {{{actionSet, XR_NULL_PATH}}};
             XrActionsSyncInfo syncInfo{XR_TYPE_ACTIONS_SYNC_INFO};
             syncInfo.activeActionSets = activeActionSets.data();
             syncInfo.countActiveActionSets = (uint32_t)activeActionSets.size();
@@ -275,6 +284,7 @@ namespace Conformance
             }
 
             layers.push_back({reinterpret_cast<XrCompositionLayerBaseHeader*>(instructionsQuad)});
+            layers.push_back({reinterpret_cast<XrCompositionLayerBaseHeader*>(diagramQuad)});
             layers.push_back({reinterpret_cast<XrCompositionLayerBaseHeader*>(exampleQuad)});
 
             compositionHelper.EndFrame(frameState.predictedDisplayTime, layers);

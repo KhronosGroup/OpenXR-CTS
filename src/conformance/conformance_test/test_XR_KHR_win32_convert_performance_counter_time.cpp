@@ -42,9 +42,11 @@ namespace Conformance
 
         auto xrConvertWin32PerformanceCounterToTimeKHR = GetInstanceExtensionFunction<PFN_xrConvertWin32PerformanceCounterToTimeKHR>(
             instance, "xrConvertWin32PerformanceCounterToTimeKHR");
+        REQUIRE(xrConvertWin32PerformanceCounterToTimeKHR != nullptr);
 
         auto xrConvertTimeToWin32PerformanceCounterKHR = GetInstanceExtensionFunction<PFN_xrConvertTimeToWin32PerformanceCounterKHR>(
             instance, "xrConvertTimeToWin32PerformanceCounterKHR");
+        REQUIRE(xrConvertTimeToWin32PerformanceCounterKHR != nullptr);
 
         SECTION("Roundtrip")
         {
@@ -90,6 +92,44 @@ namespace Conformance
             CHECK(xrConvertTimeToWin32PerformanceCounterKHR(instance, XrTime(0), &li1) == XR_ERROR_TIME_INVALID);
 
             CHECK(xrConvertTimeToWin32PerformanceCounterKHR(instance, XrTime(-1), &li1) == XR_ERROR_TIME_INVALID);
+        }
+
+        SECTION("Matches frame timing")
+        {
+            auto queryXrTimeFromCurrentTime = [&]() -> XrTime {
+                LARGE_INTEGER li;
+                QueryPerformanceCounter(&li);
+                CAPTURE(li.QuadPart);
+
+                XrTime t = 0;
+                xrConvertWin32PerformanceCounterToTimeKHR(instance, &li, &t);
+                return t;
+            };
+
+            AutoBasicSession session(AutoBasicSession::createSession | AutoBasicSession::beginSession | AutoBasicSession::createSwapchains |
+                                         AutoBasicSession::createSpaces,
+                                     instance);
+            // Query qpc before we query the runtime for an independent XrTime
+            XrTime qpcBefore = queryXrTimeFromCurrentTime();
+            CAPTURE(qpcBefore);
+
+            // Wait until the runtime is ready for us to begin a session
+            auto timeout = (GetGlobalData().options.debugMode ? 3600_sec : 10_sec);
+            FrameIterator frameIterator(&session);
+            FrameIterator::RunResult runResult = frameIterator.RunToSessionState(XR_SESSION_STATE_FOCUSED, timeout);
+            REQUIRE(runResult == FrameIterator::RunResult::Success);
+
+            // Submit a frame and query the time for the next frame
+            frameIterator.SubmitFrame();
+            XrTime nextFrameTime = frameIterator.frameState.predictedDisplayTime;
+
+            // predicted display time is required to be a time in the future so it is fair to assume it is after now.
+            REQUIRE(nextFrameTime >= qpcBefore);
+
+            XrTime qpcAfter = queryXrTimeFromCurrentTime();
+            CAPTURE(qpcAfter);
+
+            REQUIRE(qpcAfter > qpcBefore);
         }
     }
 #endif  // XR_USE_PLATFORM_WIN32

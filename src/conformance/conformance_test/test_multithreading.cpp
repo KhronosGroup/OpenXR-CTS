@@ -270,7 +270,7 @@ namespace Conformance
         const size_t threadCount = 2;        // 10;         // To do: Make this configurable.
         const size_t invocationCount = 100;  // 10000;  // To do: Make this configurable.
 
-        auto RunTestEnvironment = [threadCount](ThreadTestEnvironment& env) -> void {
+        auto RunTestEnvironment = [&](ThreadTestEnvironment& env) -> void {
             std::vector<std::thread>& threadVector = env.ThreadVector();
 
             for (size_t i = 0; i < threadCount; ++i)
