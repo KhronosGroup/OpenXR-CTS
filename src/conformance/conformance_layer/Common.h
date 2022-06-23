@@ -54,6 +54,16 @@ MAKE_TO_STRING_FUNC(XrStructureType);
 MAKE_TO_STRING_FUNC(XrResult);
 MAKE_TO_STRING_FUNC(XrObjectType);
 
+template <typename T, typename TSuper>
+T* FindChainedXrStruct(TSuper* super, XrStructureType matchType)
+{
+    auto extension = reinterpret_cast<T*>(super);
+    while (extension && extension->type != matchType) {
+        extension = reinterpret_cast<T*>(extension->next);
+    }
+    return extension;
+}
+
 template <typename TCallback>
 void ForEachExtension(const void* next, TCallback callback)
 {

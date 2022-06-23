@@ -22,6 +22,7 @@
 #include "conformance_framework.h"
 #include "composition_utils.h"
 #include "input_testinputdevice.h"
+#include "action_utils.h"
 #include <openxr/openxr.h>
 #include <catch2/catch.hpp>
 #include <chrono>
@@ -35,192 +36,6 @@ using namespace Conformance;
 // Stores the top level path in slot 2 and the identifier path in slot 5 or 6 based on whether or not the component was included.
 // If the component was included, 6 and 7 will be matched with the parent and component, otherwise 5 will be matched.
 const std::regex cInteractionSourcePathRegex("^((.+)/(input|output))/(([^/]+)|([^/]+)/([^/]+))$");
-
-// On android platforms sleeping the main thread stalls the interactive tests
-#ifdef XR_USE_PLATFORM_ANDROID
-const std::chrono::nanoseconds waitDelay = 0ms;
-#else
-const std::chrono::nanoseconds waitDelay = 5ms;
-#endif  // XR_USE_PLATFORM_ANDROID
-
-namespace
-{
-    // Manages showing a quad with help text.
-    struct ActionLayerManager : public ITestMessageDisplay
-    {
-        ActionLayerManager(CompositionHelper& compositionHelper)
-            : m_compositionHelper(compositionHelper)
-            , m_viewSpace(compositionHelper.CreateReferenceSpace(XR_REFERENCE_SPACE_TYPE_VIEW))
-            , m_eventReader(m_compositionHelper.GetEventQueue())
-            , m_renderLoop(m_compositionHelper.GetSession(), [&](const XrFrameState& frameState) { return EndFrame(frameState); })
-        {
-        }
-
-        void WaitForSessionFocusWithMessage()
-        {
-            XrSession session = m_compositionHelper.GetSession();
-
-            DisplayMessage("Waiting for session focus...");
-
-            bool focused = WaitUntilPredicateWithTimeout(
-                [&]() {
-                    m_renderLoop.IterateFrame();
-                    XrEventDataBuffer eventData;
-                    while (m_eventReader.TryReadNext(eventData)) {
-                        if (eventData.type == XR_TYPE_EVENT_DATA_SESSION_STATE_CHANGED) {
-                            auto sessionStateChanged = reinterpret_cast<XrEventDataSessionStateChanged*>(&eventData);
-                            if (sessionStateChanged->session == session && sessionStateChanged->state == XR_SESSION_STATE_FOCUSED) {
-                                return true;
-                            }
-                        }
-                    }
-                    return false;
-                },
-                20s, waitDelay);
-
-            REQUIRE_MSG(focused, "Time out waiting for session focus");
-            DisplayMessage("");
-        }
-
-        EventReader& GetEventReader()
-        {
-            return m_eventReader;
-        }
-
-        RenderLoop& GetRenderLoop()
-        {
-            return m_renderLoop;
-        }
-
-        // Sync until focus is available, in case focus was lost at some point.
-        void SyncActionsUntilFocusWithMessage(const XrActionsSyncInfo& syncInfo)
-        {
-            XrResult res;
-
-            bool messageShown = false;
-            const auto startTime = std::chrono::system_clock::now();
-            while (std::chrono::system_clock::now() - startTime < 30s) {
-                {
-                    res = xrSyncActions(m_compositionHelper.GetSession(), &syncInfo);
-                    if (XR_UNQUALIFIED_SUCCESS(res)) {
-                        if (messageShown) {
-                            DisplayMessage("");
-                        }
-
-                        return;
-                    }
-
-                    REQUIRE_RESULT_SUCCEEDED(res);
-                    if (res == XR_SESSION_NOT_FOCUSED && !messageShown) {
-                        DisplayMessage("Waiting for session focus...");
-                        messageShown = true;
-                    }
-                }
-                m_renderLoop.IterateFrame();
-            }
-
-            FAIL("Time out waiting for session focus on xrSyncActions");
-        }
-
-        // "Sleep", but keep the render loop going on this thread
-        template <class Rep, class Period>
-        void Sleep_For(const std::chrono::duration<Rep, Period>& sleep_duration)
-        {
-            const auto startTime = std::chrono::system_clock::now();
-            while (std::chrono::system_clock::now() - startTime < sleep_duration) {
-                m_renderLoop.IterateFrame();
-            }
-        }
-
-        bool EndFrame(const XrFrameState& frameState)
-        {
-            std::lock_guard<std::mutex> lock(m_mutex);
-
-            if (m_displayMessageImage) {
-                m_messageQuad = std::make_unique<MessageQuad>(m_compositionHelper, std::move(m_displayMessageImage), m_viewSpace);
-            }
-
-            std::vector<XrCompositionLayerBaseHeader*> layers;
-            if (m_messageQuad != nullptr) {
-                layers.push_back(reinterpret_cast<XrCompositionLayerBaseHeader*>(m_messageQuad.get()));
-            }
-            m_compositionHelper.EndFrame(frameState.predictedDisplayTime, std::move(layers));
-            return m_compositionHelper.PollEvents();
-        }
-
-        void IterateFrame() override
-        {
-            m_renderLoop.IterateFrame();
-        }
-
-        void DisplayMessage(const std::string& message) override
-        {
-            if (message == m_lastMessage) {
-                return;  // No need to regenerate the swapchain.
-            }
-
-            if (!message.empty()) {
-                ReportStr(("Interaction message: " + message).c_str());
-            }
-
-            constexpr int TitleFontHeightPixels = 40;
-            constexpr int TitleFontPaddingPixels = 2;
-            constexpr int TitleBorderPixels = 2;
-            constexpr int InsetPixels = TitleBorderPixels + TitleFontPaddingPixels;
-
-            std::lock_guard<std::mutex> lock(m_mutex);
-
-            auto image = std::make_unique<RGBAImage>(768, (TitleFontHeightPixels + InsetPixels * 2) * 5);
-            if (!message.empty()) {
-                image->DrawRect(0, 0, image->width, image->height, {0.25f, 0.25f, 0.25f, 0.25f});
-                image->DrawRectBorder(0, 0, image->width, image->height, TitleBorderPixels, {0.5f, 0.5f, 0.5f, 1});
-                image->PutText(XrRect2Di{{InsetPixels, InsetPixels}, {image->width - InsetPixels * 2, image->height - InsetPixels * 2}},
-                               message.c_str(), TitleFontHeightPixels, {1, 1, 1, 1});
-            }
-
-            m_displayMessageImage = std::move(image);
-            m_lastMessage = message;
-        }
-
-    private:
-        std::mutex m_mutex;
-
-        CompositionHelper& m_compositionHelper;
-        const XrSpace m_viewSpace;
-        EventReader m_eventReader;
-        RenderLoop m_renderLoop;
-
-        std::string m_lastMessage;
-        std::unique_ptr<RGBAImage> m_displayMessageImage;
-
-        struct MessageQuad : public XrCompositionLayerQuad
-        {
-            MessageQuad(CompositionHelper& compositionHelper, std::unique_ptr<RGBAImage> image, XrSpace compositionSpace)
-                : m_compositionHelper(compositionHelper)
-            {
-                const XrSwapchain messageSwapchain = m_compositionHelper.CreateStaticSwapchainImage(*image);
-
-                *static_cast<XrCompositionLayerQuad*>(this) = {XR_TYPE_COMPOSITION_LAYER_QUAD};
-                size.width = 1;
-                size.height = size.width * image->height / image->width;
-                pose = XrPosef{{0, 0, 0, 1}, {0, 0, -1.5f}};
-                subImage = m_compositionHelper.MakeDefaultSubImage(messageSwapchain);
-                space = compositionSpace;
-            }
-            ~MessageQuad()
-            {
-                if (subImage.swapchain) {
-                    m_compositionHelper.DestroySwapchain(subImage.swapchain);
-                }
-            }
-
-        private:
-            CompositionHelper& m_compositionHelper;
-        };
-
-        std::unique_ptr<MessageQuad> m_messageQuad;
-    };
-}  // namespace
 
 namespace Conformance
 {
@@ -1255,7 +1070,7 @@ namespace Conformance
                                 REQUIRE(actionStateBoolean.currentState);
                                 return false;
                             },
-                            20s, waitDelay);
+                            20s, kActionWaitDelay);
 
                         actionLayerManager.DisplayMessage("Wait for 5s");
 
@@ -1270,7 +1085,7 @@ namespace Conformance
                                 REQUIRE_FALSE(actionStateBoolean.currentState);
                                 return false;
                             },
-                            5s, waitDelay);
+                            5s, kActionWaitDelay);
                     }
                 }
 
@@ -2294,7 +2109,7 @@ namespace Conformance
 
                         return false;
                     },
-                    600s, waitDelay);
+                    600s, kActionWaitDelay);
 
                 REQUIRE(seenActions.size() == actionCount);
                 REQUIRE_FALSE(waitForCombinedBools);
@@ -2388,7 +2203,7 @@ namespace Conformance
                                 actionLayerManager.GetRenderLoop().IterateFrame();
                                 return GetBooleanButtonState();
                             },
-                            15s, waitDelay);
+                            15s, kActionWaitDelay);
                         REQUIRE_FALSE(currentBooleanAction == XR_NULL_HANDLE);
 
                         {
@@ -2418,7 +2233,7 @@ namespace Conformance
                                 actionLayerManager.GetRenderLoop().IterateFrame();
                                 return GetBooleanButtonState();
                             },
-                            15s, waitDelay);
+                            15s, kActionWaitDelay);
                         REQUIRE_FALSE(currentBooleanAction == XR_NULL_HANDLE);
 
                         {
