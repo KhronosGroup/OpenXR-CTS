@@ -151,7 +151,7 @@ namespace Conformance
                                               1.25f, {{0, 0, 0, 1}, {1.5f, 0, -0.3f}});
         XrQuaternionf_CreateFromAxisAngle(&exampleQuad->pose.orientation, &Up, -70 * MATH_PI / 180);
 
-        const float PointerLength = 4.00f;
+        // const float PointerLength = 4.00f;
         const float PointerThickness = 0.01f;
         const float PointerAxisLength = 0.05f;
 
