@@ -17,6 +17,7 @@
 #include "utils.h"
 #include "conformance_utils.h"
 #include "conformance_framework.h"
+#include "throw_helpers.h"
 #include "bitmask_generator.h"
 #include <openxr/openxr.h>
 #include <openxr/openxr_reflection.h>

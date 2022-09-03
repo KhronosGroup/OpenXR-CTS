@@ -21,6 +21,7 @@
 #include "swapchain_parameters.h"
 #include "conformance_framework.h"
 #include "Geometry.h"
+#include "throw_helpers.h"
 #include <windows.h>
 #include <wrl/client.h>  // For Microsoft::WRL::ComPtr
 #include <common/xr_linear.h>
@@ -135,8 +136,8 @@ namespace Conformance
         std::shared_ptr<SwapchainImageStructs> AllocateSwapchainImageStructs(size_t size,
                                                                              const XrSwapchainCreateInfo& swapchainCreateInfo) override;
 
-        void ClearImageSlice(const XrSwapchainImageBaseHeader* colorSwapchainImage, uint32_t imageArrayIndex,
-                             int64_t colorSwapchainFormat) override;
+        void ClearImageSlice(const XrSwapchainImageBaseHeader* colorSwapchainImage, uint32_t imageArrayIndex, int64_t colorSwapchainFormat,
+                             XrColor4f bgColor = DarkSlateGrey) override;
 
         void RenderView(const XrCompositionLayerProjectionView& layerView, const XrSwapchainImageBaseHeader* colorSwapchainImage,
                         int64_t colorSwapchainFormat, const std::vector<Cube>& cubes) override;
@@ -896,7 +897,7 @@ namespace Conformance
     }
 
     void D3D12GraphicsPlugin::ClearImageSlice(const XrSwapchainImageBaseHeader* colorSwapchainImage, uint32_t imageArrayIndex,
-                                              int64_t colorSwapchainFormat)
+                                              int64_t colorSwapchainFormat, XrColor4f bgColor)
     {
         auto& swapchainContext = GetSwapchainImageContext(colorSwapchainImage);
 
@@ -910,7 +911,8 @@ namespace Conformance
         // Clear color buffer.
         D3D12_CPU_DESCRIPTOR_HANDLE renderTargetView = CreateRenderTargetView(colorTexture, imageArrayIndex, colorSwapchainFormat);
         // TODO: Do not clear to a color when using a pass-through view configuration.
-        cmdList->ClearRenderTargetView(renderTargetView, DirectX::Colors::DarkSlateGray, 0, nullptr);
+        FLOAT bg[] = {bgColor.r, bgColor.g, bgColor.b, bgColor.a};
+        cmdList->ClearRenderTargetView(renderTargetView, bg, 0, nullptr);
 
         // Clear depth buffer.
         ID3D12Resource* depthStencilTexture = swapchainContext.GetDepthStencilTexture(colorTexture);

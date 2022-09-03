@@ -18,6 +18,7 @@
 #include "utils.h"
 #include "report.h"
 #include "conformance_framework.h"
+#include "throw_helpers.h"
 #include <fstream>
 #include <array>
 #include <string>
@@ -239,20 +240,20 @@ namespace Conformance
 
     void CompositionHelper::BeginSession()
     {
-        REQUIRE_MSG(WaitUntilPredicateWithTimeout(
-                        [&] {
-                            XrEventDataBuffer eventData;
-                            while (m_privateEventReader->TryReadUntilEvent(eventData, XR_TYPE_EVENT_DATA_SESSION_STATE_CHANGED)) {
-                                auto sessionStateChanged = reinterpret_cast<XrEventDataSessionStateChanged*>(&eventData);
-                                if (sessionStateChanged->session == m_session && sessionStateChanged->state == XR_SESSION_STATE_READY) {
-                                    return true;
-                                }
-                            }
+        bool result = WaitUntilPredicateWithTimeout(
+            [&] {
+                XrEventDataBuffer eventData;
+                while (m_privateEventReader->TryReadUntilEvent(eventData, XR_TYPE_EVENT_DATA_SESSION_STATE_CHANGED)) {
+                    auto sessionStateChanged = reinterpret_cast<XrEventDataSessionStateChanged*>(&eventData);
+                    if (sessionStateChanged->session == m_session && sessionStateChanged->state == XR_SESSION_STATE_READY) {
+                        return true;
+                    }
+                }
 
-                            return false;
-                        },
-                        15s, 10ms),
-                    "Failed to reach session ready state");
+                return false;
+            },
+            15s, 10ms);
+        XRC_CHECK_THROW_MSG(result, "Failed to reach session ready state");
 
         XrSessionBeginInfo beginInfo{XR_TYPE_SESSION_BEGIN_INFO};
         beginInfo.primaryViewConfigurationType = m_primaryViewType;
@@ -486,9 +487,8 @@ namespace Conformance
         return &m_projections.back();
     }
 
-    SimpleProjectionLayerHelper::SimpleProjectionLayerHelper(CompositionHelper& compositionHelper)
-        : m_compositionHelper(compositionHelper)
-        , m_localSpace(compositionHelper.CreateReferenceSpace(XR_REFERENCE_SPACE_TYPE_LOCAL, XrPosefCPP{}))
+    BaseProjectionLayerHelper::BaseProjectionLayerHelper(CompositionHelper& compositionHelper, XrReferenceSpaceType spaceType)
+        : m_compositionHelper(compositionHelper), m_localSpace(compositionHelper.CreateReferenceSpace(spaceType, XrPosefCPP{}))
     {
         const std::vector<XrViewConfigurationView> viewProperties = compositionHelper.EnumerateConfigurationViews();
 
@@ -501,8 +501,11 @@ namespace Conformance
         }
     }
 
-    XrCompositionLayerBaseHeader* SimpleProjectionLayerHelper::TryGetUpdatedProjectionLayer(const XrFrameState& frameState,
-                                                                                            const std::vector<Cube> cubes)
+    // out of line to provide key function
+    BaseProjectionLayerHelper::ViewRenderer::~ViewRenderer() = default;
+
+    XrCompositionLayerBaseHeader* BaseProjectionLayerHelper::TryGetUpdatedProjectionLayer(const XrFrameState& frameState,
+                                                                                          ViewRenderer& renderer)
     {
         auto viewData = m_compositionHelper.LocateViews(m_localSpace, frameState.predictedDisplayTime);
         const auto& viewState = std::get<XrViewState>(viewData);
@@ -511,14 +514,14 @@ namespace Conformance
             const auto& views = std::get<std::vector<XrView>>(viewData);
 
             // Render into each view swapchain using the recommended view fov and pose.
-            for (size_t view = 0; view < views.size(); view++) {
+            for (uint32_t viewIndex = 0; viewIndex < GetViewCount(); viewIndex++) {
                 m_compositionHelper.AcquireWaitReleaseImage(
-                    m_swapchains[view], [&](const XrSwapchainImageBaseHeader* swapchainImage, uint64_t format) {
-                        GetGlobalData().graphicsPlugin->ClearImageSlice(swapchainImage, 0, format);
-
-                        const_cast<XrFovf&>(m_projLayer->views[view].fov) = views[view].fov;
-                        const_cast<XrPosef&>(m_projLayer->views[view].pose) = views[view].pose;
-                        GetGlobalData().graphicsPlugin->RenderView(m_projLayer->views[view], swapchainImage, format, cubes);
+                    m_swapchains[viewIndex], [&](const XrSwapchainImageBaseHeader* swapchainImage, uint64_t format) {
+                        auto& projectionView = const_cast<XrCompositionLayerProjectionView&>(m_projLayer->views[viewIndex]);
+                        auto& view = views[viewIndex];
+                        projectionView.fov = view.fov;
+                        projectionView.pose = view.pose;
+                        renderer.RenderView(*this, viewIndex, viewState, view, projectionView, swapchainImage, format);
                     });
             }
 
@@ -529,4 +532,5 @@ namespace Conformance
             return nullptr;
         }
     }
+
 }  // namespace Conformance

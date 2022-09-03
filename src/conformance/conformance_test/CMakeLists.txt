@@ -52,14 +52,16 @@ add_dependencies(conformance_test
 openxr_add_filesystem_utils(conformance_test)
 
 target_include_directories(conformance_test
-    PRIVATE ${CMAKE_CURRENT_LIST_DIR}/../framework
+    PRIVATE
+    ${CMAKE_CURRENT_LIST_DIR}/../framework
     ${CMAKE_CURRENT_LIST_DIR}/../../common
-    PRIVATE ${PROJECT_SOURCE_DIR}/src/external
+    ${PROJECT_SOURCE_DIR}/src/external
 
     # for openxr.h:
-    PRIVATE ${PROJECT_BINARY_DIR}/include
+    ${PROJECT_BINARY_DIR}/include
+
     # for common_config.h:
-    PRIVATE ${PROJECT_BINARY_DIR}/src
+    ${PROJECT_BINARY_DIR}/src
 
     # for helper headers
     ${PROJECT_SOURCE_DIR}/external/include
@@ -128,6 +130,7 @@ if(ANDROID)
     )
 endif()
 
+
 if(BUILD_CONFORMANCE_CLI)
     # Copy conformance_test assets files to the conformance_cli binary folder
     foreach(ASSET ${ASSETS})
@@ -144,9 +147,13 @@ if(BUILD_CONFORMANCE_CLI)
     )
 endif()
 
+
 install(
     TARGETS conformance_test
     LIBRARY DESTINATION conformance
     ARCHIVE DESTINATION conformance
     RUNTIME DESTINATION conformance
 )
+if(MSVC)
+    install(FILES $<TARGET_PDB_FILE:conformance_test> DESTINATION conformance OPTIONAL)
+endif()

@@ -76,6 +76,37 @@ XrResult ConformanceHooks::xrPollEvent(XrInstance instance, XrEventDataBuffer* e
             session::VisibilityMaskChanged(this, visibilityMaskChanged);  // Validate session handle and view data.
             break;
         }
+        case XR_TYPE_EVENT_DATA_SPATIAL_ANCHOR_CREATE_COMPLETE_FB: {
+            const auto completeEvent = reinterpret_cast<XrEventDataSpatialAnchorCreateCompleteFB*>(eventData);
+            (void)completeEvent;
+            // Event data used in gen_dispatch.cpp
+            break;
+        }
+        case XR_TYPE_EVENT_DATA_SPACE_SET_STATUS_COMPLETE_FB: {
+            const auto completeEvent = reinterpret_cast<XrEventDataSpaceSetStatusCompleteFB*>(eventData);
+            (void)completeEvent;
+            break;
+        }
+        case XR_TYPE_EVENT_DATA_SPACE_SAVE_COMPLETE_FB: {
+            const auto completeEvent = reinterpret_cast<XrEventDataSpaceSaveCompleteFB*>(eventData);
+            (void)completeEvent;
+            break;
+        }
+        case XR_TYPE_EVENT_DATA_SPACE_QUERY_RESULTS_AVAILABLE_FB: {
+            const auto results = reinterpret_cast<XrEventDataSpaceQueryResultsAvailableFB*>(eventData);
+            (void)results;
+            break;
+        }
+        case XR_TYPE_EVENT_DATA_SPACE_ERASE_COMPLETE_FB: {
+            const auto completeEvent = reinterpret_cast<XrEventDataSpaceEraseCompleteFB*>(eventData);
+            (void)completeEvent;
+            break;
+        }
+        case XR_TYPE_EVENT_DATA_SPACE_QUERY_COMPLETE_FB: {
+            const auto completeEvent = reinterpret_cast<XrEventDataSpaceQueryCompleteFB*>(eventData);
+            (void)completeEvent;
+            break;
+        }
         default:
             POSSIBLE_NONCONFORMANT("Unsupported event type: %d", eventData->type);
             break;

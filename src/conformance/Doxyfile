@@ -1,0 +1,40 @@
+# Copyright (c) 2019-2022, The Khronos Group Inc.
+# SPDX-License-Identifier: Apache-2.0
+
+QUIET                  = YES
+PROJECT_NAME           = "OpenXR CTS Framework"
+OUTPUT_DIRECTORY       = doc
+INPUT                  = \
+     framework \
+     conformance_cli
+
+
+STRIP_FROM_INC_PATH    = framework
+
+PREDEFINED             = XRC_DOXYGEN
+
+SHOW_GROUPED_MEMB_INC  = YES
+STRIP_CODE_COMMENTS    = NO
+REFERENCED_BY_RELATION = YES
+REFERENCES_RELATION    = YES
+ALWAYS_DETAILED_SEC    = YES
+WARN_IF_UNDOCUMENTED   = NO
+EXTRACT_ALL            = YES
+HIDE_UNDOC_RELATIONS   = NO
+EXTRACT_STATIC         = YES
+INCLUDED_BY_GRAPH      = YES
+
+MACRO_EXPANSION        = YES
+
+
+JAVADOC_AUTOBRIEF      = YES
+
+QT_AUTOBRIEF           = YES
+
+TAB_SIZE               = 4
+
+BUILTIN_STL_SUPPORT    = YES
+
+CASE_SENSE_NAMES       = NO
+
+GENERATE_LATEX         = NO

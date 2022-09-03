@@ -20,6 +20,7 @@
 
 #include "swapchain_parameters.h"
 #include "conformance_framework.h"
+#include "throw_helpers.h"
 #include "Geometry.h"
 #include <windows.h>
 #include <wrl/client.h>  // For Microsoft::WRL::ComPtr
@@ -89,8 +90,8 @@ namespace Conformance
         std::shared_ptr<SwapchainImageStructs> AllocateSwapchainImageStructs(size_t size,
                                                                              const XrSwapchainCreateInfo& swapchainCreateInfo) override;
 
-        void ClearImageSlice(const XrSwapchainImageBaseHeader* colorSwapchainImage, uint32_t imageArrayIndex,
-                             int64_t colorSwapchainFormat) override;
+        void ClearImageSlice(const XrSwapchainImageBaseHeader* colorSwapchainImage, uint32_t imageArrayIndex, int64_t colorSwapchainFormat,
+                             XrColor4f bgColor = DarkSlateGrey) override;
 
         void RenderView(const XrCompositionLayerProjectionView& layerView, const XrSwapchainImageBaseHeader* colorSwapchainImage,
                         int64_t colorSwapchainFormat, const std::vector<Cube>& cubes) override;
@@ -563,7 +564,7 @@ namespace Conformance
     }
 
     void D3D11GraphicsPlugin::ClearImageSlice(const XrSwapchainImageBaseHeader* colorSwapchainImage, uint32_t imageArrayIndex,
-                                              int64_t colorSwapchainFormat)
+                                              int64_t colorSwapchainFormat, XrColor4f bgColor)
     {
         ID3D11Texture2D* const colorTexture = reinterpret_cast<const XrSwapchainImageD3D11KHR*>(colorSwapchainImage)->texture;
 
@@ -575,7 +576,8 @@ namespace Conformance
         // TODO: Do not clear to a color when using a pass-through view configuration.
         XRC_CHECK_THROW_HRCMD(
             d3d11Device->CreateRenderTargetView(colorTexture, &renderTargetViewDesc, renderTargetView.ReleaseAndGetAddressOf()));
-        d3d11DeviceContext->ClearRenderTargetView(renderTargetView.Get(), DirectX::Colors::DarkSlateGray);
+        FLOAT bg[] = {bgColor.r, bgColor.g, bgColor.b, bgColor.a};
+        d3d11DeviceContext->ClearRenderTargetView(renderTargetView.Get(), bg);
 
         // Clear depth buffer.
         const ComPtr<ID3D11Texture2D> depthStencilTexture = GetDepthStencilTexture(colorTexture);

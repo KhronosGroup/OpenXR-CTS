@@ -17,6 +17,7 @@
 #include "utils.h"
 #include "conformance_utils.h"
 #include "conformance_framework.h"
+#include "throw_helpers.h"
 #include "matchers.h"
 #include <array>
 #include <vector>
@@ -60,14 +61,14 @@ namespace Conformance
             return false;
         };
 
-        auto waitForNextSessionState = [&](XrEventDataSessionStateChanged* evt, std::chrono::nanoseconds duration = 1_sec) {
+        auto waitForNextSessionState = [&](XrEventDataSessionStateChanged* evt, std::chrono::nanoseconds duration = 1s) {
             CountdownTimer countdown(duration);
             while (!countdown.IsTimeUp()) {
                 if (tryGetNextSessionState(evt)) {
                     return true;
                 }
 
-                std::this_thread::sleep_for(5_ms);
+                std::this_thread::sleep_for(5ms);
             }
 
             return false;
@@ -140,7 +141,7 @@ namespace Conformance
             XRC_CHECK_THROW_XRCMD(xrEndFrame(session, &frameEndInfo));
         };
 
-        auto submitFramesUntilSessionState = [&](XrSessionState expectedSessionState, std::chrono::nanoseconds duration = 30_sec) {
+        auto submitFramesUntilSessionState = [&](XrSessionState expectedSessionState, std::chrono::nanoseconds duration = 30s) {
             CAPTURE(expectedSessionState);
 
             CountdownTimer countdown(duration);

@@ -98,6 +98,52 @@
     }
 //#         endif
 
+//## If this is a xrQuerySpacesFB, we have to create an entry in
+//## the appropriate unordered_map pointing to the correct dispatch table for
+//## the newly created objects.
+//#         set is_create_spatial_anchor = ("xrCreateSpatialAnchorFB" == cur_cmd.name)
+//#         set is_query_spaces = ("xrQuerySpacesFB" == cur_cmd.name)
+//#         if is_create_spatial_anchor or is_query_spaces
+    if (XR_SUCCEEDED(result)) {
+//#             set last_param_name = cur_cmd.params[-1].name
+        HandleState* const parentHandleState = GetHandleState(HandleStateKey{HandleToInt(/*{first_handle_name}*/), XR_OBJECT_TYPE_SESSION});
+        RegisterHandleState(parentHandleState->CloneForChild(* /*{last_param_name}*/, static_cast<XrObjectType>(XR_TYPE_EVENT_DATA_SPATIAL_ANCHOR_CREATE_COMPLETE_FB)));
+    }
+//#         endif
+
+//## If this is a xrPollEvent and the event type returns an object, we have to
+//## create an entry in the appropriate unordered_map pointing to the correct
+//## dispatch table for the newly created object.
+//#         set is_pollevent = ("xrPollEvent" == cur_cmd.name)
+//#         if is_pollevent
+    if (XR_SUCCEEDED(result)) {
+        if (eventData->type == XR_TYPE_EVENT_DATA_SPATIAL_ANCHOR_CREATE_COMPLETE_FB) {
+            XrEventDataSpatialAnchorCreateCompleteFB* completeEvent = reinterpret_cast<XrEventDataSpatialAnchorCreateCompleteFB*>(eventData);
+            HandleState* const requestStateObject = GetHandleState(HandleStateKey{(IntHandle)completeEvent->requestId, static_cast<XrObjectType>(XR_TYPE_EVENT_DATA_SPATIAL_ANCHOR_CREATE_COMPLETE_FB)});
+            HandleState* const parentHandleState = requestStateObject->parent; // session
+            RegisterHandleState(parentHandleState->CloneForChild(HandleToInt(completeEvent->space), XR_OBJECT_TYPE_SPACE));
+        }
+    }
+//#         endif
+
+//## If this is a xrRetrieveSpaceQueryResultsFB, we have to create an entry in
+//## the appropriate unordered_map pointing to the correct dispatch table for
+//## the newly created objects.
+//#         set is_space_query_results = ("xrRetrieveSpaceQueryResultsFB" == cur_cmd.name)
+//#         if is_space_query_results
+    if (XR_SUCCEEDED(result)) {
+//#             set last_param_name = cur_cmd.params[-1].name
+        if (/*{last_param_name}*/->results) {
+            for (uint32_t i = 0; i < /*{last_param_name}*/->resultCountOutput; ++i) {
+                HandleState* const parentHandleState = GetHandleState(HandleStateKey{HandleToInt(/*{first_handle_name}*/), XR_OBJECT_TYPE_SESSION});
+                RegisterHandleState(parentHandleState->CloneForChild(HandleToInt(/*{last_param_name}*/->results[i].space), XR_OBJECT_TYPE_SPACE));
+            }
+        }
+    }
+//#         endif
+
+
+
     return result;
 }
 

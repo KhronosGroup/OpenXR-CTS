@@ -11,6 +11,8 @@
 #include "RGBAImage.h"
 
 #ifdef XR_USE_PLATFORM_ANDROID
+#include "unique_asset.h"
+
 #include <android_native_app_glue.h>
 extern void* Conformance_Android_Get_Asset_Manager();
 #endif
@@ -29,47 +31,6 @@ extern void* Conformance_Android_Get_Asset_Manager();
 
 namespace
 {
-#ifdef XR_USE_PLATFORM_ANDROID
-
-    /// Wrapper for AAsset
-    class UniqueAsset
-    {
-    public:
-        explicit UniqueAsset(AAsset* asset) : asset_(asset)
-        {
-        }
-        UniqueAsset(UniqueAsset const&) = delete;
-        UniqueAsset(UniqueAsset&&) = delete;
-        UniqueAsset& operator=(UniqueAsset const&) = delete;
-        UniqueAsset& operator=(UniqueAsset&&) = delete;
-        ~UniqueAsset()
-        {
-            reset();
-        }
-        explicit operator bool() const
-        {
-            return asset_ != nullptr;
-        }
-
-        void reset() noexcept
-        {
-
-            if (asset_ != nullptr) {
-                AAsset_close(asset_);
-                asset_ = nullptr;
-            }
-        }
-
-        AAsset* get() const noexcept
-        {
-            return asset_;
-        }
-
-    private:
-        AAsset* asset_;
-    };
-
-#endif
     // Convert R32G32B32A_FLOAT to R8G8B8A8_UNORM.
     Conformance::RGBA8Color AsRGBA(float r, float g, float b, float a)
     {

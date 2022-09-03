@@ -51,6 +51,9 @@ namespace Conformance
     {
         GlobalData& globalData = GetGlobalData();
         if (!globalData.IsInstanceExtensionSupported(XR_EXT_HAND_TRACKING_EXTENSION_NAME)) {
+            // Runtime does not support extension - it should not be possible to get function pointers.
+            AutoBasicInstance instance;
+            ValidateInstanceExtensionFunctionNotSupported(instance, "xrCreateHandTrackerEXT");
             return;
         }
 
@@ -58,10 +61,7 @@ namespace Conformance
         {
             if (!globalData.enabledInstanceExtensionNames.contains(XR_EXT_HAND_TRACKING_EXTENSION_NAME)) {
                 AutoBasicInstance instance;
-                PFN_xrCreateHandTrackerEXT xrCreateHandTrackerEXT = NULL;
-                REQUIRE(XR_ERROR_FUNCTION_UNSUPPORTED ==
-                        xrGetInstanceProcAddr(instance, "xrCreateHandTrackerEXT", (PFN_xrVoidFunction*)(&xrCreateHandTrackerEXT)));
-                REQUIRE(NULL == xrCreateHandTrackerEXT);
+                ValidateInstanceExtensionFunctionNotSupported(instance, "xrCreateHandTrackerEXT");
             }
         }
 
@@ -69,16 +69,8 @@ namespace Conformance
         {
             AutoBasicInstance instance({XR_EXT_HAND_TRACKING_EXTENSION_NAME});
 
-            PFN_xrCreateHandTrackerEXT xrCreateHandTrackerEXT = NULL;
-            REQUIRE(XR_SUCCESS ==
-                    xrGetInstanceProcAddr(instance, "xrCreateHandTrackerEXT", (PFN_xrVoidFunction*)(&xrCreateHandTrackerEXT)));
-
-            PFN_xrDestroyHandTrackerEXT xrDestroyHandTrackerEXT = NULL;
-            REQUIRE(XR_SUCCESS ==
-                    xrGetInstanceProcAddr(instance, "xrDestroyHandTrackerEXT", (PFN_xrVoidFunction*)(&xrDestroyHandTrackerEXT)));
-
-            PFN_xrLocateHandJointsEXT xrLocateHandJointsEXT = NULL;
-            REQUIRE(XR_SUCCESS == xrGetInstanceProcAddr(instance, "xrLocateHandJointsEXT", (PFN_xrVoidFunction*)(&xrLocateHandJointsEXT)));
+            auto xrCreateHandTrackerEXT = GetInstanceExtensionFunction<PFN_xrCreateHandTrackerEXT>(instance, "xrCreateHandTrackerEXT");
+            auto xrDestroyHandTrackerEXT = GetInstanceExtensionFunction<PFN_xrDestroyHandTrackerEXT>(instance, "xrDestroyHandTrackerEXT");
 
             if (!SystemSupportsHandTracking(instance)) {
                 // This runtime does support hand tracking, but this headset does not
@@ -121,17 +113,11 @@ namespace Conformance
             return;
         }
 
-        PFN_xrCreateHandTrackerEXT xrCreateHandTrackerEXT = NULL;
-        REQUIRE(XR_SUCCESS == xrGetInstanceProcAddr(compositionHelper.GetInstance(), "xrCreateHandTrackerEXT",
-                                                    (PFN_xrVoidFunction*)(&xrCreateHandTrackerEXT)));
+        XrInstance instance = compositionHelper.GetInstance();
 
-        PFN_xrDestroyHandTrackerEXT xrDestroyHandTrackerEXT = NULL;
-        REQUIRE(XR_SUCCESS == xrGetInstanceProcAddr(compositionHelper.GetInstance(), "xrDestroyHandTrackerEXT",
-                                                    (PFN_xrVoidFunction*)(&xrDestroyHandTrackerEXT)));
-
-        PFN_xrLocateHandJointsEXT xrLocateHandJointsEXT = NULL;
-        REQUIRE(XR_SUCCESS == xrGetInstanceProcAddr(compositionHelper.GetInstance(), "xrLocateHandJointsEXT",
-                                                    (PFN_xrVoidFunction*)(&xrLocateHandJointsEXT)));
+        auto xrCreateHandTrackerEXT = GetInstanceExtensionFunction<PFN_xrCreateHandTrackerEXT>(instance, "xrCreateHandTrackerEXT");
+        auto xrDestroyHandTrackerEXT = GetInstanceExtensionFunction<PFN_xrDestroyHandTrackerEXT>(instance, "xrDestroyHandTrackerEXT");
+        auto xrLocateHandJointsEXT = GetInstanceExtensionFunction<PFN_xrLocateHandJointsEXT>(instance, "xrLocateHandJointsEXT");
 
         const XrSpace localSpace = compositionHelper.CreateReferenceSpace(XR_REFERENCE_SPACE_TYPE_LOCAL, XrPosefCPP{});
 
@@ -226,7 +212,8 @@ namespace Conformance
                 // Render into each viewport of the wide swapchain using the projection layer view fov and pose.
                 for (size_t view = 0; view < views.size(); view++) {
                     compositionHelper.AcquireWaitReleaseImage(
-                        swapchains[view], [&](const XrSwapchainImageBaseHeader* swapchainImage, uint64_t format) {
+                        swapchains[view],  //
+                        [&](const XrSwapchainImageBaseHeader* swapchainImage, uint64_t format) {
                             GetGlobalData().graphicsPlugin->ClearImageSlice(swapchainImage, 0, format);
                             const_cast<XrFovf&>(projLayer->views[view].fov) = views[view].fov;
                             const_cast<XrPosef&>(projLayer->views[view].pose) = views[view].pose;

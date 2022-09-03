@@ -20,37 +20,48 @@
 #include <mutex>
 #include <openxr/openxr.h>
 
-// Buffered collection of all events read. Only accessible through an EventReader.
-class EventQueue
+namespace Conformance
 {
-public:
-    explicit EventQueue(XrInstance instance);
+    /**
+     * @defgroup cts_eventreader Event Reader/Queue
+     * @ingroup cts_framework
+     */
+    /// @{
 
-private:
-    friend class EventReader;  // ;-)
+    /// Buffered collection of all events read. Only accessible through an @ref EventReader.
+    class EventQueue
+    {
+    public:
+        explicit EventQueue(XrInstance instance);
 
-    void ReadEvents() const;
+    private:
+        friend class EventReader;  // ;-)
 
-    const XrInstance m_instance;
-    mutable std::mutex m_mutex;
-    mutable std::vector<XrEventDataBuffer> m_events;
-};
+        void ReadEvents() const;
 
-// Reads all events added to the EventQueue after this object was created.
-// Separate EventReaders from the same EventQueue will not impact each other.
-// This allows different parts of the tests to read events without impacting each other (event multiplexing).
-class EventReader
-{
-public:
-    EventReader(const EventQueue& eventQueue);
+        const XrInstance m_instance;
+        mutable std::mutex m_mutex;
+        mutable std::vector<XrEventDataBuffer> m_events;
+    };
 
-    bool TryReadNext(XrEventDataBuffer& dataBuffer);
+    /// Reads all events added to the @ref EventQueue after this object was created.
+    /// Separate EventReaders from the same @ref EventQueue will not impact each other.
+    /// This allows different parts of the tests to read events without impacting each other (event multiplexing).
+    class EventReader
+    {
+    public:
+        explicit EventReader(const EventQueue& eventQueue);
 
-    bool TryReadUntilEvent(XrEventDataBuffer& dataBuffer, XrStructureType eventType);
+        bool TryReadNext(XrEventDataBuffer& dataBuffer);
 
-    void ReadUntilEmpty();
+        bool TryReadUntilEvent(XrEventDataBuffer& dataBuffer, XrStructureType eventType);
 
-private:
-    const EventQueue& m_eventQueue;
-    size_t m_nextEventIndex;
-};
+        void ReadUntilEmpty();
+
+    private:
+        const EventQueue& m_eventQueue;
+        size_t m_nextEventIndex;
+    };
+    /// @}
+
+}  // namespace Conformance

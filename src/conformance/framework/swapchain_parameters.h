@@ -20,8 +20,10 @@
 
 namespace Conformance
 {
-    // Defines XrSwapchainCreateInfo test parameters for a single given image format.
-    // Sometimes values are zeroed, for the case that use of them is invalid or unsupportable.
+    /// Defines XrSwapchainCreateInfo test parameters for a single given image format.
+    /// Sometimes values are zeroed, for the case that use of them is invalid or unsupportable.
+    ///
+    /// @ingroup cts_framework
     struct SwapchainCreateTestParameters
     {
         std::string imageFormatName;  // String-ified version of the C identifier.

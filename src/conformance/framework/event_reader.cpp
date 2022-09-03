@@ -16,57 +16,62 @@
 
 #include "event_reader.h"
 #include "conformance_framework.h"
+#include "throw_helpers.h"
 
-EventQueue::EventQueue(XrInstance instance) : m_instance(instance)
+namespace Conformance
 {
-}
 
-void EventQueue::ReadEvents() const
-{
-    XrResult pollRes;
-    XrEventDataBuffer eventDataBuffer{XR_TYPE_EVENT_DATA_BUFFER};
-    while ((pollRes = xrPollEvent(m_instance, &eventDataBuffer)) == XR_SUCCESS) {
-        std::unique_lock<std::mutex> lock(m_mutex);
-        m_events.push_back(eventDataBuffer);
-        eventDataBuffer.type = XR_TYPE_EVENT_DATA_BUFFER;
-        eventDataBuffer.next = nullptr;
+    EventQueue::EventQueue(XrInstance instance) : m_instance(instance)
+    {
     }
 
-    XRC_CHECK_THROW_XRRESULT(pollRes, "xrPollEvent");
-}
+    void EventQueue::ReadEvents() const
+    {
+        XrResult pollRes;
+        XrEventDataBuffer eventDataBuffer{XR_TYPE_EVENT_DATA_BUFFER};
+        while ((pollRes = xrPollEvent(m_instance, &eventDataBuffer)) == XR_SUCCESS) {
+            std::unique_lock<std::mutex> lock(m_mutex);
+            m_events.push_back(eventDataBuffer);
+            eventDataBuffer.type = XR_TYPE_EVENT_DATA_BUFFER;
+            eventDataBuffer.next = nullptr;
+        }
 
-EventReader::EventReader(const EventQueue& eventQueue) : m_eventQueue(eventQueue), m_nextEventIndex(eventQueue.m_events.size())
-{
-}
+        XRC_CHECK_THROW_XRRESULT(pollRes, "xrPollEvent");
+    }
 
-bool EventReader::TryReadNext(XrEventDataBuffer& dataBuffer)
-{
-    m_eventQueue.ReadEvents();
+    EventReader::EventReader(const EventQueue& eventQueue) : m_eventQueue(eventQueue), m_nextEventIndex(eventQueue.m_events.size())
+    {
+    }
 
-    std::unique_lock<std::mutex> lock(m_eventQueue.m_mutex);
-    if (m_nextEventIndex >= m_eventQueue.m_events.size()) {
+    bool EventReader::TryReadNext(XrEventDataBuffer& dataBuffer)
+    {
+        m_eventQueue.ReadEvents();
+
+        std::unique_lock<std::mutex> lock(m_eventQueue.m_mutex);
+        if (m_nextEventIndex >= m_eventQueue.m_events.size()) {
+            return false;
+        }
+
+        dataBuffer = m_eventQueue.m_events[m_nextEventIndex++];
+        return true;
+    }
+
+    bool EventReader::TryReadUntilEvent(XrEventDataBuffer& dataBuffer, XrStructureType eventType)
+    {
+        while (TryReadNext(dataBuffer)) {
+            if (dataBuffer.type == eventType) {
+                return true;
+            }
+        }
+
         return false;
     }
 
-    dataBuffer = m_eventQueue.m_events[m_nextEventIndex++];
-    return true;
-}
+    void EventReader::ReadUntilEmpty()
+    {
+        m_eventQueue.ReadEvents();
 
-bool EventReader::TryReadUntilEvent(XrEventDataBuffer& dataBuffer, XrStructureType eventType)
-{
-    while (TryReadNext(dataBuffer)) {
-        if (dataBuffer.type == eventType) {
-            return true;
-        }
+        std::unique_lock<std::mutex> lock(m_eventQueue.m_mutex);
+        m_nextEventIndex = m_eventQueue.m_events.size();
     }
-
-    return false;
-}
-
-void EventReader::ReadUntilEmpty()
-{
-    m_eventQueue.ReadEvents();
-
-    std::unique_lock<std::mutex> lock(m_eventQueue.m_mutex);
-    m_nextEventIndex = m_eventQueue.m_events.size();
-}
+}  // namespace Conformance

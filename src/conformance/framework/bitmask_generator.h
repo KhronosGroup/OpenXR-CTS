@@ -66,7 +66,7 @@ namespace Conformance
      * @see BitmaskData
      * @see bitmaskGenerator
      *
-     * @ingroup Generators
+     * @ingroup cts_generators
      */
     GeneratorWrapper<BitmaskData const&> bitmaskGeneratorIncluding0(std::initializer_list<BitmaskData> const& bits);
 
@@ -78,7 +78,7 @@ namespace Conformance
      * @see BitmaskData
      * @see bitmaskGeneratorIncluding0
      *
-     * @ingroup Generators
+     * @ingroup cts_generators
      */
     GeneratorWrapper<BitmaskData const&> bitmaskGenerator(std::initializer_list<BitmaskData> const& bits);
 

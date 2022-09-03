@@ -17,6 +17,7 @@
 #include "utils.h"
 #include "conformance_utils.h"
 #include "conformance_framework.h"
+#include "throw_helpers.h"
 #include <array>
 #include <utility>
 #include <vector>
@@ -91,6 +92,10 @@ namespace Conformance
         // a runtime to exist which doesn't support XR_EXT_debug_utils but let's check that it is
         // supported anyway.
         if (!globalData.IsInstanceExtensionSupported(XR_EXT_DEBUG_UTILS_EXTENSION_NAME)) {
+            // Runtime does not support extension - it should not be possible to get function pointers.
+            AutoBasicInstance instance;
+            ValidateInstanceExtensionFunctionNotSupported(instance, "xrCreateDebugUtilsMessengerEXT");
+
             return;
         }
 
@@ -101,10 +106,8 @@ namespace Conformance
             auto testMessage = std::make_pair<std::string, std::string>("worker", "testing!");
 
             auto worker = [&](XrInstance instance) -> void {
-                PFN_xrSubmitDebugUtilsMessageEXT pfnSubmitDebugUtilsMessageEXT = nullptr;
-                REQUIRE_RESULT(XR_SUCCESS, xrGetInstanceProcAddr(instance, "xrSubmitDebugUtilsMessageEXT",
-                                                                 reinterpret_cast<PFN_xrVoidFunction*>(&pfnSubmitDebugUtilsMessageEXT)));
-                REQUIRE(pfnSubmitDebugUtilsMessageEXT != nullptr);
+                auto pfnSubmitDebugUtilsMessageEXT =
+                    GetInstanceExtensionFunction<PFN_xrSubmitDebugUtilsMessageEXT>(instance, "xrSubmitDebugUtilsMessageEXT");
 
                 XrDebugUtilsMessengerCallbackDataEXT callbackData{XR_TYPE_DEBUG_UTILS_MESSENGER_CALLBACK_DATA_EXT};
                 callbackData.functionName = testMessage.first.c_str();
@@ -116,13 +119,8 @@ namespace Conformance
             AutoBasicInstance instance({XR_EXT_DEBUG_UTILS_EXTENSION_NAME});
 
             // Must call extension functions through a function pointer:
-            PFN_xrCreateDebugUtilsMessengerEXT pfnCreateDebugUtilsMessengerEXT = nullptr;
-            REQUIRE_RESULT(XR_SUCCESS, xrGetInstanceProcAddr(instance, "xrCreateDebugUtilsMessengerEXT",
-                                                             reinterpret_cast<PFN_xrVoidFunction*>(&pfnCreateDebugUtilsMessengerEXT)));
-
-            PFN_xrDestroyDebugUtilsMessengerEXT pfnDestroyDebugUtilsMessengerEXT = nullptr;
-            REQUIRE_RESULT(XR_SUCCESS, xrGetInstanceProcAddr(instance, "xrDestroyDebugUtilsMessengerEXT",
-                                                             reinterpret_cast<PFN_xrVoidFunction*>(&pfnDestroyDebugUtilsMessengerEXT)));
+            auto pfnCreateDebugUtilsMessengerEXT =
+                GetInstanceExtensionFunction<PFN_xrCreateDebugUtilsMessengerEXT>(instance, "xrCreateDebugUtilsMessengerEXT");
 
             XrDebugUtilsMessengerCreateInfoEXT callback = {
                 XR_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT,   // type
@@ -144,6 +142,34 @@ namespace Conformance
             REQUIRE(messages.size() > 0);
 
             REQUIRE(messages.end() != std::find(messages.begin(), messages.end(), testMessage));
+        }
+
+        SECTION("xrCreateInstance debug utils not enabled")
+        {
+            StringVec enabledApiLayers = globalData.enabledAPILayerNames;
+            // Enable only the required platform extensions by default
+            StringVec enabledExtensions = globalData.requiredPlatformInstanceExtensions;
+
+            XrInstance instance{XR_NULL_HANDLE};
+            CleanupInstanceOnScopeExit cleanup(instance);
+
+            XrInstanceCreateInfo createInfo{XR_TYPE_INSTANCE_CREATE_INFO};
+            createInfo.next = globalData.requiredPlaformInstanceCreateStruct;
+
+            strcpy(createInfo.applicationInfo.applicationName, "conformance test : XR_EXT_debug_utils");
+            createInfo.applicationInfo.applicationVersion = 1;
+            // Leave engineName and engineVersion empty, which is valid usage.
+            createInfo.applicationInfo.apiVersion = XR_CURRENT_API_VERSION;
+
+            createInfo.enabledApiLayerCount = (uint32_t)enabledApiLayers.size();
+            createInfo.enabledApiLayerNames = enabledApiLayers.data();
+
+            createInfo.enabledExtensionCount = (uint32_t)enabledExtensions.size();
+            createInfo.enabledExtensionNames = enabledExtensions.data();
+
+            REQUIRE_RESULT(XR_SUCCESS, xrCreateInstance(&createInfo, &instance));
+
+            ValidateInstanceExtensionFunctionNotSupported(instance, "xrCreateDebugUtilsMessengerEXT");
         }
 
         SECTION("xrCreateInstance XrDebugUtilsMessengerCreateInfoEXT")
@@ -170,6 +196,8 @@ namespace Conformance
 
             XrInstanceCreateInfo createInfo{XR_TYPE_INSTANCE_CREATE_INFO};
 
+            enabledExtensions.push_back(XR_EXT_DEBUG_UTILS_EXTENSION_NAME);
+
             strcpy(createInfo.applicationInfo.applicationName, "conformance test : XR_EXT_debug_utils");
             createInfo.applicationInfo.applicationVersion = 1;
             // Leave engineName and engineVersion empty, which is valid usage.
@@ -188,6 +216,16 @@ namespace Conformance
             createInfo.enabledExtensionNames = enabledExtensions.data();
 
             REQUIRE_RESULT(XR_SUCCESS, xrCreateInstance(&createInfo, &instance));
+
+            {
+                auto pfnCreateDebugUtilsMessengerEXT =
+                    GetInstanceExtensionFunction<PFN_xrCreateDebugUtilsMessengerEXT>(instance, "xrCreateDebugUtilsMessengerEXT");
+                REQUIRE(pfnCreateDebugUtilsMessengerEXT != nullptr);
+            }
+
+            REQUIRE_RESULT(XR_SUCCESS, xrDestroyInstance(instance));
+
+            instance = XR_NULL_HANDLE;
         }
 
         // https://www.khronos.org/registry/OpenXR/specs/1.0/html/xrspec.html#XR_EXT_debug_utils
@@ -283,7 +321,7 @@ namespace Conformance
                 AutoBasicSession session(AutoBasicSession::createSession, instance);
 
                 // Wait until the runtime is ready for us to begin a session
-                auto timeout = (GetGlobalData().options.debugMode ? 3600_sec : 10_sec);
+                auto timeout = (GetGlobalData().options.debugMode ? 3600s : 10s);
                 FrameIterator frameIterator(&session);
                 FrameIterator::RunResult runResult = frameIterator.RunToSessionState(XR_SESSION_STATE_READY, timeout);
                 REQUIRE(runResult == FrameIterator::RunResult::Success);

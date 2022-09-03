@@ -21,6 +21,7 @@
 #include "report.h"
 #include "conformance_utils.h"
 #include "conformance_framework.h"
+#include "throw_helpers.h"
 #include "composition_utils.h"
 #include <catch2/catch.hpp>
 #include <openxr/openxr.h>

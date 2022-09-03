@@ -25,6 +25,7 @@
 #include "xr_dependencies.h"
 
 #include "conformance_framework.h"
+#include "throw_helpers.h"
 #include "Geometry.h"
 
 #include <catch2/catch.hpp>
@@ -203,7 +204,7 @@
     }                                                                          \
 }
 #define ADD_GL_COLOR_COPY_SAMPLED_FORMAT(X) ADD_GL_COLOR_COPY_SAMPLED_FORMAT2(X, #X)
-    
+
 #define ADD_GL_COLOR_COPY_SAMPLED_MUTABLE_FORMAT2(FORMAT, NAME)                                     \
 {                                                                              \
     {FORMAT},                                                                  \
@@ -315,8 +316,6 @@ namespace Conformance
 #define XRC_CHECK_THROW_GLCMD(cmd) CheckThrowGLResult(((cmd), glGetError()), #cmd, XRC_FILE_AND_LINE)
 #define XRC_CHECK_THROW_GLRESULT(res, cmdStr) CheckThrowGLResult(res, cmdStr, XRC_FILE_AND_LINE)
 
-    constexpr float DarkSlateGray[] = {0.184313729f, 0.309803933f, 0.309803933f, 1.0f};
-
     static const char* VertexShaderGlsl = R"_(
         #version 410
 
@@ -402,7 +401,7 @@ namespace Conformance
                                                                              const XrSwapchainCreateInfo& swapchainCreateInfo) override;
 
         void ClearImageSlice(const XrSwapchainImageBaseHeader* colorSwapchainImage, uint32_t imageArrayIndex,
-                             int64_t colorSwapchainFormat) override;
+                             int64_t colorSwapchainFormat, XrColor4f bgColor = DarkSlateGrey) override;
 
         void RenderView(const XrCompositionLayerProjectionView& layerView, const XrSwapchainImageBaseHeader* colorSwapchainImage,
                         int64_t colorSwapchainFormat, const std::vector<Cube>& cubes) override;
@@ -416,19 +415,17 @@ namespace Conformance
             class ArraySliceState
             {
             public:
-                ArraySliceState() : depthBuffer(0)
-                {
-                }
+                ArraySliceState() = default;
                 ArraySliceState(const ArraySliceState&)
                 {
                     ReportF("ArraySliceState copy ctor called");
                 }
-                GLuint depthBuffer;
+                GLuint depthBuffer{0};
             };
             std::vector<ArraySliceState> slice;
 
             SwapchainImageContext() = default;
-            ~SwapchainImageContext()
+            ~SwapchainImageContext() override
             {
                 Reset();
             }
@@ -873,33 +870,33 @@ namespace Conformance
         ADD_GL_COLOR_UA_SAMPLED_MUTABLE_FORMAT(GL_R8),
         ADD_GL_COLOR_UA_SAMPLED_MUTABLE_FORMAT(GL_R16),
         ADD_GL_COLOR_UA_SAMPLED_MUTABLE_FORMAT(GL_RG8),
-        ADD_GL_COLOR_UA_SAMPLED_MUTABLE_FORMAT(GL_RG16), 
-        ADD_GL_COLOR_UA_SAMPLED_MUTABLE_FORMAT(GL_RGB10_A2UI), 
-        ADD_GL_COLOR_UA_SAMPLED_MUTABLE_FORMAT(GL_R16F), 
-        ADD_GL_COLOR_UA_SAMPLED_MUTABLE_FORMAT(GL_RG16F), 
-        ADD_GL_COLOR_UA_SAMPLED_MUTABLE_FORMAT(GL_RGB16F), 
-        ADD_GL_COLOR_UA_SAMPLED_MUTABLE_FORMAT(GL_RGBA16F), 
-        ADD_GL_COLOR_UA_SAMPLED_MUTABLE_FORMAT(GL_R32F), 
-        ADD_GL_COLOR_UA_SAMPLED_MUTABLE_FORMAT(GL_RG32F), 
-        ADD_GL_COLOR_UA_SAMPLED_MUTABLE_FORMAT(GL_RGBA32F), 
-        ADD_GL_COLOR_UA_SAMPLED_MUTABLE_FORMAT(GL_R11F_G11F_B10F), 
-        ADD_GL_COLOR_UA_SAMPLED_MUTABLE_FORMAT(GL_R8I), 
-        ADD_GL_COLOR_UA_SAMPLED_MUTABLE_FORMAT(GL_R8UI), 
-        ADD_GL_COLOR_UA_SAMPLED_MUTABLE_FORMAT(GL_R16I), 
-        ADD_GL_COLOR_UA_SAMPLED_MUTABLE_FORMAT(GL_R16UI), 
+        ADD_GL_COLOR_UA_SAMPLED_MUTABLE_FORMAT(GL_RG16),
+        ADD_GL_COLOR_UA_SAMPLED_MUTABLE_FORMAT(GL_RGB10_A2UI),
+        ADD_GL_COLOR_UA_SAMPLED_MUTABLE_FORMAT(GL_R16F),
+        ADD_GL_COLOR_UA_SAMPLED_MUTABLE_FORMAT(GL_RG16F),
+        ADD_GL_COLOR_UA_SAMPLED_MUTABLE_FORMAT(GL_RGB16F),
+        ADD_GL_COLOR_UA_SAMPLED_MUTABLE_FORMAT(GL_RGBA16F),
+        ADD_GL_COLOR_UA_SAMPLED_MUTABLE_FORMAT(GL_R32F),
+        ADD_GL_COLOR_UA_SAMPLED_MUTABLE_FORMAT(GL_RG32F),
+        ADD_GL_COLOR_UA_SAMPLED_MUTABLE_FORMAT(GL_RGBA32F),
+        ADD_GL_COLOR_UA_SAMPLED_MUTABLE_FORMAT(GL_R11F_G11F_B10F),
+        ADD_GL_COLOR_UA_SAMPLED_MUTABLE_FORMAT(GL_R8I),
+        ADD_GL_COLOR_UA_SAMPLED_MUTABLE_FORMAT(GL_R8UI),
+        ADD_GL_COLOR_UA_SAMPLED_MUTABLE_FORMAT(GL_R16I),
+        ADD_GL_COLOR_UA_SAMPLED_MUTABLE_FORMAT(GL_R16UI),
         ADD_GL_COLOR_UA_SAMPLED_MUTABLE_FORMAT(GL_R32I),
-        ADD_GL_COLOR_UA_SAMPLED_MUTABLE_FORMAT(GL_R32UI), 
-        ADD_GL_COLOR_UA_SAMPLED_MUTABLE_FORMAT(GL_RG8I), 
-        ADD_GL_COLOR_UA_SAMPLED_MUTABLE_FORMAT(GL_RG8UI), 
-        ADD_GL_COLOR_UA_SAMPLED_MUTABLE_FORMAT(GL_RG16I), 
-        ADD_GL_COLOR_UA_SAMPLED_MUTABLE_FORMAT(GL_RG16UI), 
-        ADD_GL_COLOR_UA_SAMPLED_MUTABLE_FORMAT(GL_RG32I), 
-        ADD_GL_COLOR_UA_SAMPLED_MUTABLE_FORMAT(GL_RG32UI), 
-        ADD_GL_COLOR_UA_SAMPLED_MUTABLE_FORMAT(GL_RGBA8I), 
-        ADD_GL_COLOR_UA_SAMPLED_MUTABLE_FORMAT(GL_RGBA8UI), 
-        ADD_GL_COLOR_UA_SAMPLED_MUTABLE_FORMAT(GL_RGBA16I), 
-        ADD_GL_COLOR_UA_SAMPLED_MUTABLE_FORMAT(GL_RGBA16UI), 
-        ADD_GL_COLOR_UA_SAMPLED_MUTABLE_FORMAT(GL_RGBA32I), 
+        ADD_GL_COLOR_UA_SAMPLED_MUTABLE_FORMAT(GL_R32UI),
+        ADD_GL_COLOR_UA_SAMPLED_MUTABLE_FORMAT(GL_RG8I),
+        ADD_GL_COLOR_UA_SAMPLED_MUTABLE_FORMAT(GL_RG8UI),
+        ADD_GL_COLOR_UA_SAMPLED_MUTABLE_FORMAT(GL_RG16I),
+        ADD_GL_COLOR_UA_SAMPLED_MUTABLE_FORMAT(GL_RG16UI),
+        ADD_GL_COLOR_UA_SAMPLED_MUTABLE_FORMAT(GL_RG32I),
+        ADD_GL_COLOR_UA_SAMPLED_MUTABLE_FORMAT(GL_RG32UI),
+        ADD_GL_COLOR_UA_SAMPLED_MUTABLE_FORMAT(GL_RGBA8I),
+        ADD_GL_COLOR_UA_SAMPLED_MUTABLE_FORMAT(GL_RGBA8UI),
+        ADD_GL_COLOR_UA_SAMPLED_MUTABLE_FORMAT(GL_RGBA16I),
+        ADD_GL_COLOR_UA_SAMPLED_MUTABLE_FORMAT(GL_RGBA16UI),
+        ADD_GL_COLOR_UA_SAMPLED_MUTABLE_FORMAT(GL_RGBA32I),
         ADD_GL_COLOR_UA_SAMPLED_MUTABLE_FORMAT(GL_RGBA32UI),
 
         ADD_GL_COLOR_COPY_SAMPLED_FORMAT(GL_RGBA4),
@@ -1142,7 +1139,7 @@ namespace Conformance
     }
 
     void OpenGLGraphicsPlugin::ClearImageSlice(const XrSwapchainImageBaseHeader* colorSwapchainImage, uint32_t imageArrayIndex,
-                                               int64_t /*colorSwapchainFormat*/)
+                                               int64_t /*colorSwapchainFormat*/, XrColor4f bgColor)
     {
         auto swapchainContext = m_swapchainImageContextMap[colorSwapchainImage];
 
@@ -1171,7 +1168,7 @@ namespace Conformance
         XRC_CHECK_THROW_GLCMD(glEnable(GL_SCISSOR_TEST));
 
         // Clear swapchain and depth buffer.
-        XRC_CHECK_THROW_GLCMD(glClearColor(DarkSlateGray[0], DarkSlateGray[1], DarkSlateGray[2], DarkSlateGray[3]));
+        XRC_CHECK_THROW_GLCMD(glClearColor(bgColor.r, bgColor.g, bgColor.b, bgColor.a));
         XRC_CHECK_THROW_GLCMD(glClearDepth(1.0f));
         XRC_CHECK_THROW_GLCMD(glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT));
 

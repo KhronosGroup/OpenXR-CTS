@@ -20,6 +20,7 @@
 #include "utils.h"
 #include "conformance_utils.h"
 #include "conformance_framework.h"
+#include "throw_helpers.h"
 #include "composition_utils.h"
 #include "report.h"
 #include <openxr/openxr.h>
@@ -201,7 +202,7 @@ namespace Conformance
 
             CHECK(XR_SUCCESS == xrRequestExitSession(session));
 
-            REQUIRE(FrameIterator::RunResult::Success == FrameIterator(&session).RunToSessionState(XR_SESSION_STATE_STOPPING, 5_sec));
+            REQUIRE(FrameIterator::RunResult::Success == FrameIterator(&session).RunToSessionState(XR_SESSION_STATE_STOPPING, 5s));
 
             CHECK(XR_SUCCESS == xrEndSession(session));
 

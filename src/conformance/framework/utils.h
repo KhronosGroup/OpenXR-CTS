@@ -28,17 +28,20 @@
 #include <memory>
 #include <mutex>
 
-// XRC_DISABLE_GCC_WARNING / XRC_RESTORE_GCC_WARNING
-//
-// Portable wrapper for disabling GCC compiler warnings, one at a time.
-//
-// Example usage:
-//     XRC_DISABLE_GCC_WARNING(-Wmissing-braces)  // Only one warning per usage.
-//     XRC_DISABLE_GCC_WARNING(-Wunused-variable)
-//     <code>
-//     XRC_RESTORE_GCC_WARNINGS()
-//     XRC_RESTORE_GCC_WARNINGS()                 // Must match each disable with a restore.
-//
+/// @addtogroup cts_framework
+/// @{
+
+/// XRC_DISABLE_GCC_WARNING / XRC_RESTORE_GCC_WARNING
+///
+/// Portable wrapper for disabling GCC compiler warnings, one at a time.
+///
+/// Example usage:
+///     XRC_DISABLE_GCC_WARNING(-Wmissing-braces)  // Only one warning per usage.
+///     XRC_DISABLE_GCC_WARNING(-Wunused-variable)
+///     <code>
+///     XRC_RESTORE_GCC_WARNINGS()
+///     XRC_RESTORE_GCC_WARNINGS()                 // Must match each disable with a restore.
+///
 #if !defined(XRC_DISABLE_GCC_WARNING)
 #if defined(__GNUC__)
 #define ODGW1(x) #x
@@ -63,18 +66,18 @@
 #endif
 #endif  // !defined(XRC_RESTORE_GCC_WARNING)
 
-//  XRC_DISABLE_CLANG_WARNING / XRC_RESTORE_CLANG_WARNING
-//
-// Portable wrapper for disabling GCC compiler warnings, one at a time.
-//
-// Example usage:
-//     XRC_DISABLE_CLANG_WARNING(-Wmissing-braces)  // Only one warning per usage.
-//     XRC_DISABLE_CLANG_WARNING(-Wunused-variable)
-//     <code>
-//     XRC_RESTORE_CLANG_WARNINGS()
-//     XRC_RESTORE_CLANG_WARNINGS()                 // Must match each disable with a restore.
-//
-//
+///  XRC_DISABLE_CLANG_WARNING / XRC_RESTORE_CLANG_WARNING
+///
+/// Portable wrapper for disabling GCC compiler warnings, one at a time.
+///
+/// Example usage:
+///     XRC_DISABLE_CLANG_WARNING(-Wmissing-braces)  // Only one warning per usage.
+///     XRC_DISABLE_CLANG_WARNING(-Wunused-variable)
+///     <code>
+///     XRC_RESTORE_CLANG_WARNINGS()
+///     XRC_RESTORE_CLANG_WARNINGS()                 // Must match each disable with a restore.
+///
+///
 #if !defined(XRC_DISABLE_CLANG_WARNING)
 #if defined(__clang__)
 #define ODCW1(x) #x
@@ -95,15 +98,15 @@
 #endif
 #endif  // !defined(XRC_RESTORE_CLANG_WARNING)
 
-// XRC_DISABLE_MSVC_WARNING / XRC_RESTORE_MSVC_WARNING
-//
-// Portable wrapper for disabling VC++ compiler warnings.
-//
-// Example usage:
-//     XRC_DISABLE_MSVC_WARNING(4556 4782 4422)
-//     <code>
-//     XRC_RESTORE_MSVC_WARNING()
-//
+/// XRC_DISABLE_MSVC_WARNING / XRC_RESTORE_MSVC_WARNING
+///
+/// Portable wrapper for disabling VC++ compiler warnings.
+///
+/// Example usage:
+///     XRC_DISABLE_MSVC_WARNING(4556 4782 4422)
+///     <code>
+///     XRC_RESTORE_MSVC_WARNING()
+///
 #if !defined(XRC_DISABLE_MSVC_WARNING)
 #if defined(_MSC_VER)
 #define XRC_DISABLE_MSVC_WARNING(w) __pragma(warning(push)) __pragma(warning(disable : w))
@@ -122,13 +125,13 @@
 
 // -----------------------------------------------------------------------------------
 // ***** XRC_SUPPRESS_MSVC_WARNING
-//
-// Portable wrapper for disabling a single warning on the next source code line.
-//
-// Example usage:
-//     XRC_SUPPRESS_MSVC_WARNING(4556)
-//     <code>
-//
+///
+/// Portable wrapper for disabling a single warning on the next source code line.
+///
+/// Example usage:
+///     XRC_SUPPRESS_MSVC_WARNING(4556)
+///     <code>
+///
 #if !defined(XRC_SUPPRESS_MSVC_WARNING)
 #if defined(_MSC_VER)
 #define XRC_SUPPRESS_MSVC_WARNING(w) __pragma(warning(suppress : w))
@@ -137,17 +140,17 @@
 #endif
 #endif  // !defined(XRC_SUPPRESS_MSVC_WARNING)
 
-// XRC_DISABLE_ALL_MSVC_WARNINGS / XRC_RESTORE_ALL_MSVC_WARNINGS
-//
-// Portable wrapper for disabling all VC++ compiler warnings.
-// XRC_RESTORE_ALL_MSVC_WARNINGS restores warnings that were disabled by
-// XRC_DISABLE_ALL_MSVC_WARNINGS. Any previously enabled warnings will still be
-// enabled after XRC_RESTORE_ALL_MSVC_WARNINGS.
-//
-// Example usage:
-//     XRC_DISABLE_ALL_MSVC_WARNINGS()
-//     <code>
-//     XRC_RESTORE_ALL_MSVC_WARNINGS()
+/// XRC_DISABLE_ALL_MSVC_WARNINGS / XRC_RESTORE_ALL_MSVC_WARNINGS
+///
+/// Portable wrapper for disabling all VC++ compiler warnings.
+/// XRC_RESTORE_ALL_MSVC_WARNINGS restores warnings that were disabled by
+/// XRC_DISABLE_ALL_MSVC_WARNINGS. Any previously enabled warnings will still be
+/// enabled after XRC_RESTORE_ALL_MSVC_WARNINGS.
+///
+/// Example usage:
+///     XRC_DISABLE_ALL_MSVC_WARNINGS()
+///     <code>
+///     XRC_RESTORE_ALL_MSVC_WARNINGS()
 
 #if !defined(XRC_DISABLE_ALL_MSVC_WARNINGS)
 #if defined(_MSC_VER)
@@ -165,39 +168,39 @@
 #endif
 #endif  // !defined(XRC_RESTORE_ALL_MSVC_WARNINGS)
 
-// XRC_STRINGIFY
-//
-// Converts a preprocessor symbol to a string.
-//
-// Example usage:
-//     printf("Line: %s", XRC_STRINGIFY(__LINE__));
-//
+/// XRC_STRINGIFY
+///
+/// Converts a preprocessor symbol to a string.
+///
+/// Example usage:
+///     printf("Line: %s", XRC_STRINGIFY(__LINE__));
+///
 #if !defined(XRC_STRINGIFY)
 #define XRC_STRINGIFY_IMPL(x) #x
 #define XRC_STRINGIFY(x) XRC_STRINGIFY_IMPL(x)
 #endif  // !defined(XRC_STRINGIFY)
 
-// XRC_ENUM_NAME_PAIR
-//
-// Converts an enum name to a enum, const char* tuple.
-//
-// Example usage:
-//     std::pair<SomeEnum, const char*> pair = XRC_ENUM_NAME_PAIR(e, 5);
-//
+/// XRC_ENUM_NAME_PAIR
+///
+/// Converts an enum name to a enum, const char* tuple.
+///
+/// Example usage:
+///     std::pair<SomeEnum, const char*> pair = XRC_ENUM_NAME_PAIR(e, 5);
+///
 #if !defined(XRC_ENUM_NAME_PAIR)
 #define XRC_ENUM_NAME_PAIR(e, _) {e, XRC_STRINGIFY(e)},
 #endif  // !defined(XRC_ENUM_NAME_PAIR)
 
-// strequal
-//
-// Portable C string case-sensitive compare for ANSI-only strings.
-//
+/// strequal
+///
+/// Portable C string case-sensitive compare for ANSI-only strings.
+///
 #define strequal(a, b) (strcmp(a, b) == 0)
 
-// striequal
-//
-// Portable C string case-insensitive compare for ANSI-only strings.
-//
+/// striequal
+///
+/// Portable C string case-insensitive compare for ANSI-only strings.
+///
 #ifdef _MSC_VER
 #define striequal(a, b) (_stricmp(a, b) == 0)
 #else
@@ -220,98 +223,83 @@ namespace Conformance
         }
     };
 
-    // Returns a std::string that was initialized via printf-style formatting.
-    // The behavior is undefined if the specified format or arguments are invalid.
-    // Example usage:
-    //     std::string s = StringSprintf("Hello %s", "world");
+    /// Returns a std::string that was initialized via printf-style formatting.
+    /// The behavior is undefined if the specified format or arguments are invalid.
+    /// Example usage:
+    ///     std::string s = StringSprintf("Hello %s", "world");
     std::string StringSprintf(const char* format, ...);
 
-    // Returns a std::string that was initialized via printf-style formatting.
-    // The behavior is undefined if the specified format or arguments are invalid.
-    // Example usage:
-    //     std::string s = StringVsprintf("Hello %s", args);
+    /// Returns a std::string that was initialized via printf-style formatting.
+    /// The behavior is undefined if the specified format or arguments are invalid.
+    /// Example usage:
+    ///     std::string s = StringVsprintf("Hello %s", args);
     std::string StringVsprintf(const char* format, va_list args);
 
-    // Returns a std::string that was appended to via printf-style formatting.
-    // The behavior is undefined if the specified format or arguments are invalid.
-    // Example usage:
-    //     AppendSprintf(s, "appended %s", "hello world");
+    /// Returns a std::string that was appended to via printf-style formatting.
+    /// The behavior is undefined if the specified format or arguments are invalid.
+    /// Example usage:
+    ///     AppendSprintf(s, "appended %s", "hello world");
     std::string& AppendSprintf(std::string& s, const char* format, ...);
 
-    // Changes the case of str, typically for the purpose of exercising case-sensitivity requirements.
-    // Returns a reference to the input str.
+    /// Changes the case of str, typically for the purpose of exercising case-sensitivity requirements.
+    /// Returns a reference to the input str.
     std::string& FlipCase(std::string& str);
 
-    // SleepMs
-    //
-    // Sleeps the current thread for at least the given milliseconds. Attempt is made to return
-    // immediately after the specified time period, but that cannot be guaranteed and will vary by
-    // some amount in practice.
-    //
+    /// SleepMs
+    ///
+    /// Sleeps the current thread for at least the given milliseconds. Attempt is made to return
+    /// immediately after the specified time period, but that cannot be guaranteed and will vary by
+    /// some amount in practice.
+    ///
     void SleepMs(std::uint32_t ms);
 
-// XRC_UTF8_EXERCISE_STR
-//
-// This is a specially crafted valid UTF8 string which has four Unicode code points,
-// with the first being one byte, the second being two bytes, the third being three bytes,
-// and the fourth being four bytes. This is useful for exercizing a runtime's requirement
-// of supporting UTF8 strings. See https://tools.ietf.org/html/rfc3629#section-3.
-//
+/// This is a specially crafted valid UTF8 string which has four Unicode code points,
+/// with the first being one byte, the second being two bytes, the third being three bytes,
+/// and the fourth being four bytes. This is useful for exercizing a runtime's requirement
+/// of supporting UTF8 strings. See https://tools.ietf.org/html/rfc3629#section-3.
+///
 #define XRC_UTF8_VALID_EXERCISE_STR "\x61\xC8\xBF\xE5\x86\x98\xF0\xAE\xAA\x85"
 
-// XRC_UTF8_EXERCISE_STR
-//
-// This is a specially crafted valid UTF8 string which is invalid UTF8. In this case the
-// string is invalid because the C8 byte is followed by an E5 byte, which is unexpected.
-//
+/// This is a specially crafted valid UTF8 string which is invalid UTF8. In this case the
+/// string is invalid because the C8 byte is followed by an E5 byte, which is unexpected.
+///
 #define XRC_UTF8_INVALID_EXERCISE_STR "\x61\xC8\xE5\x86\x98"
 
-    // RandEngine
-    //
-    // Implements a thread-safe random number utility, as a thin wrapper around the
-    // C++ rand facility.
-    //
+    /// Implements a thread-safe random number utility, as a thin wrapper around the
+    /// C++ rand facility.
+    ///
     struct RandEngine
     {
     public:
         RandEngine();
         RandEngine(uint64_t seed);
 
-        // Sets the new seed, overriding whatever seed was set by the constructor.
+        /// Sets the new seed, overriding whatever seed was set by the constructor.
         void SetSeed(uint64_t seed);
 
-        // Returns the seed set by the constructor or the last SetSeed call.
+        /// Returns the seed set by the constructor or the last SetSeed call.
         uint64_t GetSeed() const;
 
-        // RandSizeT
-        //
-        // Generates a random size_t within the given range of [begin, end)
-        // Requires that end > begin (i.e. the rand is non-empty).
-        // Does not guarantee perfect uniform distribution.
-        //
-        // Example usage:
-        //     size_t i = RandSizeT(0, container.size());
-        //
+        /// Generates a random size_t within the given range of [begin, end)
+        /// Requires that end > begin (i.e. the rand is non-empty).
+        /// Does not guarantee perfect uniform distribution.
+        ///
+        /// Example usage:
+        ///     size_t i = RandSizeT(0, container.size());
+        ///
         size_t RandSizeT(size_t min, size_t max);
 
-        // RandInt64
-        //
-        // Generates a random int64_t within the given range of [begin, end)
-        // Requires that end > begin (i.e. the rand is non-empty).
-        // Does not guarantee perfect uniform distribution.
-        //
-        // Example usage:
-        //
-        //
+        /// Generates a random int64_t within the given range of [begin, end)
+        /// Requires that end > begin (i.e. the rand is non-empty).
+        /// Does not guarantee perfect uniform distribution.
+        ///
         int64_t RandInt64(int64_t min, int64_t max);
         uint64_t RandUint64(uint64_t min, uint64_t max);
 
-        // RandInt32
-        //
-        // Generates a random int32_t within the given range of [begin, end)
-        // Requires that end > begin (i.e. the rand is non-empty).
-        // Does not guarantee perfect uniform distribution.
-        //
+        /// Generates a random int32_t within the given range of [begin, end)
+        /// Requires that end > begin (i.e. the rand is non-empty).
+        /// Does not guarantee perfect uniform distribution.
+        ///
         int32_t RandInt32(int32_t min, int32_t max);
         uint32_t RandUint32(uint32_t min, uint32_t max);
 
@@ -321,23 +309,19 @@ namespace Conformance
         std::mt19937_64 engine;
     };
 
-    // ValidateStringUTF8
-    //
-    // Validates that the string is valid UTF-8 encoded.
-    //
-    // Example usage:
-    //    REQUIRE(ValidateStringUTF8("abcdef", 6));
-    //
+    /// Validates that the string is valid UTF-8 encoded.
+    ///
+    /// Example usage:
+    ///    REQUIRE(ValidateStringUTF8("abcdef", 6));
+    ///
     bool ValidateStringUTF8(const char* str, std::size_t length);
 
-    // ValidateFixedSizeString
-    //
-    // Validates that the contents of a char buffer are valid in length and valid UTF-8.
-    //
-    // Example usage:
-    //    char buffer[16] = ...;
-    //    REQUIRE(ValidateFixedSizeString(buffer));
-    //
+    /// Validates that the contents of a char buffer are valid in length and valid UTF-8.
+    ///
+    /// Example usage:
+    ///    char buffer[16] = ...;
+    ///    REQUIRE(ValidateFixedSizeString(buffer));
+    ///
     template <std::size_t N>
     bool ValidateFixedSizeString(const char (&str)[N], bool mayBeEmpty = true)
     {
@@ -354,39 +338,35 @@ namespace Conformance
         return false;
     }
 
-    // DelimitedStringToStringVector
-    //
-    // Given a string of substrings delimited by some delimiter (usually ' '  or ','), convert it
-    // into a vector of the substrings. If append is true then the array is appended to.
-    //
-    // For example:
-    //     "abc def ghi"
-    //         ->
-    //     "abc"
-    //     "def"
-    //     "ghi"
-    //
+    /// Given a string of substrings delimited by some delimiter (usually ' '  or ','), convert it
+    /// into a vector of the substrings. If append is true then the array is appended to.
+    ///
+    /// For example:
+    ///     "abc def ghi"
+    ///         ->
+    ///     "abc"
+    ///     "def"
+    ///     "ghi"
+    ///
     void DelimitedStringToStringVector(const char* str, std::vector<std::string>& stringVector, bool append = false, char delimiter = ' ');
 
-    // StringVectoToDelimitedStringr
-    //
-    // Given a vector of strings, convert to a single string with the individual strings separated by
-    // a delimiter character (usually ' '  or ','). If append is true then the output string is appended
-    // to if there are existing entries present.
-    //
-    // For example:
-    //     "abc"
-    //     "def"
-    //     "ghi"
-    //         ->
-    //     "abc def ghi"
-    //
+    /// Given a vector of strings, convert to a single string with the individual strings separated by
+    /// a delimiter character (usually ' '  or ','). If append is true then the output string is appended
+    /// to if there are existing entries present.
+    ///
+    /// For example:
+    ///     "abc"
+    ///     "def"
+    ///     "ghi"
+    ///         ->
+    ///     "abc def ghi"
+    ///
     void StringVectoToDelimitedStringr(const std::vector<std::string>& stringVector, std::string& str, bool append = false,
                                        char delimiter = ' ');
 
-    // A container for a vector of strings that owns storage for them, and exposes an array of raw pointers.
-    //
-    // All strings supplied are copied.
+    /// A container for a vector of strings that owns storage for them, and exposes an array of raw pointers.
+    ///
+    /// All strings supplied are copied.
     struct StringVec
     {
     public:
@@ -477,3 +457,5 @@ namespace Conformance
     };
 
 }  // namespace Conformance
+
+/// @}

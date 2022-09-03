@@ -18,6 +18,7 @@
 
 #include "platform_plugin.h"
 #include "RGBAImage.h"
+
 #include <openxr/openxr.h>
 #include <memory>
 #include <functional>
@@ -62,6 +63,9 @@
 
 namespace Conformance
 {
+    /// Color constant used as the default clear color.
+    constexpr XrColor4f DarkSlateGrey = {0.184313729f, 0.309803933f, 0.309803933f, 1.0f};
+
     struct Cube
     {
         XrPosef Pose;
@@ -75,6 +79,9 @@ namespace Conformance
 
     // Forward-declare
     struct SwapchainCreateTestParameters;
+
+#define IGRAPHICSPLUGIN_UNIMPLEMENTED_METHOD() \
+    throw std::runtime_error(std::string(__FUNCTION__) + " is not implemented for the current graphics plugin")
 
     // Wraps a graphics API so the main openxr program can be graphics API-independent.
     struct IGraphicsPlugin
@@ -189,15 +196,12 @@ namespace Conformance
                                                                                      const XrSwapchainCreateInfo& swapchainCreateInfo) = 0;
 
         virtual void ClearImageSlice(const XrSwapchainImageBaseHeader* colorSwapchainImage, uint32_t imageArrayIndex,
-                                     int64_t colorSwapchainFormat) = 0;
+                                     int64_t colorSwapchainFormat, XrColor4f bgColor = DarkSlateGrey) = 0;
 
         virtual void RenderView(const XrCompositionLayerProjectionView& /*layerView*/,
                                 const XrSwapchainImageBaseHeader* /*colorSwapchainImage*/, int64_t /*colorSwapchainFormat*/,
                                 const std::vector<Cube>& /*cubes*/) = 0;
     };
-
-#define IGRAPHICSPLUGIN_UNIMPLEMENTED_METHOD() \
-    throw std::runtime_error(std::string(__FUNCTION__) + " is not implemented for the current graphics plugin")
 
     // Create a graphics plugin for the graphics API specified in the options.
     // Throws std::invalid_argument if the graphics API is empty, unknown, or unsupported.

@@ -48,8 +48,6 @@
 
 namespace Conformance
 {
-    constexpr float DarkSlateGray[] = {0.184313729f, 0.309803933f, 0.309803933f, 1.0f};
-
     static const char* VertexShaderGlsl = R"_(
     #version 320 es
 
@@ -129,8 +127,8 @@ namespace Conformance
         std::shared_ptr<IGraphicsPlugin::SwapchainImageStructs>
         AllocateSwapchainImageStructs(size_t size, const XrSwapchainCreateInfo& swapchainCreateInfo) override;
 
-        void ClearImageSlice(const XrSwapchainImageBaseHeader* colorSwapchainImage, uint32_t imageArrayIndex,
-                             int64_t colorSwapchainFormat) override;
+        void ClearImageSlice(const XrSwapchainImageBaseHeader* colorSwapchainImage, uint32_t imageArrayIndex, int64_t colorSwapchainFormat,
+                             XrColor4f bgColor = DarkSlateGrey) override;
 
         void RenderView(const XrCompositionLayerProjectionView& layerView, const XrSwapchainImageBaseHeader* colorSwapchainImage,
                         int64_t colorSwapchainFormat, const std::vector<Cube>& cubes) override;
@@ -873,7 +871,7 @@ namespace Conformance
     }
 
     void OpenGLESGraphicsPlugin::ClearImageSlice(const XrSwapchainImageBaseHeader* colorSwapchainImage, uint32_t imageArrayIndex,
-                                                 int64_t /*colorSwapchainFormat*/)
+                                                 int64_t /*colorSwapchainFormat*/, XrColor4f bgColor)
     {
         auto imageInfoIt = m_imageInfo.find(colorSwapchainImage);
         CHECK(imageInfoIt != m_imageInfo.end());
@@ -906,7 +904,7 @@ namespace Conformance
         GL(glEnable(GL_SCISSOR_TEST));
 
         // Clear swapchain and depth buffer.
-        GL(glClearColor(DarkSlateGray[0], DarkSlateGray[1], DarkSlateGray[2], DarkSlateGray[3]));
+        GL(glClearColor(bgColor.r, bgColor.g, bgColor.b, bgColor.a));
         GL(glClearDepthf(1.0f));
         GL(glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT));
 

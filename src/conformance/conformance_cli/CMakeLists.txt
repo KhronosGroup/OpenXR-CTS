@@ -58,3 +58,7 @@ install(
     TARGETS conformance_cli
     RUNTIME DESTINATION conformance
 )
+
+if(MSVC)
+    install(FILES $<TARGET_PDB_FILE:conformance_cli> DESTINATION conformance OPTIONAL)
+endif()

@@ -338,7 +338,7 @@ namespace Conformance
     std::unique_ptr<IInputTestDevice> CreateTestDevice(ITestMessageDisplay* const messageDisplay,
                                                        InteractionManager* const interactionManager, XrInstance instance, XrSession session,
                                                        XrPath interactionProfile, XrPath topLevelPath,
-                                                       InteractionProfileWhitelistData interactionProfilePaths);
+                                                       const InteractionProfileWhitelistData& interactionProfilePaths);
 
     std::unique_ptr<IInputTestDevice> CreateTestDevice(ITestMessageDisplay* const messageDisplay, XrInstance instance, XrSession session,
                                                        XrPath interactionProfile, XrPath topLevelPath, XrActionSet actionSet,

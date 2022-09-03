@@ -114,7 +114,7 @@ namespace Conformance
             CAPTURE(qpcBefore);
 
             // Wait until the runtime is ready for us to begin a session
-            auto timeout = (GetGlobalData().options.debugMode ? 3600_sec : 10_sec);
+            auto timeout = (GetGlobalData().options.debugMode ? 3600s : 10s);
             FrameIterator frameIterator(&session);
             FrameIterator::RunResult runResult = frameIterator.RunToSessionState(XR_SESSION_STATE_FOCUSED, timeout);
             REQUIRE(runResult == FrameIterator::RunResult::Success);

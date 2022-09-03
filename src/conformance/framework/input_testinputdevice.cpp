@@ -15,6 +15,7 @@
 // limitations under the License.
 
 #include <chrono>
+#include <cmath>
 #include <thread>
 #include <array>
 
@@ -69,7 +70,7 @@ namespace Conformance
 
         HumanDrivenInputdevice(ITestMessageDisplay* const messageDisplay, InteractionManager* const interactionManager, XrInstance instance,
                                XrSession session, XrPath interactionProfile, XrPath topLevelPath,
-                               InteractionProfileWhitelistData interactionProfilePaths)
+                               const InteractionProfileWhitelistData& interactionProfilePaths)
             : m_messageDisplay(messageDisplay)
             , m_instance(instance)
             , m_session(session)
@@ -99,7 +100,7 @@ namespace Conformance
                         topLevelPathString.end());
             };
 
-            for (InputSourcePathData inputSourceData : interactionProfilePaths) {
+            for (const InputSourcePathData& inputSourceData : interactionProfilePaths) {
                 if (!PrefixedByTopLevelPath(inputSourceData.Path)) {
                     continue;
                 }
@@ -320,7 +321,7 @@ namespace Conformance
                 auto currentValueMessage = "Current:  " + std::to_string(floatActionData.currentState);
                 m_messageDisplay->DisplayMessage(message + "\n" + currentValueMessage);
 
-                return fabs(target - floatActionData.currentState) < epsilon;
+                return std::fabs(target - floatActionData.currentState) < epsilon;
             };
 
             REQUIRE_MSG(WaitUntilPredicateWithTimeout(
@@ -387,8 +388,8 @@ namespace Conformance
                                            std::to_string(vectorActionData.currentState.y) + ")";
                 m_messageDisplay->DisplayMessage(message + "\n " + currentValueMessage);
 
-                return fabs(target.x - vectorActionData.currentState.x) < epsilon &&
-                       fabs(target.y - vectorActionData.currentState.y) < epsilon;
+                return std::fabs(target.x - vectorActionData.currentState.x) < epsilon &&
+                       std::fabs(target.y - vectorActionData.currentState.y) < epsilon;
             };
 
             REQUIRE_MSG(WaitUntilPredicateWithTimeout(
@@ -419,7 +420,7 @@ namespace Conformance
     std::unique_ptr<IInputTestDevice> CreateTestDevice(ITestMessageDisplay* const messageDisplay,
                                                        InteractionManager* const interactionManager, XrInstance instance, XrSession session,
                                                        XrPath interactionProfile, XrPath topLevelPath,
-                                                       InteractionProfileWhitelistData interactionProfilePaths)
+                                                       const InteractionProfileWhitelistData& interactionProfilePaths)
     {
         return std::make_unique<HumanDrivenInputdevice>(messageDisplay, interactionManager, instance, session, interactionProfile,
                                                         topLevelPath, interactionProfilePaths);

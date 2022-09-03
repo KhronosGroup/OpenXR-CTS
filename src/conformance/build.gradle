@@ -42,6 +42,14 @@ task copyAssets(type: Copy) {
     dependsOn copyFont
 }
 
+task copyLayerInfo(type: Copy) {
+    from('conformance_test/android_assets') {
+        include '**/*.json'
+    }
+    into assetDest
+    dependsOn copyFont
+}
+
 android {
     compileSdkVersion 29
     buildToolsVersion "30.0.3"
@@ -67,6 +75,7 @@ android {
             }
         }
         preBuild.dependsOn(copyAssets)
+        preBuild.dependsOn(copyLayerInfo)
     }
     sourceSets {
         main {

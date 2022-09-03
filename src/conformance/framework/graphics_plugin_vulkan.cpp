@@ -22,6 +22,7 @@
 #include <unordered_set>
 #include "report.h"
 #include "hex_and_handles.h"
+#include "throw_helpers.h"
 #include "swapchain_parameters.h"
 #include "conformance_framework.h"
 #include "xr_dependencies.h"
@@ -590,7 +591,7 @@ namespace Conformance
             return true;
         }
 
-        void UpdateIndicies(const uint16_t* data, uint32_t elements, uint32_t offset = 0)
+        void UpdateIndices(const uint16_t* data, uint32_t elements, uint32_t offset = 0)
         {
             uint16_t* map = nullptr;
             XRC_CHECK_THROW_VKCMD(vkMapMemory(m_vkDevice, idxMem, sizeof(map[0]) * offset, sizeof(map[0]) * elements, 0, (void**)&map));
@@ -735,7 +736,7 @@ namespace Conformance
             m_vkDevice = VK_NULL_HANDLE;
         }
 
-        RenderTarget(RenderTarget&& other) : RenderTarget()
+        RenderTarget(RenderTarget&& other) noexcept : RenderTarget()
         {
             using std::swap;
             swap(colorImage, other.colorImage);
@@ -745,7 +746,7 @@ namespace Conformance
             swap(fb, other.fb);
             swap(m_vkDevice, other.m_vkDevice);
         }
-        RenderTarget& operator=(RenderTarget&& other)
+        RenderTarget& operator=(RenderTarget&& other) noexcept
         {
             if (&other == this) {
                 return *this;
@@ -1028,7 +1029,7 @@ namespace Conformance
             m_vkDevice = nullptr;
         }
 
-        DepthBuffer(DepthBuffer&& other) : DepthBuffer()
+        DepthBuffer(DepthBuffer&& other) noexcept : DepthBuffer()
         {
             using std::swap;
 
@@ -1036,7 +1037,7 @@ namespace Conformance
             swap(depthMemory, other.depthMemory);
             swap(m_vkDevice, other.m_vkDevice);
         }
-        DepthBuffer& operator=(DepthBuffer&& other)
+        DepthBuffer& operator=(DepthBuffer&& other) noexcept
         {
             if (&other == this) {
                 return *this;
@@ -1113,9 +1114,7 @@ namespace Conformance
         class ArraySliceState
         {
         public:
-            ArraySliceState()
-            {
-            }
+            ArraySliceState() = default;
             ArraySliceState(const ArraySliceState&)
             {
                 ReportF("ArraySliceState copy ctor called");
@@ -1128,7 +1127,7 @@ namespace Conformance
         std::vector<ArraySliceState> slice{};
 
         SwapchainImageContext() = default;
-        ~SwapchainImageContext()
+        ~SwapchainImageContext() override
         {
             Reset();
         }
@@ -1538,8 +1537,8 @@ namespace Conformance
 
         void SetViewportAndScissor(const VkRect2D& rect);
 
-        void ClearImageSlice(const XrSwapchainImageBaseHeader* colorSwapchainImage, uint32_t imageArrayIndex,
-                             int64_t colorSwapchainFormat) override;
+        void ClearImageSlice(const XrSwapchainImageBaseHeader* colorSwapchainImage, uint32_t imageArrayIndex, int64_t colorSwapchainFormat,
+                             XrColor4f bgColor = DarkSlateGrey) override;
 
         void RenderView(const XrCompositionLayerProjectionView& layerView, const XrSwapchainImageBaseHeader* colorSwapchainImage,
                         int64_t colorSwapchainFormat, const std::vector<Cube>& cubes) override;
@@ -1571,7 +1570,7 @@ namespace Conformance
 #endif  // defined(USE_CHECKPOINTS)
 
     protected:
-        bool initialized;
+        bool initialized{false};
         VkInstance m_vkInstance{VK_NULL_HANDLE};
         VkPhysicalDevice m_vkPhysicalDevice{VK_NULL_HANDLE};
 
@@ -1733,7 +1732,7 @@ namespace Conformance
                                        VkResult* vulkanResult) override;
     };
 
-    VulkanGraphicsPlugin::VulkanGraphicsPlugin(const std::shared_ptr<IPlatformPlugin>& /*unused*/) : initialized(false)
+    VulkanGraphicsPlugin::VulkanGraphicsPlugin(const std::shared_ptr<IPlatformPlugin>& /*unused*/)
     {
         m_graphicsBinding.type = GetGraphicsBindingType();
     }
@@ -2177,11 +2176,11 @@ namespace Conformance
         m_drawBuffer.Init(m_vkDevice, &m_memAllocator,
                           {{0, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Geometry::Vertex, Position)},
                            {1, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Geometry::Vertex, Color)}});
-        uint32_t numCubeIdicies = sizeof(Geometry::c_cubeIndices) / sizeof(Geometry::c_cubeIndices[0]);
-        uint32_t numCubeVerticies = sizeof(Geometry::c_cubeVertices) / sizeof(Geometry::c_cubeVertices[0]);
-        m_drawBuffer.Create(numCubeIdicies, numCubeVerticies);
-        m_drawBuffer.UpdateIndicies(Geometry::c_cubeIndices.data(), numCubeIdicies, 0);
-        m_drawBuffer.UpdateVertices(Geometry::c_cubeVertices.data(), numCubeVerticies, 0);
+        uint32_t numCubeIndices = sizeof(Geometry::c_cubeIndices) / sizeof(Geometry::c_cubeIndices[0]);
+        uint32_t numCubeVertices = sizeof(Geometry::c_cubeVertices) / sizeof(Geometry::c_cubeVertices[0]);
+        m_drawBuffer.Create(numCubeIndices, numCubeVertices);
+        m_drawBuffer.UpdateIndices(Geometry::c_cubeIndices.data(), numCubeIndices, 0);
+        m_drawBuffer.UpdateVertices(Geometry::c_cubeVertices.data(), numCubeVertices, 0);
 
 #if defined(USE_MIRROR_WINDOW)
         m_swapchain.Create(m_vkInstance, m_vkPhysicalDevice, m_vkDevice, m_graphicsBinding.queueFamilyIndex);
@@ -2735,7 +2734,7 @@ namespace Conformance
     }
 
     void VulkanGraphicsPlugin::ClearImageSlice(const XrSwapchainImageBaseHeader* colorSwapchainImage, uint32_t imageArrayIndex,
-                                               int64_t /*colorSwapchainFormat*/)
+                                               int64_t /*colorSwapchainFormat*/, XrColor4f bgColor)
     {
         auto swapchainContext = m_swapchainImageContextMap[colorSwapchainImage];
         uint32_t imageIndex = swapchainContext->ImageIndex(colorSwapchainImage);
@@ -2759,12 +2758,11 @@ namespace Conformance
         swapchainContext->BindPipeline(m_cmdBuffer.buf, imageArrayIndex);
 
         // Clear the buffers
-        static XrColor4f darkSlateGrey = {0.184313729f, 0.309803933f, 0.309803933f, 1.0f};
         static std::array<VkClearValue, 2> clearValues;
-        clearValues[0].color.float32[0] = darkSlateGrey.r;
-        clearValues[0].color.float32[1] = darkSlateGrey.g;
-        clearValues[0].color.float32[2] = darkSlateGrey.b;
-        clearValues[0].color.float32[3] = darkSlateGrey.a;
+        clearValues[0].color.float32[0] = bgColor.r;
+        clearValues[0].color.float32[1] = bgColor.g;
+        clearValues[0].color.float32[2] = bgColor.b;
+        clearValues[0].color.float32[3] = bgColor.a;
         clearValues[1].depthStencil.depth = 1.0f;
         clearValues[1].depthStencil.stencil = 0;
         std::array<VkClearAttachment, 2> clearAttachments{{

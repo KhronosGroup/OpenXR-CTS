@@ -1,6 +1,7 @@
 // Copyright (c) 2017-2022, The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
+
 #if (defined(XR_USE_GRAPHICS_API_D3D11) || defined(XR_USE_GRAPHICS_API_D3D12)) && !defined(MISSING_DIRECTX_COLORS)
 
 #include <wrl/client.h>  // For Microsoft::WRL::ComPtr
@@ -11,6 +12,7 @@
 #include <D3Dcompiler.h>
 
 #include "d3d_common.h"
+#include "throw_helpers.h"
 
 using namespace Microsoft::WRL;
 using namespace DirectX;

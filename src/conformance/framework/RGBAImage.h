@@ -10,6 +10,11 @@
 
 namespace Conformance
 {
+    /**
+     * @defgroup cts_rgba RGBA image support
+     * @ingroup cts_framework
+     */
+    ///@{
     union RGBA8Color
     {
         struct
@@ -25,6 +30,7 @@ namespace Conformance
 
     static_assert(sizeof(RGBA8Color) == 4, "Incorrect RGBA8Color size");
 
+    /// A 2D, 32 bit-per-pixel RGBA image
     struct RGBAImage
     {
         RGBAImage(int width, int height);
@@ -41,5 +47,5 @@ namespace Conformance
         int width;
         int height;
     };
-
+    /// @}
 }  // namespace Conformance

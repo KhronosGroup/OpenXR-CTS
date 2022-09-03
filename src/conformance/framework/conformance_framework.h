@@ -32,65 +32,77 @@
 #include "windows.h"
 #endif
 
-#ifdef XR_USE_PLATFORM_ANDROID
-#include <android/log.h>
-#include <stdlib.h>  // abort
-#endif               /// XR_USE_PLATFORM_ANDROID
+/**
+ * @defgroup cts_framework OpenXR CTS framework
+ * @brief Functionality to use when building conformance tests.
+ */
 
-// CHECK_MSG
-// If you're checking XR_SUCCEEDED(result), see CHECK_RESULT_SUCCEEDED.
-// Example usage:
-//     CAPTURE(result = xrCreateSession(instance, &session, ...));
-//     CHECK_MSG(session != XR_NULL_HANDLE_CPP, "xrCreateSession failed");
-//
+/**
+ * @defgroup cts_assert_macros Assertion helper macros
+ * @brief Helper macros for Catch2 assertions.
+ * @ingroup cts_framework
+ */
+
+/// @{
+
+/// Like normal CHECK() but with an extra message (an INFO that lasts for just this assert)
+///
+/// If you're checking XR_SUCCEEDED(result), see CHECK_RESULT_SUCCEEDED.
+///
+/// Example usage:
+/// ```
+///     CAPTURE(result = xrCreateSession(instance, &session, ...));
+///     CHECK_MSG(session != XR_NULL_HANDLE_CPP, "xrCreateSession failed");
+/// ```
+///
 #define CHECK_MSG(expr, msg) \
     {                        \
         INFO(msg);           \
         CHECK(expr);         \
     }  // Need to create scope or else the INFO leaks into other failures.
 
-// REQUIRE_MSG
-// If you're checking XR_SUCCEEDED(result), see REQUIRE_RESULT_SUCCEEDED.
-// Example usage:
-//     CAPTURE(result = xrCreateSession(instance, &session, ...));
-//     REQUIRE_MSG(session != XR_NULL_HANDLE_CPP, "xrCreateSession failed");
-//
+/// Like normal REQUIRE() but with an extra message (an INFO that lasts for just this assert)
+///
+/// If you're checking XR_SUCCEEDED(result), see REQUIRE_RESULT_SUCCEEDED.
+///
+/// Example usage:
+/// ```
+///     CAPTURE(result = xrCreateSession(instance, &session, ...));
+///     REQUIRE_MSG(session != XR_NULL_HANDLE_CPP, "xrCreateSession failed");
+/// ```
+///
 #define REQUIRE_MSG(expr, msg) \
     {                          \
         INFO(msg);             \
         REQUIRE(expr);         \
     }  // Need to create scope or else the INFO leaks into other failures.
 
-// REQUIRE_RESULT
-// Expects result to be exactly equal to expectedResult
-//
+/// Expects result to be exactly equal to expectedResult
+///
 #define REQUIRE_RESULT(result, expectedResult) REQUIRE(result == expectedResult)
 
-// CHECK_RESULT_SUCCEEDED
-// Expects XR_SUCCEEDED(result) (any kind of success, not necessarily XR_SUCCESS)
-//
+/// Expects XR_SUCCEEDED(result) (any kind of success, not necessarily XR_SUCCESS)
+///
 #define CHECK_RESULT_SUCCEEDED(result) CHECK(result >= 0)
 
-// REQUIRE_RESULT_SUCCEEDED
-// Expects XR_SUCCEEDED(result) (any kind of success, not necessarily XR_SUCCESS)
-//
+/// Expects XR_SUCCEEDED(result) (any kind of success, not necessarily XR_SUCCESS)
+///
 #define REQUIRE_RESULT_SUCCEEDED(result) REQUIRE(result >= 0)
 
-// CHECK_RESULT_UNQUALIFIED_SUCCESS
-// Expects XR_UNQUALIFIED_SUCCESS(result) (exactly equal to XR_SUCCESS)
-//
+/// Expects XR_UNQUALIFIED_SUCCESS(result) (exactly equal to XR_SUCCESS)
+///
 #define CHECK_RESULT_UNQUALIFIED_SUCCESS(result) CHECK(result == XR_SUCCESS)
 
-// REQUIRE_RESULT_UNQUALIFIED_SUCCESS
-// Expects XR_UNQUALIFIED_SUCCESS(result) (exactly equal to XR_SUCCESS)
-//
+/// Expects XR_UNQUALIFIED_SUCCESS(result) (exactly equal to XR_SUCCESS)
+///
 #define REQUIRE_RESULT_UNQUALIFIED_SUCCESS(result) REQUIRE(result == XR_SUCCESS)
 
-// XRC_FILE_AND_LINE
-// Represents a compile time file and line location as a single string.
-//
+/// @}
+
 #define XRC_CHECK_STRINGIFY(x) #x
 #define XRC_TO_STRING(x) XRC_CHECK_STRINGIFY(x)
+
+/// Represents a compile time file and line location as a single string.
 #define XRC_FILE_AND_LINE __FILE__ ":" XRC_TO_STRING(__LINE__)
 
 #if defined(XR_USE_PLATFORM_ANDROID)
@@ -110,150 +122,71 @@ void Conformance_Android_Detach_Current_Thread();
 
 namespace Conformance
 {
-
-    // The following are copied from the HelloXR project. Let's make a shared location version of
-    // this which can be shared and uses shareable conventions. They aren't possible to use directly
-    // from HelloXR because of collisions, but we can look resolving that.
-
-    [[noreturn]] inline void Throw(std::string failureMessage, const char* originator = nullptr, const char* sourceLocation = nullptr)
-    {
-        if (originator != nullptr) {
-            failureMessage += StringSprintf("\n    Origin: %s", originator);
-        }
-
-        if (sourceLocation != nullptr) {
-            failureMessage += StringSprintf("\n    Source: %s", sourceLocation);
-        }
-#ifdef XR_USE_PLATFORM_ANDROID
-        /// write to the log too
-        __android_log_write(ANDROID_LOG_ERROR, "OpenXR_Conformance_Throw", failureMessage.c_str());
-#endif
-        throw std::logic_error(failureMessage);
-    }
-
-#define XRC_THROW(msg) ::Conformance::Throw(msg, nullptr, XRC_FILE_AND_LINE);
-
-#define XRC_CHECK_THROW(exp)                                \
-    {                                                       \
-        if (!(exp)) {                                       \
-            Throw("Check failed", #exp, XRC_FILE_AND_LINE); \
-        }                                                   \
-    }
-
-#define XRC_CHECK_THROW_MSG(exp, msg)            \
-    {                                            \
-        if (!(exp)) {                            \
-            Throw(msg, #exp, XRC_FILE_AND_LINE); \
-        }                                        \
-    }
-
-    [[noreturn]] inline void ThrowXrResult(XrResult res, const char* originator = nullptr,
-                                           const char* sourceLocation = nullptr) noexcept(false)
-    {
-        Throw(StringSprintf("XrResult failure [%d]", res), originator, sourceLocation);
-    }
-
-    inline XrResult CheckThrowXrResult(XrResult res, const char* originator = nullptr, const char* sourceLocation = nullptr) noexcept(false)
-    {
-        if (XR_FAILED(res)) {
-            ThrowXrResult(res, originator, sourceLocation);
-        }
-
-        return res;
-    }
-
-#define XRC_THROW_XRRESULT(xr, cmd) ::Conformance::ThrowXrResult(xr, #cmd, XRC_FILE_AND_LINE);
-#define XRC_CHECK_THROW_XRCMD(cmd) ::Conformance::CheckThrowXrResult(cmd, #cmd, XRC_FILE_AND_LINE);
-#define XRC_CHECK_THROW_XRRESULT(res, cmdStr) ::Conformance::CheckThrowXrResult(res, cmdStr, XRC_FILE_AND_LINE);
-
-#ifdef XR_USE_PLATFORM_WIN32
-
-    [[noreturn]] inline void ThrowHResult(HRESULT hr, const char* originator = nullptr,
-                                          const char* sourceLocation = nullptr) noexcept(false)
-    {
-        Throw(StringSprintf("HRESULT failure [%x]", hr), originator, sourceLocation);
-    }
-
-    inline HRESULT CheckThrowHResult(HRESULT hr, const char* originator = nullptr, const char* sourceLocation = nullptr) noexcept(false)
-    {
-        if (FAILED(hr)) {
-            ThrowHResult(hr, originator, sourceLocation);
-        }
-
-        return hr;
-    }
-
-#define XRC_THROW_HR(hr, cmd) ::Conformance::ThrowHResult(hr, #cmd, XRC_FILE_AND_LINE);
-#define XRC_CHECK_THROW_HRCMD(cmd) ::Conformance::CheckThrowHResult(cmd, #cmd, XRC_FILE_AND_LINE);
-#define XRC_CHECK_THROW_HRESULT(res, cmdStr) ::Conformance::CheckThrowHResult(res, cmdStr, XRC_FILE_AND_LINE);
-
-#endif  // XR_USE_PLATFORM_WIN32
-
-    // Specifies runtime options for the application.
-    // String options are case-insensitive.
-    // Each of these can be specified from the command line via a command of the same name as
-    // the variable name. For example, the application can be run with --graphicsPlugin "vulkan"
-    // String vector options are specified space delimited strings. For example, the app could be
-    // run with --enabledAPILayers "api_validation handle_validation"
-    //
+    /// Specifies runtime options for the application.
+    /// String options are case-insensitive.
+    /// Each of these can be specified from the command line via a command of the same name as
+    /// the variable name. For example, the application can be run with --graphicsPlugin "vulkan"
+    /// String vector options are specified space delimited strings. For example, the app could be
+    /// run with --enabledAPILayers "api_validation handle_validation"
+    ///
     struct Options
     {
-        // Describes the option set in a way suitable for printing.
+        /// Describes the option set in a way suitable for printing.
         std::string DescribeOptions() const;
 
-        // Options include: "vulkan" "d3d11" d3d12" "opengl" "opengles"
-        // Default is none. Must be manually specified.
+        /// Options include: "vulkan" "d3d11" d3d12" "opengl" "opengles"
+        /// Default is none. Must be manually specified.
         std::string graphicsPlugin{};
 
-        // Options include "hmd" "handheld". See enum XrFormFactor.
-        // Default is hmd.
+        /// Options include "hmd" "handheld". See enum XrFormFactor.
+        /// Default is hmd.
         std::string formFactor{"Hmd"};
         XrFormFactor formFactorValue{XR_FORM_FACTOR_HEAD_MOUNTED_DISPLAY};
 
-        // Options include "stereo" "mono". See enum XrViewConfigurationType.
-        // Default is stereo.
+        /// Options include "stereo" "mono". See enum XrViewConfigurationType.
+        /// Default is stereo.
         std::string viewConfiguration{"Stereo"};
         XrViewConfigurationType viewConfigurationValue{XR_VIEW_CONFIGURATION_TYPE_PRIMARY_STEREO};
 
-        // Options include "opaque" "additive" "alphablend". See enum XrEnvironmentBlendMode.
-        // Default is opaque.
+        /// Options include "opaque" "additive" "alphablend". See enum XrEnvironmentBlendMode.
+        /// Default is opaque.
         std::string environmentBlendMode{"Opaque"};
         XrEnvironmentBlendMode environmentBlendModeValue{XR_ENVIRONMENT_BLEND_MODE_OPAQUE};
 
-        // Options can vary depending on their platform availability. If a requested API layer is
-        // not supported then the test fails.
-        // Default is empty.
+        /// Options can vary depending on their platform availability. If a requested API layer is
+        /// not supported then the test fails.
+        /// Default is empty.
         std::vector<std::string> enabledAPILayers;
 
-        // Options include at least any of the documented extensions. The runtime supported extensions
-        // are enumerated by xrEnumerateApiLayerProperties. If a requested extension is not supported
-        // then the test fails.
-        // Default is empty.
+        /// Options include at least any of the documented extensions. The runtime supported extensions
+        /// are enumerated by xrEnumerateApiLayerProperties. If a requested extension is not supported
+        /// then the test fails.
+        /// Default is empty.
         std::vector<std::string> enabledInstanceExtensions;
 
-        // Options include at least any of the documented interaction profiles.
-        // The conformance tests will generically test the runtime supports each of the provided
-        // interaction profile.
-        // Default is /interaction_profiles/khr/simple_controller alone.
+        /// Options include at least any of the documented interaction profiles.
+        /// The conformance tests will generically test the runtime supports each of the provided
+        /// interaction profile.
+        /// Default is /interaction_profiles/khr/simple_controller alone.
         std::vector<std::string> enabledInteractionProfiles;
 
-        // Indicates if the runtime returns XR_ERROR_HANDLE_INVALID upon usage of invalid handles.
-        // Note that as of 4/2019 the OpenXR specification is inconsistent in its requirement for
-        // functions returning XR_ERROR_HANDLE_INVALID. Some functions must return it, some may, with
-        // no rationale. Originally it was all must, but there was some debate...
-        // Default is false.
+        /// Indicates if the runtime returns XR_ERROR_HANDLE_INVALID upon usage of invalid handles.
+        /// Note that as of 4/2019 the OpenXR specification is inconsistent in its requirement for
+        /// functions returning XR_ERROR_HANDLE_INVALID. Some functions must return it, some may, with
+        /// no rationale. Originally it was all must, but there was some debate...
+        /// Default is false.
         bool invalidHandleValidation{false};
 
-        // Indicates if the runtime supports disconnecting a device, specifically left and right devices.
-        // Some input tests depends on the side-effects of device disconnection to test various features.
-        // If true the runtime does not support disconnectable devices.
+        /// Indicates if the runtime supports disconnecting a device, specifically left and right devices.
+        /// Some input tests depends on the side-effects of device disconnection to test various features.
+        /// If true the runtime does not support disconnectable devices.
         bool nonDisconnectableDevices{false};
 
-        // If true then all test diagnostics are reported with the file/line that they occurred on.
-        // Default is true (enabled).
+        /// If true then all test diagnostics are reported with the file/line that they occurred on.
+        /// Default is true (enabled).
         bool fileLineLoggingEnabled{true};
 
-        // Defines if executing in debug mode. By default this follows the build type.
+        /// Defines if executing in debug mode. By default this follows the build type.
         bool debugMode
         {
 #if defined(NDEBUG)
@@ -271,7 +204,7 @@ namespace Conformance
     class ConformanceReport
     {
     public:
-        // Generates a report string.
+        /// Generates a report string.
         std::string GetReportString() const;
 
     public:
@@ -290,16 +223,16 @@ namespace Conformance
         GlobalData(const GlobalData&) = delete;
         GlobalData& operator=(const GlobalData&) = delete;
 
-        // Sets up global data for usage. Required before use of GlobalData.
-        // Returns false if already Initialized.
+        /// Sets up global data for usage. Required before use of GlobalData.
+        /// Returns false if already Initialized.
         bool Initialize();
 
         bool IsInitialized() const;
 
-        // Matches a successful call to Initialize.
+        /// Matches a successful call to Initialize.
         void Shutdown();
 
-        // Returns the default random number engine.
+        /// Returns the default random number engine.
         RandEngine& GetRandEngine();
 
         const FunctionInfo& GetFunctionInfo(const char* functionName) const;
@@ -310,39 +243,39 @@ namespace Conformance
 
         const XrInstanceProperties& GetInstanceProperties() const;
 
-        // case sensitive check.
+        /// case sensitive check.
         bool IsAPILayerEnabled(const char* layerName) const;
 
-        // case sensitive check.
+        /// case sensitive check.
         bool IsInstanceExtensionEnabled(const char* extensionName) const;
 
-        // case sensitive check.
+        /// case sensitive check.
         bool IsInstanceExtensionSupported(const char* extensionName) const;
 
-        // Returns a copy of the IPlatformPlugin
+        /// Returns a copy of the IPlatformPlugin
         std::shared_ptr<IPlatformPlugin> GetPlatformPlugin();
 
-        // Returns a copy of the IGraphicsPlugin.
+        /// Returns a copy of the IGraphicsPlugin.
         std::shared_ptr<IGraphicsPlugin> GetGraphicsPlugin();
 
-        // Returns true if under the current test environment we require a graphics plugin. This may
-        // be false, for example, if the XR_KHR_headless is enabled.
+        /// Returns true if under the current test environment we require a graphics plugin. This may
+        /// be false, for example, if the XR_KHR_headless is enabled.
         bool IsGraphicsPluginRequired() const;
 
-        // Returns true if a graphics plugin was supplied, or if IsGraphicsPluginRequired() is true.
+        /// Returns true if a graphics plugin was supplied, or if IsGraphicsPluginRequired() is true.
         bool IsUsingGraphicsPlugin() const;
 
     public:
-        // Guards all member data.
+        /// Guards all member data.
         mutable std::recursive_mutex dataMutex;
 
-        // Indicates if Init has succeeded.
+        /// Indicates if Init has succeeded.
         bool isInitialized{};
 
-        // The default random number generation engine we use. Thread safe.
+        /// The default random number generation engine we use. Thread safe.
         RandEngine randEngine;
 
-        // User selected options for the program execution.
+        /// User selected options for the program execution.
         Options options;
 
         ConformanceReport conformanceReport;
@@ -355,12 +288,12 @@ namespace Conformance
 
         std::shared_ptr<IGraphicsPlugin> graphicsPlugin;
 
-        // If true then we assume the runtime API version is the same as the API version the
-        // conformance was built against. If true then we can exercise the runtime more fully because
-        // we know the API it was built against.
+        /// If true then we assume the runtime API version is the same as the API version the
+        /// conformance was built against. If true then we can exercise the runtime more fully because
+        /// we know the API it was built against.
         bool runtimeMatchesAPIVersion{true};
 
-        // Specifies invalid values, which aren't XR_NULL_HANDLE. Used to exercise invalid handles.
+        /// Specifies invalid values, which aren't XR_NULL_HANDLE. Used to exercise invalid handles.
         XrInstance invalidInstance{XRC_INVALID_INSTANCE_VALUE};
         XrSession invalidSession{XRC_INVALID_SESSION_VALUE};
         XrSpace invalidSpace{XRC_INVALID_SPACE_VALUE};
@@ -370,92 +303,171 @@ namespace Conformance
         XrSystemId invalidSystemId{XRC_INVALID_SYSTEM_ID_VALUE};
         XrPath invalidPath{XRC_INVALID_PATH_VALUE};
 
-        // The API layers currently available.
+        /// The API layers currently available.
         std::vector<XrApiLayerProperties> availableAPILayers;
         std::vector<std::string> availableAPILayerNames;
 
-        // The API layers that have been requested to be enabled. Suitable for passing to OpenXR.
+        /// The API layers that have been requested to be enabled. Suitable for passing to OpenXR.
         StringVec enabledAPILayerNames;
 
-        // The instance extensions currently available.
+        /// The instance extensions currently available.
         std::vector<XrExtensionProperties> availableInstanceExtensions;
         std::vector<std::string> availableInstanceExtensionNames;
 
-        // The instance extensions that are required by the platform (IPlatformPlugin).
+        /// The instance extensions that are required by the platform (IPlatformPlugin).
         std::vector<std::string> requiredPlatformInstanceExtensions;
 
-        // The instance extensions that are required by the graphics system (IGraphicsPlugin).
+        /// The instance extensions that are required by the graphics system (IGraphicsPlugin).
         std::vector<std::string> requiredGraphicsInstanceExtensions;
 
-        // The instance extensions that have been requested to be enabled. Suitable for passing to OpenXR.
+        /// The instance extensions that have been requested to be enabled. Suitable for passing to OpenXR.
         StringVec enabledInstanceExtensionNames;
 
-        // The interaction profiles that have been requested to be tested.
+        /// The interaction profiles that have been requested to be tested.
         StringVec enabledInteractionProfiles;
 
-        // Required instance creation extension struct, or nullptr.
-        // This is a pointer into IPlatformPlugin-provided memory.
+        /// Required instance creation extension struct, or nullptr.
+        /// This is a pointer into IPlatformPlugin-provided memory.
         XrBaseInStructure* requiredPlaformInstanceCreateStruct{};
     };
 
-    // Returns the default singleton global data.
+    /// Returns the default singleton global data.
     GlobalData& GetGlobalData();
 
-    // Reset global data for a subsequent test run.
+    /// Reset global data for a subsequent test run.
     void ResetGlobalData();
 
 }  // namespace Conformance
 
-// GetInstanceExtensionFunction
-//
-// Returns a pointer to an extension function retrieved via xrGetInstanceProcAddr.
-//
-// Example usage:
-//     XrInstance instance; // ... a valid instance
-//     auto _xrPollEvent = GetInstanceExtensionFunction<PFN_xrPollEvent>(instance, "xrPollEvent");
-//     CHECK(_xrPollEvent != nullptr);
-//
+/// Returns a pointer to an extension function retrieved via xrGetInstanceProcAddr.
+///
+/// Example usage:
+/// ```
+///     XrInstance instance; // ... a valid instance
+///     auto _xrPollEvent = GetInstanceExtensionFunction<PFN_xrPollEvent>(instance, "xrPollEvent");
+///     CHECK(_xrPollEvent != nullptr);
+/// ```
+///
 template <typename FunctionType, bool requireSuccess = true>
 FunctionType GetInstanceExtensionFunction(XrInstance instance, const char* functionName)
 {
     using namespace Conformance;
-    XRC_CHECK_THROW(instance != XR_NULL_HANDLE_CPP);
-    XRC_CHECK_THROW(functionName != nullptr);
-    FunctionType f;
+    if (instance == XR_NULL_HANDLE) {
+        throw std::logic_error("Cannot pass a null instance to GetInstanceExtensionFunction");
+    }
+    if (functionName == nullptr) {
+        throw std::logic_error("Cannot pass a null function name to GetInstanceExtensionFunction");
+    }
+    FunctionType f = nullptr;
     XrResult result = xrGetInstanceProcAddr(instance, functionName, (PFN_xrVoidFunction*)&f);
     if (requireSuccess) {
-        XRC_CHECK_THROW(result == XR_SUCCESS);
+        if (result != XR_SUCCESS) {
+            throw std::runtime_error(std::string("Failed trying to get function ") + functionName + ": " + ResultToString(result));
+        }
     }
 
     if (XR_SUCCEEDED(result)) {
-        XRC_CHECK_THROW(f != nullptr);
+        if (f == nullptr) {
+            throw std::runtime_error(std::string("xrGetInstanceProcAddr claimed to succeed, but returned null trying to get function ") +
+                                     functionName);
+        }
     }
 
     return f;
 }
 
+// ValidateInstanceExtensionFunctionNotSupported
+//
+// Validates that no pointer to an extension function can be retrieved via xrGetInstanceProcAddr.
+//
+// Example usage:
+//     XrInstance instance; // ... a valid instance
+//     ValidateInstanceExtensionFunctionNotSupported(instance, "xrFoo");
+//
+inline void ValidateInstanceExtensionFunctionNotSupported(XrInstance instance, const char* functionName)
+{
+    using namespace Conformance;
+    if (instance == XR_NULL_HANDLE) {
+        throw std::logic_error("Cannot pass a null instance to ValidateInstanceExtensionFunctionNotSupported");
+    }
+    if (functionName == nullptr) {
+        throw std::logic_error("Cannot pass a null function name to ValidateInstanceExtensionFunctionNotSupported");
+    }
+    PFN_xrVoidFunction f = nullptr;
+    XrResult result = xrGetInstanceProcAddr(instance, functionName, &f);
+
+    if (result != XR_ERROR_FUNCTION_UNSUPPORTED) {
+        throw std::runtime_error(std::string("Failed when expecting XR_ERROR_FUNCTION_UNSUPPORTED trying to get function ") + functionName +
+                                 ": " + ResultToString(result));
+    }
+
+    if (f != nullptr) {
+        throw std::runtime_error(std::string("xrGetInstanceProcAddr claimed to fail, but returned non-null trying to get function ") +
+                                 functionName);
+    }
+}
+
+/// Returns a pointer to an extension function retrieved via xrGetInstanceProcAddr, or nullptr in case of error.
+///
+/// Like @ref GetInstanceExtensionFunction but does not throw, so safe to use in destructors.
+///
+template <typename FunctionType>
+FunctionType GetInstanceExtensionFunctionNoexcept(XrInstance instance, const char* functionName) noexcept
+{
+    using namespace Conformance;
+    if (instance == XR_NULL_HANDLE_CPP) {
+        return nullptr;
+    }
+    if (functionName == nullptr) {
+        return nullptr;
+    }
+    FunctionType f;
+    XrResult result = xrGetInstanceProcAddr(instance, functionName, (PFN_xrVoidFunction*)&f);
+    if (result != XR_SUCCESS) {
+        return nullptr;
+    }
+    return f;
+}
+
+/**
+ * @defgroup cts_optional_tests Optional Assertion Helpers
+ * @brief Macros for dealing with classes of optional tests
+ * @ingroup cts_framework
+ */
+/// @{
+
+/// Start a scope that checks for handle validation.
+/// This is not required by the spec, but some runtimes do it as it is permitted.
 #define OPTIONAL_INVALID_HANDLE_VALIDATION_INFO            \
     if (GetGlobalData().options.invalidHandleValidation) { \
         INFO("Invalid handle validation (optional)")       \
     }                                                      \
     if (GetGlobalData().options.invalidHandleValidation)
 
+/// Start a Catch2 SECTION that checks for handle validation.
+/// This is not required by the spec, but some runtimes do it as it is permitted.
 #define OPTIONAL_INVALID_HANDLE_VALIDATION_SECTION       \
     if (GetGlobalData().options.invalidHandleValidation) \
     SECTION("Invalid handle validation (optional)")
 
+/// Start a scope that will require the user to disconnect a device.
+/// Not all devices can do this.
 #define OPTIONAL_DISCONNECTABLE_DEVICE_INFO                  \
     if (!GetGlobalData().options.nonDisconnectableDevices) { \
         INFO("Disconnectable device (optional)")             \
     }                                                        \
     if (!GetGlobalData().options.nonDisconnectableDevices)
 
+/// Start a Catch2 SECTION that will require the user to disconnect a device.
+/// Not all devices can do this.
 #define OPTIONAL_DISCONNECTABLE_DEVICE_SECTION             \
     if (!GetGlobalData().options.nonDisconnectableDevices) \
     SECTION("Disconnectable device (optional)")
 
+/// @}
+
 // Stringification for Catch2.
-// See https://github.com/catchorg/Catch2/blob/master/docs/tostring.md.
+// See https://github.com/catchorg/Catch2/blob/master/docs/tostring.md
 #define ENUM_CASE_STR(name, val) \
     case name:                   \
         return #name;

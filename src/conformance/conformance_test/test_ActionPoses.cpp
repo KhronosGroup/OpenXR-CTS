@@ -21,6 +21,7 @@
 #include "report.h"
 #include "conformance_utils.h"
 #include "conformance_framework.h"
+#include "throw_helpers.h"
 #include "composition_utils.h"
 #include <catch2/catch.hpp>
 #include <openxr/openxr.h>
@@ -272,7 +273,8 @@ namespace Conformance
                 // Render into each view port of the wide swapchain using the projection layer view fov and pose.
                 for (size_t view = 0; view < views.size(); view++) {
                     compositionHelper.AcquireWaitReleaseImage(
-                        swapchains[view], [&](const XrSwapchainImageBaseHeader* swapchainImage, uint64_t format) {
+                        swapchains[view],  //
+                        [&](const XrSwapchainImageBaseHeader* swapchainImage, uint64_t format) {
                             GetGlobalData().graphicsPlugin->ClearImageSlice(swapchainImage, 0, format);
                             const_cast<XrFovf&>(projLayer->views[view].fov) = views[view].fov;
                             const_cast<XrPosef&>(projLayer->views[view].pose) = views[view].pose;
