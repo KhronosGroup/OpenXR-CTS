@@ -19,6 +19,8 @@
 #include "RuntimeFailure.h"
 #include <loader_interfaces.h>
 
+#include <openxr/openxr_reflection_parent_structs.h>
+
 /////////////////
 // ABI
 /////////////////
@@ -32,81 +34,21 @@ XrResult ConformanceHooks::xrPollEvent(XrInstance instance, XrEventDataBuffer* e
 
     try {
         switch ((int)eventData->type) {  // int cast so compiler doesn't warn about other enumerants.
-        case XR_TYPE_EVENT_DATA_INSTANCE_LOSS_PENDING: {
-            const auto instanceLossPending = reinterpret_cast<const XrEventDataInstanceLossPending*>(eventData);
-            VALIDATE_XRTIME(instanceLossPending->lossTime);
-            break;
-        }
-        case XR_TYPE_EVENT_DATA_SESSION_STATE_CHANGED: {
-            const auto sessionStateChanged = reinterpret_cast<const XrEventDataSessionStateChanged*>(eventData);
-            VALIDATE_XRTIME(sessionStateChanged->time);
-            VALIDATE_XRENUM(sessionStateChanged->state);
-            session::SessionStateChanged(this, sessionStateChanged);
-            break;
-        }
-        case XR_TYPE_EVENT_DATA_REFERENCE_SPACE_CHANGE_PENDING: {
-            const auto referenceSpaceChagePending = reinterpret_cast<const XrEventDataReferenceSpaceChangePending*>(eventData);
-            VALIDATE_XRTIME(referenceSpaceChagePending->changeTime);
-            VALIDATE_QUATERNION(referenceSpaceChagePending->poseInPreviousSpace.orientation);
-            VALIDATE_XRBOOL32(referenceSpaceChagePending->poseValid);
-            VALIDATE_XRENUM(referenceSpaceChagePending->referenceSpaceType);
-            (void)session::GetSessionState(referenceSpaceChagePending->session);  // Check handle is alive/valid.
-            break;
-        }
-        case XR_TYPE_EVENT_DATA_EVENTS_LOST: {
-            const auto eventsLost = reinterpret_cast<const XrEventDataEventsLost*>(eventData);
-            NONCONFORMANT_IF(eventsLost->lostEventCount == 0, "lostEventCount must be > 0");
-            break;
-        }
-        case XR_TYPE_EVENT_DATA_INTERACTION_PROFILE_CHANGED: {
-            const auto interactionProfileChanged = reinterpret_cast<const XrEventDataInteractionProfileChanged*>(eventData);
-            (void)session::GetSessionState(interactionProfileChanged->session);  // Check handle is alive/valid.
-            break;
-        }
-        case XR_TYPE_EVENT_DATA_PERF_SETTINGS_EXT: {
-            const auto perfSettings = reinterpret_cast<const XrEventDataPerfSettingsEXT*>(eventData);
-            VALIDATE_XRENUM(perfSettings->domain);
-            VALIDATE_XRENUM(perfSettings->subDomain);
-            VALIDATE_XRENUM(perfSettings->fromLevel);
-            VALIDATE_XRENUM(perfSettings->toLevel);
-            break;
-        }
-        case XR_TYPE_EVENT_DATA_VISIBILITY_MASK_CHANGED_KHR: {
-            const auto visibilityMaskChanged = reinterpret_cast<const XrEventDataVisibilityMaskChangedKHR*>(eventData);
-            session::VisibilityMaskChanged(this, visibilityMaskChanged);  // Validate session handle and view data.
-            break;
-        }
-        case XR_TYPE_EVENT_DATA_SPATIAL_ANCHOR_CREATE_COMPLETE_FB: {
-            const auto completeEvent = reinterpret_cast<XrEventDataSpatialAnchorCreateCompleteFB*>(eventData);
-            (void)completeEvent;
-            // Event data used in gen_dispatch.cpp
-            break;
-        }
-        case XR_TYPE_EVENT_DATA_SPACE_SET_STATUS_COMPLETE_FB: {
-            const auto completeEvent = reinterpret_cast<XrEventDataSpaceSetStatusCompleteFB*>(eventData);
-            (void)completeEvent;
-            break;
-        }
-        case XR_TYPE_EVENT_DATA_SPACE_SAVE_COMPLETE_FB: {
-            const auto completeEvent = reinterpret_cast<XrEventDataSpaceSaveCompleteFB*>(eventData);
-            (void)completeEvent;
-            break;
-        }
-        case XR_TYPE_EVENT_DATA_SPACE_QUERY_RESULTS_AVAILABLE_FB: {
-            const auto results = reinterpret_cast<XrEventDataSpaceQueryResultsAvailableFB*>(eventData);
-            (void)results;
-            break;
-        }
-        case XR_TYPE_EVENT_DATA_SPACE_ERASE_COMPLETE_FB: {
-            const auto completeEvent = reinterpret_cast<XrEventDataSpaceEraseCompleteFB*>(eventData);
-            (void)completeEvent;
-            break;
-        }
-        case XR_TYPE_EVENT_DATA_SPACE_QUERY_COMPLETE_FB: {
-            const auto completeEvent = reinterpret_cast<XrEventDataSpaceQueryCompleteFB*>(eventData);
-            (void)completeEvent;
-            break;
-        }
+#define MAKE_CASE(STRUCT_TYPE, TYPE_ENUM)                                   \
+    case TYPE_ENUM: {                                                       \
+        const auto typed = reinterpret_cast<const STRUCT_TYPE*>(eventData); \
+        checkEventPayload(typed);                                           \
+        break;                                                              \
+    }
+#define MAKE_UNAVAIL_CASE(STRUCT_TYPE, TYPE_ENUM)                                                                            \
+    case TYPE_ENUM: {                                                                                                        \
+        POSSIBLE_NONCONFORMANT(                                                                                              \
+            "Recognized event type: %d but support for this type not compiled in to conformance layer; could not verify it", \
+            eventData->type);                                                                                                \
+        break;                                                                                                               \
+    }
+            XR_LIST_ALL_CHILD_STRUCTURE_TYPES_XrEventDataBaseHeader(MAKE_CASE, MAKE_UNAVAIL_CASE);
+
         default:
             POSSIBLE_NONCONFORMANT("Unsupported event type: %d", eventData->type);
             break;
@@ -117,4 +59,63 @@ XrResult ConformanceHooks::xrPollEvent(XrInstance instance, XrEventDataBuffer* e
     }
 
     return result;
+}
+
+// Helpers
+#define VALIDATE_EVENT_XRBOOL32(value) ValidateXrBool32(this, value, #value, "xrPollEvent")
+#define VALIDATE_EVENT_FLOAT(value, min, max) ValidateFloat(this, value, min, max, #value, "xrPollEvent")
+#define VALIDATE_EVENT_XRTIME(value) ValidateXrTime(this, value, #value, "xrPollEvent")
+#define VALIDATE_EVENT_QUATERNION(value) ValidateXrQuaternion(this, value, #value, "xrPollEvent")
+#define VALIDATE_EVENT_VECTOR3F(value) ValidateXrVector3f(this, value, #value, "xrPollEvent")
+#define VALIDATE_EVENT_XRENUM(value) ValidateXrEnum(this, value, #value, "xrPollEvent")
+
+void ConformanceHooks::checkEventPayload(const XrEventDataEventsLost* data)
+{
+    const auto eventsLost = reinterpret_cast<const XrEventDataEventsLost*>(data);
+    NONCONFORMANT_IF(eventsLost->lostEventCount == 0, "lostEventCount must be > 0");
+}
+
+void ConformanceHooks::checkEventPayload(const XrEventDataInstanceLossPending* data)
+{
+    VALIDATE_EVENT_XRTIME(data->lossTime);
+}
+
+void ConformanceHooks::checkEventPayload(const XrEventDataSessionStateChanged* data)
+{
+    VALIDATE_EVENT_XRTIME(data->time);
+    VALIDATE_EVENT_XRENUM(data->state);
+    session::SessionStateChanged(this, data);
+}
+
+void ConformanceHooks::checkEventPayload(const XrEventDataReferenceSpaceChangePending* data)
+{
+    VALIDATE_EVENT_XRTIME(data->changeTime);
+    VALIDATE_EVENT_QUATERNION(data->poseInPreviousSpace.orientation);
+    VALIDATE_EVENT_XRBOOL32(data->poseValid);
+    VALIDATE_EVENT_XRENUM(data->referenceSpaceType);
+    (void)session::GetSessionState(data->session);  // Check handle is alive/valid.
+}
+
+void ConformanceHooks::checkEventPayload(const XrEventDataInteractionProfileChanged* data)
+{
+    (void)session::GetSessionState(data->session);  // Check handle is alive/valid.
+}
+
+void ConformanceHooks::checkEventPayload(const XrEventDataVisibilityMaskChangedKHR* data)
+{
+    session::VisibilityMaskChanged(this, data);  // Validate session handle and view data.
+}
+
+void ConformanceHooks::checkEventPayload(const XrEventDataPerfSettingsEXT* data)
+{
+    VALIDATE_EVENT_XRENUM(data->domain);
+    VALIDATE_EVENT_XRENUM(data->subDomain);
+    VALIDATE_EVENT_XRENUM(data->fromLevel);
+    VALIDATE_EVENT_XRENUM(data->toLevel);
+}
+
+void ConformanceHooks::checkEventPayload(const XrEventDataSpatialAnchorCreateCompleteFB* data)
+{
+    (void)data;
+    // Event data used in gen_dispatch.cpp
 }

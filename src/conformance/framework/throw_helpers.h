@@ -17,6 +17,7 @@
 #pragma once
 
 #include "utils.h"
+#include "conformance_utils.h"
 
 #include <string>
 #include <stdexcept>
@@ -84,7 +85,7 @@ namespace Conformance
     [[noreturn]] inline void ThrowXrResult(XrResult res, const char* originator = nullptr,
                                            const char* sourceLocation = nullptr) noexcept(false)
     {
-        Throw(StringSprintf("XrResult failure [%d]", res), originator, sourceLocation);
+        Throw(StringSprintf("XrResult failure [%s]", ResultToString(res)), originator, sourceLocation);
     }
 
     inline XrResult CheckThrowXrResult(XrResult res, const char* originator = nullptr, const char* sourceLocation = nullptr) noexcept(false)
@@ -96,9 +97,31 @@ namespace Conformance
         return res;
     }
 
+    inline XrResult CheckThrowXrResultUnqualifiedSuccess(XrResult res, const char* originator = nullptr,
+                                                         const char* sourceLocation = nullptr) noexcept(false)
+    {
+        if (!XR_UNQUALIFIED_SUCCESS(res)) {
+            ThrowXrResult(res, originator, sourceLocation);
+        }
+
+        return res;
+    }
+
+    static inline XrResult CheckThrowXrResultSuccessOrLimitReached(XrResult res, const char* originator = nullptr,
+                                                                   const char* sourceLocation = nullptr) noexcept(false)
+    {
+        if (XR_FAILED(res) && res != XR_ERROR_LIMIT_REACHED) {
+            Throw(StringSprintf("XrResult failure (and not XR_ERROR_LIMIT_REACHED) [%s]", ResultToString(res)), originator, sourceLocation);
+        }
+        return res;
+    }
+
 #define XRC_THROW_XRRESULT(xr, cmd) ::Conformance::ThrowXrResult(xr, #cmd, XRC_FILE_AND_LINE);
 #define XRC_CHECK_THROW_XRCMD(cmd) ::Conformance::CheckThrowXrResult(cmd, #cmd, XRC_FILE_AND_LINE);
+#define XRC_CHECK_THROW_XRCMD_UNQUALIFIED_SUCCESS(cmd) ::Conformance::CheckThrowXrResultUnqualifiedSuccess(cmd, #cmd, XRC_FILE_AND_LINE);
 #define XRC_CHECK_THROW_XRRESULT(res, cmdStr) ::Conformance::CheckThrowXrResult(res, cmdStr, XRC_FILE_AND_LINE);
+#define XRC_CHECK_THROW_XRRESULT_SUCCESS_OR_LIMIT_REACHED(res, cmdStr) \
+    ::Conformance::CheckThrowXrResultSuccessOrLimitReached(res, cmdStr, XRC_FILE_AND_LINE);
 
 #if defined(_WIN32) || defined(XRC_DOXYGEN)
 

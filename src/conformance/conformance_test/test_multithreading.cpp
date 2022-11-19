@@ -408,7 +408,7 @@ namespace Conformance
     {
         XrInstance instance;
         XrResult result = CreateBasicInstance(&instance);
-        XRC_CHECK_THROW(XR_SUCCEEDED(result) || result == XR_ERROR_LIMIT_REACHED);
+        XRC_CHECK_THROW_XRRESULT_SUCCESS_OR_LIMIT_REACHED(result, "CreateBasicInstance in Exercise_xrCreateInstance");
 
         if (XR_SUCCEEDED(result)) {
             SleepMs(50);
@@ -492,7 +492,7 @@ namespace Conformance
         createInfo.systemId = env.GetAutoBasicSession().GetSystemId();
         XrSession session;
         XrResult result = xrCreateSession(env.GetAutoBasicSession().GetInstance(), &createInfo, &session);
-        XRC_CHECK_THROW(XR_SUCCEEDED(result) || result == XR_ERROR_LIMIT_REACHED);
+        XRC_CHECK_THROW_XRRESULT_SUCCESS_OR_LIMIT_REACHED(result, "xrCreateSession");
 
         if (XR_SUCCEEDED(result)) {
             SleepMs(50);
@@ -520,7 +520,7 @@ namespace Conformance
         XrReferenceSpaceCreateInfo createInfo{XR_TYPE_REFERENCE_SPACE_CREATE_INFO, nullptr, XR_REFERENCE_SPACE_TYPE_VIEW, XrPosefCPP()};
         XrSpace space;
         XrResult result = xrCreateReferenceSpace(env.GetAutoBasicSession().GetSession(), &createInfo, &space);
-        XRC_CHECK_THROW(XR_SUCCEEDED(result) || result == XR_ERROR_LIMIT_REACHED);
+        XRC_CHECK_THROW_XRRESULT_SUCCESS_OR_LIMIT_REACHED(result, "xrCreateReferenceSpace");
 
         if (XR_SUCCEEDED(result)) {
             SleepMs(50);
@@ -550,7 +550,7 @@ namespace Conformance
 
         XrSpace space;
         XrResult result = xrCreateActionSpace(env.GetAutoBasicSession().GetSession(), &actionSpaceCreateInfo, &space);
-        XRC_CHECK_THROW(XR_SUCCEEDED(result) || result == XR_ERROR_LIMIT_REACHED);
+        XRC_CHECK_THROW_XRRESULT_SUCCESS_OR_LIMIT_REACHED(result, "xrCreateActionSpace");
 
         SleepMs(50);
         XRC_CHECK_THROW_XRCMD(xrDestroySpace(space));
@@ -638,7 +638,7 @@ namespace Conformance
         XrSwapchain swapchain;
         XrExtent2Di widthHeight{0, 0};  // 0,0 means Use defaults.
         XrResult result = CreateColorSwapchain(env.GetAutoBasicSession().GetSession(), graphicsPlugin.get(), &swapchain, &widthHeight);
-        XRC_CHECK_THROW(XR_SUCCEEDED(result) || result == XR_ERROR_LIMIT_REACHED);
+        XRC_CHECK_THROW_XRRESULT_SUCCESS_OR_LIMIT_REACHED(result, "CreateColorSwapchain in Exercise_xrCreateSwapchain");
 
         if (XR_SUCCEEDED(result)) {
             SleepMs(50);
@@ -667,7 +667,7 @@ namespace Conformance
         XrExtent2Di widthHeight{0, 0};  // 0,0 means Use defaults.
         XrResult result = CreateColorSwapchain(env.GetAutoBasicSession().GetSession(), graphicsPlugin.get(), &swapchain, &widthHeight, 1,
                                                false, &createInfo);
-        XRC_CHECK_THROW(XR_SUCCEEDED(result) || result == XR_ERROR_LIMIT_REACHED);
+        XRC_CHECK_THROW_XRRESULT_SUCCESS_OR_LIMIT_REACHED(result, "CreateColorSwapchain in Exercise_xrEnumerateSwapchainImages");
 
         if (XR_SUCCEEDED(result)) {
             uint32_t countOutput;
@@ -704,7 +704,7 @@ namespace Conformance
         XrSwapchain swapchain;
         XrExtent2Di widthHeight{0, 0};  // 0,0 means Use defaults.
         XrResult result = CreateColorSwapchain(env.GetAutoBasicSession().GetSession(), graphicsPlugin.get(), &swapchain, &widthHeight);
-        XRC_CHECK_THROW(XR_SUCCEEDED(result) || result == XR_ERROR_LIMIT_REACHED);
+        XRC_CHECK_THROW_XRRESULT_SUCCESS_OR_LIMIT_REACHED(result, "CreateColorSwapchain in Exercise_xrAcquireSwapchainImage");
 
         if (XR_SUCCEEDED(result)) {
             const size_t iterationCount = 100;  // To do: Make this configurable.
@@ -799,7 +799,8 @@ namespace Conformance
 
             XrActionSet actionSet;
             XrResult result = xrCreateActionSet(env.GetAutoBasicSession().GetInstance(), &createInfo, &actionSet);
-            XRC_CHECK_THROW(XR_SUCCEEDED(result) || result == XR_ERROR_LIMIT_REACHED);
+            XRC_CHECK_THROW_XRRESULT_SUCCESS_OR_LIMIT_REACHED(result, "xrCreateActionSet");
+
             if (XR_SUCCEEDED(result)) {
                 actionSetVector.push_back(actionSet);
             }
@@ -840,7 +841,7 @@ namespace Conformance
 
             XrAction action;
             XrResult result = xrCreateAction(actionSet, &actionCreateInfo, &action);
-            XRC_CHECK_THROW(XR_SUCCEEDED(result) || result == XR_ERROR_LIMIT_REACHED);
+            XRC_CHECK_THROW_XRRESULT_SUCCESS_OR_LIMIT_REACHED(result, "xrCreateAction");
             if (XR_SUCCEEDED(result)) {
                 actionVector.push_back(action);
             }

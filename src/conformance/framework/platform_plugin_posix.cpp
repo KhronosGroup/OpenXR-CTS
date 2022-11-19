@@ -16,42 +16,42 @@
 
 #include "platform_plugin.h"
 
-#ifdef XR_USE_PLATFORM_WAYLAND
+#if defined(XR_OS_APPLE) || defined(XR_OS_LINUX)
 
 namespace Conformance
 {
 
-    class PlatformPluginWayland : public IPlatformPlugin
+    class PlatformPluginPosix : public IPlatformPlugin
     {
     public:
-        PlatformPluginWayland() = default;
+        PlatformPluginPosix() = default;
 
-        ~PlatformPluginWayland() override
+        ~PlatformPluginPosix() override
         {
             Shutdown();
         }
 
-        virtual bool Initialize()
+        bool Initialize() override
         {
             initialized = true;
             return initialized;
         }
 
-        virtual bool IsInitialized() const
+        bool IsInitialized() const override
         {
             return initialized;
         }
 
-        virtual void Shutdown()
+        void Shutdown() override
         {
             if (initialized) {
                 initialized = false;
             }
         }
 
-        virtual std::string DescribePlatform() const
+        std::string DescribePlatform() const override
         {
-            return "Wayland";
+            return "Posix";
         }
 
         std::vector<std::string> GetInstanceExtensions() const override
@@ -65,15 +65,15 @@ namespace Conformance
             return nullptr;
         }
 
-    protected:
+    private:
         bool initialized;
     };
 
     std::shared_ptr<IPlatformPlugin> CreatePlatformPlugin()
     {
-        return std::make_shared<PlatformPluginWayland>();
+        return std::make_shared<PlatformPluginPosix>();
     }
 
 }  // namespace Conformance
 
-#endif  // XR_USE_PLATFORM_WAYLAND
+#endif  // defined(XR_OS_APPLE) || defined(XR_OS_LINUX)

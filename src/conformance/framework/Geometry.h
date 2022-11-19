@@ -2,6 +2,8 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
+#pragma once
+
 #include <array>
 #include <openxr/openxr.h>
 
@@ -42,6 +44,8 @@ namespace Geometry
         CUBE_SIDE(LBF, LTF, RTF, LBF, RTF, RBF, Blue)       // +Z
     }};
 
+#undef CUBE_SIDE
+
     // Winding order is clockwise. Each side uses a different color.
     constexpr std::array<unsigned short, 36> c_cubeIndices{{
         0,  1,  2,  3,  4,  5,   // -X
@@ -51,5 +55,20 @@ namespace Geometry
         24, 25, 26, 27, 28, 29,  // -Z
         30, 31, 32, 33, 34, 35,  // +Z
     }};
+
+    /// We construct the gnomon/axis indicator from cubes to be more maintainable than an array of data.
+    struct AxisIndicator
+    {
+    public:
+        /// Get access to the single instance, constructed in static storage upon first use
+        static const AxisIndicator& GetInstance();
+
+        int count;
+        std::array<unsigned short, 30 * 3> indices;
+        std::array<Vertex, 30 * 3> vertices;
+
+    private:
+        AxisIndicator();
+    };
 
 }  // namespace Geometry

@@ -56,6 +56,12 @@
 //##
 /*{ cur_cmd.cdecl | collapse_whitespace | replace("XRAPI_ATTR XrResult XRAPI_CALL xr", "XrResult ConformanceHooksBase::xr") | replace(";", "")
 }*/ {
+    //## Ensure that the function is implemented by the runtime or its a validation error instead of a segfault caused by a nullptr dereference
+    if (this->dispatchTable./*{ cur_cmd.name | base_name }*/ == nullptr) {
+        this->ConformanceFailure(XR_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT, "/*{ cur_cmd.name | base_name }*/", "Function is not implemented in runtime");
+        return XR_ERROR_VALIDATION_FAILURE;
+    }
+
     const /*{cur_cmd.return_type.text}*/ result =  this->dispatchTable./*{ cur_cmd.name | base_name }*/(/*{ cur_cmd.params | map(attribute="name") | join(", ") }*/);
 
 //## TODO: Inspect out structs
@@ -68,7 +74,7 @@
 //## Extension return codes, if any
 //#             for ext_code in ext_return_codes
 //#                 if ext_code.command == cur_cmd.name
-                || /*{ checkExtCode(ext_code) }*/ 
+                || /*{ checkExtCode(ext_code) }*/
 //#                 endif
 //#             endfor
                 );

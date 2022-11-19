@@ -64,7 +64,7 @@ namespace Conformance
         return result;
     };
 
-    TEST_CASE("XR_EXT_eye_gaze_interaction", "")
+    TEST_CASE("XR_EXT_eye_gaze_interaction", "[XR_EXT_eye_gaze_interaction][interactive][no_auto]")
     {
         GlobalData& globalData = GetGlobalData();
         if (!globalData.IsInstanceExtensionSupported(XR_EXT_EYE_GAZE_INTERACTION_EXTENSION_NAME)) {
@@ -389,7 +389,7 @@ namespace Conformance
         }
     }
 
-    TEST_CASE("XR_EXT_eye_gaze_interaction_interactive_gaze_only", "[scenario][interactive]")
+    TEST_CASE("XR_EXT_eye_gaze_interaction_interactive_gaze_only", "[XR_EXT_eye_gaze_interaction][scenario][interactive][no_auto]")
     {
         GlobalData& globalData = GetGlobalData();
 
@@ -582,7 +582,8 @@ namespace Conformance
                                 GetGlobalData().graphicsPlugin->ClearImageSlice(swapchainImage, 0, format);
                                 const_cast<XrFovf&>(projLayer->views[view].fov) = views[view].fov;
                                 const_cast<XrPosef&>(projLayer->views[view].pose) = views[view].pose;
-                                GetGlobalData().graphicsPlugin->RenderView(projLayer->views[view], swapchainImage, format, renderedCubes);
+                                GetGlobalData().graphicsPlugin->RenderView(projLayer->views[view], swapchainImage, format,
+                                                                           RenderParams().Draw(renderedCubes));
                             });
                     }
 

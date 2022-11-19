@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <sstream>
 #include <string>
 #include <vector>
 #include <mutex>
@@ -142,6 +143,14 @@ namespace Conformance
         /// Default is hmd.
         std::string formFactor{"Hmd"};
         XrFormFactor formFactorValue{XR_FORM_FACTOR_HEAD_MOUNTED_DISPLAY};
+
+        /// Which hands have been selected for test. This is to allow for devices which only have
+        /// one controller, and also to allow skipping one of the controllers during development.
+        /// Options are "left", "right", and "both".
+        /// Default is "both".
+        std::string enabledHands{"both"};
+        bool leftHandEnabled{true};
+        bool rightHandEnabled{true};
 
         /// Options include "stereo" "mono". See enum XrViewConfigurationType.
         /// Default is stereo.
@@ -326,6 +335,10 @@ namespace Conformance
         /// The interaction profiles that have been requested to be tested.
         StringVec enabledInteractionProfiles;
 
+        /// Whether each controller is to be used during testing
+        bool leftHandUnderTest{false};
+        bool rightHandUnderTest{false};
+
         /// Required instance creation extension struct, or nullptr.
         /// This is a pointer into IPlatformPlugin-provided memory.
         XrBaseInStructure* requiredPlaformInstanceCreateStruct{};
@@ -495,3 +508,39 @@ FunctionType GetInstanceExtensionFunctionNoexcept(XrInstance instance, const cha
 
 MAKE_ENUM_TO_STRING_FUNC(XrResult);
 MAKE_ENUM_TO_STRING_FUNC(XrSessionState);
+MAKE_ENUM_TO_STRING_FUNC(XrViewConfigurationType);
+MAKE_ENUM_TO_STRING_FUNC(XrVisibilityMaskTypeKHR);
+
+namespace Catch
+{
+    template <>
+    struct StringMaker<XrPosef>
+    {
+        static std::string convert(XrPosef const& value)
+        {
+            std::ostringstream oss;
+            oss << "[pos = (" << value.position.x;
+            oss << ", " << value.position.y;
+            oss << ", " << value.position.z;
+            oss << ") ori = (w=" << value.orientation.w;
+            oss << ", xyz=(" << value.orientation.x;
+            oss << ", " << value.orientation.y;
+            oss << ", " << value.orientation.z;
+            oss << ")]";
+            return oss.str();
+        }
+    };
+    template <>
+    struct StringMaker<XrVector3f>
+    {
+        static std::string convert(XrVector3f const& value)
+        {
+            std::ostringstream oss;
+            oss << "(" << value.x;
+            oss << ", " << value.y;
+            oss << ", " << value.z;
+            oss << ")";
+            return oss.str();
+        }
+    };
+}  // namespace Catch

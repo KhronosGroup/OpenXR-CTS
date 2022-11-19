@@ -93,7 +93,7 @@ namespace Conformance
     }
 
     // Purpose: Ensure that if the hand tracking extension is enabled, you can see some hands!
-    TEST_CASE("XR_EXT_hand_tracking_interactive", "[scenario][interactive]")
+    TEST_CASE("XR_EXT_hand_tracking_interactive", "[scenario][interactive][no_auto]")
     {
         const char* instructions =
             "Small cubes are rendered to represent the joints of each hand. "
@@ -217,7 +217,8 @@ namespace Conformance
                             GetGlobalData().graphicsPlugin->ClearImageSlice(swapchainImage, 0, format);
                             const_cast<XrFovf&>(projLayer->views[view].fov) = views[view].fov;
                             const_cast<XrPosef&>(projLayer->views[view].pose) = views[view].pose;
-                            GetGlobalData().graphicsPlugin->RenderView(projLayer->views[view], swapchainImage, format, renderedCubes);
+                            GetGlobalData().graphicsPlugin->RenderView(projLayer->views[view], swapchainImage, format,
+                                                                       RenderParams().Draw(renderedCubes));
                         });
                 }
 

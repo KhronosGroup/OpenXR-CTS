@@ -25,7 +25,9 @@
 #include "conformance_framework.h"
 #include "conformance_utils.h"
 
+#include "throw_helpers.h"
 #include "two_call.h"
+#include "types_and_constants.h"
 
 using namespace std::chrono_literals;
 
@@ -140,26 +142,25 @@ namespace Conformance
         {
             return m_topLevelPath;
         }
+        // void SetDeviceActive(bool state, WaitUntilBoolActionIsActiveUpdated waitCondition) override
+        // {
+        //     SetDeviceActiveWithoutWaiting(state);
+        //     Wait(state, waitCondition);
+        // }
+        // void SetDeviceActive(bool state, WaitUntilLosesOrGainsOrientationValidity waitCondition) override
+        // {
+        //     SetDeviceActiveWithoutWaiting(state);
+        //     Wait(state, waitCondition);
+        // }
 
-        void SetDeviceActive(bool state, bool skipInteraction = false) override
+        void SetDeviceActiveWithoutWaiting(bool state, const char* extraMessage = nullptr) const override
         {
-            if (m_conformanceAutomationExtensionEnabled) {
-                PFN_xrSetInputDeviceActiveEXT xrSetInputDeviceActiveEXT{nullptr};
-                REQUIRE_RESULT(
-                    xrGetInstanceProcAddr(m_instance, "xrSetInputDeviceActiveEXT", (PFN_xrVoidFunction*)&xrSetInputDeviceActiveEXT),
-                    XR_SUCCESS);
-                REQUIRE_RESULT(xrSetInputDeviceActiveEXT(m_session, m_interactionProfile, m_topLevelPath, (XrBool32)state), XR_SUCCESS);
-            }
+            SetDeviceActiveViaConformanceAutomationIfPossible(state);
+            ShowDeviceStateMessage(state, extraMessage);
+        }
 
-            if (skipInteraction) {
-                // Skip human interaction, this is just a hint to the runtime via the extension
-                return;
-            }
-
-            std::vector<char> humanReadableName = CHECK_TWO_CALL(char, {}, xrPathToString, m_instance, m_topLevelPath);
-
-            std::string action = state ? "Turn on" : "Turn off";
-            m_messageDisplay->DisplayMessage(action + " " + humanReadableName.data());
+        void Wait(bool state, const WaitUntilBoolActionIsActiveUpdated& waitCondition) const override
+        {
 
             enum class ControllerState
             {
@@ -168,22 +169,32 @@ namespace Conformance
                 Inactive
             };
 
-            auto findController = [&]() -> ControllerState {
-                XrActiveActionSet activeActionSet{m_actionSet};
-                XrActionsSyncInfo syncInfo{XR_TYPE_ACTIONS_SYNC_INFO};
-                syncInfo.countActiveActionSets = 1;
-                syncInfo.activeActionSets = &activeActionSet;
-                const XrResult syncRes = xrSyncActions(m_session, &syncInfo);
-                if (syncRes == XR_SESSION_NOT_FOCUSED) {
-                    return ControllerState::NotFocused;
-                }
+            XrActionSet detectionActionSet{waitCondition.detectionActionSet};
+            XrAction detectionBoolAction{waitCondition.detectionBoolAction};
 
-                REQUIRE_RESULT(syncRes, XR_SUCCESS);
+            // Checks the isActive on a boolean action to determine if a controller is on
+            auto findController = [&]() -> ControllerState {
+                XrActiveActionSet activeActionSets[] = {{m_actionSet}, {detectionActionSet}};
+                XrActionsSyncInfo syncInfo{XR_TYPE_ACTIONS_SYNC_INFO};
+                syncInfo.countActiveActionSets = detectionActionSet == XR_NULL_HANDLE ? 1 : 2;
+                syncInfo.activeActionSets = activeActionSets;
+                {
+                    const XrResult res = xrSyncActions(m_session, &syncInfo);
+                    if (res == XR_SESSION_NOT_FOCUSED) {
+                        return ControllerState::NotFocused;
+                    }
+                    if (res != XR_SUCCESS) {
+                        XRC_THROW_XRRESULT(res, xrSyncActions);
+                    }
+                }
 
                 XrActionStateBoolean booleanActionData{XR_TYPE_ACTION_STATE_BOOLEAN};
                 XrActionStateGetInfo getInfo{XR_TYPE_ACTION_STATE_GET_INFO};
-                getInfo.action = m_firstBooleanAction;
-                REQUIRE_RESULT(xrGetActionStateBoolean(m_session, &getInfo, &booleanActionData), XR_SUCCESS);
+                getInfo.action = detectionBoolAction == XR_NULL_HANDLE ? m_firstBooleanAction : detectionBoolAction;
+                const XrResult res = xrGetActionStateBoolean(m_session, &getInfo, &booleanActionData);
+                if (res != XR_SUCCESS) {
+                    XRC_THROW_XRRESULT(res, xrGetActionStateBoolean);
+                }
 
                 return booleanActionData.isActive ? ControllerState::Active : ControllerState::Inactive;
             };
@@ -206,6 +217,87 @@ namespace Conformance
                         "Input device activity not detected");
 
             m_messageDisplay->DisplayMessage("");
+        }
+        void Wait(bool state, const WaitUntilLosesOrGainsOrientationValidity& waitCondition) const override
+        {
+            XrSpace space{waitCondition.actionSpace};
+            XrSpace baseSpace{waitCondition.baseSpace};
+
+            const auto initialTime = std::chrono::steady_clock::now();
+
+            auto makeTimestamp = [=] {
+                auto nanos = std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - initialTime);
+                return waitCondition.initialLocateTime + nanos.count();
+            };
+
+            auto checkTracking = [&]() -> XrSpaceLocationFlags {
+                XrSpaceLocation location{XR_TYPE_SPACE_LOCATION, nullptr, 0, XrPosefCPP{}};
+                const XrResult res = xrLocateSpace(space, baseSpace, makeTimestamp(), &location);
+                if (res != XR_SUCCESS) {
+                    XRC_THROW_XRRESULT(res, xrLocateSpace);
+                }
+                return location.locationFlags;
+            };
+
+            XrSpaceLocationFlags desiredFlags = state ? XR_SPACE_LOCATION_ORIENTATION_VALID_BIT : 0;
+            auto timeSinceStateChanged = std::chrono::high_resolution_clock::now();
+            REQUIRE_MSG(WaitUntilPredicateWithTimeout(
+                            [&] {
+                                if ((checkTracking() & XR_SPACE_LOCATION_ORIENTATION_VALID_BIT) != desiredFlags) {
+                                    timeSinceStateChanged = std::chrono::high_resolution_clock::now();
+                                }
+                                else if (std::chrono::high_resolution_clock::now() - timeSinceStateChanged > 250ms) {
+                                    return true;  // Only return true when the controller has been stably locatable for 250ms.
+                                }
+                                m_messageDisplay->IterateFrame();
+
+                                return false;
+                            },
+                            30s, waitDelay),
+                        "Input device activity not detected");
+
+            m_messageDisplay->DisplayMessage("");
+        }
+
+        void SetDeviceActiveViaConformanceAutomationIfPossible(bool state) const
+        {
+
+            if (m_conformanceAutomationExtensionEnabled) {
+                PFN_xrSetInputDeviceActiveEXT xrSetInputDeviceActiveEXT{nullptr};
+                XRC_CHECK_THROW_XRCMD_UNQUALIFIED_SUCCESS(
+                    xrGetInstanceProcAddr(m_instance, "xrSetInputDeviceActiveEXT", (PFN_xrVoidFunction*)&xrSetInputDeviceActiveEXT));
+                XRC_CHECK_THROW_XRCMD_UNQUALIFIED_SUCCESS(
+                    xrSetInputDeviceActiveEXT(m_session, m_interactionProfile, m_topLevelPath, (XrBool32)state));
+            }
+        }
+
+        void ShowDeviceStateMessage(bool state, const char* extraMessage = nullptr) const
+        {
+            uint32_t cap = 0;
+            XRC_CHECK_THROW_XRCMD_UNQUALIFIED_SUCCESS(xrPathToString(m_instance, m_topLevelPath, 0, &cap, nullptr));
+
+            std::vector<char> humanReadableName(cap, '\0');
+            XRC_CHECK_THROW_XRCMD_UNQUALIFIED_SUCCESS(xrPathToString(m_instance, m_topLevelPath, cap, &cap, humanReadableName.data()));
+            humanReadableName.resize(cap);
+
+            std::string action = state ? "Turn on" : "Turn off";
+            std::string extra;
+            if (extraMessage) {
+                extra = std::string{extraMessage};
+            }
+            m_messageDisplay->DisplayMessage(action + " " + humanReadableName.data() + extra);
+        }
+
+        void SetDeviceActive(bool state, bool skipInteraction = false, XrAction detectionBoolAction = XR_NULL_HANDLE,
+                             XrActionSet detectionActionSet = XR_NULL_HANDLE) override
+        {
+
+            SetDeviceActiveWithoutWaiting(state);
+            if (skipInteraction) {
+                // Skip human interaction, this is just a hint to the runtime via the extension
+                return;
+            }
+            Wait(state, WaitUntilBoolActionIsActiveUpdated{detectionBoolAction, detectionActionSet});
         }
 
         void SetButtonStateBool(XrPath button, bool state, bool skipInteraction, XrActionSet extraActionSet = XR_NULL_HANDLE) override

@@ -37,7 +37,7 @@ namespace Conformance
     constexpr XrVector3f Up{0, 1, 0};
 
     // Purpose: Ensure that the action space for palm can be used for placing a hand representation.
-    TEST_CASE("XR_EXT_palm_pose", "[scenario][interactive]")
+    TEST_CASE("XR_EXT_palm_pose", "[scenario][interactive][no_auto]")
     {
         GlobalData& globalData = GetGlobalData();
         if (!globalData.IsInstanceExtensionSupported("XR_EXT_palm_pose")) {
@@ -381,7 +381,8 @@ namespace Conformance
                             GetGlobalData().graphicsPlugin->ClearImageSlice(swapchainImage, 0, format);
                             const_cast<XrFovf&>(projLayer->views[view].fov) = views[view].fov;
                             const_cast<XrPosef&>(projLayer->views[view].pose) = views[view].pose;
-                            GetGlobalData().graphicsPlugin->RenderView(projLayer->views[view], swapchainImage, format, renderedCubes);
+                            GetGlobalData().graphicsPlugin->RenderView(projLayer->views[view], swapchainImage, format,
+                                                                       RenderParams().Draw(renderedCubes));
                         });
                 }
 

@@ -14,6 +14,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "throw_helpers.h"
 #define CATCH_CONFIG_NOSTDOUT
 #ifdef XR_USE_PLATFORM_ANDROID
 #define CATCH_CONFIG_NO_CPP11_TO_STRING
@@ -189,6 +190,32 @@ namespace
             return ParserResult::ok(ParseResultType::Matched);
         };
 
+        /// Handle hands arg
+        auto const parseHands = [&](std::string const& arg) {
+            using namespace Conformance;
+            GlobalData& globalData = GetGlobalData();
+            globalData.options.enabledHands = arg;
+
+            if (striequal(globalData.options.enabledHands.c_str(), "left")) {
+                globalData.options.leftHandEnabled = true;
+                globalData.options.rightHandEnabled = false;
+            }
+            else if (striequal(globalData.options.enabledHands.c_str(), "right")) {
+                globalData.options.leftHandEnabled = false;
+                globalData.options.rightHandEnabled = true;
+            }
+            else if (striequal(globalData.options.enabledHands.c_str(), "both")) {
+                globalData.options.leftHandEnabled = true;
+                globalData.options.rightHandEnabled = true;
+            }
+            else {
+                ReportF("invalid arg: %s", globalData.options.enabledHands.c_str());
+                return ParserResult::runtimeError("invalid hands '" + arg + "' passed on command line");
+            }
+
+            return ParserResult::ok(ParseResultType::Matched);
+        };
+
         /// Handle view config arg
         auto const parseViewConfig = [&](std::string const& arg) {
             using namespace Conformance;
@@ -242,6 +269,11 @@ namespace
             | Opt(parseFormFactor, "HMD|Handheld")  // form factor
                   ["-F"]["--formFactor"]            //
               ("Specify a form factor to use. Default is HMD.")
+                  .optional()
+
+            | Opt(parseHands, "interaction profile")  // Hands
+                  ["--hands"]                         //
+              ("Choose which hands to test: left, right, or both. Default is both.")
                   .optional()
 
             | Opt(parseViewConfig, "Stereo|Mono")  // view configuration
@@ -307,6 +339,8 @@ namespace
         globalData.enabledAPILayerNames = globalData.options.enabledAPILayers;
         globalData.enabledInstanceExtensionNames = globalData.options.enabledInstanceExtensions;
         globalData.enabledInteractionProfiles = globalData.options.enabledInteractionProfiles;
+        globalData.leftHandUnderTest = globalData.options.leftHandEnabled;
+        globalData.rightHandUnderTest = globalData.options.rightHandEnabled;
 
         // Check for required parameters.
         if (GetGlobalData().options.graphicsPlugin.empty()) {  // If no graphics system was specified...

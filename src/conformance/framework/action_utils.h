@@ -43,9 +43,12 @@ namespace Conformance
             return m_renderLoop;
         }
 
-        void WaitWithMessage(const char* waitMessage, std::function<bool()> frameCallback);
+        bool WaitWithMessage(const char* waitMessage, std::function<bool()> frameCallback);
 
         void WaitForSessionFocusWithMessage();
+
+        bool WaitForLocatability(const std::string& hand, XrSpace space, XrSpace localSpace, XrSpaceLocation* location,
+                                 bool expectLocatability);
 
         // Sync until focus is available, in case focus was lost at some point.
         void SyncActionsUntilFocusWithMessage(const XrActionsSyncInfo& syncInfo);

@@ -23,12 +23,6 @@ extern void* Conformance_Android_Get_Asset_Manager();
 #include "stb/stb_image.h"
 #include "stb/stb_truetype.h"
 
-// Some platforms require reading files from specific
-// sandboxed directories.
-#ifndef PATH_PREFIX
-#define PATH_PREFIX ""
-#endif
-
 namespace
 {
     // Convert R32G32B32A_FLOAT to R8G8B8A8_UNORM.
@@ -42,27 +36,27 @@ namespace
     {
         BakedFont(int pixelHeight)
         {
-            constexpr const char* FontPath = PATH_PREFIX "SourceCodePro-Regular.otf";
+            const char* FontFileName = "SourceCodePro-Regular.otf";
 
 #ifdef XR_USE_PLATFORM_ANDROID
             AAssetManager* assetManager = (AAssetManager*)Conformance_Android_Get_Asset_Manager();
-            UniqueAsset asset(AAssetManager_open(assetManager, "SourceCodePro-Regular.otf", AASSET_MODE_BUFFER));
+            UniqueAsset asset(AAssetManager_open(assetManager, FontFileName, AASSET_MODE_BUFFER));
 
             if (!asset) {
-                throw std::runtime_error((std::string("Unable to open font ") + FontPath).c_str());
+                throw std::runtime_error((std::string("Unable to open font ") + FontFileName).c_str());
             }
 
             size_t length = AAsset_getLength(asset.get());
             const uint8_t* buf = (const uint8_t*)AAsset_getBuffer(asset.get());
             if (!buf) {
-                throw std::runtime_error((std::string("Unable to open font ") + FontPath).c_str());
+                throw std::runtime_error((std::string("Unable to open font ") + FontFileName).c_str());
             }
             std::vector<uint8_t> fontData(buf, buf + length);
 #else
             std::ifstream file;
-            file.open(FontPath, std::ios::in | std::ios::binary);
+            file.open(FontFileName, std::ios::in | std::ios::binary);
             if (!file) {
-                throw std::runtime_error((std::string("Unable to open font ") + FontPath).c_str());
+                throw std::runtime_error((std::string("Unable to open font ") + FontFileName).c_str());
             }
 
             file.seekg(0, std::ios::end);
@@ -81,7 +75,7 @@ namespace
             int res = stbtt_BakeFontBitmap(fontData.data(), 0, (float)pixelHeight, glyphBitmap.data(), m_bitmapWidth, m_bitmapHeight,
                                            StartChar, (int)m_bakedChars.size(), m_bakedChars.data());
             if (res == 0) {
-                throw std::runtime_error((std::string("Unable to parse font") + FontPath).c_str());
+                throw std::runtime_error((std::string("Unable to parse font") + FontFileName).c_str());
             }
             else if (res < 0) {
                 // Bitmap was not big enough to fit so double size and try again.
@@ -139,8 +133,6 @@ namespace Conformance
         int width, height;
 
 #ifdef XR_USE_PLATFORM_ANDROID
-        // for use by the exception, if required.
-        auto fullPath = path;
         stbi_uc* uc = nullptr;
         {
             AAssetManager* assetManager = (AAssetManager*)Conformance_Android_Get_Asset_Manager();
@@ -161,13 +153,10 @@ namespace Conformance
             uc = stbi_load_from_memory((const stbi_uc*)buf, length, &width, &height, nullptr, RequiredComponents);
         }
 #else
-        char fullPath[512];
-        strcpy(fullPath, PATH_PREFIX);
-        strcat(fullPath, path);
-        stbi_uc* const uc = stbi_load(fullPath, &width, &height, nullptr, RequiredComponents);
+        stbi_uc* const uc = stbi_load(path, &width, &height, nullptr, RequiredComponents);
 #endif
         if (uc == nullptr) {
-            throw std::runtime_error((std::string("Unable to load file ") + fullPath).c_str());
+            throw std::runtime_error((std::string("Unable to load file ") + path).c_str());
         }
 
         RGBAImage image(width, height);

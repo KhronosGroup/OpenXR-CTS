@@ -114,7 +114,9 @@ namespace Conformance
                 REQUIRE_THAT(result, In<XrResult>({XR_ERROR_VALIDATION_FAILURE, XR_ERROR_VIEW_CONFIGURATION_TYPE_UNSUPPORTED}));
                 if (!valid && result == XR_ERROR_VIEW_CONFIGURATION_TYPE_UNSUPPORTED) {
                     WARN(
-                        "Runtime accepted an invalid enum value as unsupported, which makes it harder for apps to reason about the error.");
+                        "On receiving an 'invalid' enum value "
+                        << viewType
+                        << ", the runtime returned as XR_ERROR_VIEW_CONFIGURATION_TYPE_UNSUPPORTED instead of XR_ERROR_VALIDATION_FAILURE, which may make it harder for apps to reason about the error.");
                 }
             }
         }

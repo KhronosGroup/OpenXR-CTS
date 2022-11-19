@@ -19,6 +19,7 @@
 #ifdef XR_USE_GRAPHICS_API_OPENGL_ES
 
 #include "swapchain_parameters.h"
+#include "graphics_plugin_impl_helpers.h"
 #include "conformance_framework.h"
 #include "Geometry.h"
 #include "common/gfxwrapper_opengl.h"
@@ -75,6 +76,70 @@ namespace Conformance
     }
     )_";
 
+    struct OpenGLESMesh
+    {
+        bool valid{false};
+        GLuint m_vao{0};
+        GLuint m_vertexBuffer{0};
+        GLuint m_indexBuffer{0};
+        uint32_t m_numIndices;
+
+        OpenGLESMesh(GLint vertexAttribCoords, GLint vertexAttribColor,  //
+                     const uint16_t* idx_data, uint32_t idx_count,       //
+                     const Geometry::Vertex* vtx_data, uint32_t vtx_count)
+        {
+            m_numIndices = idx_count;
+
+            GL(glGenBuffers(1, &m_vertexBuffer));
+            GL(glBindBuffer(GL_ARRAY_BUFFER, m_vertexBuffer));
+            GL(glBufferData(GL_ARRAY_BUFFER, vtx_count * sizeof(Geometry::Vertex), vtx_data, GL_STATIC_DRAW));
+
+            GL(glGenBuffers(1, &m_indexBuffer));
+            GL(glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_indexBuffer));
+            GL(glBufferData(GL_ELEMENT_ARRAY_BUFFER, idx_count * sizeof(uint16_t), idx_data, GL_STATIC_DRAW));
+
+            glGenVertexArrays(1, &m_vao);
+            glBindVertexArray(m_vao);
+            glEnableVertexAttribArray(vertexAttribCoords);
+            glEnableVertexAttribArray(vertexAttribColor);
+            glBindBuffer(GL_ARRAY_BUFFER, m_vertexBuffer);
+            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_indexBuffer);
+            glVertexAttribPointer(vertexAttribCoords, 3, GL_FLOAT, GL_FALSE, sizeof(Geometry::Vertex), nullptr);
+            glVertexAttribPointer(vertexAttribColor, 3, GL_FLOAT, GL_FALSE, sizeof(Geometry::Vertex),
+                                  reinterpret_cast<const void*>(sizeof(XrVector3f)));
+
+            valid = true;
+        }
+
+        OpenGLESMesh(OpenGLESMesh&& other) noexcept : m_numIndices(0)
+        {
+            using std::swap;
+            swap(valid, other.valid);
+            swap(m_vao, other.m_vao);
+            swap(m_vertexBuffer, other.m_vertexBuffer);
+            swap(m_indexBuffer, other.m_indexBuffer);
+            swap(m_numIndices, other.m_numIndices);
+        }
+
+        OpenGLESMesh(const OpenGLESMesh&) = delete;
+
+        ~OpenGLESMesh()
+        {
+            if (!valid) {
+                return;
+            }
+            if (m_vao != 0) {
+                glDeleteVertexArrays(1, &m_vao);
+            }
+            if (m_vertexBuffer != 0) {
+                glDeleteBuffers(1, &m_vertexBuffer);
+            }
+            if (m_indexBuffer != 0) {
+                glDeleteBuffers(1, &m_indexBuffer);
+            }
+        }
+    };
+
     struct OpenGLESGraphicsPlugin : public IGraphicsPlugin
     {
         OpenGLESGraphicsPlugin(std::shared_ptr<IPlatformPlugin>& /*unused*/);
@@ -130,8 +195,10 @@ namespace Conformance
         void ClearImageSlice(const XrSwapchainImageBaseHeader* colorSwapchainImage, uint32_t imageArrayIndex, int64_t colorSwapchainFormat,
                              XrColor4f bgColor = DarkSlateGrey) override;
 
+        MeshHandle MakeSimpleMesh(span<const uint16_t> idx, span<const Geometry::Vertex> vtx) override;
+
         void RenderView(const XrCompositionLayerProjectionView& layerView, const XrSwapchainImageBaseHeader* colorSwapchainImage,
-                        int64_t colorSwapchainFormat, const std::vector<Cube>& cubes) override;
+                        int64_t colorSwapchainFormat, const RenderParams& params) override;
 
     protected:
         struct OpenGLESSwapchainImageStructs : public IGraphicsPlugin::SwapchainImageStructs
@@ -158,9 +225,8 @@ namespace Conformance
         GLint m_modelViewProjectionUniformLocation{0};
         GLint m_vertexAttribCoords{0};
         GLint m_vertexAttribColor{0};
-        GLuint m_vao{0};
-        GLuint m_cubeVertexBuffer{0};
-        GLuint m_cubeIndexBuffer{0};
+        MeshHandle m_cubeMesh{};
+        VectorWithGenerationCountedHandles<OpenGLESMesh, MeshHandle> m_meshes;
 
         // The OpenGLES interface uses a standard 2D target type when
         // arraySize == 1, so we need this info in some situations where
@@ -410,23 +476,7 @@ namespace Conformance
         m_vertexAttribCoords = glGetAttribLocation(m_program, "VertexPos");
         m_vertexAttribColor = glGetAttribLocation(m_program, "VertexColor");
 
-        GL(glGenBuffers(1, &m_cubeVertexBuffer));
-        GL(glBindBuffer(GL_ARRAY_BUFFER, m_cubeVertexBuffer));
-        GL(glBufferData(GL_ARRAY_BUFFER, sizeof(Geometry::c_cubeVertices), Geometry::c_cubeVertices.data(), GL_STATIC_DRAW));
-
-        GL(glGenBuffers(1, &m_cubeIndexBuffer));
-        GL(glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_cubeIndexBuffer));
-        GL(glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(Geometry::c_cubeIndices), Geometry::c_cubeIndices.data(), GL_STATIC_DRAW));
-
-        glGenVertexArrays(1, &m_vao);
-        glBindVertexArray(m_vao);
-        glEnableVertexAttribArray(m_vertexAttribCoords);
-        glEnableVertexAttribArray(m_vertexAttribColor);
-        glBindBuffer(GL_ARRAY_BUFFER, m_cubeVertexBuffer);
-        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_cubeIndexBuffer);
-        glVertexAttribPointer(m_vertexAttribCoords, 3, GL_FLOAT, GL_FALSE, sizeof(Geometry::Vertex), nullptr);
-        glVertexAttribPointer(m_vertexAttribColor, 3, GL_FLOAT, GL_FALSE, sizeof(Geometry::Vertex),
-                              reinterpret_cast<const void*>(sizeof(XrVector3f)));
+        m_cubeMesh = MakeCubeMesh();
     }
 
     void OpenGLESGraphicsPlugin::ShutdownResources()
@@ -438,21 +488,15 @@ namespace Conformance
             if (m_program != 0) {
                 GL(glDeleteProgram(m_program));
             }
-            if (m_vao != 0) {
-                GL(glDeleteVertexArrays(1, &m_vao));
-            }
-            if (m_cubeVertexBuffer != 0) {
-                GL(glDeleteBuffers(1, &m_cubeVertexBuffer));
-            }
-            if (m_cubeIndexBuffer != 0) {
-                GL(glDeleteBuffers(1, &m_cubeIndexBuffer));
-            }
 
             for (auto& colorToDepth : m_colorToDepthMap) {
                 if (colorToDepth.second != 0) {
                     GL(glDeleteTextures(1, &colorToDepth.second));
                 }
             }
+
+            m_cubeMesh = {};
+            m_meshes.clear();
 
             ksGpuWindow_Destroy(&window);
         }
@@ -485,36 +529,37 @@ namespace Conformance
     }
 
 // one for texture formats which are not known to the GL.h (where a more modern header would be needed):
-#define ADD_GL_COLOR_FORMAT2(X, Y)                                                                                                       \
-    {                                                                                                                                    \
-        {X},                                                                                                                             \
-        {                                                                                                                                \
-            Y, false, false, true, false, X, {XRC_COLOR_TEXTURE_USAGE, XRC_COLOR_TEXTURE_USAGE_MUTABLE}, XRC_COLOR_CREATE_FLAGS, {}, {}, \
-            {                                                                                                                            \
-            }                                                                                                                            \
-        }                                                                                                                                \
+#define ADD_GL_COLOR_FORMAT2(X, Y)                                                                                            \
+    {                                                                                                                         \
+        {X},                                                                                                                  \
+        {                                                                                                                     \
+            Y, IMMUTABLE, NO_MUT_SUPPORT, COLOR, UNCOMPRESSED, X, {XRC_COLOR_TEXTURE_USAGE, XRC_COLOR_TEXTURE_USAGE_MUTABLE}, \
+                XRC_COLOR_CREATE_FLAGS, {}, {},                                                                               \
+            {                                                                                                                 \
+            }                                                                                                                 \
+        }                                                                                                                     \
     }
 #define ADD_GL_COLOR_FORMAT(X) ADD_GL_COLOR_FORMAT2(X, #X)
 
-#define ADD_GL_COLOR_COMPRESSED_FORMAT2(X, Y)                                                                     \
-    {                                                                                                             \
-        {X},                                                                                                      \
-        {                                                                                                         \
-            Y, false, false, true, true, X, {XRC_COLOR_TEXTURE_USAGE_COMPRESSED}, XRC_COLOR_CREATE_FLAGS, {}, {}, \
-            {                                                                                                     \
-            }                                                                                                     \
-        }                                                                                                         \
+#define ADD_GL_COLOR_COMPRESSED_FORMAT2(X, Y)                                                                                         \
+    {                                                                                                                                 \
+        {X},                                                                                                                          \
+        {                                                                                                                             \
+            Y, IMMUTABLE, NO_MUT_SUPPORT, COLOR, COMPRESSED, X, {XRC_COLOR_TEXTURE_USAGE_COMPRESSED}, XRC_COLOR_CREATE_FLAGS, {}, {}, \
+            {                                                                                                                         \
+            }                                                                                                                         \
+        }                                                                                                                             \
     }
 #define ADD_GL_COLOR_COMPRESSED_FORMAT(X) ADD_GL_COLOR_COMPRESSED_FORMAT2(X, #X)
 
-#define ADD_GL_DEPTH_FORMAT2(X, Y)                                                                       \
-    {                                                                                                    \
-        {X},                                                                                             \
-        {                                                                                                \
-            Y, false, false, false, false, X, {XRC_DEPTH_TEXTURE_USAGE}, XRC_DEPTH_CREATE_FLAGS, {}, {}, \
-            {                                                                                            \
-            }                                                                                            \
-        }                                                                                                \
+#define ADD_GL_DEPTH_FORMAT2(X, Y)                                                                                               \
+    {                                                                                                                            \
+        {X},                                                                                                                     \
+        {                                                                                                                        \
+            Y, IMMUTABLE, NO_MUT_SUPPORT, NON_COLOR, UNCOMPRESSED, X, {XRC_DEPTH_TEXTURE_USAGE}, XRC_DEPTH_CREATE_FLAGS, {}, {}, \
+            {                                                                                                                    \
+            }                                                                                                                    \
+        }                                                                                                                        \
     }
 #define ADD_GL_DEPTH_FORMAT(X) ADD_GL_DEPTH_FORMAT2(X, #X)
 
@@ -911,6 +956,14 @@ namespace Conformance
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
     }
 
+    MeshHandle OpenGLESGraphicsPlugin::MakeSimpleMesh(span<const uint16_t> idx, span<const Geometry::Vertex> vtx)
+    {
+        auto handle = m_meshes.emplace_back(m_vertexAttribCoords, m_vertexAttribColor, idx.data(), (uint32_t)idx.size(), vtx.data(),
+                                            (uint32_t)vtx.size());
+
+        return handle;
+    }
+
     uint32_t OpenGLESGraphicsPlugin::GetDepthTexture(const XrSwapchainImageBaseHeader* colorSwapchainImage)
     {
         auto imageInfoIt = m_imageInfo.find(colorSwapchainImage);
@@ -952,7 +1005,7 @@ namespace Conformance
 
     void OpenGLESGraphicsPlugin::RenderView(const XrCompositionLayerProjectionView& layerView,
                                             const XrSwapchainImageBaseHeader* colorSwapchainImage, int64_t colorSwapchainFormat,
-                                            const std::vector<Cube>& cubes)
+                                            const RenderParams& params)
     {
         auto imageInfoIt = m_imageInfo.find(colorSwapchainImage);
         CHECK(imageInfoIt != m_imageInfo.end());
@@ -1006,20 +1059,39 @@ namespace Conformance
         XrMatrix4x4f vp;
         XrMatrix4x4f_Multiply(&vp, &proj, &view);
 
-        // Set cube primitive data.
-        GL(glBindVertexArray(m_vao));
+        MeshHandle lastMeshHandle;
 
-        // Render each cube
-        for (const Cube& cube : cubes) {
+        const auto drawMesh = [this, &vp, &lastMeshHandle](const MeshDrawable mesh) {
+            OpenGLESMesh& glMesh = m_meshes[mesh.handle];
+            if (mesh.handle != lastMeshHandle) {
+                // We are now rendering a new mesh
+                GL(glBindVertexArray(glMesh.m_vao));
+                glBindBuffer(GL_ARRAY_BUFFER, glMesh.m_vertexBuffer);
+                glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, glMesh.m_indexBuffer);
+
+                lastMeshHandle = mesh.handle;
+            }
+
             // Compute the model-view-projection transform and set it..
             XrMatrix4x4f model;
-            XrMatrix4x4f_CreateTranslationRotationScale(&model, &cube.Pose.position, &cube.Pose.orientation, &cube.Scale);
+            XrMatrix4x4f_CreateTranslationRotationScale(&model, &mesh.params.pose.position, &mesh.params.pose.orientation,
+                                                        &mesh.params.scale);
             XrMatrix4x4f mvp;
             XrMatrix4x4f_Multiply(&mvp, &vp, &model);
             GL(glUniformMatrix4fv(m_modelViewProjectionUniformLocation, 1, GL_FALSE, reinterpret_cast<const GLfloat*>(&mvp)));
 
-            // Draw the cube.
-            GL(glDrawElements(GL_TRIANGLES, Geometry::c_cubeIndices.size(), GL_UNSIGNED_SHORT, nullptr));
+            // Draw the mesh.
+            GL(glDrawElements(GL_TRIANGLES, glMesh.m_numIndices, GL_UNSIGNED_SHORT, nullptr));
+        };
+
+        // Render each cube
+        for (const Cube& cube : params.cubes) {
+            drawMesh(MeshDrawable{m_cubeMesh, cube.params.pose, cube.params.scale});
+        }
+
+        // Render each mesh
+        for (const auto& mesh : params.meshes) {
+            drawMesh(mesh);
         }
 
         GL(glBindVertexArray(0));

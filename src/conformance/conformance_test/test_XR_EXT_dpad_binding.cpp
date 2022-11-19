@@ -14,6 +14,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "conformance_framework.h"
 #include "utils.h"
 #include "conformance_utils.h"
 #include "composition_utils.h"
@@ -21,6 +22,7 @@
 #include "report.h"
 #include <chrono>
 #include <catch2/catch.hpp>
+#include <string>
 #include <openxr/openxr.h>
 #include <xr_linear.h>
 
@@ -617,22 +619,33 @@ namespace Conformance
 
     void GenerateDirectionalTestSet(std::vector<TestSet>& tests, eControllerComponent controllerComponent)
     {
+        GlobalData& globalData = GetGlobalData();
+        bool leftUnderTest = globalData.leftHandUnderTest;
+        bool rightUnderTest = globalData.rightHandUnderTest;
         std::string sTimeoutError = "Time out waiting for dpad input";
         std::string sComponent =
             (controllerComponent == eControllerComponent::Thumbstick) ? "thumbstick and release." : "trackpad and release.";
-        tests.push_back({dpadUp_L, "(1) With your LEFT controller, push fully UP on your " + sComponent, sTimeoutError});
-        tests.push_back({dpadDown_L, "(2) With your LEFT controller, push fully DOWN on your " + sComponent, sTimeoutError});
-        tests.push_back({dpadLeft_L, "(3) With your LEFT controller, push fully LEFT on your " + sComponent, sTimeoutError});
-        tests.push_back({dpadRight_L, "(4) With your LEFT controller, push fully RIGHT on your " + sComponent, sTimeoutError});
-        tests.push_back({dpadUp_R, "(5) With your RIGHT controller, push fully UP on your " + sComponent, sTimeoutError});
-        tests.push_back({dpadDown_R, "(6) With your RIGHT controller, push fully DOWN on your " + sComponent, sTimeoutError});
-        tests.push_back({dpadLeft_R, "(7) With your RIGHT controller, push fully LEFT on your " + sComponent, sTimeoutError});
-        tests.push_back({dpadRight_R, "(8) With your RIGHT controller, push fully RIGHT on your " + sComponent, sTimeoutError});
-
+        if (leftUnderTest) {
+            tests.push_back({dpadUp_L, "(1) With your LEFT controller, push fully UP on your " + sComponent, sTimeoutError});
+            tests.push_back({dpadDown_L, "(2) With your LEFT controller, push fully DOWN on your " + sComponent, sTimeoutError});
+            tests.push_back({dpadLeft_L, "(3) With your LEFT controller, push fully LEFT on your " + sComponent, sTimeoutError});
+            tests.push_back({dpadRight_L, "(4) With your LEFT controller, push fully RIGHT on your " + sComponent, sTimeoutError});
+        }
+        if (rightUnderTest) {
+            tests.push_back({dpadUp_R, "(5) With your RIGHT controller, push fully UP on your " + sComponent, sTimeoutError});
+            tests.push_back({dpadDown_R, "(6) With your RIGHT controller, push fully DOWN on your " + sComponent, sTimeoutError});
+            tests.push_back({dpadLeft_R, "(7) With your RIGHT controller, push fully LEFT on your " + sComponent, sTimeoutError});
+            tests.push_back({dpadRight_R, "(8) With your RIGHT controller, push fully RIGHT on your " + sComponent, sTimeoutError});
+        }
         if (controllerComponent == eControllerComponent::Trackpad) {
-            tests.push_back({dpadCenter_L, "(9) With your LEFT controller, push the CENTER portion of the  " + sComponent, sTimeoutError});
-            tests.push_back(
-                {dpadCenter_R, "(10) With your RIGHT controller, push the CENTER portion of the   " + sComponent, sTimeoutError});
+            if (leftUnderTest) {
+                tests.push_back(
+                    {dpadCenter_L, "(9) With your LEFT controller, push the CENTER portion of the  " + sComponent, sTimeoutError});
+            }
+            if (rightUnderTest) {
+                tests.push_back(
+                    {dpadCenter_R, "(10) With your RIGHT controller, push the CENTER portion of the   " + sComponent, sTimeoutError});
+            }
         }
     }
 
@@ -642,8 +655,14 @@ namespace Conformance
         std::string sComponent = (controllerComponent == eControllerComponent::Thumbstick) ? "thumbstick" : "trackpad";
         std::string sSuffix = ", rotate counter-clockwise until you get to the \nbottom area and hold (do not release).";
 
-        tests.push_back({dpadLeft_L, "(1) With your LEFT controller, push fully LEFT on your " + sComponent + sSuffix, sTimeoutError});
-        tests.push_back({dpadRight_R, "(2) With your RIGHT controller, push fully RIGHT on your " + sComponent + sSuffix, sTimeoutError});
+        GlobalData& globalData = GetGlobalData();
+        if (globalData.leftHandUnderTest) {
+            tests.push_back({dpadLeft_L, "(1) With your LEFT controller, push fully LEFT on your " + sComponent + sSuffix, sTimeoutError});
+        }
+        if (globalData.rightHandUnderTest) {
+            tests.push_back(
+                {dpadRight_R, "(2) With your RIGHT controller, push fully RIGHT on your " + sComponent + sSuffix, sTimeoutError});
+        }
     }
 
     XrPath GetDpadPath(XrAction action, std::vector<XrActionSuggestedBinding>& vActionBindings)
@@ -748,8 +767,13 @@ namespace Conformance
         msgManager.DisplayMessage("Waiting for session focus...");
 
         // Set test devices to active
-        testDevice_L->SetDeviceActive(true);
-        testDevice_R->SetDeviceActive(true);
+        GlobalData& globalData = GetGlobalData();
+        if (globalData.leftHandUnderTest) {
+            testDevice_L->SetDeviceActive(true);
+        }
+        if (globalData.rightHandUnderTest) {
+            testDevice_R->SetDeviceActive(true);
+        }
 
         bool bFocused = WaitForSessionFocus(&renderLoop, &eventReader, session);
         REQUIRE_MSG(bFocused, "Time out waiting for session focus");
@@ -1097,7 +1121,7 @@ namespace Conformance
         }
     }
 
-    TEST_CASE("XR_EXT_dpad_binding_interactive_thumbstick", "[actions][interactive]")
+    TEST_CASE("XR_EXT_dpad_binding_interactive_thumbstick", "[actions][interactive][no_auto]")
     {
         GlobalData& globalData = GetGlobalData();
         if (!globalData.IsInstanceExtensionSupported(XR_EXT_DPAD_BINDING_EXTENSION_NAME) ||
@@ -1161,7 +1185,7 @@ namespace Conformance
         }
     }
 
-    TEST_CASE("XR_EXT_dpad_binding_interactive_trackpad", "[actions][interactive]")
+    TEST_CASE("XR_EXT_dpad_binding_interactive_trackpad", "[actions][interactive][no_auto]")
     {
         GlobalData& globalData = GetGlobalData();
         if (!globalData.IsInstanceExtensionSupported(XR_EXT_DPAD_BINDING_EXTENSION_NAME) ||

@@ -91,6 +91,11 @@ namespace Conformance
         m_bindings.insert({interactionProfile, {}});
         auto& vec = m_bindings.at(interactionProfile);
         vec.insert(vec.end(), bindings.begin(), bindings.end());
+
+        // Keep track of the order interaction profiles were used. Apps do not need to do this, but some conformance tests need it
+        if (std::find(m_bindingsOrder.begin(), m_bindingsOrder.end(), interactionProfile) == m_bindingsOrder.end()) {
+            m_bindingsOrder.push_back(interactionProfile);
+        }
     }
 
     void InteractionManager::AddActionSet(XrActionSet actionSet)
@@ -98,13 +103,20 @@ namespace Conformance
         m_actionSets.push_back(actionSet);
     }
 
-    void InteractionManager::AttachActionSets()
+    void InteractionManager::AttachActionSets(std::vector<XrPath>* assertInteractionProfilePathOrder /* = nullptr*/)
     {
-        for (const auto& pair : m_bindings) {
+        // Some tests rely on controlling the order of suggestInteractionProfile, this is a validity check of that ordering
+        if (assertInteractionProfilePathOrder) {
+            REQUIRE((*assertInteractionProfilePathOrder).size() == m_bindingsOrder.size());
+            REQUIRE(std::equal(m_bindingsOrder.begin(), m_bindingsOrder.end(), (*assertInteractionProfilePathOrder).begin()));
+        }
+
+        for (const auto& interactionProfile : m_bindingsOrder) {
+            const auto& bindings = m_bindings.at(interactionProfile);
             XrInteractionProfileSuggestedBinding suggestedBindings{XR_TYPE_INTERACTION_PROFILE_SUGGESTED_BINDING};
-            suggestedBindings.interactionProfile = pair.first;
-            suggestedBindings.suggestedBindings = pair.second.data();
-            suggestedBindings.countSuggestedBindings = (uint32_t)pair.second.size();
+            suggestedBindings.interactionProfile = interactionProfile;
+            suggestedBindings.suggestedBindings = bindings.data();
+            suggestedBindings.countSuggestedBindings = (uint32_t)bindings.size();
             XRC_CHECK_THROW_XRCMD(xrSuggestInteractionProfileBindings(m_instance, &suggestedBindings));
         }
 

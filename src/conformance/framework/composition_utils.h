@@ -68,13 +68,15 @@ namespace Conformance
         void AddActionBindings(XrPath interactionProfile, std::vector<XrActionSuggestedBinding> bindings);
 
         void AddActionSet(XrActionSet actionSet);
-        void AttachActionSets();
+        void AttachActionSets(std::vector<XrPath>* assertInteractionProfilePath = nullptr);
         void SyncActions(XrPath subactionPath);
 
     private:
         XrInstance m_instance;
         XrSession m_session;
         std::map<XrPath, std::vector<XrActionSuggestedBinding>> m_bindings;
+        // Some tests require control of the binding order
+        std::vector<XrPath> m_bindingsOrder;
         std::vector<XrActionSet> m_actionSets;
     };
 
@@ -233,7 +235,7 @@ namespace Conformance
                             const XrSwapchainImageBaseHeader* swapchainImage, uint64_t format) override
             {
                 GetGlobalData().graphicsPlugin->ClearImageSlice(swapchainImage, 0, format);
-                GetGlobalData().graphicsPlugin->RenderView(projectionView, swapchainImage, format, m_cubes);
+                GetGlobalData().graphicsPlugin->RenderView(projectionView, swapchainImage, format, RenderParams{}.Draw(m_cubes));
             }
 
         private:

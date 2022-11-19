@@ -37,7 +37,7 @@ namespace Conformance
     constexpr XrVector3f Up{0, 1, 0};
 
     // Purpose: Ensure that the action space for grip can be used for a grippable object, in this case a sword, and the action space for aim can be used for comfortable aiming.
-    TEST_CASE("Grip and Aim Pose", "[scenario][interactive]")
+    TEST_CASE("Grip and Aim Pose", "[scenario][interactive][no_auto]")
     {
         const char* exampleImage = "grip_and_aim_pose.png";
         const char* diagramImage = "grip_axes_diagram.png";
@@ -278,7 +278,8 @@ namespace Conformance
                             GetGlobalData().graphicsPlugin->ClearImageSlice(swapchainImage, 0, format);
                             const_cast<XrFovf&>(projLayer->views[view].fov) = views[view].fov;
                             const_cast<XrPosef&>(projLayer->views[view].pose) = views[view].pose;
-                            GetGlobalData().graphicsPlugin->RenderView(projLayer->views[view], swapchainImage, format, renderedCubes);
+                            GetGlobalData().graphicsPlugin->RenderView(projLayer->views[view], swapchainImage, format,
+                                                                       RenderParams().Draw(renderedCubes));
                         });
                 }
 
