@@ -1,14 +1,17 @@
 # Copyright 2021-2022, Collabora, Ltd.
 # SPDX-License-Identifier: CC0-1.0
 
-name: Android OpenXR-CTS - Check
+name: Android OpenXR-CTS
 on:
   pull_request:
     branches:
       - "devel"
+  push:
+    branches:
+      - "devel"
 
 jobs:
-  build-OpenXR-CTS:
+  build-loader:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3

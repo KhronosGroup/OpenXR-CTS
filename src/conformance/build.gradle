@@ -56,7 +56,7 @@ android {
     ndkVersion "21.4.7075529"
 
     defaultConfig {
-        applicationId "com.khronos.openxr.cts"
+        applicationId "org.khronos.openxr.cts"
         // for Vulkan, need at least 24
         minSdkVersion 24
         compileSdkVersion 26

@@ -1,4 +1,0 @@
----
-- issue.1798.gl
----
-- Improvement: Use generated reflection headers to exhaustively check event data structures.
