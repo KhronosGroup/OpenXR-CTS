@@ -1,0 +1,28 @@
+# Copyright 2021-2023, Collabora, Ltd.
+# SPDX-License-Identifier: CC0-1.0
+
+name: Build Windows pull request artifacts
+on:
+  pull_request:
+    branches:
+      - "devel"
+  push:
+    branches:
+      - "devel"
+  workflow_dispatch:
+
+jobs:
+  msvc-build:
+    strategy:
+      fail-fast: true
+      matrix:
+        preset:
+          - cts-win32
+          - cts-x64
+
+    uses: "./.github/workflows/msvc-build-preset.yml"
+    with:
+      preset: "${{ matrix.preset }}"
+      artifactName: "openxr-${{ matrix.preset }}"
+      buildType: "RelWithDebInfo"
+      subdir: "install/conformance"
