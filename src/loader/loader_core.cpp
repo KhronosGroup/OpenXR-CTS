@@ -35,7 +35,7 @@
 // Global loader lock to:
 //   1. Ensure ActiveLoaderInstance get and set operations are done atomically.
 //   2. Ensure RuntimeInterface isn't used to unload the runtime while the runtime is in use.
-std::mutex &GetGlobalLoaderMutex() {
+static std::mutex &GetGlobalLoaderMutex() {
     static std::mutex loader_mutex;
     return loader_mutex;
 }
@@ -58,6 +58,8 @@ static XRAPI_ATTR XrResult XRAPI_CALL LoaderXrTermDestroyDebugUtilsMessengerEXT(
 static XRAPI_ATTR XrResult XRAPI_CALL LoaderXrTermSubmitDebugUtilsMessageEXT(
     XrInstance instance, XrDebugUtilsMessageSeverityFlagsEXT messageSeverity, XrDebugUtilsMessageTypeFlagsEXT messageTypes,
     const XrDebugUtilsMessengerCallbackDataEXT *callbackData);
+static XRAPI_ATTR XrResult XRAPI_CALL LoaderXrGetInstanceProcAddr(XrInstance instance, const char *name,
+                                                                  PFN_xrVoidFunction *function);
 
 // Utility template function meant to validate if a fixed size string contains
 // a null-terminator.
@@ -711,9 +713,6 @@ XRLOADER_ABI_CATCH_FALLBACK
 
 XRAPI_ATTR XrResult XRAPI_CALL LoaderXrGetInstanceProcAddr(XrInstance instance, const char *name,
                                                            PFN_xrVoidFunction *function) XRLOADER_ABI_TRY {
-    // Initialize the function to nullptr in case it does not get caught in a known case
-    *function = nullptr;
-
     if (nullptr == function) {
         LoaderLogger::LogValidationErrorMessage("VUID-xrGetInstanceProcAddr-function-parameter", "xrGetInstanceProcAddr",
                                                 "Invalid Function pointer");
@@ -725,6 +724,9 @@ XRAPI_ATTR XrResult XRAPI_CALL LoaderXrGetInstanceProcAddr(XrInstance instance, 
                                                 "Invalid Name pointer");
         return XR_ERROR_VALIDATION_FAILURE;
     }
+
+    // Initialize the function to nullptr in case it does not get caught in a known case
+    *function = nullptr;
 
     LoaderInstance *loader_instance = nullptr;
     if (instance == XR_NULL_HANDLE) {

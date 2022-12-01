@@ -14,17 +14,20 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <memory>
 #include "graphics_plugin.h"
 
 #ifdef XR_USE_GRAPHICS_API_OPENGL
 
 #include "report.h"
 
+#include "graphics_plugin_impl_helpers.h"
 #include "swapchain_parameters.h"
 
 #include "xr_dependencies.h"
 
 #include "conformance_framework.h"
+#include "throw_helpers.h"
 #include "Geometry.h"
 
 #include <catch2/catch.hpp>
@@ -175,7 +178,7 @@
 {                                                                              \
     {FORMAT},                                                                  \
     {                                                                          \
-        NAME, false, true, true, false, FORMAT, XRC_COLOR_UA_COPY_SAMPLED_MUTABLE_USAGE_FLAGS, XRC_ALL_CREATE_FLAGS, {}, {}, \
+        NAME, IMMUTABLE, MUT_SUPPORT, COLOR, UNCOMPRESSED, FORMAT, XRC_COLOR_UA_COPY_SAMPLED_MUTABLE_USAGE_FLAGS, XRC_ALL_CREATE_FLAGS, {}, {}, \
         {                                                                      \
         }                                                                      \
     }                                                                          \
@@ -186,7 +189,7 @@
 {                                                                              \
     {FORMAT},                                                                  \
     {                                                                          \
-        NAME, false, true, true, false, FORMAT, XRC_COLOR_UA_SAMPLED_MUTABLE_USAGE_FLAGS, XRC_ALL_CREATE_FLAGS, {}, {}, \
+        NAME, IMMUTABLE, MUT_SUPPORT, COLOR, UNCOMPRESSED, FORMAT, XRC_COLOR_UA_SAMPLED_MUTABLE_USAGE_FLAGS, XRC_ALL_CREATE_FLAGS, {}, {}, \
         {                                                                      \
         }                                                                      \
     }                                                                          \
@@ -197,18 +200,18 @@
 {                                                                              \
     {FORMAT},                                                                  \
     {                                                                          \
-        NAME, false, false, true, false, FORMAT, XRC_COLOR_COPY_SAMPLED_USAGE_FLAGS, XRC_ALL_CREATE_FLAGS, {}, {}, \
+        NAME, IMMUTABLE, NO_MUT_SUPPORT, COLOR, UNCOMPRESSED, FORMAT, XRC_COLOR_COPY_SAMPLED_USAGE_FLAGS, XRC_ALL_CREATE_FLAGS, {}, {}, \
         {                                                                      \
         }                                                                      \
     }                                                                          \
 }
 #define ADD_GL_COLOR_COPY_SAMPLED_FORMAT(X) ADD_GL_COLOR_COPY_SAMPLED_FORMAT2(X, #X)
-    
+
 #define ADD_GL_COLOR_COPY_SAMPLED_MUTABLE_FORMAT2(FORMAT, NAME)                                     \
 {                                                                              \
     {FORMAT},                                                                  \
     {                                                                          \
-        NAME, false, true, true, false, FORMAT, XRC_COLOR_COPY_SAMPLED_MUTABLE_USAGE_FLAGS, XRC_ALL_CREATE_FLAGS, {}, {}, \
+        NAME, IMMUTABLE, MUT_SUPPORT, COLOR, UNCOMPRESSED, FORMAT, XRC_COLOR_COPY_SAMPLED_MUTABLE_USAGE_FLAGS, XRC_ALL_CREATE_FLAGS, {}, {}, \
         {                                                                      \
         }                                                                      \
     }                                                                          \
@@ -219,7 +222,7 @@
 {                                                                              \
     {FORMAT},                                                                  \
     {                                                                          \
-        NAME, false, false, true, false, FORMAT, XRC_COLOR_SAMPLED_USAGE_FLAGS, XRC_ALL_CREATE_FLAGS, {}, {}, \
+        NAME, IMMUTABLE, NO_MUT_SUPPORT, COLOR, UNCOMPRESSED, FORMAT, XRC_COLOR_SAMPLED_USAGE_FLAGS, XRC_ALL_CREATE_FLAGS, {}, {}, \
         {                                                                      \
         }                                                                      \
     }                                                                          \
@@ -230,7 +233,7 @@
 {                                                                              \
     {FORMAT},                                                                  \
     {                                                                          \
-        NAME, false, false, false, false, FORMAT, XRC_DEPTH_COPY_SAMPLED_USAGE_FLAGS, XRC_ALL_CREATE_FLAGS, {}, {}, \
+        NAME, IMMUTABLE, NO_MUT_SUPPORT, NON_COLOR, UNCOMPRESSED, FORMAT, XRC_DEPTH_COPY_SAMPLED_USAGE_FLAGS, XRC_ALL_CREATE_FLAGS, {}, {}, \
         {                                                                      \
         }                                                                      \
     }                                                                          \
@@ -241,7 +244,7 @@
 {                                                                              \
     {FORMAT},                                                                  \
     {                                                                          \
-        NAME, false, false, false, false, FORMAT, XRC_DEPTH_SAMPLED_USAGE_FLAGS, XRC_ALL_CREATE_FLAGS, {}, {}, \
+        NAME, IMMUTABLE, NO_MUT_SUPPORT, NON_COLOR, UNCOMPRESSED, FORMAT, XRC_DEPTH_SAMPLED_USAGE_FLAGS, XRC_ALL_CREATE_FLAGS, {}, {}, \
         {                                                                      \
         }                                                                      \
     }                                                                          \
@@ -252,7 +255,7 @@
 {                                                                              \
     {FORMAT},                                                                  \
     {                                                                          \
-        NAME, false, true, true, true, FORMAT, XRC_COMPRESSED_SAMPLED_MUTABLE_USAGE_FLAGS, XRC_ALL_CREATE_FLAGS, {}, {}, \
+        NAME, IMMUTABLE, MUT_SUPPORT, COLOR, COMPRESSED, FORMAT, XRC_COMPRESSED_SAMPLED_MUTABLE_USAGE_FLAGS, XRC_ALL_CREATE_FLAGS, {}, {}, \
         {                                                                      \
         }                                                                      \
     }                                                                          \
@@ -263,14 +266,14 @@
 {                                                                              \
     {FORMAT},                                                                  \
     {                                                                          \
-        NAME, false, false, true, true, FORMAT, XRC_COMPRESSED_SAMPLED_USAGE_FLAGS, XRC_ALL_CREATE_FLAGS, {}, {}, \
+        NAME, IMMUTABLE, NO_MUT_SUPPORT, COLOR, COMPRESSED, FORMAT, XRC_COMPRESSED_SAMPLED_USAGE_FLAGS, XRC_ALL_CREATE_FLAGS, {}, {}, \
         {                                                                      \
         }                                                                      \
     }                                                                          \
 }
 #define ADD_GL_COMPRESSED_SAMPLED_FORMAT(X) ADD_GL_COMPRESSED_SAMPLED_FORMAT2(X, #X)
 
-// clang-format off
+// clang-format on
 
 namespace Conformance
 {
@@ -315,8 +318,6 @@ namespace Conformance
 #define XRC_CHECK_THROW_GLCMD(cmd) CheckThrowGLResult(((cmd), glGetError()), #cmd, XRC_FILE_AND_LINE)
 #define XRC_CHECK_THROW_GLRESULT(res, cmdStr) CheckThrowGLResult(res, cmdStr, XRC_FILE_AND_LINE)
 
-    constexpr float DarkSlateGray[] = {0.184313729f, 0.309803933f, 0.309803933f, 1.0f};
-
     static const char* VertexShaderGlsl = R"_(
         #version 410
 
@@ -343,6 +344,70 @@ namespace Conformance
            FragColor = vec4(PSVertexColor, 1);
         }
         )_";
+
+    struct OpenGLMesh
+    {
+        bool valid{false};
+        GLuint m_vao{0};
+        GLuint m_vertexBuffer{0};
+        GLuint m_indexBuffer{0};
+        uint32_t m_numIndices;
+
+        OpenGLMesh(GLint vertexAttribCoords, GLint vertexAttribColor,  //
+                   const uint16_t* idx_data, uint32_t idx_count,       //
+                   const Geometry::Vertex* vtx_data, uint32_t vtx_count)
+        {
+            m_numIndices = idx_count;
+
+            XRC_CHECK_THROW_GLCMD(glGenBuffers(1, &m_vertexBuffer));
+            XRC_CHECK_THROW_GLCMD(glBindBuffer(GL_ARRAY_BUFFER, m_vertexBuffer));
+            XRC_CHECK_THROW_GLCMD(glBufferData(GL_ARRAY_BUFFER, vtx_count * sizeof(Geometry::Vertex), vtx_data, GL_STATIC_DRAW));
+
+            XRC_CHECK_THROW_GLCMD(glGenBuffers(1, &m_indexBuffer));
+            XRC_CHECK_THROW_GLCMD(glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_indexBuffer));
+            XRC_CHECK_THROW_GLCMD(glBufferData(GL_ELEMENT_ARRAY_BUFFER, idx_count * sizeof(uint16_t), idx_data, GL_STATIC_DRAW));
+
+            XRC_CHECK_THROW_GLCMD(glGenVertexArrays(1, &m_vao));
+            XRC_CHECK_THROW_GLCMD(glBindVertexArray(m_vao));
+            XRC_CHECK_THROW_GLCMD(glEnableVertexAttribArray(vertexAttribCoords));
+            XRC_CHECK_THROW_GLCMD(glEnableVertexAttribArray(vertexAttribColor));
+            XRC_CHECK_THROW_GLCMD(glBindBuffer(GL_ARRAY_BUFFER, m_vertexBuffer));
+            XRC_CHECK_THROW_GLCMD(glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_indexBuffer));
+            XRC_CHECK_THROW_GLCMD(glVertexAttribPointer(vertexAttribCoords, 3, GL_FLOAT, GL_FALSE, sizeof(Geometry::Vertex), nullptr));
+            XRC_CHECK_THROW_GLCMD(glVertexAttribPointer(vertexAttribColor, 3, GL_FLOAT, GL_FALSE, sizeof(Geometry::Vertex),
+                                                        reinterpret_cast<const void*>(sizeof(XrVector3f))));
+
+            valid = true;
+        }
+
+        OpenGLMesh(OpenGLMesh&& other) noexcept : m_numIndices(0)
+        {
+            using std::swap;
+            swap(valid, other.valid);
+            swap(m_vao, other.m_vao);
+            swap(m_vertexBuffer, other.m_vertexBuffer);
+            swap(m_indexBuffer, other.m_indexBuffer);
+            swap(m_numIndices, other.m_numIndices);
+        }
+
+        OpenGLMesh(const OpenGLMesh&) = delete;
+
+        ~OpenGLMesh()
+        {
+            if (!valid) {
+                return;
+            }
+            if (m_vao != 0) {
+                glDeleteVertexArrays(1, &m_vao);
+            }
+            if (m_vertexBuffer != 0) {
+                glDeleteBuffers(1, &m_vertexBuffer);
+            }
+            if (m_indexBuffer != 0) {
+                glDeleteBuffers(1, &m_indexBuffer);
+            }
+        }
+    };
 
     struct OpenGLGraphicsPlugin : public IGraphicsPlugin
     {
@@ -401,11 +466,13 @@ namespace Conformance
         std::shared_ptr<SwapchainImageStructs> AllocateSwapchainImageStructs(size_t size,
                                                                              const XrSwapchainCreateInfo& swapchainCreateInfo) override;
 
-        void ClearImageSlice(const XrSwapchainImageBaseHeader* colorSwapchainImage, uint32_t imageArrayIndex,
-                             int64_t colorSwapchainFormat) override;
+        void ClearImageSlice(const XrSwapchainImageBaseHeader* colorSwapchainImage, uint32_t imageArrayIndex, int64_t colorSwapchainFormat,
+                             XrColor4f bgColor = DarkSlateGrey) override;
+
+        MeshHandle MakeSimpleMesh(span<const uint16_t> idx, span<const Geometry::Vertex> vtx) override;
 
         void RenderView(const XrCompositionLayerProjectionView& layerView, const XrSwapchainImageBaseHeader* colorSwapchainImage,
-                        int64_t colorSwapchainFormat, const std::vector<Cube>& cubes) override;
+                        int64_t colorSwapchainFormat, const RenderParams& params) override;
 
     protected:
         struct SwapchainImageContext : public IGraphicsPlugin::SwapchainImageStructs
@@ -416,19 +483,17 @@ namespace Conformance
             class ArraySliceState
             {
             public:
-                ArraySliceState() : depthBuffer(0)
-                {
-                }
+                ArraySliceState() = default;
                 ArraySliceState(const ArraySliceState&)
                 {
                     ReportF("ArraySliceState copy ctor called");
                 }
-                GLuint depthBuffer;
+                GLuint depthBuffer{0};
             };
             std::vector<ArraySliceState> slice;
 
             SwapchainImageContext() = default;
-            ~SwapchainImageContext()
+            ~SwapchainImageContext() override
             {
                 Reset();
             }
@@ -498,9 +563,8 @@ namespace Conformance
         GLint m_modelViewProjectionUniformLocation{0};
         GLint m_vertexAttribCoords{0};
         GLint m_vertexAttribColor{0};
-        GLuint m_vao{0};
-        GLuint m_cubeVertexBuffer{0};
-        GLuint m_cubeIndexBuffer{0};
+        MeshHandle m_cubeMesh{};
+        VectorWithGenerationCountedHandles<OpenGLMesh, MeshHandle> m_meshes;
     };
 
     OpenGLGraphicsPlugin::OpenGLGraphicsPlugin(const std::shared_ptr<IPlatformPlugin>& /*unused*/)
@@ -747,25 +811,7 @@ namespace Conformance
         m_vertexAttribCoords = glGetAttribLocation(m_program, "VertexPos");
         m_vertexAttribColor = glGetAttribLocation(m_program, "VertexColor");
 
-        XRC_CHECK_THROW_GLCMD(glGenBuffers(1, &m_cubeVertexBuffer));
-        XRC_CHECK_THROW_GLCMD(glBindBuffer(GL_ARRAY_BUFFER, m_cubeVertexBuffer));
-        XRC_CHECK_THROW_GLCMD(
-            glBufferData(GL_ARRAY_BUFFER, sizeof(Geometry::c_cubeVertices), &Geometry::c_cubeVertices[0], GL_STATIC_DRAW));
-
-        XRC_CHECK_THROW_GLCMD(glGenBuffers(1, &m_cubeIndexBuffer));
-        XRC_CHECK_THROW_GLCMD(glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_cubeIndexBuffer));
-        XRC_CHECK_THROW_GLCMD(
-            glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(Geometry::c_cubeIndices), &Geometry::c_cubeIndices[0], GL_STATIC_DRAW));
-
-        XRC_CHECK_THROW_GLCMD(glGenVertexArrays(1, &m_vao));
-        XRC_CHECK_THROW_GLCMD(glBindVertexArray(m_vao));
-        XRC_CHECK_THROW_GLCMD(glEnableVertexAttribArray(m_vertexAttribCoords));
-        XRC_CHECK_THROW_GLCMD(glEnableVertexAttribArray(m_vertexAttribColor));
-        XRC_CHECK_THROW_GLCMD(glBindBuffer(GL_ARRAY_BUFFER, m_cubeVertexBuffer));
-        XRC_CHECK_THROW_GLCMD(glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_cubeIndexBuffer));
-        XRC_CHECK_THROW_GLCMD(glVertexAttribPointer(m_vertexAttribCoords, 3, GL_FLOAT, GL_FALSE, sizeof(Geometry::Vertex), nullptr));
-        XRC_CHECK_THROW_GLCMD(glVertexAttribPointer(m_vertexAttribColor, 3, GL_FLOAT, GL_FALSE, sizeof(Geometry::Vertex),
-                                                    reinterpret_cast<const void*>(sizeof(XrVector3f))));
+        m_cubeMesh = MakeCubeMesh();
     }
 
     void OpenGLGraphicsPlugin::CheckFramebuffer(GLuint fb) const
@@ -841,15 +887,6 @@ namespace Conformance
         if (m_program != 0) {
             glDeleteProgram(m_program);
         }
-        if (m_vao != 0) {
-            glDeleteVertexArrays(1, &m_vao);
-        }
-        if (m_cubeVertexBuffer != 0) {
-            glDeleteBuffers(1, &m_cubeVertexBuffer);
-        }
-        if (m_cubeIndexBuffer != 0) {
-            glDeleteBuffers(1, &m_cubeIndexBuffer);
-        }
 
         // Reset the swapchains to avoid calling Vulkan functions in the dtors after
         // we've shut down the device.
@@ -857,6 +894,8 @@ namespace Conformance
             ctx.second->Reset();
         }
         m_swapchainImageContextMap.clear();
+        m_cubeMesh = {};
+        m_meshes.clear();
 
         deleteGLContext();
     }
@@ -873,33 +912,33 @@ namespace Conformance
         ADD_GL_COLOR_UA_SAMPLED_MUTABLE_FORMAT(GL_R8),
         ADD_GL_COLOR_UA_SAMPLED_MUTABLE_FORMAT(GL_R16),
         ADD_GL_COLOR_UA_SAMPLED_MUTABLE_FORMAT(GL_RG8),
-        ADD_GL_COLOR_UA_SAMPLED_MUTABLE_FORMAT(GL_RG16), 
-        ADD_GL_COLOR_UA_SAMPLED_MUTABLE_FORMAT(GL_RGB10_A2UI), 
-        ADD_GL_COLOR_UA_SAMPLED_MUTABLE_FORMAT(GL_R16F), 
-        ADD_GL_COLOR_UA_SAMPLED_MUTABLE_FORMAT(GL_RG16F), 
-        ADD_GL_COLOR_UA_SAMPLED_MUTABLE_FORMAT(GL_RGB16F), 
-        ADD_GL_COLOR_UA_SAMPLED_MUTABLE_FORMAT(GL_RGBA16F), 
-        ADD_GL_COLOR_UA_SAMPLED_MUTABLE_FORMAT(GL_R32F), 
-        ADD_GL_COLOR_UA_SAMPLED_MUTABLE_FORMAT(GL_RG32F), 
-        ADD_GL_COLOR_UA_SAMPLED_MUTABLE_FORMAT(GL_RGBA32F), 
-        ADD_GL_COLOR_UA_SAMPLED_MUTABLE_FORMAT(GL_R11F_G11F_B10F), 
-        ADD_GL_COLOR_UA_SAMPLED_MUTABLE_FORMAT(GL_R8I), 
-        ADD_GL_COLOR_UA_SAMPLED_MUTABLE_FORMAT(GL_R8UI), 
-        ADD_GL_COLOR_UA_SAMPLED_MUTABLE_FORMAT(GL_R16I), 
-        ADD_GL_COLOR_UA_SAMPLED_MUTABLE_FORMAT(GL_R16UI), 
+        ADD_GL_COLOR_UA_SAMPLED_MUTABLE_FORMAT(GL_RG16),
+        ADD_GL_COLOR_UA_SAMPLED_MUTABLE_FORMAT(GL_RGB10_A2UI),
+        ADD_GL_COLOR_UA_SAMPLED_MUTABLE_FORMAT(GL_R16F),
+        ADD_GL_COLOR_UA_SAMPLED_MUTABLE_FORMAT(GL_RG16F),
+        ADD_GL_COLOR_UA_SAMPLED_MUTABLE_FORMAT(GL_RGB16F),
+        ADD_GL_COLOR_UA_SAMPLED_MUTABLE_FORMAT(GL_RGBA16F),
+        ADD_GL_COLOR_UA_SAMPLED_MUTABLE_FORMAT(GL_R32F),
+        ADD_GL_COLOR_UA_SAMPLED_MUTABLE_FORMAT(GL_RG32F),
+        ADD_GL_COLOR_UA_SAMPLED_MUTABLE_FORMAT(GL_RGBA32F),
+        ADD_GL_COLOR_UA_SAMPLED_MUTABLE_FORMAT(GL_R11F_G11F_B10F),
+        ADD_GL_COLOR_UA_SAMPLED_MUTABLE_FORMAT(GL_R8I),
+        ADD_GL_COLOR_UA_SAMPLED_MUTABLE_FORMAT(GL_R8UI),
+        ADD_GL_COLOR_UA_SAMPLED_MUTABLE_FORMAT(GL_R16I),
+        ADD_GL_COLOR_UA_SAMPLED_MUTABLE_FORMAT(GL_R16UI),
         ADD_GL_COLOR_UA_SAMPLED_MUTABLE_FORMAT(GL_R32I),
-        ADD_GL_COLOR_UA_SAMPLED_MUTABLE_FORMAT(GL_R32UI), 
-        ADD_GL_COLOR_UA_SAMPLED_MUTABLE_FORMAT(GL_RG8I), 
-        ADD_GL_COLOR_UA_SAMPLED_MUTABLE_FORMAT(GL_RG8UI), 
-        ADD_GL_COLOR_UA_SAMPLED_MUTABLE_FORMAT(GL_RG16I), 
-        ADD_GL_COLOR_UA_SAMPLED_MUTABLE_FORMAT(GL_RG16UI), 
-        ADD_GL_COLOR_UA_SAMPLED_MUTABLE_FORMAT(GL_RG32I), 
-        ADD_GL_COLOR_UA_SAMPLED_MUTABLE_FORMAT(GL_RG32UI), 
-        ADD_GL_COLOR_UA_SAMPLED_MUTABLE_FORMAT(GL_RGBA8I), 
-        ADD_GL_COLOR_UA_SAMPLED_MUTABLE_FORMAT(GL_RGBA8UI), 
-        ADD_GL_COLOR_UA_SAMPLED_MUTABLE_FORMAT(GL_RGBA16I), 
-        ADD_GL_COLOR_UA_SAMPLED_MUTABLE_FORMAT(GL_RGBA16UI), 
-        ADD_GL_COLOR_UA_SAMPLED_MUTABLE_FORMAT(GL_RGBA32I), 
+        ADD_GL_COLOR_UA_SAMPLED_MUTABLE_FORMAT(GL_R32UI),
+        ADD_GL_COLOR_UA_SAMPLED_MUTABLE_FORMAT(GL_RG8I),
+        ADD_GL_COLOR_UA_SAMPLED_MUTABLE_FORMAT(GL_RG8UI),
+        ADD_GL_COLOR_UA_SAMPLED_MUTABLE_FORMAT(GL_RG16I),
+        ADD_GL_COLOR_UA_SAMPLED_MUTABLE_FORMAT(GL_RG16UI),
+        ADD_GL_COLOR_UA_SAMPLED_MUTABLE_FORMAT(GL_RG32I),
+        ADD_GL_COLOR_UA_SAMPLED_MUTABLE_FORMAT(GL_RG32UI),
+        ADD_GL_COLOR_UA_SAMPLED_MUTABLE_FORMAT(GL_RGBA8I),
+        ADD_GL_COLOR_UA_SAMPLED_MUTABLE_FORMAT(GL_RGBA8UI),
+        ADD_GL_COLOR_UA_SAMPLED_MUTABLE_FORMAT(GL_RGBA16I),
+        ADD_GL_COLOR_UA_SAMPLED_MUTABLE_FORMAT(GL_RGBA16UI),
+        ADD_GL_COLOR_UA_SAMPLED_MUTABLE_FORMAT(GL_RGBA32I),
         ADD_GL_COLOR_UA_SAMPLED_MUTABLE_FORMAT(GL_RGBA32UI),
 
         ADD_GL_COLOR_COPY_SAMPLED_FORMAT(GL_RGBA4),
@@ -1142,7 +1181,7 @@ namespace Conformance
     }
 
     void OpenGLGraphicsPlugin::ClearImageSlice(const XrSwapchainImageBaseHeader* colorSwapchainImage, uint32_t imageArrayIndex,
-                                               int64_t /*colorSwapchainFormat*/)
+                                               int64_t /*colorSwapchainFormat*/, XrColor4f bgColor)
     {
         auto swapchainContext = m_swapchainImageContextMap[colorSwapchainImage];
 
@@ -1171,16 +1210,24 @@ namespace Conformance
         XRC_CHECK_THROW_GLCMD(glEnable(GL_SCISSOR_TEST));
 
         // Clear swapchain and depth buffer.
-        XRC_CHECK_THROW_GLCMD(glClearColor(DarkSlateGray[0], DarkSlateGray[1], DarkSlateGray[2], DarkSlateGray[3]));
+        XRC_CHECK_THROW_GLCMD(glClearColor(bgColor.r, bgColor.g, bgColor.b, bgColor.a));
         XRC_CHECK_THROW_GLCMD(glClearDepth(1.0f));
         XRC_CHECK_THROW_GLCMD(glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT));
 
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
     }
 
+    MeshHandle OpenGLGraphicsPlugin::MakeSimpleMesh(span<const uint16_t> idx, span<const Geometry::Vertex> vtx)
+    {
+        auto handle = m_meshes.emplace_back(m_vertexAttribCoords, m_vertexAttribColor, idx.data(), (uint32_t)idx.size(), vtx.data(),
+                                            (uint32_t)vtx.size());
+
+        return handle;
+    }
+
     void OpenGLGraphicsPlugin::RenderView(const XrCompositionLayerProjectionView& layerView,
                                           const XrSwapchainImageBaseHeader* colorSwapchainImage, int64_t /*colorSwapchainFormat*/,
-                                          const std::vector<Cube>& cubes)
+                                          const RenderParams& params)
     {
         auto swapchainContext = m_swapchainImageContextMap[colorSwapchainImage];
 
@@ -1227,32 +1274,44 @@ namespace Conformance
         XrMatrix4x4f_InvertRigidBody(&view, &toView);
         XrMatrix4x4f vp;
         XrMatrix4x4f_Multiply(&vp, &proj, &view);
+        MeshHandle lastMeshHandle;
 
-        // Set cube primitive data.
-        XRC_CHECK_THROW_GLCMD(glBindVertexArray(m_vao));
+        const auto drawMesh = [this, &vp, &lastMeshHandle](const MeshDrawable mesh) {
+            OpenGLMesh& glMesh = m_meshes[mesh.handle];
+            if (mesh.handle != lastMeshHandle) {
+                // We are now rendering a new mesh
+                XRC_CHECK_THROW_GLCMD(glBindVertexArray(glMesh.m_vao));
+                XRC_CHECK_THROW_GLCMD(glBindBuffer(GL_ARRAY_BUFFER, glMesh.m_vertexBuffer));
+                XRC_CHECK_THROW_GLCMD(glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, glMesh.m_indexBuffer));
 
-        // Render each cube
-        for (const Cube& cube : cubes) {
+                lastMeshHandle = mesh.handle;
+            }
+
             // Compute the model-view-projection transform and set it..
             XrMatrix4x4f model;
-            XrMatrix4x4f_CreateTranslationRotationScale(&model, &cube.Pose.position, &cube.Pose.orientation, &cube.Scale);
+            XrMatrix4x4f_CreateTranslationRotationScale(&model, &mesh.params.pose.position, &mesh.params.pose.orientation,
+                                                        &mesh.params.scale);
             XrMatrix4x4f mvp;
             XrMatrix4x4f_Multiply(&mvp, &vp, &model);
             glUniformMatrix4fv(m_modelViewProjectionUniformLocation, 1, GL_FALSE, reinterpret_cast<const GLfloat*>(&mvp));
 
-            // Draw the cube.
-            glDrawElements(GL_TRIANGLES, GLsizei(Geometry::c_cubeIndices.size()), GL_UNSIGNED_SHORT, nullptr);
+            // Draw the mesh.
+            glDrawElements(GL_TRIANGLES, GLsizei(glMesh.m_numIndices), GL_UNSIGNED_SHORT, nullptr);
+        };
+
+        // Render each cube
+        for (const Cube& cube : params.cubes) {
+            drawMesh(MeshDrawable{m_cubeMesh, cube.params.pose, cube.params.scale});
+        }
+
+        // Render each mesh
+        for (const auto& mesh : params.meshes) {
+            drawMesh(mesh);
         }
 
         glBindVertexArray(0);
         glUseProgram(0);
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
-        // Swap our window every other eye for RenderDoc
-        static int everyOther = 0;
-        if ((everyOther++ & 1) != 0) {
-            ksGpuWindow_SwapBuffers(&window);
-        }
     }
 
     std::shared_ptr<IGraphicsPlugin> CreateGraphicsPlugin_OpenGL(std::shared_ptr<IPlatformPlugin> platformPlugin)

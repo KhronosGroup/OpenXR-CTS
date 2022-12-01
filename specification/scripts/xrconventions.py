@@ -17,10 +17,18 @@ from spec_tools.conventions import ConventionsBase
 # Note that while Vulkan is listed as a special case,
 # it doesn't actually break the rules, so it's not treated specially
 MAIN_RE = re.compile(
-    r'(?P<d3d>D3D[0-9]*)|(?P<egl>EGL)|(?P<gl>OpenGL(ES)?)|(?P<word>([A-Z][a-z]+[a-z0-9]*)|([A-Z][A-Z0-9]+))')
-
+    r'''(?P<d3d>D3D[0-9]*)|    # Take D3D as a group of its own
+        (?P<egl>EGL)|          # EGL as a word of its own
+        (?P<gl>OpenGL(ES)?)|   # OpenGL and OpenGLES as words
+        (?P<dimension>[0-9]D)| # Things like 2D are words
+        (?P<word>              # Normal-ish words, which are....
+            ([A-Z]([a-z]+([0-9](?!D))*)+)|  # Capital letter followed by at least one lowercase letter, possibly ending in some digits as long as the digits aren't followed by "D"
+            ([A-Z][A-Z0-9]+(?![a-z]))       # Or, all-caps letter and digit mix starting with a letter, excluding the last capital before some lowercase
+        )''', re.VERBOSE)
 
 class OpenXRConventions(ConventionsBase):
+    """The specifics of how OpenXR writes a spec."""
+
     @property
     def null(self):
         """Preferred spelling of NULL."""
@@ -28,7 +36,7 @@ class OpenXRConventions(ConventionsBase):
 
     @property
     def constFlagBits(self):
-        """Returns True if static const flag bits should be generated, False if an enumerated type should be generated."""
+        """Return True if static const flag bits should be generated, False if an enumerated type should be generated."""
         return True
 
     @property
@@ -82,6 +90,10 @@ class OpenXRConventions(ConventionsBase):
                 # OpenGLES ⇒ _OPENGL_ES
                 structure_type_parts.append(
                     elem.group().upper().replace('ES', '_ES'))
+            elif elem.group('dimension'):
+                # 2D ⇒ _2D
+                structure_type_parts.append(
+                    elem.group())
             else:
                 word = elem.group('word')
                 if word == 'Xr':
@@ -208,12 +220,12 @@ class OpenXRConventions(ConventionsBase):
     @property
     def specification_path(self):
         """Return relpath to the Asciidoctor specification sources in this project."""
-        return '../sources/chapters/extensions/meta'
+        return '{appendices}'
 
     @property
     def extra_refpage_headers(self):
         """Return any extra text to add to refpage headers."""
-        return 'include::../sources/attribs.adoc[]'
+        return 'include::{config}/attribs.adoc[]'
 
     @property
     def extension_index_prefixes(self):
@@ -225,7 +237,7 @@ class OpenXRConventions(ConventionsBase):
         """Return True if Flags/FlagBits refpages are unified, False if
            they're separate.
         """
-        return True
+        return False
 
     @property
     def spec_reflow_path(self):
@@ -257,25 +269,46 @@ class OpenXRConventions(ConventionsBase):
            group should be generated as part of group generation."""
         return True
 
-    def extension_include_string(self, ext):
-        """Return format string for include:: line for an extension appendix
-           file. ext is an object with the following members:
-            - name - extension string string
-            - vendor - vendor portion of name
-            - barename - remainder of name"""
+    def generate_max_enum_in_docs(self):
+        """Return True if MAX_ENUM tokens should be generated in
+           documentation includes."""
+        return False
 
-        return 'include::../{vendor}/{vendor}_{barename}{suffix}[]'.format(
-            vendor=ext.vendor.lower(),
-            barename=ext.bare_name.lower(),
-            suffix=self.file_suffix)
+    def extension_file_path(self, name):
+        """Return file path to an extension appendix relative to a directory
+           containing all such appendices.
+           - name - extension name"""
+
+        (vendor, bare_name) = self.extension_name_split(name)
+        vendor = vendor.lower()
+        bare_name = bare_name.lower()
+
+        return '{vendor}/{vendor}_{bare_name}{suffix}'.format(
+                vendor=vendor,
+                bare_name=bare_name,
+                suffix=self.file_suffix)
+
+    def extension_include_string(self, name):
+        """Return format string for include:: line for an extension appendix
+           file.
+            - name - extension name"""
+
+        return 'include::{{appendices}}/{}[]'.format(
+                self.extension_file_path(name))
 
     @property
-    def refpage_generated_include_path(self):
-        """Return path relative to the generated reference pages, to the
-           generated API include files.
+    def provisional_extension_warning(self):
+        """Return True if a warning should be included in extension
+           appendices for provisional extensions."""
+        return False
 
-        Must implement."""
-        raise NotImplementedError
+    @property
+    def include_extension_appendix_in_refpage(self):
+        """Return True if generating extension refpages by embedding
+           extension appendix content (default), False otherwise
+           (OpenXR)."""
+
+        return False
 
     @property
     def duplicate_aliased_structs(self):
@@ -283,4 +316,10 @@ class OpenXRConventions(ConventionsBase):
         Should aliased structs have the original struct definition listed in the
         generated docs snippet?
         """
+        return True
+
+    @property
+    def protectProtoComment(self):
+        """Return True if generated #endif should have a comment matching
+           the protection symbol used in the opening #ifdef/#ifndef."""
         return True

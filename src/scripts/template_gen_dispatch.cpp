@@ -6,10 +6,25 @@
 
 #include "gen_dispatch.h"
 
+#if defined(ANDROID)
+#include <android/log.h>
+#define LOG(...) __android_log_print(ANDROID_LOG_ERROR, "XrApiLayer_runtime_conformance", __VA_ARGS__)
+#else
+#include <cstdio>
+#define LOG(...) fprintf(stderr, __VA_ARGS__)
+#endif
+
+#include <exception>
+
 // Unhandled exception at ABI is a catastrophic error in the layer (a bug).
-#define ABI_CATCH \
-    catch (...) { \
-        abort(); /* Something went wrong in the layer. */ \
+#define ABI_CATCH                                                                                  \
+    catch (const std::exception& e) {                                                              \
+        LOG("Conformance Layer Bug: caught exception at ABI level with message = %s\n", e.what()); \
+        abort(); /* Something went wrong in the layer. */                                          \
+    }                                                                                              \
+    catch (...) {                                                                                  \
+        LOG("Conformance Layer Bug: caught exception at ABI level\n");                             \
+        abort(); /* Something went wrong in the layer. */                                          \
     }
 
 /*% macro checkExtCode(ext_code) %*/(handleState->enabledExtensions->/*{make_ext_variable_name(ext_code.extension)}*/ && result == /*{ ext_code.value }*/)/*% endmacro %*/
@@ -41,6 +56,12 @@
 //##
 /*{ cur_cmd.cdecl | collapse_whitespace | replace("XRAPI_ATTR XrResult XRAPI_CALL xr", "XrResult ConformanceHooksBase::xr") | replace(";", "")
 }*/ {
+    //## Ensure that the function is implemented by the runtime or its a validation error instead of a segfault caused by a nullptr dereference
+    if (this->dispatchTable./*{ cur_cmd.name | base_name }*/ == nullptr) {
+        this->ConformanceFailure(XR_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT, "/*{ cur_cmd.name | base_name }*/", "Function is not implemented in runtime");
+        return XR_ERROR_VALIDATION_FAILURE;
+    }
+
     const /*{cur_cmd.return_type.text}*/ result =  this->dispatchTable./*{ cur_cmd.name | base_name }*/(/*{ cur_cmd.params | map(attribute="name") | join(", ") }*/);
 
 //## TODO: Inspect out structs
@@ -53,7 +74,7 @@
 //## Extension return codes, if any
 //#             for ext_code in ext_return_codes
 //#                 if ext_code.command == cur_cmd.name
-                || /*{ checkExtCode(ext_code) }*/ 
+                || /*{ checkExtCode(ext_code) }*/
 //#                 endif
 //#             endfor
                 );
@@ -82,6 +103,52 @@
 //#             endif
     }
 //#         endif
+
+//## If this is a xrQuerySpacesFB, we have to create an entry in
+//## the appropriate unordered_map pointing to the correct dispatch table for
+//## the newly created objects.
+//#         set is_create_spatial_anchor = ("xrCreateSpatialAnchorFB" == cur_cmd.name)
+//#         set is_query_spaces = ("xrQuerySpacesFB" == cur_cmd.name)
+//#         if is_create_spatial_anchor or is_query_spaces
+    if (XR_SUCCEEDED(result)) {
+//#             set last_param_name = cur_cmd.params[-1].name
+        HandleState* const parentHandleState = GetHandleState(HandleStateKey{HandleToInt(/*{first_handle_name}*/), XR_OBJECT_TYPE_SESSION});
+        RegisterHandleState(parentHandleState->CloneForChild(* /*{last_param_name}*/, static_cast<XrObjectType>(XR_TYPE_EVENT_DATA_SPATIAL_ANCHOR_CREATE_COMPLETE_FB)));
+    }
+//#         endif
+
+//## If this is a xrPollEvent and the event type returns an object, we have to
+//## create an entry in the appropriate unordered_map pointing to the correct
+//## dispatch table for the newly created object.
+//#         set is_pollevent = ("xrPollEvent" == cur_cmd.name)
+//#         if is_pollevent
+    if (XR_SUCCEEDED(result)) {
+        if (eventData->type == XR_TYPE_EVENT_DATA_SPATIAL_ANCHOR_CREATE_COMPLETE_FB) {
+            XrEventDataSpatialAnchorCreateCompleteFB* completeEvent = reinterpret_cast<XrEventDataSpatialAnchorCreateCompleteFB*>(eventData);
+            HandleState* const requestStateObject = GetHandleState(HandleStateKey{(IntHandle)completeEvent->requestId, static_cast<XrObjectType>(XR_TYPE_EVENT_DATA_SPATIAL_ANCHOR_CREATE_COMPLETE_FB)});
+            HandleState* const parentHandleState = requestStateObject->parent; // session
+            RegisterHandleState(parentHandleState->CloneForChild(HandleToInt(completeEvent->space), XR_OBJECT_TYPE_SPACE));
+        }
+    }
+//#         endif
+
+//## If this is a xrRetrieveSpaceQueryResultsFB, we have to create an entry in
+//## the appropriate unordered_map pointing to the correct dispatch table for
+//## the newly created objects.
+//#         set is_space_query_results = ("xrRetrieveSpaceQueryResultsFB" == cur_cmd.name)
+//#         if is_space_query_results
+    if (XR_SUCCEEDED(result)) {
+//#             set last_param_name = cur_cmd.params[-1].name
+        if (/*{last_param_name}*/->results) {
+            for (uint32_t i = 0; i < /*{last_param_name}*/->resultCountOutput; ++i) {
+                HandleState* const parentHandleState = GetHandleState(HandleStateKey{HandleToInt(/*{first_handle_name}*/), XR_OBJECT_TYPE_SESSION});
+                RegisterHandleState(parentHandleState->CloneForChild(HandleToInt(/*{last_param_name}*/->results[i].space), XR_OBJECT_TYPE_SPACE));
+            }
+        }
+    }
+//#         endif
+
+
 
     return result;
 }

@@ -14,6 +14,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <memory>
 #include "graphics_plugin.h"
 
 #ifdef XR_USE_GRAPHICS_API_VULKAN
@@ -22,6 +23,8 @@
 #include <unordered_set>
 #include "report.h"
 #include "hex_and_handles.h"
+#include "graphics_plugin_impl_helpers.h"
+#include "throw_helpers.h"
 #include "swapchain_parameters.h"
 #include "conformance_framework.h"
 #include "xr_dependencies.h"
@@ -558,6 +561,22 @@ namespace Conformance
             m_memAllocator->Allocate(memReq, mem);
         }
 
+        /// Swap the internals with another object.
+        /// Used by VertexBuffer<T> to provide move construction/assignment.
+        void Swap(VertexBufferBase& other)
+        {
+            using std::swap;
+            swap(idxBuf, other.idxBuf);
+            swap(idxMem, other.idxMem);
+            swap(vtxBuf, other.vtxBuf);
+            swap(vtxMem, other.vtxMem);
+            swap(bindDesc, other.bindDesc);
+            swap(attrDesc, other.attrDesc);
+            swap(count, other.count);
+            swap(m_vkDevice, other.m_vkDevice);
+            swap(m_memAllocator, other.m_memAllocator);
+        }
+
     private:
         const MemoryAllocator* m_memAllocator{nullptr};
     };
@@ -566,6 +585,33 @@ namespace Conformance
     template <typename T>
     struct VertexBuffer : public VertexBufferBase
     {
+        static constexpr VkVertexInputBindingDescription c_bindingDesc = {0, sizeof(T), VK_VERTEX_INPUT_RATE_VERTEX};
+
+        /// Default constructible
+        VertexBuffer() = default;
+
+        /// Move-constructor
+        VertexBuffer(VertexBuffer<T>&& other) : VertexBuffer()
+        {
+            Swap(other);
+        }
+
+        /// Move-assignment
+        VertexBuffer& operator=(VertexBuffer<T>&& other)
+        {
+            if (this == &other) {
+                return *this;
+            }
+            Reset();
+            Swap(other);
+            return *this;
+        }
+
+        // no copy construct
+        VertexBuffer(const VertexBuffer<T>&) = delete;
+        // no copy assign
+        VertexBuffer& operator=(const VertexBuffer<T>&) = delete;
+
         bool Create(uint32_t idxCount, uint32_t vtxCount)
         {
             VkBufferCreateInfo bufInfo{VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO};
@@ -581,16 +627,14 @@ namespace Conformance
             AllocateBufferMemory(vtxBuf, &vtxMem);
             XRC_CHECK_THROW_VKCMD(vkBindBufferMemory(m_vkDevice, vtxBuf, vtxMem, 0));
 
-            bindDesc.binding = 0;
-            bindDesc.stride = sizeof(T);
-            bindDesc.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+            bindDesc = c_bindingDesc;
 
             count = {idxCount, vtxCount};
 
             return true;
         }
 
-        void UpdateIndicies(const uint16_t* data, uint32_t elements, uint32_t offset = 0)
+        void UpdateIndices(const uint16_t* data, uint32_t elements, uint32_t offset = 0)
         {
             uint16_t* map = nullptr;
             XRC_CHECK_THROW_VKCMD(vkMapMemory(m_vkDevice, idxMem, sizeof(map[0]) * offset, sizeof(map[0]) * elements, 0, (void**)&map));
@@ -610,6 +654,8 @@ namespace Conformance
             vkUnmapMemory(m_vkDevice, vtxMem);
         }
     };
+    template <typename T>
+    constexpr VkVertexInputBindingDescription VertexBuffer<T>::c_bindingDesc;
 
     // RenderPass wrapper
     struct RenderPass
@@ -735,7 +781,7 @@ namespace Conformance
             m_vkDevice = VK_NULL_HANDLE;
         }
 
-        RenderTarget(RenderTarget&& other) : RenderTarget()
+        RenderTarget(RenderTarget&& other) noexcept : RenderTarget()
         {
             using std::swap;
             swap(colorImage, other.colorImage);
@@ -745,7 +791,7 @@ namespace Conformance
             swap(fb, other.fb);
             swap(m_vkDevice, other.m_vkDevice);
         }
-        RenderTarget& operator=(RenderTarget&& other)
+        RenderTarget& operator=(RenderTarget&& other) noexcept
         {
             if (&other == this) {
                 return *this;
@@ -894,7 +940,7 @@ namespace Conformance
         }
 
         void Create(VkDevice device, VkExtent2D /*size*/, const PipelineLayout& layout, const RenderPass& rp, const ShaderProgram& sp,
-                    const VertexBufferBase& vb)
+                    const VkVertexInputBindingDescription& bindDesc, span<const VkVertexInputAttributeDescription> attrDesc)
         {
             m_vkDevice = device;
 
@@ -904,9 +950,9 @@ namespace Conformance
 
             VkPipelineVertexInputStateCreateInfo vi{VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO};
             vi.vertexBindingDescriptionCount = 1;
-            vi.pVertexBindingDescriptions = &vb.bindDesc;
-            vi.vertexAttributeDescriptionCount = (uint32_t)vb.attrDesc.size();
-            vi.pVertexAttributeDescriptions = vb.attrDesc.data();
+            vi.pVertexBindingDescriptions = &bindDesc;
+            vi.vertexAttributeDescriptionCount = (uint32_t)attrDesc.size();
+            vi.pVertexAttributeDescriptions = attrDesc.data();
 
             VkPipelineInputAssemblyStateCreateInfo ia{VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO};
             ia.primitiveRestartEnable = VK_FALSE;
@@ -1028,7 +1074,7 @@ namespace Conformance
             m_vkDevice = nullptr;
         }
 
-        DepthBuffer(DepthBuffer&& other) : DepthBuffer()
+        DepthBuffer(DepthBuffer&& other) noexcept : DepthBuffer()
         {
             using std::swap;
 
@@ -1036,7 +1082,7 @@ namespace Conformance
             swap(depthMemory, other.depthMemory);
             swap(m_vkDevice, other.m_vkDevice);
         }
-        DepthBuffer& operator=(DepthBuffer&& other)
+        DepthBuffer& operator=(DepthBuffer&& other) noexcept
         {
             if (&other == this) {
                 return *this;
@@ -1113,9 +1159,7 @@ namespace Conformance
         class ArraySliceState
         {
         public:
-            ArraySliceState()
-            {
-            }
+            ArraySliceState() = default;
             ArraySliceState(const ArraySliceState&)
             {
                 ReportF("ArraySliceState copy ctor called");
@@ -1128,14 +1172,15 @@ namespace Conformance
         std::vector<ArraySliceState> slice{};
 
         SwapchainImageContext() = default;
-        ~SwapchainImageContext()
+        ~SwapchainImageContext() override
         {
             Reset();
         }
 
         std::vector<XrSwapchainImageBaseHeader*> Create(VkDevice device, MemoryAllocator* memAllocator, uint32_t capacity,
                                                         const XrSwapchainCreateInfo& swapchainCreateInfo, const PipelineLayout& layout,
-                                                        const ShaderProgram& sp, const VertexBuffer<Geometry::Vertex>& vb)
+                                                        const ShaderProgram& sp, const VkVertexInputBindingDescription& bindDesc,
+                                                        span<const VkVertexInputAttributeDescription> attrDesc)
         {
             m_vkDevice = device;
 
@@ -1159,7 +1204,7 @@ namespace Conformance
                 s.rp.Create(m_vkDevice, colorFormat, depthFormat);
                 s.pipe.Dynamic(VK_DYNAMIC_STATE_SCISSOR);
                 s.pipe.Dynamic(VK_DYNAMIC_STATE_VIEWPORT);
-                s.pipe.Create(m_vkDevice, size, layout, s.rp, sp, vb);
+                s.pipe.Create(m_vkDevice, size, layout, s.rp, sp, bindDesc, attrDesc);
             }
 
             return bases;
@@ -1447,11 +1492,42 @@ namespace Conformance
     }
 #endif  // defined(USE_MIRROR_WINDOW)
 
+    struct VulkanMesh
+    {
+        static constexpr VkVertexInputAttributeDescription c_attrDesc[2] = {
+            {0, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Geometry::Vertex, Position)},
+            {1, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Geometry::Vertex, Color)}};
+        static constexpr VkVertexInputBindingDescription c_bindingDesc = VertexBuffer<Geometry::Vertex>::c_bindingDesc;
+
+        VertexBuffer<Geometry::Vertex> m_DrawBuffer;
+
+        VulkanMesh(VkDevice device, const MemoryAllocator* memAllocator,  //
+                   const uint16_t* idx_data, uint32_t idx_count,          //
+                   const Geometry::Vertex* vtx_data, uint32_t vtx_count)
+        {
+            std::vector<VkVertexInputAttributeDescription> attrDesc(std::begin(c_attrDesc), std::end(c_attrDesc));
+            m_DrawBuffer.Init(device, memAllocator, attrDesc);
+            m_DrawBuffer.Create(idx_count, vtx_count);
+            m_DrawBuffer.UpdateIndices(idx_data, idx_count, 0);
+            m_DrawBuffer.UpdateVertices(vtx_data, vtx_count, 0);
+        }
+
+        VulkanMesh(VulkanMesh&& other) noexcept
+        {
+            using std::swap;
+            swap(m_DrawBuffer, other.m_DrawBuffer);
+        }
+
+        VulkanMesh(const VulkanMesh&) = delete;
+    };
+    constexpr VkVertexInputAttributeDescription VulkanMesh::c_attrDesc[];
+    constexpr VkVertexInputBindingDescription VulkanMesh::c_bindingDesc;
+
     struct VulkanGraphicsPlugin : public IGraphicsPlugin
     {
         VulkanGraphicsPlugin(const std::shared_ptr<IPlatformPlugin>& /*unused*/);
 
-        ~VulkanGraphicsPlugin();
+        ~VulkanGraphicsPlugin() override;
 
         std::vector<std::string> GetInstanceExtensions() const override
         {
@@ -1538,11 +1614,13 @@ namespace Conformance
 
         void SetViewportAndScissor(const VkRect2D& rect);
 
-        void ClearImageSlice(const XrSwapchainImageBaseHeader* colorSwapchainImage, uint32_t imageArrayIndex,
-                             int64_t colorSwapchainFormat) override;
+        void ClearImageSlice(const XrSwapchainImageBaseHeader* colorSwapchainImage, uint32_t imageArrayIndex, int64_t colorSwapchainFormat,
+                             XrColor4f bgColor = DarkSlateGrey) override;
+
+        MeshHandle MakeSimpleMesh(span<const uint16_t> idx, span<const Geometry::Vertex> vtx) override;
 
         void RenderView(const XrCompositionLayerProjectionView& layerView, const XrSwapchainImageBaseHeader* colorSwapchainImage,
-                        int64_t colorSwapchainFormat, const std::vector<Cube>& cubes) override;
+                        int64_t colorSwapchainFormat, const RenderParams& params) override;
 
 #if defined(USE_CHECKPOINTS)
         void Checkpoint(std::string msg)
@@ -1571,7 +1649,7 @@ namespace Conformance
 #endif  // defined(USE_CHECKPOINTS)
 
     protected:
-        bool initialized;
+        bool initialized{false};
         VkInstance m_vkInstance{VK_NULL_HANDLE};
         VkPhysicalDevice m_vkPhysicalDevice{VK_NULL_HANDLE};
 
@@ -1591,7 +1669,8 @@ namespace Conformance
         ShaderProgram m_shaderProgram{};
         CmdBuffer m_cmdBuffer{};
         PipelineLayout m_pipelineLayout{};
-        VertexBuffer<Geometry::Vertex> m_drawBuffer{};
+        MeshHandle m_cubeMesh{};
+        VectorWithGenerationCountedHandles<VulkanMesh, MeshHandle> m_meshes;
 
 #if defined(USE_MIRROR_WINDOW)
         Swapchain m_swapchain{};
@@ -1733,7 +1812,7 @@ namespace Conformance
                                        VkResult* vulkanResult) override;
     };
 
-    VulkanGraphicsPlugin::VulkanGraphicsPlugin(const std::shared_ptr<IPlatformPlugin>& /*unused*/) : initialized(false)
+    VulkanGraphicsPlugin::VulkanGraphicsPlugin(const std::shared_ptr<IPlatformPlugin>& /*unused*/)
     {
         m_graphicsBinding.type = GetGraphicsBindingType();
     }
@@ -1951,6 +2030,11 @@ namespace Conformance
                     break;
                 case VK_PHYSICAL_DEVICE_TYPE_CPU:
                     deviceType = "<cpu>";
+                    break;
+                // VK_PHYSICAL_DEVICE_TYPE_RANGE_SIZE was removed from vulkan headers
+                // case VK_PHYSICAL_DEVICE_TYPE_RANGE_SIZE:
+                case VK_PHYSICAL_DEVICE_TYPE_MAX_ENUM:
+                default:
                     break;
                 }
 
@@ -2174,14 +2258,8 @@ namespace Conformance
         m_pipelineLayout.Create(m_vkDevice);
 
         static_assert(sizeof(Geometry::Vertex) == 24, "Unexpected Vertex size");
-        m_drawBuffer.Init(m_vkDevice, &m_memAllocator,
-                          {{0, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Geometry::Vertex, Position)},
-                           {1, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Geometry::Vertex, Color)}});
-        uint32_t numCubeIdicies = sizeof(Geometry::c_cubeIndices) / sizeof(Geometry::c_cubeIndices[0]);
-        uint32_t numCubeVerticies = sizeof(Geometry::c_cubeVertices) / sizeof(Geometry::c_cubeVertices[0]);
-        m_drawBuffer.Create(numCubeIdicies, numCubeVerticies);
-        m_drawBuffer.UpdateIndicies(Geometry::c_cubeIndices.data(), numCubeIdicies, 0);
-        m_drawBuffer.UpdateVertices(Geometry::c_cubeVertices.data(), numCubeVerticies, 0);
+
+        m_cubeMesh = MakeCubeMesh();
 
 #if defined(USE_MIRROR_WINDOW)
         m_swapchain.Create(m_vkInstance, m_vkPhysicalDevice, m_vkDevice, m_graphicsBinding.queueFamilyIndex);
@@ -2207,6 +2285,8 @@ namespace Conformance
                 ctx.second->Reset();
             }
             m_swapchainImageContextMap.clear();
+            m_cubeMesh = {};
+            m_meshes.clear();
 
             m_queueFamilyIndex = 0;
             m_vkQueue = VK_NULL_HANDLE;
@@ -2215,7 +2295,6 @@ namespace Conformance
                 m_vkDrawDone = VK_NULL_HANDLE;
             }
 
-            m_drawBuffer.Reset();
             m_cmdBuffer.Reset();
             m_pipelineLayout.Reset();
             m_shaderProgram.Reset();
@@ -2266,162 +2345,208 @@ namespace Conformance
         0, XR_SWAPCHAIN_CREATE_PROTECTED_CONTENT_BIT, XR_SWAPCHAIN_CREATE_STATIC_IMAGE_BIT \
     }
 
+#define ADD_VK_COLOR_FORMAT2(X, Y)                                                                                         \
+    {                                                                                                                      \
+        {X},                                                                                                               \
+        {                                                                                                                  \
+            Y, IMMUTABLE, MUT_SUPPORT, COLOR, UNCOMPRESSED, X, {XRC_COLOR_TEXTURE_USAGE, XRC_COLOR_TEXTURE_USAGE_MUTABLE}, \
+                XRC_COLOR_CREATE_FLAGS, {}, {},                                                                            \
+            {                                                                                                              \
+            }                                                                                                              \
+        }                                                                                                                  \
+    }
+#define ADD_VK_COLOR_FORMAT(X) ADD_VK_COLOR_FORMAT2(X, #X)
+
+#define ADD_VK_COLOR_IMMUTABLE_FORMAT2(X, Y)                                                                                 \
+    {                                                                                                                        \
+        {X},                                                                                                                 \
+        {                                                                                                                    \
+            Y, IMMUTABLE, NO_MUT_SUPPORT, COLOR, UNCOMPRESSED, X, {XRC_COLOR_TEXTURE_USAGE}, XRC_COLOR_CREATE_FLAGS, {}, {}, \
+            {                                                                                                                \
+            }                                                                                                                \
+        }                                                                                                                    \
+    }
+#define ADD_VK_COLOR_IMMUTABLE_FORMAT(X) ADD_VK_COLOR_IMMUTABLE_FORMAT2(X, #X)
+
+#define ADD_VK_COLOR_COMPRESSED_FORMAT2(X, Y)                                                                                      \
+    {                                                                                                                              \
+        {X},                                                                                                                       \
+        {                                                                                                                          \
+            Y, IMMUTABLE, MUT_SUPPORT, COLOR, COMPRESSED, X, {XRC_COLOR_TEXTURE_USAGE_COMPRESSED}, XRC_COLOR_CREATE_FLAGS, {}, {}, \
+            {                                                                                                                      \
+            }                                                                                                                      \
+        }                                                                                                                          \
+    }
+#define ADD_VK_COLOR_COMPRESSED_FORMAT(X) ADD_VK_COLOR_COMPRESSED_FORMAT2(X, #X)
+
+#define ADD_VK_DEPTH_FORMAT2(X, Y)                                                                                            \
+    {                                                                                                                         \
+        {X},                                                                                                                  \
+        {                                                                                                                     \
+            Y, IMMUTABLE, MUT_SUPPORT, NON_COLOR, UNCOMPRESSED, X, {XRC_DEPTH_TEXTURE_USAGE}, XRC_DEPTH_CREATE_FLAGS, {}, {}, \
+            {                                                                                                                 \
+            }                                                                                                                 \
+        }                                                                                                                     \
+    }
+#define ADD_VK_DEPTH_FORMAT(X) ADD_VK_DEPTH_FORMAT2(X, #X)
+
     // clang-format off
     // Add SwapchainCreateTestParameters for other Vulkan formats if they are supported by a runtime
     typedef std::map<int64_t, SwapchainCreateTestParameters> SwapchainTestMap;
     SwapchainTestMap vkSwapchainTestMap{
-        {{VK_FORMAT_R8G8B8A8_UNORM}, {"VK_FORMAT_R8G8B8A8_UNORM", false, true, true, false, VK_FORMAT_R8G8B8A8_UNORM, {XRC_COLOR_TEXTURE_USAGE, XRC_COLOR_TEXTURE_USAGE_MUTABLE}, XRC_COLOR_CREATE_FLAGS, {}, {}, {}}},
-        {{VK_FORMAT_R8G8B8A8_SRGB}, {"VK_FORMAT_R8G8B8A8_SRGB", false, true, true, false, VK_FORMAT_R8G8B8A8_SRGB, {XRC_COLOR_TEXTURE_USAGE, XRC_COLOR_TEXTURE_USAGE_MUTABLE}, XRC_COLOR_CREATE_FLAGS, {}, {}, {}}},
-        {{VK_FORMAT_B8G8R8A8_UNORM}, {"VK_FORMAT_B8G8R8A8_UNORM", false, true, true, false, VK_FORMAT_B8G8R8A8_UNORM, {XRC_COLOR_TEXTURE_USAGE, XRC_COLOR_TEXTURE_USAGE_MUTABLE}, XRC_COLOR_CREATE_FLAGS, {}, {}, {}}},
-        {{VK_FORMAT_B8G8R8A8_SRGB}, {"VK_FORMAT_B8G8R8A8_SRGB", false, true, true, false, VK_FORMAT_B8G8R8A8_SRGB, {XRC_COLOR_TEXTURE_USAGE, XRC_COLOR_TEXTURE_USAGE_MUTABLE}, XRC_COLOR_CREATE_FLAGS, {}, {}, {}}},
+        ADD_VK_COLOR_FORMAT(VK_FORMAT_R8G8B8A8_UNORM),
+        ADD_VK_COLOR_FORMAT(VK_FORMAT_R8G8B8A8_SRGB),
+        ADD_VK_COLOR_FORMAT(VK_FORMAT_B8G8R8A8_UNORM),
+        ADD_VK_COLOR_FORMAT(VK_FORMAT_B8G8R8A8_SRGB),
 
-        {{VK_FORMAT_R8G8B8_UNORM}, {"VK_FORMAT_R8G8B8_UNORM", false, true, true, false, VK_FORMAT_R8G8B8_UNORM, {XRC_COLOR_TEXTURE_USAGE, XRC_COLOR_TEXTURE_USAGE_MUTABLE}, XRC_COLOR_CREATE_FLAGS, {}, {}, {}}},
-        {{VK_FORMAT_R8G8B8_SRGB}, {"VK_FORMAT_R8G8B8_SRGB", false, true, true, false, VK_FORMAT_R8G8B8_SRGB, {XRC_COLOR_TEXTURE_USAGE, XRC_COLOR_TEXTURE_USAGE_MUTABLE}, XRC_COLOR_CREATE_FLAGS, {}, {}, {}}},
-        {{VK_FORMAT_B8G8R8_UNORM}, {"VK_FORMAT_B8G8R8_UNORM", false, true, true, false, VK_FORMAT_B8G8R8_UNORM, {XRC_COLOR_TEXTURE_USAGE, XRC_COLOR_TEXTURE_USAGE_MUTABLE}, XRC_COLOR_CREATE_FLAGS, {}, {}, {}}},
-        {{VK_FORMAT_B8G8R8_SRGB}, {"VK_FORMAT_B8G8R8_SRGB", false, true, true, false, VK_FORMAT_B8G8R8_SRGB, {XRC_COLOR_TEXTURE_USAGE, XRC_COLOR_TEXTURE_USAGE_MUTABLE}, XRC_COLOR_CREATE_FLAGS, {}, {}, {}}},
+        ADD_VK_COLOR_FORMAT(VK_FORMAT_R8G8B8_UNORM),
+        ADD_VK_COLOR_FORMAT(VK_FORMAT_R8G8B8_SRGB),
+        ADD_VK_COLOR_FORMAT(VK_FORMAT_B8G8R8_UNORM),
+        ADD_VK_COLOR_FORMAT(VK_FORMAT_B8G8R8_SRGB),
 
-        {{VK_FORMAT_R8G8_UNORM}, {"VK_FORMAT_R8G8_UNORM", false, true, true, false, VK_FORMAT_R8G8_UNORM, {XRC_COLOR_TEXTURE_USAGE, XRC_COLOR_TEXTURE_USAGE_MUTABLE}, XRC_COLOR_CREATE_FLAGS, {}, {}, {}}},
+        ADD_VK_COLOR_FORMAT(VK_FORMAT_R8G8_UNORM),
 
-        {{VK_FORMAT_R8_UNORM}, {"VK_FORMAT_R8_UNORM", false, true, true, false, VK_FORMAT_R8_UNORM, {XRC_COLOR_TEXTURE_USAGE, XRC_COLOR_TEXTURE_USAGE_MUTABLE}, XRC_COLOR_CREATE_FLAGS, {}, {}, {}}},
+        ADD_VK_COLOR_FORMAT(VK_FORMAT_R8_UNORM),
 
-        {{VK_FORMAT_R8_SNORM}, {"VK_FORMAT_R8_SNORM", false, true, true, false, VK_FORMAT_R8_SNORM, {XRC_COLOR_TEXTURE_USAGE, XRC_COLOR_TEXTURE_USAGE_MUTABLE}, XRC_COLOR_CREATE_FLAGS, {}, {}, {}}},
-        {{VK_FORMAT_R8G8_SNORM}, {"VK_FORMAT_R8G8_SNORM", false, true, true, false, VK_FORMAT_R8G8_SNORM, {XRC_COLOR_TEXTURE_USAGE, XRC_COLOR_TEXTURE_USAGE_MUTABLE}, XRC_COLOR_CREATE_FLAGS, {}, {}, {}}},
-        {{VK_FORMAT_R8G8B8_SNORM}, {"VK_FORMAT_R8G8B8_SNORM", false, true, true, false, VK_FORMAT_R8G8B8_SNORM, {XRC_COLOR_TEXTURE_USAGE, XRC_COLOR_TEXTURE_USAGE_MUTABLE}, XRC_COLOR_CREATE_FLAGS, {}, {}, {}}},
-        {{VK_FORMAT_R8G8B8A8_SNORM}, {"VK_FORMAT_R8G8B8A8_SNORM", false, true, true, false, VK_FORMAT_R8G8B8A8_SNORM, {XRC_COLOR_TEXTURE_USAGE, XRC_COLOR_TEXTURE_USAGE_MUTABLE}, XRC_COLOR_CREATE_FLAGS, {}, {}, {}}},
+        ADD_VK_COLOR_FORMAT(VK_FORMAT_R8_SNORM),
+        ADD_VK_COLOR_FORMAT(VK_FORMAT_R8G8_SNORM),
+        ADD_VK_COLOR_FORMAT(VK_FORMAT_R8G8B8_SNORM),
+        ADD_VK_COLOR_FORMAT(VK_FORMAT_R8G8B8A8_SNORM),
 
-        {{VK_FORMAT_R8_UINT}, {"VK_FORMAT_R8_UINT", false, true, true, false, VK_FORMAT_R8_UINT, {XRC_COLOR_TEXTURE_USAGE, XRC_COLOR_TEXTURE_USAGE_MUTABLE}, XRC_COLOR_CREATE_FLAGS, {}, {}, {}}},
-        {{VK_FORMAT_R8G8_UINT}, {"VK_FORMAT_R8G8_UINT", false, true, true, false, VK_FORMAT_R8G8_UINT, {XRC_COLOR_TEXTURE_USAGE, XRC_COLOR_TEXTURE_USAGE_MUTABLE}, XRC_COLOR_CREATE_FLAGS, {}, {}, {}}},
-        {{VK_FORMAT_R8G8B8_UINT}, {"VK_FORMAT_R8G8B8_UINT", false, true, true, false, VK_FORMAT_R8G8B8_UINT, {XRC_COLOR_TEXTURE_USAGE, XRC_COLOR_TEXTURE_USAGE_MUTABLE}, XRC_COLOR_CREATE_FLAGS, {}, {}, {}}},
-        {{VK_FORMAT_R8G8B8A8_UINT}, {"VK_FORMAT_R8G8B8A8_UINT", false, true, true, false, VK_FORMAT_R8G8B8A8_UINT, {XRC_COLOR_TEXTURE_USAGE, XRC_COLOR_TEXTURE_USAGE_MUTABLE}, XRC_COLOR_CREATE_FLAGS, {}, {}, {}}},
-        {{VK_FORMAT_R8_SINT}, {"VK_FORMAT_R8_SINT", false, true, true, false, VK_FORMAT_R8_SINT, {XRC_COLOR_TEXTURE_USAGE, XRC_COLOR_TEXTURE_USAGE_MUTABLE}, XRC_COLOR_CREATE_FLAGS, {}, {}, {}}},
-        {{VK_FORMAT_R8G8_SINT}, {"VK_FORMAT_R8G8_SINT", false, true, true, false, VK_FORMAT_R8G8_SINT, {XRC_COLOR_TEXTURE_USAGE, XRC_COLOR_TEXTURE_USAGE_MUTABLE}, XRC_COLOR_CREATE_FLAGS, {}, {}, {}}},
-        {{VK_FORMAT_R8G8B8_SINT}, {"VK_FORMAT_R8G8B8_SINT", false, true, true, false, VK_FORMAT_R8G8B8_SINT, {XRC_COLOR_TEXTURE_USAGE, XRC_COLOR_TEXTURE_USAGE_MUTABLE}, XRC_COLOR_CREATE_FLAGS, {}, {}, {}}},
-        {{VK_FORMAT_R8_UNORM}, {"VK_FORMAT_R8_UNORM", false, true, true, false, VK_FORMAT_R8_UNORM, {XRC_COLOR_TEXTURE_USAGE, XRC_COLOR_TEXTURE_USAGE_MUTABLE}, XRC_COLOR_CREATE_FLAGS, {}, {}, {}}},
-        {{VK_FORMAT_R8G8B8A8_SINT}, {"VK_FORMAT_R8G8B8A8_SINT", false, true, true, false, VK_FORMAT_R8G8B8A8_SINT, {XRC_COLOR_TEXTURE_USAGE, XRC_COLOR_TEXTURE_USAGE_MUTABLE}, XRC_COLOR_CREATE_FLAGS, {}, {}, {}}},
-        {{VK_FORMAT_R8_SRGB}, {"VK_FORMAT_R8_SRGB", false, true, true, false, VK_FORMAT_R8_SRGB, {XRC_COLOR_TEXTURE_USAGE, XRC_COLOR_TEXTURE_USAGE_MUTABLE}, XRC_COLOR_CREATE_FLAGS, {}, {}, {}}},
+        ADD_VK_COLOR_FORMAT(VK_FORMAT_R8_UINT),
+        ADD_VK_COLOR_FORMAT(VK_FORMAT_R8G8_UINT),
+        ADD_VK_COLOR_FORMAT(VK_FORMAT_R8G8B8_UINT),
+        ADD_VK_COLOR_FORMAT(VK_FORMAT_R8G8B8A8_UINT),
+        ADD_VK_COLOR_FORMAT(VK_FORMAT_R8_SINT),
+        ADD_VK_COLOR_FORMAT(VK_FORMAT_R8G8_SINT),
+        ADD_VK_COLOR_FORMAT(VK_FORMAT_R8G8B8_SINT),
+        ADD_VK_COLOR_FORMAT(VK_FORMAT_R8_UNORM),
+        ADD_VK_COLOR_FORMAT(VK_FORMAT_R8G8B8A8_SINT),
+        ADD_VK_COLOR_FORMAT(VK_FORMAT_R8_SRGB),
 
-        {{VK_FORMAT_R16_UNORM}, {"VK_FORMAT_R16_UNORM", false, true, true, false, VK_FORMAT_R16_UNORM, {XRC_COLOR_TEXTURE_USAGE, XRC_COLOR_TEXTURE_USAGE_MUTABLE}, XRC_COLOR_CREATE_FLAGS, {}, {}, {}}},
-        {{VK_FORMAT_R16G16_UNORM}, {"VK_FORMAT_R16G16_UNORM", false, true, true, false, VK_FORMAT_R16G16_UNORM, {XRC_COLOR_TEXTURE_USAGE, XRC_COLOR_TEXTURE_USAGE_MUTABLE}, XRC_COLOR_CREATE_FLAGS, {}, {}, {}}},
-        {{VK_FORMAT_R16G16B16_UNORM}, {"VK_FORMAT_R16G16B16_UNORM", false, true, true, false, VK_FORMAT_R16G16B16_UNORM, {XRC_COLOR_TEXTURE_USAGE, XRC_COLOR_TEXTURE_USAGE_MUTABLE}, XRC_COLOR_CREATE_FLAGS, {}, {}, {}}},
-        {{VK_FORMAT_R16G16B16A16_UNORM}, {"VK_FORMAT_R16G16B16A16_UNORM", false, true, true, false, VK_FORMAT_R16G16B16A16_UNORM, {XRC_COLOR_TEXTURE_USAGE, XRC_COLOR_TEXTURE_USAGE_MUTABLE}, XRC_COLOR_CREATE_FLAGS, {}, {}, {}}},
+        ADD_VK_COLOR_FORMAT(VK_FORMAT_R16_UNORM),
+        ADD_VK_COLOR_FORMAT(VK_FORMAT_R16G16_UNORM),
+        ADD_VK_COLOR_FORMAT(VK_FORMAT_R16G16B16_UNORM),
+        ADD_VK_COLOR_FORMAT(VK_FORMAT_R16G16B16A16_UNORM),
 
-        {{VK_FORMAT_R16_SNORM}, {"VK_FORMAT_R16_SNORM", false, true, true, false, VK_FORMAT_R16_SNORM, {XRC_COLOR_TEXTURE_USAGE, XRC_COLOR_TEXTURE_USAGE_MUTABLE}, XRC_COLOR_CREATE_FLAGS, {}, {}, {}}},
-        {{VK_FORMAT_R16G16_SNORM}, {"VK_FORMAT_R16G16_SNORM", false, true, true, false, VK_FORMAT_R16G16_SNORM, {XRC_COLOR_TEXTURE_USAGE, XRC_COLOR_TEXTURE_USAGE_MUTABLE}, XRC_COLOR_CREATE_FLAGS, {}, {}, {}}},
-        {{VK_FORMAT_R16G16B16_SNORM}, {"VK_FORMAT_R16G16B16_SNORM", false, true, true, false, VK_FORMAT_R16G16B16_SNORM, {XRC_COLOR_TEXTURE_USAGE, XRC_COLOR_TEXTURE_USAGE_MUTABLE}, XRC_COLOR_CREATE_FLAGS, {}, {}, {}}},
-        {{VK_FORMAT_R16G16B16A16_SNORM}, {"VK_FORMAT_R16G16B16A16_SNORM", false, true, true, false, VK_FORMAT_R16G16B16A16_SNORM, {XRC_COLOR_TEXTURE_USAGE, XRC_COLOR_TEXTURE_USAGE_MUTABLE}, XRC_COLOR_CREATE_FLAGS, {}, {}, {}}},
+        ADD_VK_COLOR_FORMAT(VK_FORMAT_R16_SNORM),
+        ADD_VK_COLOR_FORMAT(VK_FORMAT_R16G16_SNORM),
+        ADD_VK_COLOR_FORMAT(VK_FORMAT_R16G16B16_SNORM),
+        ADD_VK_COLOR_FORMAT(VK_FORMAT_R16G16B16A16_SNORM),
 
-        {{VK_FORMAT_R16_UINT}, {"VK_FORMAT_R16_UINT", false, true, true, false, VK_FORMAT_R16_UINT, {XRC_COLOR_TEXTURE_USAGE, XRC_COLOR_TEXTURE_USAGE_MUTABLE}, XRC_COLOR_CREATE_FLAGS, {}, {}, {}}},
-        {{VK_FORMAT_R16G16_UINT}, {"VK_FORMAT_R16G16_UINT", false, true, true, false, VK_FORMAT_R16G16_UINT, {XRC_COLOR_TEXTURE_USAGE, XRC_COLOR_TEXTURE_USAGE_MUTABLE}, XRC_COLOR_CREATE_FLAGS, {}, {}, {}}},
-        {{VK_FORMAT_R16G16B16_UINT}, {"VK_FORMAT_R16G16B16_UINT", false, true, true, false, VK_FORMAT_R16G16B16_UINT, {XRC_COLOR_TEXTURE_USAGE, XRC_COLOR_TEXTURE_USAGE_MUTABLE}, XRC_COLOR_CREATE_FLAGS, {}, {}, {}}},
-        {{VK_FORMAT_R16G16B16A16_UINT}, {"VK_FORMAT_R16G16B16A16_UINT", false, true, true, false, VK_FORMAT_R16G16B16A16_UINT, {XRC_COLOR_TEXTURE_USAGE, XRC_COLOR_TEXTURE_USAGE_MUTABLE}, XRC_COLOR_CREATE_FLAGS, {}, {}, {}}},
+        ADD_VK_COLOR_FORMAT(VK_FORMAT_R16_UINT),
+        ADD_VK_COLOR_FORMAT(VK_FORMAT_R16G16_UINT),
+        ADD_VK_COLOR_FORMAT(VK_FORMAT_R16G16B16_UINT),
+        ADD_VK_COLOR_FORMAT(VK_FORMAT_R16G16B16A16_UINT),
 
-        {{VK_FORMAT_R16_SINT}, {"VK_FORMAT_R16_SINT", false, true, true, false, VK_FORMAT_R16_SINT, {XRC_COLOR_TEXTURE_USAGE, XRC_COLOR_TEXTURE_USAGE_MUTABLE}, XRC_COLOR_CREATE_FLAGS, {}, {}, {}}},
-        {{VK_FORMAT_R16G16_SINT}, {"VK_FORMAT_R16G16_SINT", false, true, true, false, VK_FORMAT_R16G16_SINT, {XRC_COLOR_TEXTURE_USAGE, XRC_COLOR_TEXTURE_USAGE_MUTABLE}, XRC_COLOR_CREATE_FLAGS, {}, {}, {}}},
-        {{VK_FORMAT_R16G16B16_SINT}, {"VK_FORMAT_R16G16B16_SINT", false, true, true, false, VK_FORMAT_R16G16B16_SINT, {XRC_COLOR_TEXTURE_USAGE, XRC_COLOR_TEXTURE_USAGE_MUTABLE}, XRC_COLOR_CREATE_FLAGS, {}, {}, {}}},
-        {{VK_FORMAT_R16G16B16A16_SINT}, {"VK_FORMAT_R16G16B16A16_SINT", false, true, true, false, VK_FORMAT_R16G16B16A16_SINT, {XRC_COLOR_TEXTURE_USAGE, XRC_COLOR_TEXTURE_USAGE_MUTABLE}, XRC_COLOR_CREATE_FLAGS, {}, {}, {}}},
+        ADD_VK_COLOR_FORMAT(VK_FORMAT_R16_SINT),
+        ADD_VK_COLOR_FORMAT(VK_FORMAT_R16G16_SINT),
+        ADD_VK_COLOR_FORMAT(VK_FORMAT_R16G16B16_SINT),
+        ADD_VK_COLOR_FORMAT(VK_FORMAT_R16G16B16A16_SINT),
 
-        {{VK_FORMAT_R16_SFLOAT}, {"VK_FORMAT_R16_SFLOAT", false, true, true, false, VK_FORMAT_R16_SFLOAT, {XRC_COLOR_TEXTURE_USAGE, XRC_COLOR_TEXTURE_USAGE_MUTABLE}, XRC_COLOR_CREATE_FLAGS, {}, {}, {}}},
-        {{VK_FORMAT_R16G16_SFLOAT}, {"VK_FORMAT_R16G16_SFLOAT", false, true, true, false, VK_FORMAT_R16G16_SFLOAT, {XRC_COLOR_TEXTURE_USAGE, XRC_COLOR_TEXTURE_USAGE_MUTABLE}, XRC_COLOR_CREATE_FLAGS, {}, {}, {}}},
-        {{VK_FORMAT_R16G16B16_SFLOAT}, {"VK_FORMAT_R16G16B16_SFLOAT", false, true, true, false, VK_FORMAT_R16G16B16_SFLOAT, {XRC_COLOR_TEXTURE_USAGE, XRC_COLOR_TEXTURE_USAGE_MUTABLE}, XRC_COLOR_CREATE_FLAGS, {}, {}, {}}},
-        {{VK_FORMAT_R16G16B16A16_SFLOAT}, {"VK_FORMAT_R16G16B16A16_SFLOAT", false, true, true, false, VK_FORMAT_R16G16B16A16_SFLOAT, {XRC_COLOR_TEXTURE_USAGE, XRC_COLOR_TEXTURE_USAGE_MUTABLE}, XRC_COLOR_CREATE_FLAGS, {}, {}, {}}},
+        ADD_VK_COLOR_FORMAT(VK_FORMAT_R16_SFLOAT),
+        ADD_VK_COLOR_FORMAT(VK_FORMAT_R16G16_SFLOAT),
+        ADD_VK_COLOR_FORMAT(VK_FORMAT_R16G16B16_SFLOAT),
+        ADD_VK_COLOR_FORMAT(VK_FORMAT_R16G16B16A16_SFLOAT),
 
-        {{VK_FORMAT_R32_SINT}, {"VK_FORMAT_R32_SINT", false, true, true, false, VK_FORMAT_R32_SINT, {XRC_COLOR_TEXTURE_USAGE, XRC_COLOR_TEXTURE_USAGE_MUTABLE}, XRC_COLOR_CREATE_FLAGS, {}, {}, {}}},
-        {{VK_FORMAT_R32G32_SINT}, {"VK_FORMAT_R32G32_SINT", false, true, true, false, VK_FORMAT_R32G32_SINT, {XRC_COLOR_TEXTURE_USAGE, XRC_COLOR_TEXTURE_USAGE_MUTABLE}, XRC_COLOR_CREATE_FLAGS, {}, {}, {}}},
-        {{VK_FORMAT_R32G32B32_SINT}, {"VK_FORMAT_R32G32B32_SINT", false, true, true, false, VK_FORMAT_R32G32B32_SINT, {XRC_COLOR_TEXTURE_USAGE, XRC_COLOR_TEXTURE_USAGE_MUTABLE}, XRC_COLOR_CREATE_FLAGS, {}, {}, {}}},
-        {{VK_FORMAT_R32G32B32A32_SINT}, {"VK_FORMAT_R32G32B32A32_SINT", false, true, true, false, VK_FORMAT_R32G32B32A32_SINT, {XRC_COLOR_TEXTURE_USAGE, XRC_COLOR_TEXTURE_USAGE_MUTABLE}, XRC_COLOR_CREATE_FLAGS, {}, {}, {}}},
+        ADD_VK_COLOR_FORMAT(VK_FORMAT_R32_SINT),
+        ADD_VK_COLOR_FORMAT(VK_FORMAT_R32G32_SINT),
+        ADD_VK_COLOR_FORMAT(VK_FORMAT_R32G32B32_SINT),
+        ADD_VK_COLOR_FORMAT(VK_FORMAT_R32G32B32A32_SINT),
 
-        {{VK_FORMAT_R32_UINT}, {"VK_FORMAT_R32_UINT", false, true, true, false, VK_FORMAT_R32_UINT, {XRC_COLOR_TEXTURE_USAGE, XRC_COLOR_TEXTURE_USAGE_MUTABLE}, XRC_COLOR_CREATE_FLAGS, {}, {}, {}}},
-        {{VK_FORMAT_R32G32_UINT}, {"VK_FORMAT_R32G32_UINT", false, true, true, false, VK_FORMAT_R32G32_UINT, {XRC_COLOR_TEXTURE_USAGE, XRC_COLOR_TEXTURE_USAGE_MUTABLE}, XRC_COLOR_CREATE_FLAGS, {}, {}, {}}},
-        {{VK_FORMAT_R32G32B32_UINT}, {"VK_FORMAT_R32G32B32_UINT", false, true, true, false, VK_FORMAT_R32G32B32_UINT, {XRC_COLOR_TEXTURE_USAGE, XRC_COLOR_TEXTURE_USAGE_MUTABLE}, XRC_COLOR_CREATE_FLAGS, {}, {}, {}}},
-        {{VK_FORMAT_R32G32B32A32_UINT}, {"VK_FORMAT_R32G32B32A32_UINT", false, true, true, false, VK_FORMAT_R32G32B32A32_UINT, {XRC_COLOR_TEXTURE_USAGE, XRC_COLOR_TEXTURE_USAGE_MUTABLE}, XRC_COLOR_CREATE_FLAGS, {}, {}, {}}},
+        ADD_VK_COLOR_FORMAT(VK_FORMAT_R32_UINT),
+        ADD_VK_COLOR_FORMAT(VK_FORMAT_R32G32_UINT),
+        ADD_VK_COLOR_FORMAT(VK_FORMAT_R32G32B32_UINT),
+        ADD_VK_COLOR_FORMAT(VK_FORMAT_R32G32B32A32_UINT),
 
-        {{VK_FORMAT_R32_SFLOAT}, {"VK_FORMAT_R32_SFLOAT", false, true, true, false, VK_FORMAT_R32_SFLOAT, {XRC_COLOR_TEXTURE_USAGE, XRC_COLOR_TEXTURE_USAGE_MUTABLE}, XRC_COLOR_CREATE_FLAGS, {}, {}, {}}},
-        {{VK_FORMAT_R32G32_SFLOAT}, {"VK_FORMAT_R32G32_SFLOAT", false, true, true, false, VK_FORMAT_R32G32_SFLOAT, {XRC_COLOR_TEXTURE_USAGE, XRC_COLOR_TEXTURE_USAGE_MUTABLE}, XRC_COLOR_CREATE_FLAGS, {}, {}, {}}},
-        {{VK_FORMAT_R32G32B32_SFLOAT}, {"VK_FORMAT_R32G32B32_SFLOAT", false, true, true, false, VK_FORMAT_R32G32B32_SFLOAT, {XRC_COLOR_TEXTURE_USAGE, XRC_COLOR_TEXTURE_USAGE_MUTABLE}, XRC_COLOR_CREATE_FLAGS, {}, {}, {}}},
-        {{VK_FORMAT_R32G32B32A32_SFLOAT}, {"VK_FORMAT_R32G32B32A32_SFLOAT", false, true, true, false, VK_FORMAT_R32G32B32A32_SFLOAT, {XRC_COLOR_TEXTURE_USAGE, XRC_COLOR_TEXTURE_USAGE_MUTABLE}, XRC_COLOR_CREATE_FLAGS, {}, {}, {}}},
+        ADD_VK_COLOR_FORMAT(VK_FORMAT_R32_SFLOAT),
+        ADD_VK_COLOR_FORMAT(VK_FORMAT_R32G32_SFLOAT),
+        ADD_VK_COLOR_FORMAT(VK_FORMAT_R32G32B32_SFLOAT),
+        ADD_VK_COLOR_FORMAT(VK_FORMAT_R32G32B32A32_SFLOAT),
 
-        {{VK_FORMAT_R5G5B5A1_UNORM_PACK16}, {"VK_FORMAT_R5G5B5A1_UNORM_PACK16", false, true, true, false, VK_FORMAT_R5G5B5A1_UNORM_PACK16, {XRC_COLOR_TEXTURE_USAGE, XRC_COLOR_TEXTURE_USAGE_MUTABLE}, XRC_COLOR_CREATE_FLAGS, {}, {}, {}}},
-        {{VK_FORMAT_R5G6B5_UNORM_PACK16}, {"VK_FORMAT_R5G6B5_UNORM_PACK16", false, true, true, false, VK_FORMAT_R5G6B5_UNORM_PACK16, {XRC_COLOR_TEXTURE_USAGE, XRC_COLOR_TEXTURE_USAGE_MUTABLE}, XRC_COLOR_CREATE_FLAGS, {}, {}, {}}},
-        {{VK_FORMAT_A2B10G10R10_UNORM_PACK32}, {"VK_FORMAT_A2B10G10R10_UNORM_PACK32", false, true, true, false, VK_FORMAT_A2B10G10R10_UNORM_PACK32, {XRC_COLOR_TEXTURE_USAGE, XRC_COLOR_TEXTURE_USAGE_MUTABLE}, XRC_COLOR_CREATE_FLAGS, {}, {}, {}}},
-	    
-        {{VK_FORMAT_R4G4B4A4_UNORM_PACK16}, {"VK_FORMAT_R4G4B4A4_UNORM_PACK16", false, true, true, false, VK_FORMAT_R4G4B4A4_UNORM_PACK16, {XRC_COLOR_TEXTURE_USAGE, XRC_COLOR_TEXTURE_USAGE_MUTABLE}, XRC_COLOR_CREATE_FLAGS, {}, {}, {}}},
-        {{VK_FORMAT_A1R5G5B5_UNORM_PACK16}, {"VK_FORMAT_A1R5G5B5_UNORM_PACK16", false, true, true, false, VK_FORMAT_A1R5G5B5_UNORM_PACK16, {XRC_COLOR_TEXTURE_USAGE, XRC_COLOR_TEXTURE_USAGE_MUTABLE}, XRC_COLOR_CREATE_FLAGS, {}, {}, {}}},
-        {{VK_FORMAT_A2R10G10B10_UINT_PACK32}, {"VK_FORMAT_A2R10G10B10_UINT_PACK32", false, true, true, false, VK_FORMAT_A2R10G10B10_UINT_PACK32, {XRC_COLOR_TEXTURE_USAGE, XRC_COLOR_TEXTURE_USAGE_MUTABLE}, XRC_COLOR_CREATE_FLAGS, {}, {}, {}}},
-        {{VK_FORMAT_A2B10G10R10_UNORM_PACK32}, {"VK_FORMAT_A2B10G10R10_UNORM_PACK32", false, true, true, false, VK_FORMAT_A2B10G10R10_UNORM_PACK32, {XRC_COLOR_TEXTURE_USAGE, XRC_COLOR_TEXTURE_USAGE_MUTABLE}, XRC_COLOR_CREATE_FLAGS, {}, {}, {}}},
-	    
-        {{VK_FORMAT_A2B10G10R10_UINT_PACK32}, {"VK_FORMAT_A2B10G10R10_UINT_PACK32", false, true, true, false, VK_FORMAT_A2B10G10R10_UINT_PACK32, {XRC_COLOR_TEXTURE_USAGE, XRC_COLOR_TEXTURE_USAGE_MUTABLE}, XRC_COLOR_CREATE_FLAGS, {}, {}, {}}},
+        ADD_VK_COLOR_FORMAT(VK_FORMAT_R5G5B5A1_UNORM_PACK16),
+        ADD_VK_COLOR_FORMAT(VK_FORMAT_R5G6B5_UNORM_PACK16),
+        ADD_VK_COLOR_FORMAT(VK_FORMAT_A2B10G10R10_UNORM_PACK32),
+
+        ADD_VK_COLOR_FORMAT(VK_FORMAT_R4G4B4A4_UNORM_PACK16),
+        ADD_VK_COLOR_FORMAT(VK_FORMAT_A1R5G5B5_UNORM_PACK16),
+        ADD_VK_COLOR_FORMAT(VK_FORMAT_A2R10G10B10_UNORM_PACK32),
+        ADD_VK_COLOR_FORMAT(VK_FORMAT_A2R10G10B10_UINT_PACK32),
+        ADD_VK_COLOR_FORMAT(VK_FORMAT_A2B10G10R10_UNORM_PACK32),
+
+        ADD_VK_COLOR_FORMAT(VK_FORMAT_A2B10G10R10_UINT_PACK32),
         // Runtimes with D3D11 back-ends map VK_FORMAT_B10G11R11_UFLOAT_PACK32 to DXGI_FORMAT_R11G11B10_FLOAT and that format doesn't have a TYPELESS equivalent.
-        //{{VK_FORMAT_B10G11R11_UFLOAT_PACK32}, {"VK_FORMAT_B10G11R11_UFLOAT_PACK32", false, true, true, false, VK_FORMAT_B10G11R11_UFLOAT_PACK32, {XRC_COLOR_TEXTURE_USAGE, XRC_COLOR_TEXTURE_USAGE_MUTABLE}, XRC_COLOR_CREATE_FLAGS, {}, {}, {}}},
-        {{VK_FORMAT_B10G11R11_UFLOAT_PACK32}, {"VK_FORMAT_B10G11R11_UFLOAT_PACK32", false, false, true, false, VK_FORMAT_B10G11R11_UFLOAT_PACK32, {XRC_COLOR_TEXTURE_USAGE}, XRC_COLOR_CREATE_FLAGS, {}, {}, {}}},
-        {{VK_FORMAT_E5B9G9R9_UFLOAT_PACK32}, {"VK_FORMAT_E5B9G9R9_UFLOAT_PACK32", false, true, true, false, VK_FORMAT_E5B9G9R9_UFLOAT_PACK32, {XRC_COLOR_TEXTURE_USAGE, XRC_COLOR_TEXTURE_USAGE_MUTABLE}, XRC_COLOR_CREATE_FLAGS, {}, {}, {}}},
+        //ADD_VK_COLOR_FORMAT(VK_FORMAT_B10G11R11_UFLOAT_PACK32),
+        ADD_VK_COLOR_IMMUTABLE_FORMAT(VK_FORMAT_B10G11R11_UFLOAT_PACK32),
+        ADD_VK_COLOR_FORMAT(VK_FORMAT_E5B9G9R9_UFLOAT_PACK32),
 
-        {{VK_FORMAT_R16G16B16A16_SFLOAT}, {"VK_FORMAT_R16G16B16A16_SFLOAT", false, true, true, false, VK_FORMAT_R16G16B16A16_SFLOAT, {XRC_COLOR_TEXTURE_USAGE, XRC_COLOR_TEXTURE_USAGE_MUTABLE}, XRC_COLOR_CREATE_FLAGS, {}, {}, {}}},
+        ADD_VK_COLOR_FORMAT(VK_FORMAT_R16G16B16A16_SFLOAT),
 
-        {{VK_FORMAT_D16_UNORM}, {"VK_FORMAT_D16_UNORM", false, true, true, false, VK_FORMAT_D16_UNORM, {XRC_DEPTH_TEXTURE_USAGE}, XRC_DEPTH_CREATE_FLAGS, {}, {}, {}}},
-        {{VK_FORMAT_D24_UNORM_S8_UINT}, {"VK_FORMAT_D24_UNORM_S8_UINT", false, true, true, false, VK_FORMAT_D24_UNORM_S8_UINT, {XRC_DEPTH_TEXTURE_USAGE}, XRC_DEPTH_CREATE_FLAGS, {}, {}, {}}},
+        ADD_VK_DEPTH_FORMAT(VK_FORMAT_D16_UNORM),
+        ADD_VK_DEPTH_FORMAT(VK_FORMAT_D24_UNORM_S8_UINT),
 
-        {{VK_FORMAT_X8_D24_UNORM_PACK32}, {"VK_FORMAT_X8_D24_UNORM_PACK32", false, true, true, false, VK_FORMAT_X8_D24_UNORM_PACK32, {XRC_DEPTH_TEXTURE_USAGE}, XRC_DEPTH_CREATE_FLAGS, {}, {}, {}}},
-        {{VK_FORMAT_S8_UINT}, {"VK_FORMAT_S8_UINT", false, true, true, false, VK_FORMAT_S8_UINT, {XRC_DEPTH_TEXTURE_USAGE}, XRC_DEPTH_CREATE_FLAGS, {}, {}, {}}},
+        ADD_VK_DEPTH_FORMAT(VK_FORMAT_X8_D24_UNORM_PACK32),
+        ADD_VK_DEPTH_FORMAT(VK_FORMAT_S8_UINT),
 
-        {{VK_FORMAT_D32_SFLOAT}, {"VK_FORMAT_D32_SFLOAT", false, true, true, false, VK_FORMAT_D32_SFLOAT, {XRC_DEPTH_TEXTURE_USAGE}, XRC_DEPTH_CREATE_FLAGS, {}, {}, {}}},
-        {{VK_FORMAT_D32_SFLOAT_S8_UINT}, {"VK_FORMAT_D32_SFLOAT_S8_UINT", false, true, true, false, VK_FORMAT_D32_SFLOAT_S8_UINT, {XRC_DEPTH_TEXTURE_USAGE}, XRC_DEPTH_CREATE_FLAGS, {}, {}, {}}},
+        ADD_VK_DEPTH_FORMAT(VK_FORMAT_D32_SFLOAT),
+        ADD_VK_DEPTH_FORMAT(VK_FORMAT_D32_SFLOAT_S8_UINT),
 
-        {{VK_FORMAT_ETC2_R8G8B8_UNORM_BLOCK}, {"VK_FORMAT_ETC2_R8G8B8_UNORM_BLOCK", false, true, true, true, VK_FORMAT_ETC2_R8G8B8_UNORM_BLOCK, {XRC_COLOR_TEXTURE_USAGE_COMPRESSED}, XRC_COLOR_CREATE_FLAGS, {}, {}, {}}},
-        {{VK_FORMAT_ETC2_R8G8B8A1_UNORM_BLOCK}, {"VK_FORMAT_ETC2_R8G8B8A1_UNORM_BLOCK", false, true, true, true, VK_FORMAT_ETC2_R8G8B8A1_UNORM_BLOCK, {XRC_COLOR_TEXTURE_USAGE_COMPRESSED}, XRC_COLOR_CREATE_FLAGS, {}, {}, {}}},
-        {{VK_FORMAT_ETC2_R8G8B8A8_UNORM_BLOCK}, {"VK_FORMAT_ETC2_R8G8B8A8_UNORM_BLOCK", false, true, true, true, VK_FORMAT_ETC2_R8G8B8A8_UNORM_BLOCK, {XRC_COLOR_TEXTURE_USAGE_COMPRESSED}, XRC_COLOR_CREATE_FLAGS, {}, {}, {}}},
-        {{VK_FORMAT_ETC2_R8G8B8_SRGB_BLOCK}, {"VK_FORMAT_ETC2_R8G8B8_SRGB_BLOCK", false, true, true, true, VK_FORMAT_ETC2_R8G8B8_SRGB_BLOCK, {XRC_COLOR_TEXTURE_USAGE_COMPRESSED}, XRC_COLOR_CREATE_FLAGS, {}, {}, {}}},
-        {{VK_FORMAT_ETC2_R8G8B8A1_SRGB_BLOCK}, {"VK_FORMAT_ETC2_R8G8B8A1_SRGB_BLOCK", false, true, true, true, VK_FORMAT_ETC2_R8G8B8A1_SRGB_BLOCK, {XRC_COLOR_TEXTURE_USAGE_COMPRESSED}, XRC_COLOR_CREATE_FLAGS, {}, {}, {}}},
-        {{VK_FORMAT_ETC2_R8G8B8A8_SRGB_BLOCK}, {"VK_FORMAT_ETC2_R8G8B8A8_SRGB_BLOCK", false, true, true, true, VK_FORMAT_ETC2_R8G8B8A8_SRGB_BLOCK, {XRC_COLOR_TEXTURE_USAGE_COMPRESSED}, XRC_COLOR_CREATE_FLAGS, {}, {}, {}}},
+        ADD_VK_COLOR_COMPRESSED_FORMAT(VK_FORMAT_ETC2_R8G8B8_UNORM_BLOCK),
+        ADD_VK_COLOR_COMPRESSED_FORMAT(VK_FORMAT_ETC2_R8G8B8A1_UNORM_BLOCK),
+        ADD_VK_COLOR_COMPRESSED_FORMAT(VK_FORMAT_ETC2_R8G8B8A8_UNORM_BLOCK),
+        ADD_VK_COLOR_COMPRESSED_FORMAT(VK_FORMAT_ETC2_R8G8B8_SRGB_BLOCK),
+        ADD_VK_COLOR_COMPRESSED_FORMAT(VK_FORMAT_ETC2_R8G8B8A1_SRGB_BLOCK),
+        ADD_VK_COLOR_COMPRESSED_FORMAT(VK_FORMAT_ETC2_R8G8B8A8_SRGB_BLOCK),
 
-        {{VK_FORMAT_EAC_R11_UNORM_BLOCK}, {"VK_FORMAT_EAC_R11_UNORM_BLOCK", false, true, true, true, VK_FORMAT_EAC_R11_UNORM_BLOCK, {XRC_COLOR_TEXTURE_USAGE_COMPRESSED}, XRC_COLOR_CREATE_FLAGS, {}, {}, {}}},
-        {{VK_FORMAT_EAC_R11G11_UNORM_BLOCK}, {"VK_FORMAT_EAC_R11G11_UNORM_BLOCK", false, true, true, true, VK_FORMAT_EAC_R11G11_UNORM_BLOCK, {XRC_COLOR_TEXTURE_USAGE_COMPRESSED}, XRC_COLOR_CREATE_FLAGS, {}, {}, {}}},
-        {{VK_FORMAT_EAC_R11_SNORM_BLOCK}, {"VK_FORMAT_EAC_R11_SNORM_BLOCK", false, true, true, true, VK_FORMAT_EAC_R11_SNORM_BLOCK, {XRC_COLOR_TEXTURE_USAGE_COMPRESSED}, XRC_COLOR_CREATE_FLAGS, {}, {}, {}}},
-        {{VK_FORMAT_EAC_R11G11_SNORM_BLOCK}, {"VK_FORMAT_EAC_R11G11_SNORM_BLOCK", false, true, true, true, VK_FORMAT_EAC_R11G11_SNORM_BLOCK, {XRC_COLOR_TEXTURE_USAGE_COMPRESSED}, XRC_COLOR_CREATE_FLAGS, {}, {}, {}}},
+        ADD_VK_COLOR_COMPRESSED_FORMAT(VK_FORMAT_EAC_R11_UNORM_BLOCK),
+        ADD_VK_COLOR_COMPRESSED_FORMAT(VK_FORMAT_EAC_R11G11_UNORM_BLOCK),
+        ADD_VK_COLOR_COMPRESSED_FORMAT(VK_FORMAT_EAC_R11_SNORM_BLOCK),
+        ADD_VK_COLOR_COMPRESSED_FORMAT(VK_FORMAT_EAC_R11G11_SNORM_BLOCK),
 
-        {{VK_FORMAT_ASTC_4x4_UNORM_BLOCK}, {"VK_FORMAT_ASTC_4x4_UNORM_BLOCK", false, true, true, true, VK_FORMAT_ASTC_4x4_UNORM_BLOCK, {XRC_COLOR_TEXTURE_USAGE_COMPRESSED}, XRC_COLOR_CREATE_FLAGS, {}, {}, {}}},
-        {{VK_FORMAT_ASTC_5x4_UNORM_BLOCK}, {"VK_FORMAT_ASTC_5x4_UNORM_BLOCK", false, true, true, true, VK_FORMAT_ASTC_5x4_UNORM_BLOCK, {XRC_COLOR_TEXTURE_USAGE_COMPRESSED}, XRC_COLOR_CREATE_FLAGS, {}, {}, {}}},
-        {{VK_FORMAT_ASTC_5x5_UNORM_BLOCK}, {"VK_FORMAT_ASTC_5x5_UNORM_BLOCK", false, true, true, true, VK_FORMAT_ASTC_5x5_UNORM_BLOCK, {XRC_COLOR_TEXTURE_USAGE_COMPRESSED}, XRC_COLOR_CREATE_FLAGS, {}, {}, {}}},
-        {{VK_FORMAT_ASTC_6x5_UNORM_BLOCK}, {"VK_FORMAT_ASTC_6x5_UNORM_BLOCK", false, true, true, true, VK_FORMAT_ASTC_6x5_UNORM_BLOCK, {XRC_COLOR_TEXTURE_USAGE_COMPRESSED}, XRC_COLOR_CREATE_FLAGS, {}, {}, {}}},
-        {{VK_FORMAT_ASTC_6x6_UNORM_BLOCK}, {"VK_FORMAT_ASTC_6x6_UNORM_BLOCK", false, true, true, true, VK_FORMAT_ASTC_6x6_UNORM_BLOCK, {XRC_COLOR_TEXTURE_USAGE_COMPRESSED}, XRC_COLOR_CREATE_FLAGS, {}, {}, {}}},
-        {{VK_FORMAT_ASTC_8x5_UNORM_BLOCK}, {"VK_FORMAT_ASTC_8x5_UNORM_BLOCK", false, true, true, true, VK_FORMAT_ASTC_8x5_UNORM_BLOCK, {XRC_COLOR_TEXTURE_USAGE_COMPRESSED}, XRC_COLOR_CREATE_FLAGS, {}, {}, {}}},
-        {{VK_FORMAT_ASTC_8x6_UNORM_BLOCK}, {"VK_FORMAT_ASTC_8x6_UNORM_BLOCK", false, true, true, true, VK_FORMAT_ASTC_8x6_UNORM_BLOCK, {XRC_COLOR_TEXTURE_USAGE_COMPRESSED}, XRC_COLOR_CREATE_FLAGS, {}, {}, {}}},
-        {{VK_FORMAT_ASTC_8x8_UNORM_BLOCK}, {"VK_FORMAT_ASTC_8x8_UNORM_BLOCK", false, true, true, true, VK_FORMAT_ASTC_8x8_UNORM_BLOCK, {XRC_COLOR_TEXTURE_USAGE_COMPRESSED}, XRC_COLOR_CREATE_FLAGS, {}, {}, {}}},
-        {{VK_FORMAT_ASTC_10x5_UNORM_BLOCK}, {"VK_FORMAT_ASTC_10x5_UNORM_BLOCK", false, true, true, true, VK_FORMAT_ASTC_10x5_UNORM_BLOCK, {XRC_COLOR_TEXTURE_USAGE_COMPRESSED}, XRC_COLOR_CREATE_FLAGS, {}, {}, {}}},
-        {{VK_FORMAT_ASTC_10x6_UNORM_BLOCK}, {"VK_FORMAT_ASTC_10x6_UNORM_BLOCK", false, true, true, true, VK_FORMAT_ASTC_10x6_UNORM_BLOCK, {XRC_COLOR_TEXTURE_USAGE_COMPRESSED}, XRC_COLOR_CREATE_FLAGS, {}, {}, {}}},
-        {{VK_FORMAT_ASTC_10x8_UNORM_BLOCK}, {"VK_FORMAT_ASTC_10x8_UNORM_BLOCK", false, true, true, true, VK_FORMAT_ASTC_10x8_UNORM_BLOCK, {XRC_COLOR_TEXTURE_USAGE_COMPRESSED}, XRC_COLOR_CREATE_FLAGS, {}, {}, {}}},
-        {{VK_FORMAT_ASTC_10x10_UNORM_BLOCK}, {"VK_FORMAT_ASTC_10x10_UNORM_BLOCK", false, true, true, true, VK_FORMAT_ASTC_10x10_UNORM_BLOCK, {XRC_COLOR_TEXTURE_USAGE_COMPRESSED}, XRC_COLOR_CREATE_FLAGS, {}, {}, {}}},
-        {{VK_FORMAT_ASTC_12x10_UNORM_BLOCK}, {"VK_FORMAT_ASTC_12x10_UNORM_BLOCK", false, true, true, true, VK_FORMAT_ASTC_12x10_UNORM_BLOCK, {XRC_COLOR_TEXTURE_USAGE_COMPRESSED}, XRC_COLOR_CREATE_FLAGS, {}, {}, {}}},
-        {{VK_FORMAT_ASTC_12x12_UNORM_BLOCK}, {"VK_FORMAT_ASTC_12x12_UNORM_BLOCK", false, true, true, true, VK_FORMAT_ASTC_12x12_UNORM_BLOCK, {XRC_COLOR_TEXTURE_USAGE_COMPRESSED}, XRC_COLOR_CREATE_FLAGS, {}, {}, {}}},
+        ADD_VK_COLOR_COMPRESSED_FORMAT(VK_FORMAT_ASTC_4x4_UNORM_BLOCK),
+        ADD_VK_COLOR_COMPRESSED_FORMAT(VK_FORMAT_ASTC_5x4_UNORM_BLOCK),
+        ADD_VK_COLOR_COMPRESSED_FORMAT(VK_FORMAT_ASTC_5x5_UNORM_BLOCK),
+        ADD_VK_COLOR_COMPRESSED_FORMAT(VK_FORMAT_ASTC_6x5_UNORM_BLOCK),
+        ADD_VK_COLOR_COMPRESSED_FORMAT(VK_FORMAT_ASTC_6x6_UNORM_BLOCK),
+        ADD_VK_COLOR_COMPRESSED_FORMAT(VK_FORMAT_ASTC_8x5_UNORM_BLOCK),
+        ADD_VK_COLOR_COMPRESSED_FORMAT(VK_FORMAT_ASTC_8x6_UNORM_BLOCK),
+        ADD_VK_COLOR_COMPRESSED_FORMAT(VK_FORMAT_ASTC_8x8_UNORM_BLOCK),
+        ADD_VK_COLOR_COMPRESSED_FORMAT(VK_FORMAT_ASTC_10x5_UNORM_BLOCK),
+        ADD_VK_COLOR_COMPRESSED_FORMAT(VK_FORMAT_ASTC_10x6_UNORM_BLOCK),
+        ADD_VK_COLOR_COMPRESSED_FORMAT(VK_FORMAT_ASTC_10x8_UNORM_BLOCK),
+        ADD_VK_COLOR_COMPRESSED_FORMAT(VK_FORMAT_ASTC_10x10_UNORM_BLOCK),
+        ADD_VK_COLOR_COMPRESSED_FORMAT(VK_FORMAT_ASTC_12x10_UNORM_BLOCK),
+        ADD_VK_COLOR_COMPRESSED_FORMAT(VK_FORMAT_ASTC_12x12_UNORM_BLOCK),
 
-        {{VK_FORMAT_ASTC_4x4_SRGB_BLOCK}, {"VK_FORMAT_ASTC_4x4_SRGB_BLOCK", false, true, true, true, VK_FORMAT_ASTC_4x4_SRGB_BLOCK, {XRC_COLOR_TEXTURE_USAGE_COMPRESSED}, XRC_COLOR_CREATE_FLAGS, {}, {}, {}}},
-        {{VK_FORMAT_ASTC_5x4_SRGB_BLOCK}, {"VK_FORMAT_ASTC_5x4_SRGB_BLOCK", false, true, true, true, VK_FORMAT_ASTC_5x4_SRGB_BLOCK, {XRC_COLOR_TEXTURE_USAGE_COMPRESSED}, XRC_COLOR_CREATE_FLAGS, {}, {}, {}}},
-        {{VK_FORMAT_ASTC_5x5_SRGB_BLOCK}, {"VK_FORMAT_ASTC_5x5_SRGB_BLOCK", false, true, true, true, VK_FORMAT_ASTC_5x5_SRGB_BLOCK, {XRC_COLOR_TEXTURE_USAGE_COMPRESSED}, XRC_COLOR_CREATE_FLAGS, {}, {}, {}}},
-        {{VK_FORMAT_ASTC_6x5_SRGB_BLOCK}, {"VK_FORMAT_ASTC_6x5_SRGB_BLOCK", false, true, true, true, VK_FORMAT_ASTC_6x5_SRGB_BLOCK, {XRC_COLOR_TEXTURE_USAGE_COMPRESSED}, XRC_COLOR_CREATE_FLAGS, {}, {}, {}}},
-        {{VK_FORMAT_ASTC_6x6_SRGB_BLOCK}, {"VK_FORMAT_ASTC_6x6_SRGB_BLOCK", false, true, true, true, VK_FORMAT_ASTC_6x6_SRGB_BLOCK, {XRC_COLOR_TEXTURE_USAGE_COMPRESSED}, XRC_COLOR_CREATE_FLAGS, {}, {}, {}}},
-        {{VK_FORMAT_ASTC_8x5_SRGB_BLOCK}, {"VK_FORMAT_ASTC_8x5_SRGB_BLOCK", false, true, true, true, VK_FORMAT_ASTC_8x5_SRGB_BLOCK, {XRC_COLOR_TEXTURE_USAGE_COMPRESSED}, XRC_COLOR_CREATE_FLAGS, {}, {}, {}}},
-        {{VK_FORMAT_ASTC_8x6_SRGB_BLOCK}, {"VK_FORMAT_ASTC_8x6_SRGB_BLOCK", false, true, true, true, VK_FORMAT_ASTC_8x6_SRGB_BLOCK, {XRC_COLOR_TEXTURE_USAGE_COMPRESSED}, XRC_COLOR_CREATE_FLAGS, {}, {}, {}}},
-        {{VK_FORMAT_ASTC_8x8_SRGB_BLOCK}, {"VK_FORMAT_ASTC_8x8_SRGB_BLOCK", false, true, true, true, VK_FORMAT_ASTC_8x8_SRGB_BLOCK, {XRC_COLOR_TEXTURE_USAGE_COMPRESSED}, XRC_COLOR_CREATE_FLAGS, {}, {}, {}}},
-        {{VK_FORMAT_ASTC_10x5_SRGB_BLOCK}, {"VK_FORMAT_ASTC_10x5_SRGB_BLOCK", false, true, true, true, VK_FORMAT_ASTC_10x5_SRGB_BLOCK, {XRC_COLOR_TEXTURE_USAGE_COMPRESSED}, XRC_COLOR_CREATE_FLAGS, {}, {}, {}}},
-        {{VK_FORMAT_ASTC_10x6_SRGB_BLOCK}, {"VK_FORMAT_ASTC_10x6_SRGB_BLOCK", false, true, true, true, VK_FORMAT_ASTC_10x6_SRGB_BLOCK, {XRC_COLOR_TEXTURE_USAGE_COMPRESSED}, XRC_COLOR_CREATE_FLAGS, {}, {}, {}}},
-        {{VK_FORMAT_ASTC_10x8_SRGB_BLOCK}, {"VK_FORMAT_ASTC_10x8_SRGB_BLOCK", false, true, true, true, VK_FORMAT_ASTC_10x8_SRGB_BLOCK, {XRC_COLOR_TEXTURE_USAGE_COMPRESSED}, XRC_COLOR_CREATE_FLAGS, {}, {}, {}}},
-        {{VK_FORMAT_ASTC_10x10_SRGB_BLOCK}, {"VK_FORMAT_ASTC_10x10_SRGB_BLOCK", false, true, true, true, VK_FORMAT_ASTC_10x10_SRGB_BLOCK, {XRC_COLOR_TEXTURE_USAGE_COMPRESSED}, XRC_COLOR_CREATE_FLAGS, {}, {}, {}}},
-        {{VK_FORMAT_ASTC_12x10_SRGB_BLOCK}, {"VK_FORMAT_ASTC_12x10_SRGB_BLOCK", false, true, true, true, VK_FORMAT_ASTC_12x10_SRGB_BLOCK, {XRC_COLOR_TEXTURE_USAGE_COMPRESSED}, XRC_COLOR_CREATE_FLAGS, {}, {}, {}}},
-        {{VK_FORMAT_ASTC_12x12_SRGB_BLOCK}, {"VK_FORMAT_ASTC_12x12_SRGB_BLOCK", false, true, true, true, VK_FORMAT_ASTC_12x12_SRGB_BLOCK, {XRC_COLOR_TEXTURE_USAGE_COMPRESSED}, XRC_COLOR_CREATE_FLAGS, {}, {}, {}}},
+        ADD_VK_COLOR_COMPRESSED_FORMAT(VK_FORMAT_ASTC_4x4_SRGB_BLOCK),
+        ADD_VK_COLOR_COMPRESSED_FORMAT(VK_FORMAT_ASTC_5x4_SRGB_BLOCK),
+        ADD_VK_COLOR_COMPRESSED_FORMAT(VK_FORMAT_ASTC_5x5_SRGB_BLOCK),
+        ADD_VK_COLOR_COMPRESSED_FORMAT(VK_FORMAT_ASTC_6x5_SRGB_BLOCK),
+        ADD_VK_COLOR_COMPRESSED_FORMAT(VK_FORMAT_ASTC_6x6_SRGB_BLOCK),
+        ADD_VK_COLOR_COMPRESSED_FORMAT(VK_FORMAT_ASTC_8x5_SRGB_BLOCK),
+        ADD_VK_COLOR_COMPRESSED_FORMAT(VK_FORMAT_ASTC_8x6_SRGB_BLOCK),
+        ADD_VK_COLOR_COMPRESSED_FORMAT(VK_FORMAT_ASTC_8x8_SRGB_BLOCK),
+        ADD_VK_COLOR_COMPRESSED_FORMAT(VK_FORMAT_ASTC_10x5_SRGB_BLOCK),
+        ADD_VK_COLOR_COMPRESSED_FORMAT(VK_FORMAT_ASTC_10x6_SRGB_BLOCK),
+        ADD_VK_COLOR_COMPRESSED_FORMAT(VK_FORMAT_ASTC_10x8_SRGB_BLOCK),
+        ADD_VK_COLOR_COMPRESSED_FORMAT(VK_FORMAT_ASTC_10x10_SRGB_BLOCK),
+        ADD_VK_COLOR_COMPRESSED_FORMAT(VK_FORMAT_ASTC_12x10_SRGB_BLOCK),
+        ADD_VK_COLOR_COMPRESSED_FORMAT(VK_FORMAT_ASTC_12x12_SRGB_BLOCK),
 
-        {{VK_FORMAT_BC1_RGBA_UNORM_BLOCK}, {"VK_FORMAT_BC1_RGBA_UNORM_BLOCK", false, true, true, true, VK_FORMAT_BC1_RGBA_UNORM_BLOCK, {XRC_COLOR_TEXTURE_USAGE_COMPRESSED}, XRC_COLOR_CREATE_FLAGS, {}, {}, {}}},
-        {{VK_FORMAT_BC1_RGBA_SRGB_BLOCK}, {"VK_FORMAT_BC1_RGBA_SRGB_BLOCK", false, true, true, true, VK_FORMAT_BC1_RGBA_SRGB_BLOCK, {XRC_COLOR_TEXTURE_USAGE_COMPRESSED}, XRC_COLOR_CREATE_FLAGS, {}, {}, {}}},
+        ADD_VK_COLOR_COMPRESSED_FORMAT(VK_FORMAT_BC1_RGBA_UNORM_BLOCK),
+        ADD_VK_COLOR_COMPRESSED_FORMAT(VK_FORMAT_BC1_RGBA_SRGB_BLOCK),
 
-        {{VK_FORMAT_BC2_UNORM_BLOCK}, {"VK_FORMAT_BC2_UNORM_BLOCK", false, true, true, true, VK_FORMAT_BC2_UNORM_BLOCK, {XRC_COLOR_TEXTURE_USAGE_COMPRESSED}, XRC_COLOR_CREATE_FLAGS, {}, {}, {}}},
-        {{VK_FORMAT_BC2_SRGB_BLOCK}, {"VK_FORMAT_BC2_SRGB_BLOCK", false, true, true, true, VK_FORMAT_BC2_SRGB_BLOCK, {XRC_COLOR_TEXTURE_USAGE_COMPRESSED}, XRC_COLOR_CREATE_FLAGS, {}, {}, {}}},
+        ADD_VK_COLOR_COMPRESSED_FORMAT(VK_FORMAT_BC2_UNORM_BLOCK),
+        ADD_VK_COLOR_COMPRESSED_FORMAT(VK_FORMAT_BC2_SRGB_BLOCK),
 
-        {{VK_FORMAT_BC3_UNORM_BLOCK}, {"VK_FORMAT_BC3_UNORM_BLOCK", false, true, true, true, VK_FORMAT_BC3_UNORM_BLOCK, {XRC_COLOR_TEXTURE_USAGE_COMPRESSED}, XRC_COLOR_CREATE_FLAGS, {}, {}, {}}},
-        {{VK_FORMAT_BC3_SRGB_BLOCK}, {"VK_FORMAT_BC3_SRGB_BLOCK", false, true, true, true, VK_FORMAT_BC3_SRGB_BLOCK, {XRC_COLOR_TEXTURE_USAGE_COMPRESSED}, XRC_COLOR_CREATE_FLAGS, {}, {}, {}}},
+        ADD_VK_COLOR_COMPRESSED_FORMAT(VK_FORMAT_BC3_UNORM_BLOCK),
+        ADD_VK_COLOR_COMPRESSED_FORMAT(VK_FORMAT_BC3_SRGB_BLOCK),
 
-        {{VK_FORMAT_BC6H_UFLOAT_BLOCK}, {"VK_FORMAT_BC6H_UFLOAT_BLOCK", false, true, true, true, VK_FORMAT_BC6H_UFLOAT_BLOCK, {XRC_COLOR_TEXTURE_USAGE_COMPRESSED}, XRC_COLOR_CREATE_FLAGS, {}, {}, {}}},
-        {{VK_FORMAT_BC6H_SFLOAT_BLOCK}, {"VK_FORMAT_BC6H_SFLOAT_BLOCK", false, true, true, true, VK_FORMAT_BC6H_SFLOAT_BLOCK, {XRC_COLOR_TEXTURE_USAGE_COMPRESSED}, XRC_COLOR_CREATE_FLAGS, {}, {}, {}}},
+        ADD_VK_COLOR_COMPRESSED_FORMAT(VK_FORMAT_BC6H_UFLOAT_BLOCK),
+        ADD_VK_COLOR_COMPRESSED_FORMAT(VK_FORMAT_BC6H_SFLOAT_BLOCK),
 
-        {{VK_FORMAT_BC7_UNORM_BLOCK}, {"VK_FORMAT_BC7_UNORM_BLOCK", false, true, true, true, VK_FORMAT_BC7_UNORM_BLOCK, {XRC_COLOR_TEXTURE_USAGE_COMPRESSED}, XRC_COLOR_CREATE_FLAGS, {}, {}, {}}},
-        {{VK_FORMAT_BC7_SRGB_BLOCK}, {"VK_FORMAT_BC7_SRGB_BLOCK", false, true, true, true, VK_FORMAT_BC7_SRGB_BLOCK, {XRC_COLOR_TEXTURE_USAGE_COMPRESSED}, XRC_COLOR_CREATE_FLAGS, {}, {}, {}}},
+        ADD_VK_COLOR_COMPRESSED_FORMAT(VK_FORMAT_BC7_UNORM_BLOCK),
+        ADD_VK_COLOR_COMPRESSED_FORMAT(VK_FORMAT_BC7_SRGB_BLOCK),
     };
     // clang-format on
 
@@ -2586,8 +2711,10 @@ namespace Conformance
         // Return back an array of pointers to each swapchain image struct so the consumer doesn't need to know the type/size.
         // Keep the buffer alive by adding it into the list of buffers.
 
-        std::vector<XrSwapchainImageBaseHeader*> bases = derivedResult->Create(
-            m_vkDevice, &m_memAllocator, uint32_t(size), swapchainCreateInfo, m_pipelineLayout, m_shaderProgram, m_drawBuffer);
+        // xxx: can we remove the vertex buffer here, maybe replace it with something shared?
+        std::vector<XrSwapchainImageBaseHeader*> bases =
+            derivedResult->Create(m_vkDevice, &m_memAllocator, uint32_t(size), swapchainCreateInfo, m_pipelineLayout, m_shaderProgram,
+                                  VulkanMesh::c_bindingDesc, VulkanMesh::c_attrDesc);
 
         for (auto& base : bases) {
             // Set the generic vector of base pointers
@@ -2735,7 +2862,7 @@ namespace Conformance
     }
 
     void VulkanGraphicsPlugin::ClearImageSlice(const XrSwapchainImageBaseHeader* colorSwapchainImage, uint32_t imageArrayIndex,
-                                               int64_t /*colorSwapchainFormat*/)
+                                               int64_t /*colorSwapchainFormat*/, XrColor4f bgColor)
     {
         auto swapchainContext = m_swapchainImageContextMap[colorSwapchainImage];
         uint32_t imageIndex = swapchainContext->ImageIndex(colorSwapchainImage);
@@ -2759,12 +2886,11 @@ namespace Conformance
         swapchainContext->BindPipeline(m_cmdBuffer.buf, imageArrayIndex);
 
         // Clear the buffers
-        static XrColor4f darkSlateGrey = {0.184313729f, 0.309803933f, 0.309803933f, 1.0f};
         static std::array<VkClearValue, 2> clearValues;
-        clearValues[0].color.float32[0] = darkSlateGrey.r;
-        clearValues[0].color.float32[1] = darkSlateGrey.g;
-        clearValues[0].color.float32[2] = darkSlateGrey.b;
-        clearValues[0].color.float32[3] = darkSlateGrey.a;
+        clearValues[0].color.float32[0] = bgColor.r;
+        clearValues[0].color.float32[1] = bgColor.g;
+        clearValues[0].color.float32[2] = bgColor.b;
+        clearValues[0].color.float32[3] = bgColor.a;
         clearValues[1].depthStencil.depth = 1.0f;
         clearValues[1].depthStencil.stencil = 0;
         std::array<VkClearAttachment, 2> clearAttachments{{
@@ -2783,9 +2909,17 @@ namespace Conformance
         m_cmdBuffer.Wait();
     }
 
+    MeshHandle VulkanGraphicsPlugin::MakeSimpleMesh(span<const uint16_t> idx, span<const Geometry::Vertex> vtx)
+    {
+        auto handle =
+            m_meshes.emplace_back(m_vkDevice, &m_memAllocator, idx.data(), (uint32_t)idx.size(), vtx.data(), (uint32_t)vtx.size());
+
+        return handle;
+    }
+
     void VulkanGraphicsPlugin::RenderView(const XrCompositionLayerProjectionView& layerView,
                                           const XrSwapchainImageBaseHeader* colorSwapchainImage, int64_t /*colorSwapchainFormat*/,
-                                          const std::vector<Cube>& cubes)
+                                          const RenderParams& params)
     {
         auto swapchainContext = m_swapchainImageContextMap[colorSwapchainImage];
         uint32_t imageIndex = swapchainContext->ImageIndex(colorSwapchainImage);
@@ -2812,16 +2946,6 @@ namespace Conformance
 
         CHECKPOINT();
 
-        // Bind index and vertex buffers
-        vkCmdBindIndexBuffer(m_cmdBuffer.buf, m_drawBuffer.idxBuf, 0, VK_INDEX_TYPE_UINT16);
-
-        CHECKPOINT();
-
-        VkDeviceSize offset = 0;
-        vkCmdBindVertexBuffers(m_cmdBuffer.buf, 0, 1, &m_drawBuffer.vtxBuf, &offset);
-
-        CHECKPOINT();
-
         // Compute the view-projection transform.
         // Note all matrixes (including OpenXR's) are column-major, right-handed.
         const auto& pose = layerView.pose;
@@ -2834,22 +2958,49 @@ namespace Conformance
         XrMatrix4x4f_InvertRigidBody(&view, &toView);
         XrMatrix4x4f vp;
         XrMatrix4x4f_Multiply(&vp, &proj, &view);
+        MeshHandle lastMeshHandle;
 
-        // Render each cube
-        for (const Cube& cube : cubes) {
+        const auto drawMesh = [this, &vp, &lastMeshHandle](const MeshDrawable mesh) {
+            VulkanMesh& vkMesh = m_meshes[mesh.handle];
+            if (mesh.handle != lastMeshHandle) {
+                // We are now rendering a new mesh
+
+                // Bind index and vertex buffers
+                vkCmdBindIndexBuffer(m_cmdBuffer.buf, vkMesh.m_DrawBuffer.idxBuf, 0, VK_INDEX_TYPE_UINT16);
+
+                CHECKPOINT();
+
+                VkDeviceSize offset = 0;
+                vkCmdBindVertexBuffers(m_cmdBuffer.buf, 0, 1, &vkMesh.m_DrawBuffer.vtxBuf, &offset);
+
+                CHECKPOINT();
+                lastMeshHandle = mesh.handle;
+            }
+
             // Compute the model-view-projection transform and push it.
             XrMatrix4x4f model;
-            XrMatrix4x4f_CreateTranslationRotationScale(&model, &cube.Pose.position, &cube.Pose.orientation, &cube.Scale);
+            XrMatrix4x4f_CreateTranslationRotationScale(&model, &mesh.params.pose.position, &mesh.params.pose.orientation,
+                                                        &mesh.params.scale);
             XrMatrix4x4f mvp;
             XrMatrix4x4f_Multiply(&mvp, &vp, &model);
             vkCmdPushConstants(m_cmdBuffer.buf, m_pipelineLayout.layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(mvp.m), &mvp.m[0]);
 
             CHECKPOINT();
 
-            // Draw the cube.
-            vkCmdDrawIndexed(m_cmdBuffer.buf, m_drawBuffer.count.idx, 1, 0, 0, 0);
+            // Draw the mesh.
+            vkCmdDrawIndexed(m_cmdBuffer.buf, vkMesh.m_DrawBuffer.count.idx, 1, 0, 0, 0);
 
             CHECKPOINT();
+        };
+
+        // Render each cube
+        for (const Cube& cube : params.cubes) {
+            drawMesh(MeshDrawable{m_cubeMesh, cube.params.pose, cube.params.scale});
+        }
+
+        // Render each mesh
+        for (const auto& mesh : params.meshes) {
+            drawMesh(mesh);
         }
 
         vkCmdEndRenderPass(m_cmdBuffer.buf);

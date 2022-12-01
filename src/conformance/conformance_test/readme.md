@@ -222,3 +222,19 @@ test case section contains XML tag Result, for example:
 With the results of the entire run summarized in the outermost scope of the XML file:
 
     <OverallResults successes="<number of successes>" failures="0" expectedFailures="0"/>
+
+
+Test Tags
+---------
+
+Tests should be categorized using tags. The following common tags are used:
+
+* actions: indicates that this test is an "Action" test.
+* composition: indicates that this test requires the tester to do a visual comparison.
+* interactive: indicates that this test requires user input.
+* no_auto: indicates that this interactive test cannot be automated by the XR_EXT_conformance_automation extension.
+* scenario: indicates that the tester must perform a certain set of actions to pass the test.
+
+If a test requires an extension the extension name should be listed as a tag.
+See for example the test_XR_KHR_visibility_mask.cpp
+

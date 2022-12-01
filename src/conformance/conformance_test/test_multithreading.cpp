@@ -17,12 +17,15 @@
 #include "utils.h"
 #include "conformance_utils.h"
 #include "conformance_framework.h"
+#include "throw_helpers.h"
+
 #include <array>
 #include <vector>
 #include <string>
 #include <thread>
 #include <condition_variable>
 #include <cstdint>
+#include <initializer_list>
 #include <atomic>
 #include <mutex>
 #include <chrono>
@@ -58,7 +61,7 @@ namespace Conformance
         ExerciseFunction exerciseFunction;
     };
 
-    extern const std::vector<ThreadTestFunction> globalTestFunctionVector;
+    extern const std::initializer_list<ThreadTestFunction> globalTestFunctionVector;
 
     // ThreadTestEnvironment
     //
@@ -162,10 +165,10 @@ namespace Conformance
     public:
         // For focused tests we need to know the last frame time
         // lastFrameTime may be 0 if the environment is testing the case of a session not being active.
-        XrTime lastFrameTime;
+        XrTime lastFrameTime{0};
 
         // hapticsAction is an XrAction for haptics.
-        XrAction hapticsAction;
+        XrAction hapticsAction{XR_NULL_HANDLE_CPP};
 
         // gripPoseAction is an XrAction for grip pose.
         XrAction gripPoseAction;
@@ -191,7 +194,7 @@ namespace Conformance
 
     protected:
         // If true then each thread should begin executing.
-        bool shouldBegin;
+        bool shouldBegin = false;
 
         // Threads should wait until this is signaled before beginning.
         std::condition_variable threadStartSignal;
@@ -270,7 +273,7 @@ namespace Conformance
         const size_t threadCount = 2;        // 10;         // To do: Make this configurable.
         const size_t invocationCount = 100;  // 10000;  // To do: Make this configurable.
 
-        auto RunTestEnvironment = [threadCount](ThreadTestEnvironment& env) -> void {
+        auto RunTestEnvironment = [&](ThreadTestEnvironment& env) -> void {
             std::vector<std::thread>& threadVector = env.ThreadVector();
 
             for (size_t i = 0; i < threadCount; ++i)
@@ -303,7 +306,7 @@ namespace Conformance
         // Exercise session multithreading.
         {
             // how long the test should wait for the app to get focus: 10 seconds in release, infinite in debug builds.
-            auto timeout = (GetGlobalData().options.debugMode ? 3600_sec : 10_sec);
+            auto timeout = (GetGlobalData().options.debugMode ? 3600s : 10s);
             CAPTURE(timeout);
 
             ThreadTestEnvironment env(invocationCount);
@@ -405,7 +408,7 @@ namespace Conformance
     {
         XrInstance instance;
         XrResult result = CreateBasicInstance(&instance);
-        XRC_CHECK_THROW(XR_SUCCEEDED(result) || result == XR_ERROR_LIMIT_REACHED);
+        XRC_CHECK_THROW_XRRESULT_SUCCESS_OR_LIMIT_REACHED(result, "CreateBasicInstance in Exercise_xrCreateInstance");
 
         if (XR_SUCCEEDED(result)) {
             SleepMs(50);
@@ -489,7 +492,7 @@ namespace Conformance
         createInfo.systemId = env.GetAutoBasicSession().GetSystemId();
         XrSession session;
         XrResult result = xrCreateSession(env.GetAutoBasicSession().GetInstance(), &createInfo, &session);
-        XRC_CHECK_THROW(XR_SUCCEEDED(result) || result == XR_ERROR_LIMIT_REACHED);
+        XRC_CHECK_THROW_XRRESULT_SUCCESS_OR_LIMIT_REACHED(result, "xrCreateSession");
 
         if (XR_SUCCEEDED(result)) {
             SleepMs(50);
@@ -517,7 +520,7 @@ namespace Conformance
         XrReferenceSpaceCreateInfo createInfo{XR_TYPE_REFERENCE_SPACE_CREATE_INFO, nullptr, XR_REFERENCE_SPACE_TYPE_VIEW, XrPosefCPP()};
         XrSpace space;
         XrResult result = xrCreateReferenceSpace(env.GetAutoBasicSession().GetSession(), &createInfo, &space);
-        XRC_CHECK_THROW(XR_SUCCEEDED(result) || result == XR_ERROR_LIMIT_REACHED);
+        XRC_CHECK_THROW_XRRESULT_SUCCESS_OR_LIMIT_REACHED(result, "xrCreateReferenceSpace");
 
         if (XR_SUCCEEDED(result)) {
             SleepMs(50);
@@ -547,7 +550,7 @@ namespace Conformance
 
         XrSpace space;
         XrResult result = xrCreateActionSpace(env.GetAutoBasicSession().GetSession(), &actionSpaceCreateInfo, &space);
-        XRC_CHECK_THROW(XR_SUCCEEDED(result) || result == XR_ERROR_LIMIT_REACHED);
+        XRC_CHECK_THROW_XRRESULT_SUCCESS_OR_LIMIT_REACHED(result, "xrCreateActionSpace");
 
         SleepMs(50);
         XRC_CHECK_THROW_XRCMD(xrDestroySpace(space));
@@ -635,7 +638,7 @@ namespace Conformance
         XrSwapchain swapchain;
         XrExtent2Di widthHeight{0, 0};  // 0,0 means Use defaults.
         XrResult result = CreateColorSwapchain(env.GetAutoBasicSession().GetSession(), graphicsPlugin.get(), &swapchain, &widthHeight);
-        XRC_CHECK_THROW(XR_SUCCEEDED(result) || result == XR_ERROR_LIMIT_REACHED);
+        XRC_CHECK_THROW_XRRESULT_SUCCESS_OR_LIMIT_REACHED(result, "CreateColorSwapchain in Exercise_xrCreateSwapchain");
 
         if (XR_SUCCEEDED(result)) {
             SleepMs(50);
@@ -652,19 +655,32 @@ namespace Conformance
     {
         GlobalData& globalData = GetGlobalData();
         std::shared_ptr<IGraphicsPlugin> graphicsPlugin = globalData.GetGraphicsPlugin();
+
+#if defined(XR_USE_GRAPHICS_API_OPENGL)
+        bool isOpenGL = globalData.IsInstanceExtensionEnabled(XR_KHR_OPENGL_ENABLE_EXTENSION_NAME);
+        std::unique_lock<std::mutex> glLock =
+            isOpenGL ? std::unique_lock<std::mutex>(env.openGlContextMutex) : std::unique_lock<std::mutex>();
+#endif  // defined(XR_USE_GRAPHICS_API_OPENGL)
+
         XrSwapchainCreateInfo createInfo;
         XrSwapchain swapchain;
         XrExtent2Di widthHeight{0, 0};  // 0,0 means Use defaults.
-        XRC_CHECK_THROW_XRCMD(CreateColorSwapchain(env.GetAutoBasicSession().GetSession(), graphicsPlugin.get(), &swapchain, &widthHeight,
-                                                   1, false, &createInfo));
+        XrResult result = CreateColorSwapchain(env.GetAutoBasicSession().GetSession(), graphicsPlugin.get(), &swapchain, &widthHeight, 1,
+                                               false, &createInfo);
+        XRC_CHECK_THROW_XRRESULT_SUCCESS_OR_LIMIT_REACHED(result, "CreateColorSwapchain in Exercise_xrEnumerateSwapchainImages");
 
-        uint32_t countOutput;
-        XRC_CHECK_THROW_XRCMD(xrEnumerateSwapchainImages(swapchain, 0, &countOutput, nullptr));
+        if (XR_SUCCEEDED(result)) {
+            uint32_t countOutput;
+            XRC_CHECK_THROW_XRCMD(xrEnumerateSwapchainImages(swapchain, 0, &countOutput, nullptr));
 
-        std::shared_ptr<IGraphicsPlugin::SwapchainImageStructs> p = graphicsPlugin->AllocateSwapchainImageStructs(countOutput, createInfo);
-        uint32_t newCountOutput;
-        XRC_CHECK_THROW_XRCMD(xrEnumerateSwapchainImages(swapchain, countOutput, &newCountOutput, p->imagePtrVector[0]));
-        XRC_CHECK_THROW(newCountOutput == countOutput);
+            std::shared_ptr<IGraphicsPlugin::SwapchainImageStructs> p =
+                graphicsPlugin->AllocateSwapchainImageStructs(countOutput, createInfo);
+            uint32_t newCountOutput;
+            XRC_CHECK_THROW_XRCMD(xrEnumerateSwapchainImages(swapchain, countOutput, &newCountOutput, p->imagePtrVector[0]));
+            XRC_CHECK_THROW(newCountOutput == countOutput);
+
+            XRC_CHECK_THROW_XRCMD(xrDestroySwapchain(swapchain));
+        }
     }
 
     void Exercise_xrAcquireSwapchainImage(ThreadTestEnvironment& env)
@@ -687,24 +703,29 @@ namespace Conformance
 
         XrSwapchain swapchain;
         XrExtent2Di widthHeight{0, 0};  // 0,0 means Use defaults.
-        XRC_CHECK_THROW_XRCMD(CreateColorSwapchain(env.GetAutoBasicSession().GetSession(), graphicsPlugin.get(), &swapchain, &widthHeight));
+        XrResult result = CreateColorSwapchain(env.GetAutoBasicSession().GetSession(), graphicsPlugin.get(), &swapchain, &widthHeight);
+        XRC_CHECK_THROW_XRRESULT_SUCCESS_OR_LIMIT_REACHED(result, "CreateColorSwapchain in Exercise_xrAcquireSwapchainImage");
 
-        const size_t iterationCount = 100;  // To do: Make this configurable.
+        if (XR_SUCCEEDED(result)) {
+            const size_t iterationCount = 100;  // To do: Make this configurable.
 
-        for (size_t i = 0; i < iterationCount; ++i) {
-            XrSwapchainImageAcquireInfo acquireInfo{XR_TYPE_SWAPCHAIN_IMAGE_ACQUIRE_INFO};
-            uint32_t index;
-            XRC_CHECK_THROW_XRCMD(xrAcquireSwapchainImage(swapchain, &acquireInfo, &index));
-            SleepMs(5);
+            for (size_t i = 0; i < iterationCount; ++i) {
+                XrSwapchainImageAcquireInfo acquireInfo{XR_TYPE_SWAPCHAIN_IMAGE_ACQUIRE_INFO};
+                uint32_t index;
+                XRC_CHECK_THROW_XRCMD(xrAcquireSwapchainImage(swapchain, &acquireInfo, &index));
+                SleepMs(5);
 
-            XrSwapchainImageWaitInfo waitInfo{XR_TYPE_SWAPCHAIN_IMAGE_WAIT_INFO};
-            waitInfo.timeout = 10000000;  // 10ms
-            XRC_CHECK_THROW_XRCMD(xrWaitSwapchainImage(swapchain, &waitInfo));
-            SleepMs(5);
+                XrSwapchainImageWaitInfo waitInfo{XR_TYPE_SWAPCHAIN_IMAGE_WAIT_INFO};
+                waitInfo.timeout = 10000000;  // 10ms
+                XRC_CHECK_THROW_XRCMD(xrWaitSwapchainImage(swapchain, &waitInfo));
+                SleepMs(5);
 
-            XrSwapchainImageReleaseInfo releaseInfo{XR_TYPE_SWAPCHAIN_IMAGE_RELEASE_INFO};
-            XRC_CHECK_THROW_XRCMD(xrReleaseSwapchainImage(swapchain, &releaseInfo));
-            SleepMs(5);
+                XrSwapchainImageReleaseInfo releaseInfo{XR_TYPE_SWAPCHAIN_IMAGE_RELEASE_INFO};
+                XRC_CHECK_THROW_XRCMD(xrReleaseSwapchainImage(swapchain, &releaseInfo));
+                SleepMs(5);
+            }
+
+            XRC_CHECK_THROW_XRCMD(xrDestroySwapchain(swapchain));
         }
     }
 
@@ -741,7 +762,7 @@ namespace Conformance
             XrPath path = XR_NULL_PATH;
 
             XRC_CHECK_THROW_XRCMD(xrStringToPath(env.GetAutoBasicSession().GetInstance(), pathStr.c_str(), &path));
-            strVector.push_back(std::make_pair(path, pathStr));
+            strVector.emplace_back(path, pathStr);
 
             for (size_t j = 0; j < 5; ++j) {
                 size_t index = randEngine.RandSizeT(0, strVector.size());
@@ -778,14 +799,15 @@ namespace Conformance
 
             XrActionSet actionSet;
             XrResult result = xrCreateActionSet(env.GetAutoBasicSession().GetInstance(), &createInfo, &actionSet);
-            XRC_CHECK_THROW(XR_SUCCEEDED(result) || result == XR_ERROR_LIMIT_REACHED);
+            XRC_CHECK_THROW_XRRESULT_SUCCESS_OR_LIMIT_REACHED(result, "xrCreateActionSet");
+
             if (XR_SUCCEEDED(result)) {
                 actionSetVector.push_back(actionSet);
             }
         }
 
-        for (size_t a = 0; a != actionSetVector.size(); ++a)
-            XRC_CHECK_THROW_XRCMD(xrDestroyActionSet(actionSetVector[a]));
+        for (auto& a : actionSetVector)
+            XRC_CHECK_THROW_XRCMD(xrDestroyActionSet(a));
     }
 
     void Exercise_xrDestroyActionSet(ThreadTestEnvironment& env)
@@ -819,14 +841,14 @@ namespace Conformance
 
             XrAction action;
             XrResult result = xrCreateAction(actionSet, &actionCreateInfo, &action);
-            XRC_CHECK_THROW(XR_SUCCEEDED(result) || result == XR_ERROR_LIMIT_REACHED);
+            XRC_CHECK_THROW_XRRESULT_SUCCESS_OR_LIMIT_REACHED(result, "xrCreateAction");
             if (XR_SUCCEEDED(result)) {
                 actionVector.push_back(action);
             }
         }
 
-        for (size_t a = 0; a != actionVector.size(); ++a)
-            XRC_CHECK_THROW_XRCMD(xrDestroyAction(actionVector[a]));
+        for (auto& a : actionVector)
+            XRC_CHECK_THROW_XRCMD(xrDestroyAction(a));
 
         XRC_CHECK_THROW_XRCMD(xrDestroyActionSet(actionSet));
     }
@@ -850,7 +872,7 @@ namespace Conformance
         const size_t iterationCount = 100;  // To do: Make this configurable.
 
         for (size_t i = 0; i < iterationCount; ++i) {
-            XrActionsSyncInfo actionsSyncInfo{XR_TYPE_ACTIONS_SYNC_INFO, 0, (uint32_t)activeActionSetVector.size(),
+            XrActionsSyncInfo actionsSyncInfo{XR_TYPE_ACTIONS_SYNC_INFO, nullptr, (uint32_t)activeActionSetVector.size(),
                                               activeActionSetVector.data()};
 
             XRC_CHECK_THROW_XRCMD(xrSyncActions(session, &actionsSyncInfo));
@@ -1039,7 +1061,7 @@ namespace Conformance
         return Exercise_xrApplyHapticFeedback(env);
     }
 
-    const std::vector<ThreadTestFunction> globalTestFunctionVector{
+    const std::initializer_list<ThreadTestFunction> globalTestFunctionVector{
         {"xrGetInstanceProcAddr", CallRequirement::instance, Exercise_xrGetInstanceProcAddr},
         {"xrEnumerateInstanceExtensionProperties", CallRequirement::global, Exercise_xrEnumerateInstanceExtensionProperties},
         {"xrEnumerateApiLayerProperties", CallRequirement::global, Exercise_xrEnumerateApiLayerProperties},

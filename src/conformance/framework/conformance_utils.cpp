@@ -15,16 +15,19 @@
 // limitations under the License.
 
 #include <catch2/catch.hpp>
+
 #include "utils.h"
 #include "report.h"
 #include "two_call_util.h"
 #include "conformance_utils.h"
 #include "conformance_framework.h"
-#include "xr_dependencies.h"
-#include "openxr/openxr_platform.h"
-#include "openxr/openxr_reflection.h"
 #include "graphics_plugin.h"
+#include "throw_helpers.h"
+
+#include "xr_dependencies.h"
+#include <openxr/openxr_platform.h>
 #include <openxr/openxr_reflection.h>
+
 #include <map>
 #include <algorithm>
 #include <iostream>
@@ -48,14 +51,12 @@
 
 namespace Conformance
 {
-    constexpr size_t HEX_DIGITS_FOR_HANDLE = 8;
-
     // We keep our own copy of this as opposed to calling the xrResultToString function, because our
     // purpose here it to validate the runtime's implementation of xrResultToString.
-    const ResultStringMap resultStringMap{XR_LIST_ENUM_XrResult(XRC_ENUM_NAME_PAIR)};
 
     const ResultStringMap& GetResultStringMap()
     {
+        static const ResultStringMap resultStringMap{XR_LIST_ENUM_XrResult(XRC_ENUM_NAME_PAIR)};
         return resultStringMap;
     }
 
@@ -68,9 +69,9 @@ namespace Conformance
 
     const char* ResultToString(XrResult result)
     {
-        auto it = resultStringMap.find(result);
+        auto it = GetResultStringMap().find(result);
 
-        if (it != resultStringMap.end()) {
+        if (it != GetResultStringMap().end()) {
             return it->second;
         }
 
@@ -132,76 +133,72 @@ namespace Conformance
             session = XR_NULL_HANDLE;
         }
     }
-
-    void InstanceDeleteCHECK::operator()(XrInstance i)
+    namespace deleters
     {
-        if (i != XR_NULL_HANDLE) {
-            XrResult result = xrDestroyInstance(i);
-            CHECK(result == XR_SUCCESS);
+        void InstanceDeleteCHECK::operator()(XrInstance i) const
+        {
+            if (i != XR_NULL_HANDLE) {
+                XrResult result = xrDestroyInstance(i);
+                CHECK(result == XR_SUCCESS);
+            }
         }
-    }
 
-    void InstanceDeleteREQUIRE::operator()(XrInstance i)
-    {
-        if (i != XR_NULL_HANDLE) {
-            XrResult result = xrDestroyInstance(i);
-            REQUIRE(result == XR_SUCCESS);
+        void InstanceDeleteREQUIRE::operator()(XrInstance i) const
+        {
+            if (i != XR_NULL_HANDLE) {
+                XrResult result = xrDestroyInstance(i);
+                REQUIRE(result == XR_SUCCESS);
+            }
         }
-    }
 
-    void SessionDeleteCHECK::operator()(XrSession s)
-    {
-        if (s != XR_NULL_HANDLE) {
-            XrResult result = xrDestroySession(s);
-            CHECK(result == XR_SUCCESS);
+        void SessionDeleteCHECK::operator()(XrSession s) const
+        {
+            if (s != XR_NULL_HANDLE) {
+                XrResult result = xrDestroySession(s);
+                CHECK(result == XR_SUCCESS);
+            }
         }
-    }
 
-    void SessionDeleteREQUIRE::operator()(XrSession s)
-    {
-        if (s != XR_NULL_HANDLE) {
-            XrResult result = xrDestroySession(s);
-            REQUIRE(result == XR_SUCCESS);
+        void SessionDeleteREQUIRE::operator()(XrSession s) const
+        {
+            if (s != XR_NULL_HANDLE) {
+                XrResult result = xrDestroySession(s);
+                REQUIRE(result == XR_SUCCESS);
+            }
         }
-    }
 
-    void SpaceDeleteCHECK::operator()(XrSpace s)
-    {
-        if (s != XR_NULL_HANDLE) {
-            XrResult result = xrDestroySpace(s);
-            CHECK(result == XR_SUCCESS);
+        void SpaceDeleteCHECK::operator()(XrSpace s) const
+        {
+            if (s != XR_NULL_HANDLE) {
+                XrResult result = xrDestroySpace(s);
+                CHECK(result == XR_SUCCESS);
+            }
         }
-    }
 
-    void SpaceDeleteREQUIRE::operator()(XrSpace s)
-    {
-        if (s != XR_NULL_HANDLE) {
-            XrResult result = xrDestroySpace(s);
-            REQUIRE(result == XR_SUCCESS);
+        void SpaceDeleteREQUIRE::operator()(XrSpace s) const
+        {
+            if (s != XR_NULL_HANDLE) {
+                XrResult result = xrDestroySpace(s);
+                REQUIRE(result == XR_SUCCESS);
+            }
         }
-    }
 
-    void SwapchainDeleteCHECK::operator()(XrSwapchain s)
-    {
-        if (s != XR_NULL_HANDLE) {
-            XrResult result = xrDestroySwapchain(s);
-            CHECK(result == XR_SUCCESS);
+        void SwapchainDeleteCHECK::operator()(XrSwapchain s) const
+        {
+            if (s != XR_NULL_HANDLE) {
+                XrResult result = xrDestroySwapchain(s);
+                CHECK(result == XR_SUCCESS);
+            }
         }
-    }
 
-    void SwapchainDeleteREQUIRE::operator()(XrSwapchain s)
-    {
-        if (s != XR_NULL_HANDLE) {
-            XrResult result = xrDestroySwapchain(s);
-            REQUIRE(result == XR_SUCCESS);
+        void SwapchainDeleteREQUIRE::operator()(XrSwapchain s) const
+        {
+            if (s != XR_NULL_HANDLE) {
+                XrResult result = xrDestroySwapchain(s);
+                REQUIRE(result == XR_SUCCESS);
+            }
         }
-    }
-
-    std::ostream& operator<<(std::ostream& os, NullHandleType const& /*unused*/)
-    {
-        os << "XR_NULL_HANDLE";
-        return os;
-    }
+    }  // namespace deleters
 
     static XrBaseInStructure unrecognizedExtension{XRC_UNRECOGNIZABLE_STRUCTURE_TYPE, nullptr};
 
@@ -214,7 +211,7 @@ namespace Conformance
     // Stopwatch
     ////////////////////////////////////////////////////////////////////////////////////////////////
 
-    Stopwatch::Stopwatch(bool start) : startTime(), endTime(), running(false)
+    Stopwatch::Stopwatch(bool start) : startTime(), endTime()
     {
         if (start)
             Restart();
@@ -275,7 +272,8 @@ namespace Conformance
     // CreateBasicInstance
     ////////////////////////////////////////////////////////////////////////////////////////////////
 
-    XrResult CreateBasicInstance(XrInstance* instance, bool permitDebugMessenger, std::vector<const char*> additionalEnabledExtensions)
+    XrResult CreateBasicInstance(XrInstance* instance, bool permitDebugMessenger,
+                                 const std::vector<const char*>& additionalEnabledExtensions)
     {
         GlobalData& globalData = GetGlobalData();
 
@@ -362,12 +360,14 @@ namespace Conformance
         }
     }
 
-    AutoBasicInstance::~AutoBasicInstance()
+    AutoBasicInstance::~AutoBasicInstance() noexcept
     {
         if (debugMessenger != XR_NULL_HANDLE_CPP) {
             auto xrDestroyDebugUtilsMessengerEXT_ =
-                GetInstanceExtensionFunction<PFN_xrDestroyDebugUtilsMessengerEXT>(instance, "xrDestroyDebugUtilsMessengerEXT");
-            xrDestroyDebugUtilsMessengerEXT_(debugMessenger);
+                GetInstanceExtensionFunctionNoexcept<PFN_xrDestroyDebugUtilsMessengerEXT>(instance, "xrDestroyDebugUtilsMessengerEXT");
+            if (xrDestroyDebugUtilsMessengerEXT_ != nullptr) {
+                xrDestroyDebugUtilsMessengerEXT_(debugMessenger);
+            }
             debugMessenger = XR_NULL_HANDLE_CPP;
         }
         if (instance != XR_NULL_HANDLE) {
@@ -383,30 +383,6 @@ namespace Conformance
     bool AutoBasicInstance::operator!=(NullHandleType const& /*unused*/) const
     {
         return IsValidHandle();
-    }
-
-    template <typename T>
-    static inline void OutputHandle(std::ostream& os, T handle)
-    {
-        if (handle == XR_NULL_HANDLE) {
-            os << "XR_NULL_HANDLE";
-        }
-        else {
-            std::ostringstream oss;
-            oss << "0x" << std::hex << std::setw(HEX_DIGITS_FOR_HANDLE) << std::setfill('0');
-#if XR_PTR_SIZE == 8
-            oss << reinterpret_cast<uint64_t>(handle);
-#else
-            oss << static_cast<uint64_t>(handle);
-#endif
-            os << oss.str();
-        }
-    }
-
-    std::ostream& operator<<(std::ostream& os, AutoBasicInstance const& inst)
-    {
-        OutputHandle(os, inst.GetInstance());
-        return os;
     }
 
     XrResult CreateBasicSession(XrInstance instance, XrSystemId* systemId, XrSession* session, bool enableGraphicsSystem)
@@ -507,7 +483,7 @@ namespace Conformance
                         // that the session is ready.
 
                         // timeout in case the runtime will never transition to READY: 10s in release, no practical limit in debug
-                        std::chrono::nanoseconds timeout = (GetGlobalData().options.debugMode ? 3600_sec : 10_sec);
+                        std::chrono::nanoseconds timeout = (GetGlobalData().options.debugMode ? 3600s : 10s);
                         CountdownTimer countdownTimer(timeout);
 
                         while ((sessionState != XR_SESSION_STATE_READY) && (!countdownTimer.IsTimeUp())) {
@@ -650,12 +626,6 @@ namespace Conformance
     bool AutoBasicSession::operator!=(NullHandleType const& /*unused*/) const
     {
         return IsValidHandle();
-    }
-
-    std::ostream& operator<<(std::ostream& os, AutoBasicSession const& sess)
-    {
-        OutputHandle(os, sess.GetSession());
-        return os;
     }
 
     ////////////////////////////////////////////////////////////////////////////////////////////////
@@ -817,8 +787,10 @@ namespace Conformance
                 // Currently this swapchain handling is dumb; we just use the first swapchain image.
                 projectionViewVector[v].subImage.swapchain =
                     autoBasicSession->swapchainVector[0];  // Intentionally use just [0], in order to simplify our logic here.
-                projectionViewVector[v].subImage.imageRect = {0, 0, (int32_t)autoBasicSession->swapchainExtent.width,
-                                                              (int32_t)autoBasicSession->swapchainExtent.height};
+                projectionViewVector[v].subImage.imageRect = {
+                    {0, 0},
+                    {(int32_t)autoBasicSession->swapchainExtent.width, (int32_t)autoBasicSession->swapchainExtent.height},
+                };
                 projectionViewVector[v].subImage.imageArrayIndex = 0;
             }
         }
@@ -947,7 +919,7 @@ namespace Conformance
         return RunResult::Timeout;
     }
 
-    bool WaitUntilPredicateWithTimeout(std::function<bool()> predicate, const std::chrono::nanoseconds timeout,
+    bool WaitUntilPredicateWithTimeout(const std::function<bool()>& predicate, const std::chrono::nanoseconds timeout,
                                        const std::chrono::nanoseconds delay)
     {
         const auto timeoutTime = std::chrono::system_clock::now() + timeout;
@@ -1230,45 +1202,4 @@ namespace Conformance
 
         return result;
     }
-
-    bool GetRuntimeMajorMinorVersion(XrVersion& version)
-    {
-        XrInstanceCreateInfo createInfo{XR_TYPE_INSTANCE_CREATE_INFO};
-        XrInstance instance;
-
-        for (int32_t major = 10; major >= 0; major--) {
-            createInfo.applicationInfo.apiVersion = XR_MAKE_VERSION(major, 0, 0);
-
-            XrResult result = xrCreateInstance(&createInfo, &instance);
-            if (result == XR_ERROR_API_VERSION_UNSUPPORTED) {
-                continue;  // Try the next lower number.
-            }
-            if (XR_SUCCEEDED(result)) {  // This is the highest major version. Try minor versions now.
-                xrDestroyInstance(instance);
-
-                // Try successive minor versions.
-                for (int32_t minor = 99; minor >= 0; minor--) {
-                    createInfo.applicationInfo.apiVersion = XR_MAKE_VERSION(major, minor, 0);
-                    result = xrCreateInstance(&createInfo, &instance);
-                    if (result == XR_ERROR_API_VERSION_UNSUPPORTED) {
-                        continue;  // Try the next lower number.
-                    }
-                    if (XR_SUCCEEDED(result)) {  // This is the highest major version. Try minor versions now.
-                        xrDestroyInstance(instance);
-                        version = createInfo.applicationInfo.apiVersion;
-                        return true;
-                    }
-
-                    break;
-                }
-            }
-            else {
-                break;
-            }
-        }
-
-        version = 0;
-        return false;  // Error occurred above.
-    };
-
 }  // namespace Conformance

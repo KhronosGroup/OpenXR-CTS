@@ -17,6 +17,147 @@ particular, since it is primarily software, pull requests may be integrated as
 they are accepted even between periodic updates. However, versions that are not
 signed tags on the `approved` branch are not valid for conformance submission.
 
+## OpenXR CTS 1.0.26.0 (2022-12-01)
+
+- Registry
+  - All changes found in 1.0.23 through 1.0.26.
+- Conformance Tests
+  - Fix: Warnings raised by Clang on various platforms.
+    ([internal MR 2197](https://gitlab.khronos.org/openxr/openxr/merge_requests/2197))
+  - Fix: Resolve some warnings and a use-after-move.
+    ([internal MR 2224](https://gitlab.khronos.org/openxr/openxr/merge_requests/2224))
+  - Fix: Remove references to invalid typeless equivalent for
+    `DXGI_FORMAT_R11G11B10_FLOAT`
+    ([internal MR 2247](https://gitlab.khronos.org/openxr/openxr/merge_requests/2247))
+  - Fix: Remove call to swapbuffers to fix OpenGL frame timing.
+    ([internal MR 2249](https://gitlab.khronos.org/openxr/openxr/merge_requests/2249))
+  - Fix: Conformance layer issues related to `XR_FB_spatial_entity`
+    ([internal MR 2314](https://gitlab.khronos.org/openxr/openxr/merge_requests/2314))
+  - Fix: Android conformance initialization detection for platforms without native
+    windows.
+    ([internal MR 2373](https://gitlab.khronos.org/openxr/openxr/merge_requests/2373))
+  - Fix: Not all Android devices have `/sdcard` as a writable path, use the
+    `app->activity->externalDataPath` path.
+    ([internal MR 2374](https://gitlab.khronos.org/openxr/openxr/merge_requests/2374))
+  - Fix: Check function pointer validity before usage in conformance layer to
+    verify conformance and avoid segfault
+    ([internal MR 2382](https://gitlab.khronos.org/openxr/openxr/merge_requests/2382))
+  - Fix: Remove dependency on action space `locationFlags` remaining constant
+    between calls to `xrSyncActions` in test "Action Spaces".
+    ([internal MR 2424](https://gitlab.khronos.org/openxr/openxr/merge_requests/2424))
+  - Fix: Revise some code which generated -Wswitch errors
+    ([internal MR 2478](https://gitlab.khronos.org/openxr/openxr/merge_requests/2478))
+  - Fix: Correct domain in Android package identifier.
+    ([internal MR 2505](https://gitlab.khronos.org/openxr/openxr/merge_requests/2505))
+  - Fix: Bump Android Gradle Plugin to 7.0.4 to fix building on M1 device.
+    ([OpenXR-CTS PR 43](https://github.com/KhronosGroup/OpenXR-CTS/pull/43))
+  - Improvement: Clarify wording of a warning.
+    ([internal MR 2196](https://gitlab.khronos.org/openxr/openxr/merge_requests/2196))
+  - Improvement: Be more permissive of next chain order in conformance layer.
+    ([internal MR 2202](https://gitlab.khronos.org/openxr/openxr/merge_requests/2202))
+  - Improvement: Update Catch2 from `2.9.2` to `2.13.9`.
+    ([internal MR 2203](https://gitlab.khronos.org/openxr/openxr/merge_requests/2203),
+    [internal MR 2372](https://gitlab.khronos.org/openxr/openxr/merge_requests/2372))
+  - Improvement: Remove unused `GetRuntimeMajorMinorVersion` function from
+    conformance test suite
+    ([internal MR 2218](https://gitlab.khronos.org/openxr/openxr/merge_requests/2218))
+  - Improvement: Adding `org.khronos.openxr.intent.category.IMMERSIVE_HMD` category
+    to intent-filter for `AndroidManifest.xml`, to indicate immersive application
+    ([internal MR 2219](https://gitlab.khronos.org/openxr/openxr/merge_requests/2219))
+  - Improvement: In case of internal error in the conformance layer, provide some
+    logging to support troubleshooting.
+    ([internal MR 2224](https://gitlab.khronos.org/openxr/openxr/merge_requests/2224))
+  - Improvement: In interactive conformance tests for controllers, improve
+    instructions and embed a modified version of the spec diagram of grip and aim
+    pose.
+    ([internal MR 2228](https://gitlab.khronos.org/openxr/openxr/merge_requests/2228))
+  - Improvement: Code/design documentation in the conformance framework.
+    ([internal MR 2320](https://gitlab.khronos.org/openxr/openxr/merge_requests/2320))
+  - Improvement: General cleanups and code quality improvements.
+    ([internal MR 2321](https://gitlab.khronos.org/openxr/openxr/merge_requests/2321),
+    [internal MR 2340](https://gitlab.khronos.org/openxr/openxr/merge_requests/2340),
+    [internal MR 2341](https://gitlab.khronos.org/openxr/openxr/merge_requests/2341),
+    [internal MR 2345](https://gitlab.khronos.org/openxr/openxr/merge_requests/2345),
+    [internal MR 2320](https://gitlab.khronos.org/openxr/openxr/merge_requests/2320),
+    [internal MR 2380](https://gitlab.khronos.org/openxr/openxr/merge_requests/2380))
+  - Improvement: Add Android support for API Layers, and ship the conformance layer
+    in the conformance APK.
+    ([internal MR 2350](https://gitlab.khronos.org/openxr/openxr/merge_requests/2350))
+  - Improvement: Use generated reflection headers to exhaustively check event data
+    structures.
+    ([internal MR 2357](https://gitlab.khronos.org/openxr/openxr/merge_requests/2357),
+    [internal issue 1798](https://gitlab.khronos.org/openxr/openxr/issues/1798))
+  - Improvement: Add additional tests for `XR_EXT_debug_utils`.
+    ([internal MR 2358](https://gitlab.khronos.org/openxr/openxr/merge_requests/2358))
+  - Improvement: Add conformance test for action space creation before bindings
+    suggestion.
+    ([internal MR 2360](https://gitlab.khronos.org/openxr/openxr/merge_requests/2360),
+    [internal issue 1610](https://gitlab.khronos.org/openxr/openxr/issues/1610))
+  - Improvement: Add the ability to render arbitrary, simple meshes to all graphics
+    plugins, not just cubes.
+    ([internal MR 2376](https://gitlab.khronos.org/openxr/openxr/merge_requests/2376),
+    [internal issue 1454](https://gitlab.khronos.org/openxr/openxr/issues/1454),
+    [internal issue 1776](https://gitlab.khronos.org/openxr/openxr/issues/1776))
+  - Improvement: Show velocity/trajectory in Interactive Throw with coordinate axes
+    (gnomons)
+    ([internal MR 2376](https://gitlab.khronos.org/openxr/openxr/merge_requests/2376),
+    [internal issue 1454](https://gitlab.khronos.org/openxr/openxr/issues/1454),
+    [internal issue 1776](https://gitlab.khronos.org/openxr/openxr/issues/1776))
+  - Improvement: Fix OpenGL stability problems in multithreaded test.
+    ([internal MR 2379](https://gitlab.khronos.org/openxr/openxr/merge_requests/2379))
+  - Improvement: Add conformance test for interaction profile paths which may be
+    system use only.
+    ([internal MR 2386](https://gitlab.khronos.org/openxr/openxr/merge_requests/2386))
+  - Improvement: Remove `PATH_PREFIX` from RGBAImage as it is unused.
+    ([internal MR 2388](https://gitlab.khronos.org/openxr/openxr/merge_requests/2388),
+    [internal MR 2436](https://gitlab.khronos.org/openxr/openxr/merge_requests/2436))
+  - Improvement: Add support for passing conformance with only a single controller.
+    ([internal MR 2415](https://gitlab.khronos.org/openxr/openxr/merge_requests/2415),
+    [internal issue 1812](https://gitlab.khronos.org/openxr/openxr/issues/1812),
+    [internal MR 2445](https://gitlab.khronos.org/openxr/openxr/merge_requests/2445),
+    [internal MR 2484](https://gitlab.khronos.org/openxr/openxr/merge_requests/2484))
+  - Improvement: Adjust two REQUIRES in `xrAttachSessionActionSets` test to just
+    require success rather than `XR_SUCCESS` (unconditional success)
+    ([internal MR 2442](https://gitlab.khronos.org/openxr/openxr/merge_requests/2442))
+  - Improvement: Simplify platform plugin for CTS for POSIX platforms.
+    ([internal MR 2443](https://gitlab.khronos.org/openxr/openxr/merge_requests/2443),
+    [internal MR 2436](https://gitlab.khronos.org/openxr/openxr/merge_requests/2436))
+  - Improvement: Clarify a warning.
+    ([internal MR 2469](https://gitlab.khronos.org/openxr/openxr/merge_requests/2469))
+  - Improvement: Add `android.permission.VIBRATE` permission needed by some
+    runtimes for the controller haptics.
+    ([internal MR 2486](https://gitlab.khronos.org/openxr/openxr/merge_requests/2486))
+  - Improvement: Add `[no_auto]` tag to indicate a interactive tests without
+    `XR_EXT_conformance_automation` support.
+    ([internal MR 2487](https://gitlab.khronos.org/openxr/openxr/merge_requests/2487))
+  - Improvement: Comment out unused variable in palm pose test.
+    ([OpenXR-CTS PR 40](https://github.com/KhronosGroup/OpenXR-CTS/pull/40))
+  - New test: Add tests for `XR_EXT_palm_pose`
+    ([internal MR 2112](https://gitlab.khronos.org/openxr/openxr/merge_requests/2112))
+  - New test: Add tests for `XR_EXT_dpad_binding`.
+    ([internal MR 2159](https://gitlab.khronos.org/openxr/openxr/merge_requests/2159),
+    [internal MR 2271](https://gitlab.khronos.org/openxr/openxr/merge_requests/2271))
+  - New test: Add a conformance test for `XR_EXT_eye_gaze_interaction` extension.
+    ([internal MR 2202](https://gitlab.khronos.org/openxr/openxr/merge_requests/2202))
+  - New test: Add additional tests for `XR_KHR_convert_timespec_time` and
+    `XR_KHR_win32_convert_performance_counter_time`
+    ([internal MR 2238](https://gitlab.khronos.org/openxr/openxr/merge_requests/2238))
+  - New test: Add conformance test for `XR_EXT_debug_utils`
+    ([internal MR 2242](https://gitlab.khronos.org/openxr/openxr/merge_requests/2242))
+  - New test: Add dedicated conformance test for `xrLocateViews`
+    ([internal MR 2300](https://gitlab.khronos.org/openxr/openxr/merge_requests/2300),
+    [internal issue 1738](https://gitlab.khronos.org/openxr/openxr/issues/1738))
+  - New test: Add interactive conformance test for `XR_KHR_visibility_mask`
+    ([internal MR 2343](https://gitlab.khronos.org/openxr/openxr/merge_requests/2343),
+    [internal MR 2472](https://gitlab.khronos.org/openxr/openxr/merge_requests/2472))
+  - New test: Add conformance test for consistency of suggested bindings order.
+    ([internal MR 2359](https://gitlab.khronos.org/openxr/openxr/merge_requests/2359))
+  - New test: Add conformance test for vendor extension
+    `XR_META_performance_metrics`.
+    ([internal MR 2422](https://gitlab.khronos.org/openxr/openxr/merge_requests/2422))
+  - ci: Publish Android APK files on releases
+    ([OpenXR-CTS PR 45](https://github.com/KhronosGroup/OpenXR-CTS/pull/45))
+
 ## OpenXR CTS 1.0.22.1 (Approved 2022-01-13)
 
 - Registry

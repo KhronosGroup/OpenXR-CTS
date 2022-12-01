@@ -20,7 +20,9 @@
 
 #include "swapchain_parameters.h"
 #include "conformance_framework.h"
+#include "graphics_plugin_impl_helpers.h"
 #include "Geometry.h"
+#include "throw_helpers.h"
 #include <windows.h>
 #include <wrl/client.h>  // For Microsoft::WRL::ComPtr
 #include <common/xr_linear.h>
@@ -29,6 +31,7 @@
 #include <openxr/openxr_platform.h>
 #include <algorithm>
 #include <array>
+#include <functional>
 #include <catch2/catch.hpp>
 
 #include "d3d_common.h"
@@ -88,11 +91,71 @@ namespace Conformance
         return buffer;
     }
 
+    struct D3D12Mesh
+    {
+        ComPtr<ID3D12Device> device;
+        uint32_t vertexBufferSizeBytes;
+        ComPtr<ID3D12Resource> vertexBuffer;
+        uint32_t indexBufferSizeBytes;
+
+        ComPtr<ID3D12Resource> indexBuffer;
+        UINT numIndices;
+
+        D3D12Mesh(ComPtr<ID3D12Device> d3d12Device, span<const uint16_t> indices, span<const Geometry::Vertex> vertices,
+                  const std::function<bool(ID3D12CommandList* cmdList)>& ExecuteCommandList)
+            : device(d3d12Device), numIndices((UINT)indices.size())
+        {
+
+            ComPtr<ID3D12CommandAllocator> commandAllocator;
+
+            XRC_CHECK_THROW_HRCMD(d3d12Device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, __uuidof(ID3D12CommandAllocator),
+                                                                      reinterpret_cast<void**>(commandAllocator.ReleaseAndGetAddressOf())));
+
+            ComPtr<ID3D12GraphicsCommandList> cmdList;
+            XRC_CHECK_THROW_HRCMD(d3d12Device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, commandAllocator.Get(), nullptr,
+                                                                 __uuidof(ID3D12GraphicsCommandList),
+                                                                 reinterpret_cast<void**>(cmdList.ReleaseAndGetAddressOf())));
+
+            vertexBufferSizeBytes = (uint32_t)vertices.size_bytes();
+            ComPtr<ID3D12Resource> vertexBufferUpload;
+            vertexBuffer = CreateBuffer(d3d12Device.Get(), vertexBufferSizeBytes, D3D12_HEAP_TYPE_DEFAULT);
+            {
+                vertexBufferUpload = CreateBuffer(d3d12Device.Get(), vertexBufferSizeBytes, D3D12_HEAP_TYPE_UPLOAD);
+
+                void* data;
+                const D3D12_RANGE readRange{0, 0};
+                XRC_CHECK_THROW_HRCMD(vertexBufferUpload->Map(0, &readRange, &data));
+                memcpy(data, vertices.data(), vertexBufferSizeBytes);
+                vertexBufferUpload->Unmap(0, nullptr);
+
+                cmdList->CopyBufferRegion(vertexBuffer.Get(), 0, vertexBufferUpload.Get(), 0, vertexBufferSizeBytes);
+            }
+
+            indexBufferSizeBytes = (uint32_t)indices.size_bytes();
+            ComPtr<ID3D12Resource> indexBufferUpload;
+            indexBuffer = CreateBuffer(d3d12Device.Get(), indexBufferSizeBytes, D3D12_HEAP_TYPE_DEFAULT);
+            {
+                indexBufferUpload = CreateBuffer(d3d12Device.Get(), indexBufferSizeBytes, D3D12_HEAP_TYPE_UPLOAD);
+
+                void* data;
+                const D3D12_RANGE readRange{0, 0};
+                XRC_CHECK_THROW_HRCMD(indexBufferUpload->Map(0, &readRange, &data));
+                memcpy(data, indices.data(), indexBufferSizeBytes);
+                indexBufferUpload->Unmap(0, nullptr);
+
+                cmdList->CopyBufferRegion(indexBuffer.Get(), 0, indexBufferUpload.Get(), 0, indexBufferSizeBytes);
+            }
+
+            XRC_CHECK_THROW_HRCMD(cmdList->Close());
+            CHECK(ExecuteCommandList(cmdList.Get()));
+        }
+    };
+
     struct D3D12GraphicsPlugin : public IGraphicsPlugin
     {
         D3D12GraphicsPlugin(std::shared_ptr<IPlatformPlugin>);
 
-        ~D3D12GraphicsPlugin();
+        ~D3D12GraphicsPlugin() override;
 
         bool Initialize() override;
 
@@ -135,11 +198,13 @@ namespace Conformance
         std::shared_ptr<SwapchainImageStructs> AllocateSwapchainImageStructs(size_t size,
                                                                              const XrSwapchainCreateInfo& swapchainCreateInfo) override;
 
-        void ClearImageSlice(const XrSwapchainImageBaseHeader* colorSwapchainImage, uint32_t imageArrayIndex,
-                             int64_t colorSwapchainFormat) override;
+        void ClearImageSlice(const XrSwapchainImageBaseHeader* colorSwapchainImage, uint32_t imageArrayIndex, int64_t colorSwapchainFormat,
+                             XrColor4f bgColor = DarkSlateGrey) override;
+
+        MeshHandle MakeSimpleMesh(span<const uint16_t> idx, span<const Geometry::Vertex> vtx) override;
 
         void RenderView(const XrCompositionLayerProjectionView& layerView, const XrSwapchainImageBaseHeader* colorSwapchainImage,
-                        int64_t colorSwapchainFormat, const std::vector<Cube>& cubes) override;
+                        int64_t colorSwapchainFormat, const RenderParams& params) override;
 
     protected:
         D3D12_CPU_DESCRIPTOR_HANDLE CreateRenderTargetView(ID3D12Resource* colorTexture, uint32_t imageArrayIndex,
@@ -280,10 +345,11 @@ namespace Conformance
         const ComPtr<ID3DBlob> pixelShaderBytes;
         ComPtr<ID3D12RootSignature> rootSignature;
         std::map<DXGI_FORMAT, ComPtr<ID3D12PipelineState>> pipelineStates;
-        ComPtr<ID3D12Resource> cubeVertexBuffer;
-        ComPtr<ID3D12Resource> cubeIndexBuffer;
         ComPtr<ID3D12DescriptorHeap> rtvHeap;
         ComPtr<ID3D12DescriptorHeap> dsvHeap;
+
+        MeshHandle m_cubeMesh;
+        VectorWithGenerationCountedHandles<D3D12Mesh, MeshHandle> m_meshes;
     };
 
     D3D12GraphicsPlugin::D3D12GraphicsPlugin(std::shared_ptr<IPlatformPlugin>)
@@ -438,54 +504,7 @@ namespace Conformance
             fenceEvent = ::CreateEvent(nullptr, FALSE, FALSE, nullptr);
             CHECK(fenceEvent != nullptr);
 
-            ComPtr<ID3D12GraphicsCommandList> cmdList;
-            XRC_CHECK_THROW_HRCMD(d3d12Device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, initializeContext.GetCommandAllocator(),
-                                                                 nullptr, __uuidof(ID3D12GraphicsCommandList),
-                                                                 reinterpret_cast<void**>(cmdList.ReleaseAndGetAddressOf())));
-
-            ComPtr<ID3D12Resource> cubeVertexBufferUpload;
-            cubeVertexBuffer =
-                CreateBuffer(d3d12Device.Get(), (uint32_t)(Geometry::c_cubeVertices.size() * sizeof(Geometry::c_cubeVertices[0])),
-                             D3D12_HEAP_TYPE_DEFAULT);
-            {
-                cubeVertexBufferUpload =
-                    CreateBuffer(d3d12Device.Get(), (uint32_t)(Geometry::c_cubeVertices.size() * sizeof(Geometry::c_cubeVertices[0])),
-                                 D3D12_HEAP_TYPE_UPLOAD);
-
-                void* data;
-                const D3D12_RANGE readRange{0, 0};
-                XRC_CHECK_THROW_HRCMD(cubeVertexBufferUpload->Map(0, &readRange, &data));
-                memcpy(data, Geometry::c_cubeVertices.data(),
-                       (uint32_t)(Geometry::c_cubeVertices.size() * sizeof(Geometry::c_cubeVertices[0])));
-                cubeVertexBufferUpload->Unmap(0, nullptr);
-
-                cmdList->CopyBufferRegion(cubeVertexBuffer.Get(), 0, cubeVertexBufferUpload.Get(), 0,
-                                          Geometry::c_cubeVertices.size() * sizeof(Geometry::c_cubeVertices[0]));
-            }
-
-            ComPtr<ID3D12Resource> cubeIndexBufferUpload;
-            cubeIndexBuffer =
-                CreateBuffer(d3d12Device.Get(), (uint32_t)(Geometry::c_cubeIndices.size() * sizeof(Geometry::c_cubeIndices[0])),
-                             D3D12_HEAP_TYPE_DEFAULT);
-            {
-                cubeIndexBufferUpload =
-                    CreateBuffer(d3d12Device.Get(), (uint32_t)(Geometry::c_cubeIndices.size() * sizeof(Geometry::c_cubeIndices[0])),
-                                 D3D12_HEAP_TYPE_UPLOAD);
-
-                void* data;
-                const D3D12_RANGE readRange{0, 0};
-                XRC_CHECK_THROW_HRCMD(cubeIndexBufferUpload->Map(0, &readRange, &data));
-                memcpy(data, Geometry::c_cubeIndices.data(), Geometry::c_cubeIndices.size() * sizeof(Geometry::c_cubeIndices[0]));
-                cubeIndexBufferUpload->Unmap(0, nullptr);
-
-                cmdList->CopyBufferRegion(cubeIndexBuffer.Get(), 0, cubeIndexBufferUpload.Get(), 0,
-                                          Geometry::c_cubeIndices.size() * sizeof(Geometry::c_cubeIndices[0]));
-            }
-
-            XRC_CHECK_THROW_HRCMD(cmdList->Close());
-            CHECK(ExecuteCommandList(cmdList.Get()));
-
-            WaitForGpu();
+            m_cubeMesh = MakeCubeMesh();
 
             graphicsBinding.device = d3d12Device.Get();
             graphicsBinding.queue = d3d12CmdQueue.Get();
@@ -510,8 +529,8 @@ namespace Conformance
         }
         rootSignature.Reset();
         pipelineStates.clear();
-        cubeVertexBuffer.Reset();
-        cubeIndexBuffer.Reset();
+        m_cubeMesh = {};
+        m_meshes.clear();
         rtvHeap.Reset();
         dsvHeap.Reset();
         swapchainImageContextMap.clear();
@@ -896,12 +915,11 @@ namespace Conformance
     }
 
     void D3D12GraphicsPlugin::ClearImageSlice(const XrSwapchainImageBaseHeader* colorSwapchainImage, uint32_t imageArrayIndex,
-                                              int64_t colorSwapchainFormat)
+                                              int64_t colorSwapchainFormat, XrColor4f bgColor)
     {
         auto& swapchainContext = GetSwapchainImageContext(colorSwapchainImage);
 
         ID3D12Resource* const colorTexture = reinterpret_cast<const XrSwapchainImageD3D12KHR*>(colorSwapchainImage)->texture;
-        const D3D12_RESOURCE_DESC colorTextureDesc = colorTexture->GetDesc();
 
         ComPtr<ID3D12GraphicsCommandList> cmdList;
         XRC_CHECK_THROW_HRCMD(d3d12Device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, swapchainContext.GetCommandAllocator(),
@@ -911,7 +929,8 @@ namespace Conformance
         // Clear color buffer.
         D3D12_CPU_DESCRIPTOR_HANDLE renderTargetView = CreateRenderTargetView(colorTexture, imageArrayIndex, colorSwapchainFormat);
         // TODO: Do not clear to a color when using a pass-through view configuration.
-        cmdList->ClearRenderTargetView(renderTargetView, DirectX::Colors::DarkSlateGray, 0, nullptr);
+        FLOAT bg[] = {bgColor.r, bgColor.g, bgColor.b, bgColor.a};
+        cmdList->ClearRenderTargetView(renderTargetView, bg, 0, nullptr);
 
         // Clear depth buffer.
         ID3D12Resource* depthStencilTexture = swapchainContext.GetDepthStencilTexture(colorTexture);
@@ -922,13 +941,26 @@ namespace Conformance
         CHECK(ExecuteCommandList(cmdList.Get()));
     }
 
+    inline MeshHandle D3D12GraphicsPlugin::MakeSimpleMesh(span<const uint16_t> idx, span<const Geometry::Vertex> vtx)
+
+    {
+        auto handle = m_meshes.emplace_back(d3d12Device, idx, vtx, [&](ID3D12CommandList* cmdList) -> bool {
+            bool success = ExecuteCommandList(cmdList);
+            // Must wait in here so that we don't try to clean up the "upload"-related objects before they're finished.
+            WaitForGpu();
+            return success;
+        });
+
+        return handle;
+    }
+
     void D3D12GraphicsPlugin::RenderView(const XrCompositionLayerProjectionView& layerView,
                                          const XrSwapchainImageBaseHeader* colorSwapchainImage, int64_t colorSwapchainFormat,
-                                         const std::vector<Cube>& cubes)
+                                         const RenderParams& params)
     {
         auto& swapchainContext = GetSwapchainImageContext(colorSwapchainImage);
 
-        if (!cubes.empty()) {
+        if (!params.cubes.empty() || !params.meshes.empty()) {
             ComPtr<ID3D12GraphicsCommandList> cmdList;
             XRC_CHECK_THROW_HRCMD(d3d12Device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, swapchainContext.GetCommandAllocator(),
                                                                  nullptr, __uuidof(ID3D12GraphicsCommandList),
@@ -939,7 +971,6 @@ namespace Conformance
             cmdList->SetGraphicsRootSignature(rootSignature.Get());
 
             ID3D12Resource* const colorTexture = reinterpret_cast<const XrSwapchainImageD3D12KHR*>(colorSwapchainImage)->texture;
-            const D3D12_RESOURCE_DESC colorTextureDesc = colorTexture->GetDesc();
 
             const D3D12_VIEWPORT viewport = {(float)layerView.subImage.imageRect.offset.x,
                                              (float)layerView.subImage.imageRect.offset.y,
@@ -982,45 +1013,62 @@ namespace Conformance
 
             cmdList->SetGraphicsRootConstantBufferView(1, viewProjectionCBuffer->GetGPUVirtualAddress());
 
-            // Set cube primitive data.
-            const D3D12_VERTEX_BUFFER_VIEW vertexBufferView[] = {
-                {cubeVertexBuffer->GetGPUVirtualAddress(),
-                 (uint32_t)(Geometry::c_cubeVertices.size() * sizeof(Geometry::c_cubeVertices[0])), sizeof(Geometry::Vertex)}};
-            cmdList->IASetVertexBuffers(0, (UINT)ArraySize(vertexBufferView), vertexBufferView);
-
-            D3D12_INDEX_BUFFER_VIEW indexBufferView{cubeIndexBuffer->GetGPUVirtualAddress(),
-                                                    (uint32_t)(Geometry::c_cubeIndices.size() * sizeof(Geometry::c_cubeIndices[0])),
-                                                    DXGI_FORMAT_R16_UINT};
-            cmdList->IASetIndexBuffer(&indexBufferView);
-
             cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
-            constexpr uint32_t cubeCBufferSize = AlignTo<D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT>(sizeof(ModelConstantBuffer));
-            swapchainContext.RequestModelCBuffer(static_cast<uint32_t>(cubeCBufferSize * cubes.size()));
+            constexpr uint32_t modelCBufferSize = AlignTo<D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT>(sizeof(ModelConstantBuffer));
+            swapchainContext.RequestModelCBuffer(static_cast<uint32_t>(modelCBufferSize * (params.cubes.size() + params.meshes.size())));
             ID3D12Resource* modelCBuffer = swapchainContext.GetModelCBuffer();
 
             // Render each cube
             uint32_t offset = 0;
-            for (const Cube& cube : cubes) {
+            MeshHandle lastMeshHandle;
+
+            const auto drawMesh = [&, this](const MeshDrawable mesh) {
+                D3D12Mesh& d3dMesh = m_meshes[mesh.handle];
+                if (mesh.handle != lastMeshHandle) {
+                    // We are now rendering a new mesh
+                    // Set primitive data.
+                    const D3D12_VERTEX_BUFFER_VIEW vertexBufferView[] = {
+                        {d3dMesh.vertexBuffer->GetGPUVirtualAddress(), d3dMesh.vertexBufferSizeBytes, sizeof(Geometry::Vertex)}};
+                    cmdList->IASetVertexBuffers(0, (UINT)ArraySize(vertexBufferView), vertexBufferView);
+
+                    D3D12_INDEX_BUFFER_VIEW indexBufferView{d3dMesh.indexBuffer->GetGPUVirtualAddress(), d3dMesh.indexBufferSizeBytes,
+                                                            DXGI_FORMAT_R16_UINT};
+                    cmdList->IASetIndexBuffer(&indexBufferView);
+
+                    lastMeshHandle = mesh.handle;
+                }
                 // Compute and update the model transform.
                 ModelConstantBuffer model;
+
                 XMStoreFloat4x4(&model.Model,
-                                XMMatrixTranspose(XMMatrixScaling(cube.Scale.x, cube.Scale.y, cube.Scale.z) * LoadXrPose(cube.Pose)));
+                                XMMatrixTranspose(XMMatrixScaling(mesh.params.scale.x, mesh.params.scale.y, mesh.params.scale.z) *
+                                                  LoadXrPose(mesh.params.pose)));
                 {
                     uint8_t* data;
                     const D3D12_RANGE readRange{0, 0};
                     XRC_CHECK_THROW_HRCMD(modelCBuffer->Map(0, &readRange, reinterpret_cast<void**>(&data)));
                     memcpy(data + offset, &model, sizeof(model));
-                    const D3D12_RANGE writeRange{offset, offset + cubeCBufferSize};
+                    const D3D12_RANGE writeRange{offset, offset + modelCBufferSize};
                     modelCBuffer->Unmap(0, &writeRange);
                 }
 
                 cmdList->SetGraphicsRootConstantBufferView(0, modelCBuffer->GetGPUVirtualAddress() + offset);
 
-                // Draw the cube.
-                cmdList->DrawIndexedInstanced((uint32_t)Geometry::c_cubeIndices.size(), 1, 0, 0, 0);
+                // Draw the mesh.
+                cmdList->DrawIndexedInstanced(d3dMesh.numIndices, 1, 0, 0, 0);
 
-                offset += cubeCBufferSize;
+                offset += modelCBufferSize;
+            };
+
+            // Render each cube
+            for (const Cube& cube : params.cubes) {
+                drawMesh(MeshDrawable{m_cubeMesh, cube.params.pose, cube.params.scale});
+            }
+
+            // Render each mesh
+            for (const auto& mesh : params.meshes) {
+                drawMesh(mesh);
             }
 
             XRC_CHECK_THROW_HRCMD(cmdList->Close());

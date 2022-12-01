@@ -17,6 +17,7 @@
 #include "utils.h"
 #include "conformance_utils.h"
 #include "conformance_framework.h"
+#include "throw_helpers.h"
 #include "matchers.h"
 #include <array>
 #include <vector>
@@ -60,14 +61,14 @@ namespace Conformance
             return false;
         };
 
-        auto waitForNextSessionState = [&](XrEventDataSessionStateChanged* evt, std::chrono::nanoseconds duration = 1_sec) {
+        auto waitForNextSessionState = [&](XrEventDataSessionStateChanged* evt, std::chrono::nanoseconds duration = 1s) {
             CountdownTimer countdown(duration);
             while (!countdown.IsTimeUp()) {
                 if (tryGetNextSessionState(evt)) {
                     return true;
                 }
 
-                std::this_thread::sleep_for(5_ms);
+                std::this_thread::sleep_for(5ms);
             }
 
             return false;
@@ -113,7 +114,9 @@ namespace Conformance
                 REQUIRE_THAT(result, In<XrResult>({XR_ERROR_VALIDATION_FAILURE, XR_ERROR_VIEW_CONFIGURATION_TYPE_UNSUPPORTED}));
                 if (!valid && result == XR_ERROR_VIEW_CONFIGURATION_TYPE_UNSUPPORTED) {
                     WARN(
-                        "Runtime accepted an invalid enum value as unsupported, which makes it harder for apps to reason about the error.");
+                        "On receiving an 'invalid' enum value "
+                        << viewType
+                        << ", the runtime returned as XR_ERROR_VIEW_CONFIGURATION_TYPE_UNSUPPORTED instead of XR_ERROR_VALIDATION_FAILURE, which may make it harder for apps to reason about the error.");
                 }
             }
         }
@@ -140,7 +143,7 @@ namespace Conformance
             XRC_CHECK_THROW_XRCMD(xrEndFrame(session, &frameEndInfo));
         };
 
-        auto submitFramesUntilSessionState = [&](XrSessionState expectedSessionState, std::chrono::nanoseconds duration = 30_sec) {
+        auto submitFramesUntilSessionState = [&](XrSessionState expectedSessionState, std::chrono::nanoseconds duration = 30s) {
             CAPTURE(expectedSessionState);
 
             CountdownTimer countdown(duration);

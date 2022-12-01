@@ -21,6 +21,7 @@
 #include "report.h"
 #include "conformance_utils.h"
 #include "conformance_framework.h"
+#include "throw_helpers.h"
 #include "composition_utils.h"
 #include <catch2/catch.hpp>
 #include <openxr/openxr.h>
@@ -38,11 +39,12 @@ namespace Conformance
     // Purpose: Verify behavior of action timing and action space linear/angular velocity through throwing
     // 1. Use action state changed timestamp to query velocities
     // 2. Use action space velocities at various rigid offsets to verify "lever arm" effect is computed by runtime.
-    TEST_CASE("Interactive Throw", "[scenario][interactive]")
+    TEST_CASE("Interactive Throw", "[scenario][interactive][no_auto]")
     {
         const char* instructions =
             "Press and hold 'select' to spawn three rigidly-attached cubes to that controller. "
             "Release 'select' to throw the three cubes. "
+            "The cubes should fly in the same direction as your controller motion and should feel natural. "
             "The rotation of the thrown cubes should match that of the controller. "
             "The velocity should match the lever-arm effect of the controller. "
             "Hit the three target cubes to complete the test. Press the menu button to fail the test. ";
@@ -122,7 +124,7 @@ namespace Conformance
 
         // Create the instructional quad layer placed to the left.
         XrCompositionLayerQuad* const instructionsQuad =
-            compositionHelper.CreateQuadLayer(compositionHelper.CreateStaticSwapchainImage(CreateTextImage(1024, 512, instructions, 48)),
+            compositionHelper.CreateQuadLayer(compositionHelper.CreateStaticSwapchainImage(CreateTextImage(1024, 768, instructions, 48)),
                                               localSpace, 1, {{0, 0, 0, 1}, {-1.5f, 0, -0.3f}});
         XrQuaternionf_CreateFromAxisAngle(&instructionsQuad->pose.orientation, &Up, 70 * MATH_PI / 180);
 
@@ -162,16 +164,19 @@ namespace Conformance
         // Three fixed cubes which must be reached by the thrown cubes to pass the test.
         std::vector<XrVector3f> targetCubes{{-1, -1, -3.0f}, {1, -1, -4.0f}, {0, 1.0f, -5.0f}};
 
-        constexpr XrVector3f gnomonCubeScale{0.005f, 0.005f, 0.005f};
+        constexpr XrVector3f gnomonScale{0.025f, 0.025f, 0.025f};
         constexpr XrVector3f inactiveCubeScale{0.05f, 0.05f, 0.05f};
         constexpr XrVector3f activateCubeScale{0.1f, 0.1f, 0.1f};
         constexpr XrVector3f targetCubeScale{0.2f, 0.2f, 0.2f};
         constexpr float targetCubeHitThreshold = 0.25f;
 
+        MeshHandle gnomonMesh = GetGlobalData().graphicsPlugin->MakeGnomonMesh();
+
         auto update = [&](const XrFrameState& frameState) {
             std::vector<Cube> cubes;
+            std::vector<MeshDrawable> meshes;
 
-            const std::array<XrActiveActionSet, 1> activeActionSets = {{actionSet, XR_NULL_PATH}};
+            const std::array<XrActiveActionSet, 1> activeActionSets = {{{actionSet, XR_NULL_PATH}}};
             XrActionsSyncInfo syncInfo{XR_TYPE_ACTIONS_SYNC_INFO};
             syncInfo.activeActionSets = activeActionSets.data();
             syncInfo.countActiveActionSets = (uint32_t)activeActionSets.size();
@@ -200,7 +205,7 @@ namespace Conformance
             }
 
             // Apply velocities to thrown cubes.
-            auto simulateThrownCubeAtTime = [&cubes](ThrownCube& thrownCube, XrTime predictedDisplayTime, const XrVector3f& scale) {
+            auto simulateThrownCubeAtTime = [](ThrownCube& thrownCube, XrTime predictedDisplayTime) {
                 const XrDuration timeSinceLastTick = predictedDisplayTime - thrownCube.updateTime;
                 CHECK_MSG(timeSinceLastTick > 0, "Unexpected old frame state predictedDisplayTime or future action state lastChangeTime");
                 thrownCube.updateTime = predictedDisplayTime;
@@ -228,12 +233,11 @@ namespace Conformance
                 XrQuaternionf newOrientation;
                 XrQuaternionf_Multiply(&newOrientation, &thrownCube.pose.orientation, &angularRotation);
                 thrownCube.pose.orientation = newOrientation;
-
-                cubes.push_back({thrownCube.pose, scale});
             };
 
             for (ThrownCube& thrownCube : thrownCubes) {
-                simulateThrownCubeAtTime(thrownCube, frameState.predictedDisplayTime, activateCubeScale);
+                simulateThrownCubeAtTime(thrownCube, frameState.predictedDisplayTime);
+                cubes.push_back({thrownCube.pose, activateCubeScale});
 
                 // Remove any target cubes which are hit by the thrown cube.
                 for (auto it = targetCubes.begin(); it != targetCubes.end();) {
@@ -281,7 +285,8 @@ namespace Conformance
                                 for (int step = 1; step < 20; ++step) {
                                     auto predictedDisplayTimeAtStep =
                                         frameState.predictedDisplayTime + step * frameState.predictedDisplayPeriod;
-                                    simulateThrownCubeAtTime(gnomon, predictedDisplayTimeAtStep, gnomonCubeScale);
+                                    simulateThrownCubeAtTime(gnomon, predictedDisplayTimeAtStep);
+                                    meshes.push_back(MeshDrawable{gnomonMesh, gnomon.pose, gnomonScale});
                                 }
                             }
 
@@ -320,7 +325,8 @@ namespace Conformance
                             GetGlobalData().graphicsPlugin->ClearImageSlice(swapchainImage, 0, format);
                             const_cast<XrFovf&>(projLayer->views[view].fov) = views[view].fov;
                             const_cast<XrPosef&>(projLayer->views[view].pose) = views[view].pose;
-                            GetGlobalData().graphicsPlugin->RenderView(projLayer->views[view], swapchainImage, format, cubes);
+                            GetGlobalData().graphicsPlugin->RenderView(projLayer->views[view], swapchainImage, format,
+                                                                       RenderParams().Draw(cubes).Draw(meshes));
                         });
                 }
 

@@ -21,6 +21,7 @@
 #include "report.h"
 #include "conformance_utils.h"
 #include "conformance_framework.h"
+#include "throw_helpers.h"
 #include "composition_utils.h"
 #include <catch2/catch.hpp>
 #include <openxr/openxr.h>
@@ -36,13 +37,16 @@ namespace Conformance
     constexpr XrVector3f Up{0, 1, 0};
 
     // Purpose: Ensure that the action space for grip can be used for a grippable object, in this case a sword, and the action space for aim can be used for comfortable aiming.
-    TEST_CASE("Grip and Aim Pose", "[scenario][interactive]")
+    TEST_CASE("Grip and Aim Pose", "[scenario][interactive][no_auto]")
     {
         const char* exampleImage = "grip_and_aim_pose.png";
+        const char* diagramImage = "grip_axes_diagram.png";
         const char* instructions =
-            "A sword is rendered in one hand using the grip action space. "
-            "A pointing ray is rendered in the other hand using the aim action space with a small axis to show +X and +Y. "
-            "Press select to swap hands. Press menu to complete the validation.";
+            "Ensure the sword feels natural like how it would in real life. "
+            "Ensure the aim ray is comfortable and natural for pointing to any area in front of you. "
+            "Ensure the red/blue/green sides are pointing in the same direction as the above diagram. "
+            "Press select to swap hands and ensure the reverse hands are good too. "
+            "Press menu to complete the validation.";
 
         CompositionHelper compositionHelper("Grip and Aim Pose");
 
@@ -141,11 +145,17 @@ namespace Conformance
 
         compositionHelper.BeginSession();
 
-        // Create the instructional quad layer placed to the left.
+        // Create the instructional quad layer placed to the left bottom.
         XrCompositionLayerQuad* const instructionsQuad =
             compositionHelper.CreateQuadLayer(compositionHelper.CreateStaticSwapchainImage(CreateTextImage(1024, 512, instructions, 48)),
-                                              localSpace, 1.0f, {{0, 0, 0, 1}, {-1.5f, 0, -0.3f}});
+                                              localSpace, 1.0f, {{0, 0, 0, 1}, {-1.5f, -0.33f, -0.3f}});
         XrQuaternionf_CreateFromAxisAngle(&instructionsQuad->pose.orientation, &Up, 70 * MATH_PI / 180);
+
+        // Create the diagram quad layer placed to the left top.
+        XrCompositionLayerQuad* const diagramQuad =
+            compositionHelper.CreateQuadLayer(compositionHelper.CreateStaticSwapchainImage(RGBAImage::Load(diagramImage)), localSpace, 1.0f,
+                                              {{0, 0, 0, 1}, {-1.5f, 0.33f, -0.3f}});
+        XrQuaternionf_CreateFromAxisAngle(&diagramQuad->pose.orientation, &Up, 70 * MATH_PI / 180);
 
         // Create a sample image quad layer placed to the right.
         XrCompositionLayerQuad* const exampleQuad =
@@ -203,7 +213,7 @@ namespace Conformance
         auto update = [&](const XrFrameState& frameState) {
             std::vector<Cube> renderedCubes;
 
-            const std::array<XrActiveActionSet, 1> activeActionSets = {{actionSet, XR_NULL_PATH}};
+            const std::array<XrActiveActionSet, 1> activeActionSets = {{{actionSet, XR_NULL_PATH}}};
             XrActionsSyncInfo syncInfo{XR_TYPE_ACTIONS_SYNC_INFO};
             syncInfo.activeActionSets = activeActionSets.data();
             syncInfo.countActiveActionSets = (uint32_t)activeActionSets.size();
@@ -263,11 +273,13 @@ namespace Conformance
                 // Render into each view port of the wide swapchain using the projection layer view fov and pose.
                 for (size_t view = 0; view < views.size(); view++) {
                     compositionHelper.AcquireWaitReleaseImage(
-                        swapchains[view], [&](const XrSwapchainImageBaseHeader* swapchainImage, uint64_t format) {
+                        swapchains[view],  //
+                        [&](const XrSwapchainImageBaseHeader* swapchainImage, uint64_t format) {
                             GetGlobalData().graphicsPlugin->ClearImageSlice(swapchainImage, 0, format);
                             const_cast<XrFovf&>(projLayer->views[view].fov) = views[view].fov;
                             const_cast<XrPosef&>(projLayer->views[view].pose) = views[view].pose;
-                            GetGlobalData().graphicsPlugin->RenderView(projLayer->views[view], swapchainImage, format, renderedCubes);
+                            GetGlobalData().graphicsPlugin->RenderView(projLayer->views[view], swapchainImage, format,
+                                                                       RenderParams().Draw(renderedCubes));
                         });
                 }
 
@@ -275,6 +287,7 @@ namespace Conformance
             }
 
             layers.push_back({reinterpret_cast<XrCompositionLayerBaseHeader*>(instructionsQuad)});
+            layers.push_back({reinterpret_cast<XrCompositionLayerBaseHeader*>(diagramQuad)});
             layers.push_back({reinterpret_cast<XrCompositionLayerBaseHeader*>(exampleQuad)});
 
             compositionHelper.EndFrame(frameState.predictedDisplayTime, layers);

@@ -130,8 +130,9 @@ namespace Conformance
                                                       __VA_ARGS__);                                                              \
     }()
 
-    /*!
- * @defgroup TwoCallCheckers Checkers for Two Call Idiom
+/*!
+ * @defgroup cts_twocall Checkers for Two Call Idiom
+ * @ingroup cts_framework
  *
  * All of these perform the two call idiom and return a std::vector<T>. Arguments are:
  *

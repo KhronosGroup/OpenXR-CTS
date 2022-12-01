@@ -627,9 +627,9 @@ class AutomaticSourceOutputGenerator(OutputGenerator):
                         self.featureExtraProtect, elem.get('protect'))
                     elem_name = elem.get('name')
                     # TODO this variable is never read
-                    if is_extension and not elem_name.endswith(self.current_vendor_tag):
+                    if is_extension and not elem_name.endswith(tuple(self.vendor_tags)):
                         self.printCodeGenErrorMessage('Enum value %s in XML (for extension %s) does'
-                                                      ' not end with the expected vendor tag \"%s\"' % (
+                                                      ' not end with a suitable vendor tag (such as\"%s\")' % (
                                                           elem_name, self.currentExtension, self.current_vendor_tag))
                     extension_to_check = elem.get('extname', self.currentExtension)
                     alias = elem.get('alias')
@@ -787,9 +787,6 @@ class AutomaticSourceOutputGenerator(OutputGenerator):
         if not self.isCoreExtensionName(self.currentExtension) and not type_name.endswith(self.current_vendor_tag):
             has_proper_ending = False
         if type_category in ('struct', 'union'):
-            if not has_proper_ending:
-                self.printCodeGenErrorMessage('Struct/union %s in XML (for extension %s) does not end with the expected vendor tag \"%s\"' % (
-                    type_name, self.currentExtension, self.current_vendor_tag))
             self.genStructUnion(type_info, type_category, type_name, alias)
         elif type_category == 'handle':
             if not has_proper_ending:
@@ -826,9 +823,6 @@ class AutomaticSourceOutputGenerator(OutputGenerator):
                 # The API Header Version (typically used as the patch or build version)
                 self.header_version = noneStr(nameElem.tail).strip()
         elif type_category == 'bitmask':
-            if not has_proper_ending:
-                self.printCodeGenErrorMessage('Bitmask %s in XML (for extension %s) does not end with the expected vendor tag \"%s\"' % (
-                    type_name, self.currentExtension, self.current_vendor_tag))
             mask_info = self.getTypeNameTuple(type_info.elem)
             mask_type = mask_info[0]
             mask_name = mask_info[1]
@@ -1108,7 +1102,7 @@ class AutomaticSourceOutputGenerator(OutputGenerator):
             required_exts.append(ext_name)
 
         # Identify this command as either a create or destroy command for later use
-        if 'xrCreate' in name or 'Connect' in name:
+        if any(keyword in name for keyword in ('xrCreate', 'Connect', 'xrTryCreate')):
             is_create_connect = True
         elif 'xrDestroy' in name or 'Disconnect' in name:
             is_destroy_disconnect = True
@@ -1686,39 +1680,7 @@ class AutomaticSourceOutputGenerator(OutputGenerator):
     #   self            the AutomaticSourceOutputGenerator object
     #   type_name       the name of the type to convert to the XrStructureType enum
     def genXrStructureType(self, type_name):
-        value = type_name.replace('D3D', 'D3d')
-        value = value.replace('OpenGL', 'Opengl')
-        value = value.replace('OpenglES', 'OpenglEs')
-        value = value.replace('iOS', 'Ios')
-        value = value.replace('RGB', 'Rgb')
-        # Find any place where a lowercase letter is followed by an uppercase
-        # letter, and insert an underscore between them
-        value = re.sub('([a-z0-9])([A-Z])', r'\1_\2', value)
-        # Change the whole string to uppercase
-        value = value.upper()
-        # Add "TYPE_" after the XR_ prefix
-        structure_type_name = re.sub('XR_', 'XR_TYPE_', value, 1)
-        # If this structure is part of an extension, and the suffix doesn't have an underscore
-        # in front of it at this point, add one.
-        for cur_vendor_tag in self.vendor_tags:
-            if structure_type_name.endswith(cur_vendor_tag):
-                vendor_tag_len = len(cur_vendor_tag)
-                if structure_type_name[-(vendor_tag_len + 1)].isalpha():
-                    prefix = structure_type_name[:-vendor_tag_len]
-                    suffix = structure_type_name[-vendor_tag_len:]
-                    structure_type_name = prefix + '_' + suffix
-        invalid_type = True
-        if not (type_name in self.structs_with_no_type):
-            for structure_type in self.api_structure_types:
-                if structure_type.name == structure_type_name:
-                    invalid_type = False
-                    break
-            if invalid_type:
-                self.printCodeGenErrorMessage('Generated XrStructureType %s for structure %s does not exist!' % (
-                    structure_type_name, type_name))
-        else:
-            structure_type_name = ''
-        return structure_type_name
+        return self.conventions.generate_structure_type_from_name(type_name)
 
     # Generate a structure typename based on a XrStructureType
     #   self            the AutomaticSourceOutputGenerator object

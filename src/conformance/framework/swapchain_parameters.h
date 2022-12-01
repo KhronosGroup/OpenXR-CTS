@@ -20,22 +20,65 @@
 
 namespace Conformance
 {
-    // Defines XrSwapchainCreateInfo test parameters for a single given image format.
-    // Sometimes values are zeroed, for the case that use of them is invalid or unsupportable.
+    enum SwapchainFormatMutability
+    {
+        IMMUTABLE,
+        MUTABLE,
+    };
+    enum SwapchainFormatSupportsMutability
+    {
+        NO_MUT_SUPPORT,
+        MUT_SUPPORT,
+    };
+    enum SwapchainFormatIsColor
+    {
+        NON_COLOR,
+        COLOR,
+    };
+    enum SwapchainFormatIsCompressed
+    {
+        UNCOMPRESSED,
+        COMPRESSED,
+    };
+
+    /// Defines XrSwapchainCreateInfo test parameters for a single given image format.
+    /// Sometimes values are zeroed, for the case that use of them is invalid or unsupportable.
+    ///
+    /// @ingroup cts_framework
     struct SwapchainCreateTestParameters
     {
-        std::string imageFormatName;  // String-ified version of the C identifier.
-        bool mutableFormat;           // True if the image format is a mutable (a.k.a. typeless) type.
-        bool supportsMutableFormat;   // True if the image format supports creation with XR_SWAPCHAIN_USAGE_MUTABLE_FORMAT_BIT.
-        bool colorFormat;             // True if a color-specific format, as opposed to a depth-specific format.
-        bool compressedFormat;        // True if the format is a compressed format.
-        int64_t
-            expectedCreatedImageFormat;  // The graphics-specific created image format returned by xrCreateSwapchain, may be different from imageFormat in some cases.
-        std::vector<uint64_t> usageFlagsVector;   // XrSwapchainUsageFlags to exercise for this format.
-        std::vector<uint64_t> createFlagsVector;  // XrSwapchainCreateFlags
-        std::vector<uint32_t> arrayCountVector;   // Array values to exercise, with 1 meaning no array in OpenXR.
-        std::vector<uint32_t> sampleCountVector;  // Used only by color buffers.
-        std::vector<uint32_t> mipCountVector;     // Used only by color buffers.
+        /// String-ified version of the C identifier.
+        std::string imageFormatName;
+
+        /// Whether the image format is a mutable (a.k.a. typeless) type.
+        SwapchainFormatMutability mutableFormat;
+
+        /// Whether the image format supports creation with XR_SWAPCHAIN_USAGE_MUTABLE_FORMAT_BIT.
+        SwapchainFormatSupportsMutability supportsMutableFormat;
+
+        /// Whether the format is a color-specific format, as opposed to a depth-specific format.
+        SwapchainFormatIsColor colorFormat;
+
+        /// Whether the format is a compressed format.
+        SwapchainFormatIsCompressed compressedFormat;
+
+        /// The graphics-specific created image format returned by xrCreateSwapchain, may be different from imageFormat in some cases.
+        int64_t expectedCreatedImageFormat;
+
+        /// XrSwapchainUsageFlags to exercise for this format.
+        std::vector<uint64_t> usageFlagsVector;
+
+        /// XrSwapchainCreateFlags
+        std::vector<uint64_t> createFlagsVector;
+
+        /// Array values to exercise, with 1 meaning no array in OpenXR.
+        std::vector<uint32_t> arrayCountVector;
+
+        /// Used only by color buffers.
+        std::vector<uint32_t> sampleCountVector;
+
+        /// Used only by color buffers.
+        std::vector<uint32_t> mipCountVector;
     };
 
 }  // namespace Conformance

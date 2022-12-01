@@ -1,3 +1,4 @@
+// Copyright (c) 2019-2022, The Khronos Group Inc.
 // Copyright (c) 2018-2019 Collabora, Ltd.
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -19,10 +20,10 @@
  * by repeatedly calling a "two-call idiom" OpenXR function for you. Lets you
  * pretend it's only a single call, possibly returning a std::vector<> (for some
  * variants).
- * 
+ *
  * Based in part on xrtraits/TwoCall.h from https://gitlab.freedesktop.org/monado/utilities/xrtraits
  * (More complete functionality is available there under BSL-1.0)
- * 
+ *
  * @author Ryan Pavlik <ryan.pavlik@collabora.com>
  */
 
@@ -99,12 +100,13 @@ namespace Conformance
         }
     }  // namespace detail
 
-    /*! Perform the two call idiom, returning XrResult, to populate an existing
+    /*!
+     * Perform the two call idiom, returning XrResult, to populate an existing
      * container, whose size may hint at expected count.
-     * 
+     *
      * In this variant, the default value of your element type will be used when
      * enlarging the vector. For things like OpenXR structs with type and next,
-     * use doTwoCallInPlaceWithEmptyElement
+     * use @ref doTwoCallInPlaceWithEmptyElement
      *
      * @param container The container to fill. If it is not empty, the buffer size
      * will be used as a size hint: if sufficient, only one call to the wrappedCall
@@ -114,9 +116,9 @@ namespace Conformance
      * @param a Any additional arguments passed to this call will be forwarded to
      * the call **before** the `capacityInput`, `countOutput`, and `array`
      * parameters.
-     * 
-     * Note that this does not include any Catch2 testing assertions - see CHECK_TWO_CALL
-     * and REQUIRE_TWO_CALL for those.
+     *
+     * Note that this does not include any Catch2 testing assertions - see @ref CHECK_TWO_CALL
+     * and @ref REQUIRE_TWO_CALL for those.
      */
     template <typename T, typename F, typename... Args>
     inline XrResult doTwoCallInPlace(std::vector<T>& container, F&& wrappedCall, Args&&... a)
@@ -126,7 +128,8 @@ namespace Conformance
                                    std::forward<Args>(a)...);
     }
 
-    /*! Perform the two call idiom, returning XrResult, to populate an existing
+    /*!
+     * Perform the two call idiom, returning XrResult, to populate an existing
      * container, whose size may hint at expected count.
      *
      * @param container The container to fill. If it is not empty, the buffer size
@@ -138,7 +141,7 @@ namespace Conformance
      * @param a Any additional arguments passed to this call will be forwarded to
      * the call **before** the `capacityInput`, `countOutput`, and `array`
      * parameters.
-     * 
+     *
      * Note that this does not include any Catch2 testing assertions - see CHECK_TWO_CALL
      * and REQUIRE_TWO_CALL for those.
      */

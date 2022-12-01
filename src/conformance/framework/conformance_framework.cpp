@@ -57,6 +57,8 @@ namespace Conformance
 
         AppendSprintf(result, "   formFactor: %s\n", formFactor.c_str());
 
+        AppendSprintf(result, "   hands: %s\n", enabledHands.c_str());
+
         AppendSprintf(result, "   environmentBlendMode: %s\n", environmentBlendMode.c_str());
 
         AppendSprintf(result, "   viewConfiguration: %s\n", viewConfiguration.c_str());
@@ -104,6 +106,7 @@ namespace Conformance
             AppendSprintf(reportString, "    <none>\n");
         }
         AppendSprintf(reportString, "Tested form factor: %s\n", globalData.options.formFactor.c_str());
+        AppendSprintf(reportString, "Tested hands: %s\n", globalData.options.enabledHands.c_str());
         AppendSprintf(reportString, "Tested view configuration: %s\n", globalData.options.viewConfiguration.c_str());
         AppendSprintf(reportString, "Tested environment blend mode: %s\n", globalData.options.environmentBlendMode.c_str());
         AppendSprintf(reportString, "Handle invalidation tested: %s\n", globalData.options.invalidHandleValidation ? "yes" : "no");

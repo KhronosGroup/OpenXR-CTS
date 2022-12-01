@@ -26,7 +26,7 @@ namespace Conformance
     TEST_CASE("xrLocateSpace", "")
     {
         // how long the test should wait for the app to get focus: 10 seconds in release, infinite in debug builds.
-        auto timeout = (GetGlobalData().options.debugMode ? 3600_sec : 10_sec);
+        auto timeout = (GetGlobalData().options.debugMode ? 3600s : 10s);
         CAPTURE(timeout);
 
         // Get a session started.

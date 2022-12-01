@@ -23,20 +23,29 @@
 
 namespace Conformance
 {
+    /**
+     * @defgroup cts_report Standalone message reporters
+     * @ingroup cts_framework
+     */
+    ///@{
+
     extern std::function<void(const char*)> g_reportCallback;
 
-    // Direct report function.
-    // May include multiple lines separated by \n.
-    // This function supplies the final newline.
+    /// Direct report function.
+    /// May include multiple lines separated by \n.
+    /// This function supplies the final newline.
     void ReportStr(const char* str);
 
-    // Formatted report function via va_list.
-    // May include multiple lines separated by \n.
-    // This function supplies the final newline.
+    /// Formatted report function via va_list.
+    /// May include multiple lines separated by \n.
+    /// This function supplies the final newline.
     void ReportV(const char* format, va_list args);
 
-    // Formatted report function.
-    // May include multiple lines separated by \n.
-    // This function supplies the final newline.
+    /// Formatted report function.
+    /// May include multiple lines separated by \n.
+    /// This function supplies the final newline.
     void ReportF(const char* format, ...);
+
+    /// @}
+
 }  // namespace Conformance

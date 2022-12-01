@@ -68,9 +68,6 @@ namespace Conformance
         };
         updateCreateInfoExtensions();
 
-        if (globalData.requiredPlaformInstanceCreateStruct)
-            createInfo.next = globalData.requiredPlaformInstanceCreateStruct;
-
         SECTION("XR_SUCCESS, only platform-required extensions enabled")
         {
             REQUIRE_RESULT_SUCCEEDED(xrCreateInstance(&createInfo, &instance));

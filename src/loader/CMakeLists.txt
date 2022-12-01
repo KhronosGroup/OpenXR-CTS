@@ -28,6 +28,9 @@ if(NOT MSVC)
     set(CMAKE_CXX_VISIBILITY_PRESET hidden)
 endif()
 
+# make cache variables for install destinations
+include(GNUInstallDirs)
+
 # List of all files externally generated outside of the loader that the loader
 # needs to build with.
 set(LOADER_EXTERNAL_GEN_FILES ${COMMON_GENERATED_OUTPUT})
@@ -108,7 +111,7 @@ target_include_directories(
             # for target-specific generated files
             ${CMAKE_CURRENT_SOURCE_DIR}
             ${CMAKE_CURRENT_BINARY_DIR}
-    INTERFACE $<INSTALL_INTERFACE:include>
+    INTERFACE $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
 )
 
 if(Vulkan_FOUND)
@@ -128,7 +131,8 @@ if(ANDROID)
     target_link_libraries(
         openxr_loader
         PRIVATE
-        ${ANDROID_LOG_LIBRARY})
+        ${ANDROID_LOG_LIBRARY}
+        ${ANDROID_LIBRARY})
 endif()
 
 target_compile_definitions(openxr_loader PRIVATE API_NAME="OpenXR")
@@ -167,11 +171,6 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
         COMMAND ${CMAKE_COMMAND} -E create_symlink libopenxr_loader.so.${MAJOR}.${MINOR}.${PATCH}
                 libopenxr_loader.so.${MAJOR}.${MINOR}
     )
-
-    set(XR_API_VERSION "${MAJOR}.${MINOR}")
-    set(EXTRA_LIBS ${CMAKE_THREAD_LIBS_INIT})
-    configure_file(openxr.pc.in openxr.pc @ONLY)
-    install(FILES "${CMAKE_CURRENT_BINARY_DIR}/openxr.pc" DESTINATION "${CMAKE_INSTALL_LIBDIR}/pkgconfig")
 elseif(WIN32)
     if(MSVC)
         # WindowsStore (UWP) apps must be compiled with dynamic CRT linkage (default)
@@ -245,6 +244,13 @@ elseif(ANDROID)
     )
 endif()
 
+if(NOT MSVC)
+    set(XR_API_VERSION "${MAJOR}.${MINOR}")
+    set(EXTRA_LIBS ${CMAKE_THREAD_LIBS_INIT})
+    configure_file(openxr.pc.in openxr.pc @ONLY)
+    install(FILES "${CMAKE_CURRENT_BINARY_DIR}/openxr.pc" DESTINATION "${CMAKE_INSTALL_LIBDIR}/pkgconfig")
+endif()
+
 # Copy loader to conformance_cli binary folder if built as dynamic
 if(DYNAMIC_LOADER AND BUILD_CONFORMANCE_CLI)
     add_custom_command(TARGET openxr_loader POST_BUILD
@@ -274,7 +280,7 @@ if(CMAKE_COMPILER_IS_GNUCC OR CMAKE_C_COMPILER_ID MATCHES "Clang")
 endif()
 
 add_library(headers INTERFACE)
-target_include_directories(headers INTERFACE $<INSTALL_INTERFACE:include>)
+target_include_directories(headers INTERFACE $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>)
 
 # We will never actually install here, but it's easier to set something than block all install code.
 if(ANDROID AND NOT INSTALL_TO_ARCHITECTURE_PREFIXES)

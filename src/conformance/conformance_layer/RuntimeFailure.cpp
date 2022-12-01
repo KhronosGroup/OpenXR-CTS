@@ -161,6 +161,6 @@ void ValidateXrVector3f(ConformanceHooksBase* conformanceHook, const XrVector3f&
 
     if (!isValidFloat(v.x) || !isValidFloat(v.y) || !isValidFloat(v.z)) {
         conformanceHook->ConformanceFailure(XR_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT, xrFunctionName,
-                                            "%s is not a valid XrVector3d value: (%f, %f, %f)", valueName, v.x, v.y, v.z);
+                                            "%s is not a valid XrVector3f value: (%f, %f, %f)", valueName, v.x, v.y, v.z);
     }
 }

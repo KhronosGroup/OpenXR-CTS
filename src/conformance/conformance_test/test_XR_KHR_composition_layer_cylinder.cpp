@@ -42,7 +42,7 @@ namespace Conformance
             return;
         }
 
-        auto timeout = (GetGlobalData().options.debugMode ? 3600_sec : 10_sec);
+        auto timeout = (GetGlobalData().options.debugMode ? 3600s : 10s);
         CAPTURE(timeout);
 
         AutoBasicInstance instance({"XR_KHR_composition_layer_cylinder"});

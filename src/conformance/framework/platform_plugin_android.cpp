@@ -51,7 +51,7 @@ namespace Conformance
     public:
         PlatformPluginAndroid() = default;
 
-        ~PlatformPluginAndroid()
+        ~PlatformPluginAndroid() override
         {
             Shutdown();
         }

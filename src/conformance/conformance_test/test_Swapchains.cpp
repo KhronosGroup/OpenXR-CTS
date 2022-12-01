@@ -217,6 +217,7 @@ namespace Conformance
                                                                                             imageFormat, &tp));
 
                         ReportF("Testing format %s", tp.imageFormatName.c_str());
+                        CAPTURE(tp.imageFormatName);
                         int swapchainCreateCount = 0;
                         int unsupportedCount = 0;
 
@@ -326,6 +327,8 @@ namespace Conformance
                         }
 
                         ReportF("    %d cases tested (%d unsupported)", swapchainCreateCount, unsupportedCount);
+                        CAPTURE(swapchainCreateCount);
+                        CAPTURE(unsupportedCount);
                     }
                 }
             }

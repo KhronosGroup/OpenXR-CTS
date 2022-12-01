@@ -26,7 +26,8 @@
 #include <utility>
 
 /*!
- * @defgroup Generators
+ * @defgroup cts_generators Generators
+ * @ingroup cts_framework
  *
  * @brief A generator is a way to "produce" a collection of values or objects one at a time.
  *
@@ -63,6 +64,11 @@
  * if only a single generated value should be used per test case execution.
  * Alternately, if you don't need to re-start the test case for each generated value,
  * you can record the appropriate data about this iteration with an `INFO` or a `CAPTURE`.
+ */
+
+/*!
+ * @defgroup cts_generators_details Implementation details of generators
+ * @ingroup cts_generators
  */
 /// @{
 /*!

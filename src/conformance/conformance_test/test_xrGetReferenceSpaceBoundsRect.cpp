@@ -39,7 +39,12 @@ namespace Conformance
         result = xrGetReferenceSpaceBoundsRect(session, XR_REFERENCE_SPACE_TYPE_MAX_ENUM, &extent);
         REQUIRE_THAT(result, In<XrResult>({XR_ERROR_VALIDATION_FAILURE, XR_ERROR_REFERENCE_SPACE_UNSUPPORTED}));
         if (result == XR_ERROR_REFERENCE_SPACE_UNSUPPORTED) {
-            WARN("Runtime accepted an invalid max enum value as unsupported, which make it harder for apps to reason about the error.");
+            // It's better to return XR_ERROR_VALIDATION_FAILURE, though possibly not technically a requirement of the spec,
+            // depending on how you interpret the phrase "not supported by this session".
+            // Generally, in OpenXR, UNSUPPORTED means "this value is a legal or possibly legal value for this variable/type,
+            // but this runtime won't let you use it here and now"
+            WARN(
+                "Runtime responded to use of XR_REFERENCE_SPACE_TYPE_MAX_ENUM (which is an invalid value) with XR_ERROR_REFERENCE_SPACE_UNSUPPORTED, which make it harder for apps to reason about the error.");
         }
 
         // Exercise other invalid handles.

@@ -54,7 +54,7 @@ XrResult ConformanceHooks::xrLocateSpace(XrSpace space, XrSpace baseSpace, XrTim
             VALIDATE_VECTOR3F(location->pose.position);
         }
 
-        XrSpaceVelocity* velocity = reinterpret_cast<XrSpaceVelocity*>(location->next);
+        XrSpaceVelocity* velocity = FindChainedXrStruct<XrSpaceVelocity>(location, XR_TYPE_SPACE_VELOCITY);
         if (velocity != nullptr) {
             VALIDATE_STRUCT_CHAIN(velocity);
 

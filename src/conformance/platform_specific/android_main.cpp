@@ -14,8 +14,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// if no PATH_PREFIX is provided by the build system use the system provided
+// path.
 #ifndef PATH_PREFIX
-#define PATH_PREFIX "/sdcard/"
+#define PATH_PREFIX ""
 #endif
 
 #include <stdio.h>
@@ -70,7 +72,6 @@ Native Activity
 // Required for android create instance extension.
 static JavaVM* AndroidApplicationVM = NULL;
 static jobject AndroidApplicationActivity = NULL;
-static void* AndroidApplicationNativeWindow = NULL;
 static AAssetManager* AndroidAssetManager = NULL;
 void* Conformance_Android_Get_Application_VM()
 {
@@ -108,6 +109,7 @@ void Conformance_Android_Detach_Current_Thread()
  */
 static bool exitApp = false;
 static bool resumeApp = false;
+static bool appHasInitialized = false;
 static void app_handle_cmd(struct android_app* app, int32_t cmd)
 {
     switch (cmd) {
@@ -121,6 +123,11 @@ static void app_handle_cmd(struct android_app* app, int32_t cmd)
     case APP_CMD_RESUME: {
         ALOGV("    APP_CMD_RESUME");
         resumeApp = true;
+        break;
+    }
+    case APP_CMD_GAINED_FOCUS: {
+        ALOGV("    APP_CMD_GAINED_FOCUS");
+        appHasInitialized = true;
         break;
     }
     case APP_CMD_PAUSE: {
@@ -139,12 +146,12 @@ static void app_handle_cmd(struct android_app* app, int32_t cmd)
     }
     case APP_CMD_INIT_WINDOW: {
         ALOGV("    APP_CMD_INIT_WINDOW");
-        AndroidApplicationNativeWindow = app->window;
+        appHasInitialized = app->window != NULL;
         break;
     }
     case APP_CMD_TERM_WINDOW: {
         ALOGV("    APP_CMD_TERM_WINDOW");
-        AndroidApplicationNativeWindow = NULL;
+        appHasInitialized = false;
         break;
     }
     }
@@ -154,14 +161,14 @@ int32_t app_handle_input(struct android_app* /* app */, AInputEvent* event)
 {
     const int type = AInputEvent_getType(event);
     if (type == AINPUT_EVENT_TYPE_KEY) {
-        const int keyCode = AKeyEvent_getKeyCode(event);
-        const int action = AKeyEvent_getAction(event);
+        AKeyEvent_getKeyCode(event);
+        AKeyEvent_getAction(event);
         return 1;  // we eat all other key events
     }
     else if (type == AINPUT_EVENT_TYPE_MOTION) {
-        const int action = AKeyEvent_getAction(event) & AMOTION_EVENT_ACTION_MASK;
-        const float x = AMotionEvent_getRawX(event, 0);
-        const float y = AMotionEvent_getRawY(event, 0);
+        AKeyEvent_getAction(event);
+        AMotionEvent_getRawX(event, 0);
+        AMotionEvent_getRawY(event, 0);
         return 1;  // we eat all touch events
     }
     return 0;
@@ -189,6 +196,10 @@ void android_main(struct android_app* app)
     ALOGV("----------------------------------------------------------------");
     ALOGV("android_app_entry()");
     ALOGV("    android_main()");
+
+    // since android_main can be called multiple times in the lifetime of the
+    // shared object make sure this is reset on entry.
+    appHasInitialized = false;
 
     // Set these early on so that they are available to all tests
     AndroidApplicationVM = app->activity->vm;
@@ -248,7 +259,7 @@ void android_main(struct android_app* app)
             }
 
             /// Run the actual conformance tests only when all required android components are present
-            if (testThreadStarted == false && AndroidApplicationNativeWindow != NULL) {
+            if (testThreadStarted == false && appHasInitialized) {
                 testThreadStarted = true;
                 androidTestThread = std::thread([&]() {
                     ATTACH_THREAD;
@@ -301,7 +312,15 @@ void android_main(struct android_app* app)
                         args.push_back("-r");
                         args.push_back("xml");
                         args.push_back("-o");
-                        args.push_back(PATH_PREFIX "openxr_conformance.xml");
+                        if (strlen(PATH_PREFIX) == 0) {
+                            static std::string base_path;
+                            base_path = app->activity->externalDataPath;
+                            base_path += "/openxr_conformance.xml";
+                            args.push_back(base_path.c_str());
+                        }
+                        else {
+                            args.push_back(PATH_PREFIX "openxr_conformance.xml");
+                        }
                     }
                     else {
                         args.push_back("--use-colour");

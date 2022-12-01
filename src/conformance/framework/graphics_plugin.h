@@ -17,8 +17,14 @@
 #pragma once
 
 #include "platform_plugin.h"
+#include "conformance_utils.h"
+#include "Geometry.h"
 #include "RGBAImage.h"
+
 #include <openxr/openxr.h>
+#include "nonstd/span.hpp"
+#include "nonstd/type.hpp"
+#include <cstdint>
 #include <memory>
 #include <functional>
 #include <vector>
@@ -62,111 +68,208 @@
 
 namespace Conformance
 {
+    // Import a backported implementation of std::span, or std::span itself if available.
+
+    using nonstd::span;
+
+    /// Color constant used as the default clear color.
+    constexpr XrColor4f DarkSlateGrey = {0.184313729f, 0.309803933f, 0.309803933f, 1.0f};
+
+    /// Parameters for a particular copy of a drawable.
+    struct DrawableParams
+    {
+        XrPosef pose = XrPosefCPP{};
+        XrVector3f scale = {1.f, 1.f, 1.f};
+
+        DrawableParams(XrPosef pose_, XrVector3f scale_) : pose(pose_), scale(scale_)
+        {
+        }
+    };
+
+    /// A drawable cube, consisting of pose and scale for a nominally 1m x 1m x 1m cube
     struct Cube
     {
-        XrPosef Pose;
-        XrVector3f Scale;
-
         static inline Cube Make(XrVector3f position, float scale = 0.25f, XrQuaternionf orientation = {0, 0, 0, 1})
         {
             return Cube{/* pose */ {orientation, position}, /* scale: */ {scale, scale, scale}};
+        }
+
+        Cube(XrPosef pose, XrVector3f scale) : params(pose, scale)
+        {
+        }
+        DrawableParams params;
+    };
+
+    namespace detail
+    {
+        // Policy to default-init to max so we can tell that a "null" handle is bad.
+        // Otherwise, a default-init would be 0 which is often a perfectly fine index.
+        using custom_default_max_uint64 = nonstd::custom_default_t<uint64_t, std::numeric_limits<uint64_t>::max()>;
+    }  // namespace detail
+
+    /// Handle returned by a graphics plugin, used to reference plugin-internal data for a mesh.
+    ///
+    /// They expire at IGraphicsPlugin::Shutdown() and IGraphicsPlugin::ShutdownDevice() calls,
+    /// so must not be persisted past those calls.
+    ///
+    /// They are "null" by default, so may be tested for validity by comparison against a default-constructed instance.
+    using MeshHandle = nonstd::equality<uint64_t, struct MeshHandleTag, detail::custom_default_max_uint64>;
+
+    /// A drawable mesh, consisting of a reference to plugin-specific data for a mesh, plus pose and scale.
+    struct MeshDrawable
+    {
+        MeshHandle handle;
+        DrawableParams params;
+
+        MeshDrawable(MeshHandle handle, XrPosef pose = XrPosefCPP{}, XrVector3f scale = {1.0, 1.0, 1.0})
+            : handle(handle), params(pose, scale)
+        {
+        }
+    };
+
+    /// Handle returned by a graphics plugin, used to reference plugin-internal data for a loaded GLTF model.
+    ///
+    /// They expire at IGraphicsPlugin::Shutdown() and IGraphicsPlugin::ShutdownDevice() calls,
+    /// so must not be persisted past those calls.
+    ///
+    /// They are "null" by default, so may be tested for validity by comparison against a default-constructed instance.
+    using GLTFHandle = nonstd::equality<uint64_t, struct GLTFHandleTag, detail::custom_default_max_uint64>;
+
+    /// A drawable GLTF model, consisting of a reference to plugin-specific data for a GLTF model, plus pose and scale.
+    struct GLTFDrawable
+    {
+        GLTFHandle handle;
+        DrawableParams params;
+
+        GLTFDrawable(GLTFHandle handle, XrPosef pose = XrPosefCPP{}, XrVector3f scale = {1.0, 1.0, 1.0})
+            : handle(handle), params(pose, scale)
+        {
         }
     };
 
     // Forward-declare
     struct SwapchainCreateTestParameters;
 
-    // Wraps a graphics API so the main openxr program can be graphics API-independent.
+    /// Structure using the Builder pattern for IGraphicsPlugin::RenderView parameters, to make it less painful.
+    struct RenderParams
+    {
+        RenderParams& Draw(span<const Cube> cubes_)
+        {
+            cubes = cubes_;
+            return *this;
+        }
+
+        RenderParams& Draw(span<const MeshDrawable> meshes_)
+        {
+            meshes = meshes_;
+            return *this;
+        }
+
+        RenderParams& Draw(span<const GLTFDrawable> glTFs_)
+        {
+            glTFs = glTFs_;
+            return *this;
+        }
+
+        span<const Cube> cubes{};
+        span<const MeshDrawable> meshes{};
+        span<const GLTFDrawable> glTFs{};
+    };
+
+#define IGRAPHICSPLUGIN_UNIMPLEMENTED_METHOD() \
+    throw std::runtime_error(std::string(__FUNCTION__) + " is not implemented for the current graphics plugin")
+
+    /// Wraps a graphics API so the main openxr program can be graphics API-independent.
     struct IGraphicsPlugin
     {
         virtual ~IGraphicsPlugin() = default;
 
-        // Required before use of any member functions as described for each function.
+        /// Required before use of any member functions as described for each function.
         virtual bool Initialize() = 0;
 
-        // Identifies if the IGraphicsPlugin has successfully initialized.
-        // May be called regardless of initialization state.
+        /// Identifies if the IGraphicsPlugin has successfully initialized.
+        /// May be called regardless of initialization state.
         virtual bool IsInitialized() const = 0;
 
-        // Matches Initialize.
-        // May be called only if successfully initialized.
+        /// Matches Initialize.
+        /// May be called only if successfully initialized.
         virtual void Shutdown() = 0;
 
-        // Returns a string describing the platform.
-        // May be called regardless of initialization state.
-        // Example returned string: "OpenGL"
+        /// Returns a string describing the platform.
+        /// May be called regardless of initialization state.
+        /// Example returned string: "OpenGL"
         virtual std::string DescribeGraphics() const = 0;
 
-        // OpenXR extensions required by this graphics API.
+        /// OpenXR extensions required by this graphics API.
         virtual std::vector<std::string> GetInstanceExtensions() const = 0;
 
-        // Create an instance of this graphics api for the provided XrInstance and XrSystemId.
-        // If checkGraphicsRequirements is false then InitializeDevice intentionally doesn't call
-        // xrGetxxxxGraphicsRequirementsKHR before initializing a device.
+        /// Create an instance of this graphics api for the provided XrInstance and XrSystemId.
+        /// If checkGraphicsRequirements is false then InitializeDevice intentionally doesn't call
+        /// xrGetxxxxGraphicsRequirementsKHR before initializing a device.
         virtual bool InitializeDevice(XrInstance instance, XrSystemId systemId, bool checkGraphicsRequirements = true,
                                       uint32_t deviceCreationFlags = 0) = 0;
 
-        // Some graphics devices can accumulate memory usage unless you flush them, and some of our
-        // tests create and destroy large amounts of memory.
+        /// Some graphics devices can accumulate memory usage unless you flush them, and some of our
+        /// tests create and destroy large amounts of memory.
         virtual void Flush()
         {
             // Default no-op implementation for APIs which don't need flushing.
         }
 
-        // Call to check the validity of the graphics state (useful when checking for interactions with OpenXR calls).
+        /// Call to check the validity of the graphics state (useful when checking for interactions with OpenXR calls).
         virtual void CheckState(const char* /*file_line*/) const
         {
             // Default no-op implementation for APIs which don't need checking.
         }
 
-        // Called when changing graphics interaction thread.
+        /// Called when changing graphics interaction thread.
         virtual void MakeCurrent(bool /*bindToThread*/)
         {
             // Default no-op implementation for APIs which don't need binding.
         }
 
-        // Shuts down the device initialized by InitializeDevice. Restores to the same state as prior to
-        // the call to InitializeDevice.
+        /// Shuts down the device initialized by InitializeDevice. Restores to the same state as prior to
+        /// the call to InitializeDevice.
         virtual void ShutdownDevice() = 0;
 
-        // Get the graphics binding header for session creation.
-        // Must have successfully called InitializeDevice before calling this or else this returns nullptr.
+        /// Get the graphics binding header for session creation.
+        /// Must have successfully called InitializeDevice before calling this or else this returns nullptr.
         virtual const XrBaseInStructure* GetGraphicsBinding() const = 0;
 
         virtual void CopyRGBAImage(const XrSwapchainImageBaseHeader* /*swapchainImage*/, int64_t /*imageFormat*/, uint32_t /*arraySlice*/,
                                    const RGBAImage& /*image*/) = 0;
 
-        // Returns a name for an image format. Returns "unknown" for unknown formats.
+        /// Returns a name for an image format. Returns "unknown" for unknown formats.
         virtual std::string GetImageFormatName(int64_t /*imageFormat*/) const = 0;
 
-        // Returns true if the format is known to the plugin. Can be false if the runtime supports extra formats unknown to the conformance tests
-        // (e.g. in APIs which have optional extensions).
+        /// Returns true if the format is known to the plugin. Can be false if the runtime supports extra formats unknown to the conformance tests
+        /// (e.g. in APIs which have optional extensions).
         virtual bool IsImageFormatKnown(int64_t /*imageFormat*/) const = 0;
 
-        // Retrieves SwapchainCreateTestParameters for the caller, handling plaform-specific functionality
-        // internally.
-        // Executes testing CHECK/REQUIRE directives, and may throw a Catch2 failure exception.
+        /// Retrieves SwapchainCreateTestParameters for the caller, handling platform-specific functionality
+        /// internally.
+        /// Executes testing CHECK/REQUIRE directives, and may throw a Catch2 failure exception.
         virtual bool GetSwapchainCreateTestParameters(XrInstance /*unused*/, XrSession /*unused*/, XrSystemId /*unused*/,
                                                       int64_t /*unused*/, SwapchainCreateTestParameters* /*unused*/) noexcept(false) = 0;
 
-        // Given an imageFormat and its test parameters and the XrSwapchain resulting from xrCreateSwapchain,
-        // validate the images in any platform-specific way.
-        // Executes testing CHECK/REQUIRE directives, and may throw a Catch2 failure exception.
+        /// Given an imageFormat and its test parameters and the XrSwapchain resulting from xrCreateSwapchain,
+        /// validate the images in any platform-specific way.
+        /// Executes testing CHECK/REQUIRE directives, and may throw a Catch2 failure exception.
         virtual bool ValidateSwapchainImages(int64_t /*imageFormat*/, const SwapchainCreateTestParameters* /*tp*/,
                                              XrSwapchain /*swapchain*/, uint32_t* /*imageCount*/) const noexcept(false) = 0;
 
-        // Given an swapchain and an image index, validate the resource state in any platform-specific way.
-        // Executes testing CHECK/REQUIRE directives, and may throw a Catch2 failure exception.
+        /// Given an swapchain and an image index, validate the resource state in any platform-specific way.
+        /// Executes testing CHECK/REQUIRE directives, and may throw a Catch2 failure exception.
         virtual bool ValidateSwapchainImageState(XrSwapchain /*swapchain*/, uint32_t /*index*/, int64_t /*imageFormat*/) const
             noexcept(false) = 0;
 
-        // Implementation must select a format with alpha unless there are none with alpha.
+        /// Implementation must select a format with alpha unless there are none with alpha.
         virtual int64_t SelectColorSwapchainFormat(const int64_t* /*imageFormatArray*/, size_t /*count*/) const = 0;
 
-        // Select the preferred swapchain format from the list of available formats.
+        /// Select the preferred swapchain format from the list of available formats.
         virtual int64_t SelectDepthSwapchainFormat(const int64_t* /*imageFormatArray*/, size_t /*count*/) const = 0;
 
-        // Select the preferred swapchain format.
+        /// Select the preferred swapchain format.
         virtual int64_t GetSRGBA8Format() const = 0;
 
         struct SwapchainImageStructs
@@ -176,31 +279,41 @@ namespace Conformance
             std::vector<XrSwapchainImageBaseHeader*> imagePtrVector;
         };
 
-        // Allocates an array of XrSwapchainImages in a portable way and returns a pointer to a base
-        // class which is pointers into that array. This is all for the purpose of being able to call
-        // the xrEnumerateSwapchainImages function in a platform-independent way. The user of this
-        // must not use the images beyond the lifetime of the shared_ptr.
-        //
-        // Example usage:
-        //   std::shared_ptr<SwapchainImageStructs> p = graphicsPlugin->AllocateSwapchainImageStructs(3, swapchainCreateInfo);
-        //   xrEnumerateSwapchainImages(swapchain, 3, nullptr, p->imagePtrVector.data());
-        //
+        /// Allocates an array of XrSwapchainImages in a portable way and returns a pointer to a base
+        /// class which is pointers into that array. This is all for the purpose of being able to call
+        /// the xrEnumerateSwapchainImages function in a platform-independent way. The user of this
+        /// must not use the images beyond the lifetime of the shared_ptr.
+        ///
+        /// Example usage:
+        ///   std::shared_ptr<SwapchainImageStructs> p = graphicsPlugin->AllocateSwapchainImageStructs(3, swapchainCreateInfo);
+        ///   xrEnumerateSwapchainImages(swapchain, 3, nullptr, p->imagePtrVector.data());
+        ///
         virtual std::shared_ptr<SwapchainImageStructs> AllocateSwapchainImageStructs(size_t size,
                                                                                      const XrSwapchainCreateInfo& swapchainCreateInfo) = 0;
 
         virtual void ClearImageSlice(const XrSwapchainImageBaseHeader* colorSwapchainImage, uint32_t imageArrayIndex,
-                                     int64_t colorSwapchainFormat) = 0;
+                                     int64_t colorSwapchainFormat, XrColor4f bgColor = DarkSlateGrey) = 0;
 
-        virtual void RenderView(const XrCompositionLayerProjectionView& /*layerView*/,
-                                const XrSwapchainImageBaseHeader* /*colorSwapchainImage*/, int64_t /*colorSwapchainFormat*/,
-                                const std::vector<Cube>& /*cubes*/) = 0;
+        /// Create internal data for a mesh, returning a handle to refer to it.
+        /// This handle expires when the internal data is cleared in Shutdown() and ShutdownDevice().
+        virtual MeshHandle MakeSimpleMesh(span<const uint16_t> idx, span<const Geometry::Vertex> vtx) = 0;
+
+        MeshHandle MakeCubeMesh()
+        {
+            return MakeSimpleMesh(Geometry::c_cubeIndices, Geometry::c_cubeVertices);
+        }
+
+        MeshHandle MakeGnomonMesh()
+        {
+            return MakeSimpleMesh(Geometry::AxisIndicator::GetInstance().indices, Geometry::AxisIndicator::GetInstance().vertices);
+        };
+
+        virtual void RenderView(const XrCompositionLayerProjectionView& layerView, const XrSwapchainImageBaseHeader* colorSwapchainImage,
+                                int64_t colorSwapchainFormat, const RenderParams& params) = 0;
     };
 
-#define IGRAPHICSPLUGIN_UNIMPLEMENTED_METHOD() \
-    throw std::runtime_error(std::string(__FUNCTION__) + " is not implemented for the current graphics plugin")
-
-    // Create a graphics plugin for the graphics API specified in the options.
-    // Throws std::invalid_argument if the graphics API is empty, unknown, or unsupported.
+    /// Create a graphics plugin for the graphics API specified in the options.
+    /// Throws std::invalid_argument if the graphics API is empty, unknown, or unsupported.
     std::shared_ptr<IGraphicsPlugin> CreateGraphicsPlugin(const char* graphicsAPI,
                                                           std::shared_ptr<IPlatformPlugin> platformPlugin) noexcept(false);
 

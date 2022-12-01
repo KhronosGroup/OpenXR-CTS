@@ -29,6 +29,11 @@
 
 namespace Conformance
 {
+    /**
+     * @defgroup cts_matches Catch2 custom "matchers"
+     * @brief Use with the ???_THAT() assertions to test more complex things than equality.
+     */
+    /// @{
 
     /// Custom matcher for use with ???_THAT() assertions, which takes a user-provided predicate and checks for at least one
     /// element in the collection for which this is true.
@@ -144,5 +149,7 @@ namespace Conformance
             return "has only unique values.";
         }
     };
+
+    /// @}
 
 }  // namespace Conformance

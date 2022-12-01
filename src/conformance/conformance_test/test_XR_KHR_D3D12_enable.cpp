@@ -17,6 +17,7 @@
 #include "utils.h"
 #include "conformance_utils.h"
 #include "conformance_framework.h"
+#include "matchers.h"
 #include <array>
 #include <vector>
 #include <set>
@@ -91,10 +92,10 @@ namespace Conformance
                     XrSwapchain swapchain;
                     XrExtent2Di widthHeight{0, 0};  // 0,0 means Use defaults.
                     XrResult result = CreateColorSwapchain(session, graphicsPlugin.get(), &swapchain, &widthHeight);
-                    XRC_CHECK_THROW(XR_SUCCEEDED(result) || result == XR_ERROR_LIMIT_REACHED);
+                    CHECK_THAT(result, In<XrResult>({XR_SUCCESS, XR_ERROR_LIMIT_REACHED}));
 
                     if (XR_SUCCEEDED(result)) {
-                        XRC_CHECK_THROW_XRCMD(xrDestroySwapchain(swapchain));
+                        CHECK_RESULT_UNQUALIFIED_SUCCESS(xrDestroySwapchain(swapchain));
                     }
                 }
             };

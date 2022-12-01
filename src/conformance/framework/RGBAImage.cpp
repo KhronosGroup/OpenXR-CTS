@@ -11,6 +11,8 @@
 #include "RGBAImage.h"
 
 #ifdef XR_USE_PLATFORM_ANDROID
+#include "unique_asset.h"
+
 #include <android_native_app_glue.h>
 extern void* Conformance_Android_Get_Asset_Manager();
 #endif
@@ -21,55 +23,8 @@ extern void* Conformance_Android_Get_Asset_Manager();
 #include "stb/stb_image.h"
 #include "stb/stb_truetype.h"
 
-// Some platforms require reading files from specific
-// sandboxed directories.
-#ifndef PATH_PREFIX
-#define PATH_PREFIX ""
-#endif
-
 namespace
 {
-#ifdef XR_USE_PLATFORM_ANDROID
-
-    /// Wrapper for AAsset
-    class UniqueAsset
-    {
-    public:
-        explicit UniqueAsset(AAsset* asset) : asset_(asset)
-        {
-        }
-        UniqueAsset(UniqueAsset const&) = delete;
-        UniqueAsset(UniqueAsset&&) = delete;
-        UniqueAsset& operator=(UniqueAsset const&) = delete;
-        UniqueAsset& operator=(UniqueAsset&&) = delete;
-        ~UniqueAsset()
-        {
-            reset();
-        }
-        explicit operator bool() const
-        {
-            return asset_ != nullptr;
-        }
-
-        void reset() noexcept
-        {
-
-            if (asset_ != nullptr) {
-                AAsset_close(asset_);
-                asset_ = nullptr;
-            }
-        }
-
-        AAsset* get() const noexcept
-        {
-            return asset_;
-        }
-
-    private:
-        AAsset* asset_;
-    };
-
-#endif
     // Convert R32G32B32A_FLOAT to R8G8B8A8_UNORM.
     Conformance::RGBA8Color AsRGBA(float r, float g, float b, float a)
     {
@@ -81,27 +36,27 @@ namespace
     {
         BakedFont(int pixelHeight)
         {
-            constexpr const char* FontPath = PATH_PREFIX "SourceCodePro-Regular.otf";
+            const char* FontFileName = "SourceCodePro-Regular.otf";
 
 #ifdef XR_USE_PLATFORM_ANDROID
             AAssetManager* assetManager = (AAssetManager*)Conformance_Android_Get_Asset_Manager();
-            UniqueAsset asset(AAssetManager_open(assetManager, "SourceCodePro-Regular.otf", AASSET_MODE_BUFFER));
+            UniqueAsset asset(AAssetManager_open(assetManager, FontFileName, AASSET_MODE_BUFFER));
 
             if (!asset) {
-                throw std::runtime_error((std::string("Unable to open font ") + FontPath).c_str());
+                throw std::runtime_error((std::string("Unable to open font ") + FontFileName).c_str());
             }
 
             size_t length = AAsset_getLength(asset.get());
             const uint8_t* buf = (const uint8_t*)AAsset_getBuffer(asset.get());
             if (!buf) {
-                throw std::runtime_error((std::string("Unable to open font ") + FontPath).c_str());
+                throw std::runtime_error((std::string("Unable to open font ") + FontFileName).c_str());
             }
             std::vector<uint8_t> fontData(buf, buf + length);
 #else
             std::ifstream file;
-            file.open(FontPath, std::ios::in | std::ios::binary);
+            file.open(FontFileName, std::ios::in | std::ios::binary);
             if (!file) {
-                throw std::runtime_error((std::string("Unable to open font ") + FontPath).c_str());
+                throw std::runtime_error((std::string("Unable to open font ") + FontFileName).c_str());
             }
 
             file.seekg(0, std::ios::end);
@@ -120,7 +75,7 @@ namespace
             int res = stbtt_BakeFontBitmap(fontData.data(), 0, (float)pixelHeight, glyphBitmap.data(), m_bitmapWidth, m_bitmapHeight,
                                            StartChar, (int)m_bakedChars.size(), m_bakedChars.data());
             if (res == 0) {
-                throw std::runtime_error((std::string("Unable to parse font") + FontPath).c_str());
+                throw std::runtime_error((std::string("Unable to parse font") + FontFileName).c_str());
             }
             else if (res < 0) {
                 // Bitmap was not big enough to fit so double size and try again.
@@ -178,8 +133,6 @@ namespace Conformance
         int width, height;
 
 #ifdef XR_USE_PLATFORM_ANDROID
-        // for use by the exception, if required.
-        auto fullPath = path;
         stbi_uc* uc = nullptr;
         {
             AAssetManager* assetManager = (AAssetManager*)Conformance_Android_Get_Asset_Manager();
@@ -200,13 +153,10 @@ namespace Conformance
             uc = stbi_load_from_memory((const stbi_uc*)buf, length, &width, &height, nullptr, RequiredComponents);
         }
 #else
-        char fullPath[512];
-        strcpy(fullPath, PATH_PREFIX);
-        strcat(fullPath, path);
-        stbi_uc* const uc = stbi_load(fullPath, &width, &height, nullptr, RequiredComponents);
+        stbi_uc* const uc = stbi_load(path, &width, &height, nullptr, RequiredComponents);
 #endif
         if (uc == nullptr) {
-            throw std::runtime_error((std::string("Unable to load file ") + fullPath).c_str());
+            throw std::runtime_error((std::string("Unable to load file ") + path).c_str());
         }
 
         RGBAImage image(width, height);
@@ -240,10 +190,10 @@ namespace Conformance
 
             // Word wrap.
             {
-                int remainingWordWidth = 0;
-                for (const char* w = text; *w > 32; w++) {
+                float remainingWordWidth = 0;
+                for (const char* w = text; *w > ' '; w++) {
                     const stbtt_bakedchar& bakedChar = font->GetBakedChar(*text);
-                    remainingWordWidth += (int)(bakedChar.x1 - bakedChar.x0);
+                    remainingWordWidth += bakedChar.xadvance;
                 }
 
                 // Wrap to new line if there isn't enough room for this word.

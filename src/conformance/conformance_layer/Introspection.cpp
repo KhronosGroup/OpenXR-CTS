@@ -73,10 +73,6 @@ extern "C" LAYER_EXPORT XrResult XRAPI_CALL xrEnumerateInstanceExtensionProperti
             *propertyCountOutput = 0;
             return XR_SUCCESS;
         }
-        else if (propertyCapacityInput < 0) {
-            *propertyCountOutput = 0;
-            return XR_ERROR_SIZE_INSUFFICIENT;
-        }
         else if (properties == NULL) {
             return XR_ERROR_VALIDATION_FAILURE;
         }

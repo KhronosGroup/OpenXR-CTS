@@ -18,6 +18,7 @@
 #include <thread>
 #include <numeric>
 #include "utils.h"
+#include "throw_helpers.h"
 #include "report.h"
 #include "conformance_utils.h"
 #include "conformance_framework.h"
@@ -28,230 +29,12 @@
 
 using namespace Conformance;
 
-namespace
-{
-    const XrVector3f Up{0, 1, 0};
-
-    enum class LayerMode
-    {
-        Scene,
-        Help,
-        Complete
-    };
-
-    namespace Colors
-    {
-        constexpr XrColor4f Red = {1, 0, 0, 1};
-        constexpr XrColor4f Green = {0, 1, 0, 1};
-        constexpr XrColor4f GreenZeroAlpha = {0, 1, 0, 0};
-        constexpr XrColor4f Blue = {0, 0, 1, 1};
-        constexpr XrColor4f Purple = {1, 0, 1, 1};
-        constexpr XrColor4f Yellow = {1, 1, 0, 1};
-        constexpr XrColor4f Orange = {1, 0.65f, 0, 1};
-        constexpr XrColor4f White = {1, 1, 1, 1};
-        constexpr XrColor4f Transparent = {0, 0, 0, 0};
-
-        // Avoid including red which is a "failure color".
-        constexpr std::array<XrColor4f, 4> UniqueColors{Green, Blue, Yellow, Orange};
-    }  // namespace Colors
-
-    namespace Math
-    {
-        // Do a linear conversion of a number from one range to another range.
-        // e.g. 5 in range [0-8] projected into range (-.6 to 0.6) is 0.15.
-        float LinearMap(int i, int sourceMin, int sourceMax, float targetMin, float targetMax)
-        {
-            float percent = (i - sourceMin) / (float)sourceMax;
-            return targetMin + ((targetMax - targetMin) * percent);
-        }
-
-        constexpr float DegToRad(float degree)
-        {
-            return degree / 180 * MATH_PI;
-        }
-    }  // namespace Math
-
-    namespace Quat
-    {
-        constexpr XrQuaternionf Identity{0, 0, 0, 1};
-
-        XrQuaternionf FromAxisAngle(XrVector3f axis, float radians)
-        {
-            XrQuaternionf rowQuat;
-            XrQuaternionf_CreateFromAxisAngle(&rowQuat, &axis, radians);
-            return rowQuat;
-        }
-    }  // namespace Quat
-
-    // Appends composition layers for interacting with interactive composition tests.
-    struct InteractiveLayerManager
-    {
-        InteractiveLayerManager(CompositionHelper& compositionHelper, const char* exampleImage, const char* descriptionText)
-            : m_compositionHelper(compositionHelper)
-        {
-            // Set up the input system for toggling between modes and passing/failing.
-            {
-                XrActionSetCreateInfo actionSetInfo{XR_TYPE_ACTION_SET_CREATE_INFO};
-                strcpy(actionSetInfo.actionSetName, "interaction_test");
-                strcpy(actionSetInfo.localizedActionSetName, "Interaction Test");
-                XRC_CHECK_THROW_XRCMD(xrCreateActionSet(compositionHelper.GetInstance(), &actionSetInfo, &m_actionSet));
-
-                compositionHelper.GetInteractionManager().AddActionSet(m_actionSet);
-
-                XrActionCreateInfo actionInfo{XR_TYPE_ACTION_CREATE_INFO};
-                actionInfo.actionType = XR_ACTION_TYPE_BOOLEAN_INPUT;
-                strcpy(actionInfo.actionName, "interaction_manager_select");
-                strcpy(actionInfo.localizedActionName, "Interaction Manager Select");
-                XRC_CHECK_THROW_XRCMD(xrCreateAction(m_actionSet, &actionInfo, &m_select));
-
-                strcpy(actionInfo.actionName, "interaction_manager_menu");
-                strcpy(actionInfo.localizedActionName, "Interaction Manager Menu");
-                XRC_CHECK_THROW_XRCMD(xrCreateAction(m_actionSet, &actionInfo, &m_menu));
-
-                XrPath simpleInteractionProfile =
-                    StringToPath(compositionHelper.GetInstance(), "/interaction_profiles/khr/simple_controller");
-                compositionHelper.GetInteractionManager().AddActionBindings(
-                    simpleInteractionProfile,
-                    {{
-                        {m_select, StringToPath(compositionHelper.GetInstance(), "/user/hand/left/input/select/click")},
-                        {m_select, StringToPath(compositionHelper.GetInstance(), "/user/hand/right/input/select/click")},
-                        {m_menu, StringToPath(compositionHelper.GetInstance(), "/user/hand/left/input/menu/click")},
-                        {m_menu, StringToPath(compositionHelper.GetInstance(), "/user/hand/right/input/menu/click")},
-                    }});
-            }
-
-            m_viewSpace = compositionHelper.CreateReferenceSpace(XR_REFERENCE_SPACE_TYPE_VIEW, XrPosef{{0, 0, 0, 1}, {0, 0, 0}});
-
-            // Load example screenshot if available and set up the quad layer for it.
-            {
-                XrSwapchain exampleSwapchain;
-                if (exampleImage) {
-                    exampleSwapchain = compositionHelper.CreateStaticSwapchainImage(RGBAImage::Load(exampleImage));
-                }
-                else {
-                    RGBAImage image(256, 256);
-                    image.PutText(XrRect2Di{{0, image.height / 2}, {image.width, image.height}}, "Example Not Available", 64, {1, 0, 0, 1});
-                    exampleSwapchain = compositionHelper.CreateStaticSwapchainImage(image);
-                }
-
-                // Create a quad to the right of the help text.
-                m_exampleQuad = compositionHelper.CreateQuadLayer(exampleSwapchain, m_viewSpace, 1.25f, {Quat::Identity, {0.5f, 0, -1.5f}});
-                XrQuaternionf_CreateFromAxisAngle(&m_exampleQuad->pose.orientation, &Up, -15 * MATH_PI / 180);
-            }
-
-            // Set up the quad layer for showing the help text to the left of the example image.
-            m_descriptionQuad = compositionHelper.CreateQuadLayer(
-                m_compositionHelper.CreateStaticSwapchainImage(CreateTextImage(768, 768, descriptionText, 48)), m_viewSpace, 0.75f,
-                {Quat::Identity, {-0.5f, 0, -1.5f}});
-            m_descriptionQuad->layerFlags |= XR_COMPOSITION_LAYER_BLEND_TEXTURE_SOURCE_ALPHA_BIT;
-            XrQuaternionf_CreateFromAxisAngle(&m_descriptionQuad->pose.orientation, &Up, 15 * MATH_PI / 180);
-
-            constexpr uint32_t actionsWidth = 768, actionsHeight = 128;
-            m_sceneActionsSwapchain = compositionHelper.CreateStaticSwapchainImage(
-                CreateTextImage(actionsWidth, actionsHeight, "Press Select to PASS. Press Menu for description", 48));
-            m_helpActionsSwapchain =
-                compositionHelper.CreateStaticSwapchainImage(CreateTextImage(actionsWidth, actionsHeight, "Press select to FAIL", 48));
-
-            // Set up the quad layer and swapchain for showing what actions the user can take in the Scene/Help mode.
-            m_actionsQuad =
-                compositionHelper.CreateQuadLayer(m_sceneActionsSwapchain, m_viewSpace, 0.75f, {Quat::Identity, {0, -0.4f, -1}});
-            m_actionsQuad->layerFlags |= XR_COMPOSITION_LAYER_BLEND_TEXTURE_SOURCE_ALPHA_BIT;
-        }
-
-        template <typename T>
-        void AddLayer(T* layer)
-        {
-            m_sceneLayers.push_back(reinterpret_cast<XrCompositionLayerBaseHeader*>(layer));
-        }
-
-        bool EndFrame(const XrFrameState& frameState, std::vector<XrCompositionLayerBaseHeader*> layers = {})
-        {
-            bool keepRunning = AppendLayers(layers);
-            keepRunning &= m_compositionHelper.PollEvents();
-            m_compositionHelper.EndFrame(frameState.predictedDisplayTime, std::move(layers));
-            return keepRunning;
-        }
-
-    private:
-        bool AppendLayers(std::vector<XrCompositionLayerBaseHeader*>& layers)
-        {
-            // Add layer(s) based on the interaction mode.
-            switch (GetLayerMode()) {
-            case LayerMode::Scene:
-                m_actionsQuad->subImage = m_compositionHelper.MakeDefaultSubImage(m_sceneActionsSwapchain);
-                layers.push_back(reinterpret_cast<XrCompositionLayerBaseHeader*>(m_actionsQuad));
-
-                for (auto& sceneLayer : m_sceneLayers) {
-                    layers.push_back(sceneLayer);
-                }
-                break;
-
-            case LayerMode::Help:
-                layers.push_back(reinterpret_cast<XrCompositionLayerBaseHeader*>(m_descriptionQuad));
-                layers.push_back(reinterpret_cast<XrCompositionLayerBaseHeader*>(m_exampleQuad));
-
-                m_actionsQuad->subImage = m_compositionHelper.MakeDefaultSubImage(m_helpActionsSwapchain);
-                layers.push_back(reinterpret_cast<XrCompositionLayerBaseHeader*>(m_actionsQuad));
-                break;
-
-            case LayerMode::Complete:
-                return false;  // Interactive test is complete.
-            }
-
-            return true;
-        }
-
-        LayerMode GetLayerMode()
-        {
-            m_compositionHelper.GetInteractionManager().SyncActions(XR_NULL_PATH);
-
-            XrActionStateBoolean actionState{XR_TYPE_ACTION_STATE_BOOLEAN};
-            XrActionStateGetInfo getInfo{XR_TYPE_ACTION_STATE_GET_INFO};
-
-            LayerMode mode = LayerMode::Scene;
-            getInfo.action = m_menu;
-            XRC_CHECK_THROW_XRCMD(xrGetActionStateBoolean(m_compositionHelper.GetSession(), &getInfo, &actionState));
-            if (actionState.currentState) {
-                mode = LayerMode::Help;
-            }
-
-            getInfo.action = m_select;
-            XRC_CHECK_THROW_XRCMD(xrGetActionStateBoolean(m_compositionHelper.GetSession(), &getInfo, &actionState));
-            if (actionState.changedSinceLastSync && actionState.currentState) {
-                if (mode != LayerMode::Scene) {
-                    // Select on the non-Scene modes (help description/preview image) means FAIL and move to the next.
-                    FAIL("User failed the interactive test");
-                }
-
-                // Select on scene means PASS and move to next
-                mode = LayerMode::Complete;
-            }
-
-            return mode;
-        }
-
-        CompositionHelper& m_compositionHelper;
-
-        XrActionSet m_actionSet;
-        XrAction m_select;
-        XrAction m_menu;
-
-        XrSpace m_viewSpace;
-        XrSwapchain m_sceneActionsSwapchain;
-        XrSwapchain m_helpActionsSwapchain;
-        XrCompositionLayerQuad* m_actionsQuad;
-        XrCompositionLayerQuad* m_descriptionQuad;
-        XrCompositionLayerQuad* m_exampleQuad;
-        std::vector<XrCompositionLayerBaseHeader*> m_sceneLayers;
-    };
-}  // namespace
-
 namespace Conformance
 {
     // Purpose: Verify behavior of quad visibility and occlusion with the expectation that:
     // 1. Quads render with painters algo.
     // 2. Quads which are facing away are not visible.
-    TEST_CASE("Quad Occlusion", "[composition][interactive]")
+    TEST_CASE("Quad Occlusion", "[composition][interactive][no_auto]")
     {
         CompositionHelper compositionHelper("Quad Occlusion");
         InteractiveLayerManager interactiveLayerManager(
@@ -286,7 +69,7 @@ namespace Conformance
     // 1. A pose offset when creating the space
     // 2. A pose offset when adding the layer
     // If the poses are applied in an incorrect order, the quads will not rendener in the correct place or orientation.
-    TEST_CASE("Quad Poses", "[composition][interactive]")
+    TEST_CASE("Quad Poses", "[composition][interactive][no_auto]")
     {
         CompositionHelper compositionHelper("Quad Poses");
         InteractiveLayerManager interactiveLayerManager(
@@ -331,7 +114,7 @@ namespace Conformance
     }
 
     // Purpose: Validates alpha blending (both premultiplied and unpremultiplied).
-    TEST_CASE("Source Alpha Blending", "[composition][interactive]")
+    TEST_CASE("Source Alpha Blending", "[composition][interactive][no_auto]")
     {
         CompositionHelper compositionHelper("Source Alpha Blending");
         InteractiveLayerManager interactiveLayerManager(compositionHelper, "source_alpha_blending.png",
@@ -418,7 +201,7 @@ namespace Conformance
     }
 
     // Purpose: Validate eye visibility flags.
-    TEST_CASE("Eye Visibility", "[composition][interactive]")
+    TEST_CASE("Eye Visibility", "[composition][interactive][no_auto]")
     {
         CompositionHelper compositionHelper("Eye Visibility");
         InteractiveLayerManager interactiveLayerManager(compositionHelper, "eye_visibility.png",
@@ -446,7 +229,7 @@ namespace Conformance
         }).Loop();
     }
 
-    TEST_CASE("Subimage Tests", "[composition][interactive]")
+    TEST_CASE("Subimage Tests", "[composition][interactive][no_auto]")
     {
         CompositionHelper compositionHelper("Subimage Tests");
         InteractiveLayerManager interactiveLayerManager(
@@ -475,7 +258,7 @@ namespace Conformance
 
         // Render a grid of numbers (1,2,3,4) in slice 0 and (5,6,7,8) in slice 1 of the swapchain
         // Create a quad layer referencing each number cell.
-        compositionHelper.AcquireWaitReleaseImage(swapchain, [&](const XrSwapchainImageBaseHeader* swapchainImage, uint64_t format) {
+        compositionHelper.AcquireWaitReleaseImage(swapchain, [&](const XrSwapchainImageBaseHeader* swapchainImage, int64_t format) {
             int number = 1;
             for (int arraySlice = 0; arraySlice < ImageArrayCount; arraySlice++) {
                 Conformance::RGBAImage numberGridImage(ImageWidth, ImageHeight);
@@ -514,7 +297,7 @@ namespace Conformance
         }).Loop();
     }
 
-    TEST_CASE("Projection Array Swapchain", "[composition][interactive]")
+    TEST_CASE("Projection Array Swapchain", "[composition][interactive][no_auto]")
     {
         CompositionHelper compositionHelper("Projection Array Swapchain");
         InteractiveLayerManager interactiveLayerManager(
@@ -568,17 +351,17 @@ namespace Conformance
                 const auto& views = std::get<std::vector<XrView>>(viewData);
 
                 // Render into each slice of the array swapchain using the projection layer view fov and pose.
-                compositionHelper.AcquireWaitReleaseImage(
-                    swapchain, [&](const XrSwapchainImageBaseHeader* swapchainImage, uint64_t format) {
-                        for (uint32_t slice = 0; slice < (uint32_t)views.size(); slice++) {
-                            GetGlobalData().graphicsPlugin->ClearImageSlice(swapchainImage,
-                                                                            projLayer->views[slice].subImage.imageArrayIndex, format);
+                compositionHelper.AcquireWaitReleaseImage(swapchain, [&](const XrSwapchainImageBaseHeader* swapchainImage, int64_t format) {
+                    for (uint32_t slice = 0; slice < (uint32_t)views.size(); slice++) {
+                        GetGlobalData().graphicsPlugin->ClearImageSlice(swapchainImage, projLayer->views[slice].subImage.imageArrayIndex,
+                                                                        format);
 
-                            const_cast<XrFovf&>(projLayer->views[slice].fov) = views[slice].fov;
-                            const_cast<XrPosef&>(projLayer->views[slice].pose) = views[slice].pose;
-                            GetGlobalData().graphicsPlugin->RenderView(projLayer->views[slice], swapchainImage, format, cubes);
-                        }
-                    });
+                        const_cast<XrFovf&>(projLayer->views[slice].fov) = views[slice].fov;
+                        const_cast<XrPosef&>(projLayer->views[slice].pose) = views[slice].pose;
+                        GetGlobalData().graphicsPlugin->RenderView(projLayer->views[slice], swapchainImage, format,
+                                                                   RenderParams().Draw(cubes));
+                    }
+                });
 
                 layers.push_back(reinterpret_cast<XrCompositionLayerBaseHeader*>(projLayer));
             }
@@ -588,7 +371,7 @@ namespace Conformance
         RenderLoop(compositionHelper.GetSession(), updateLayers).Loop();
     }
 
-    TEST_CASE("Projection Wide Swapchain", "[composition][interactive]")
+    TEST_CASE("Projection Wide Swapchain", "[composition][interactive][no_auto]")
     {
         CompositionHelper compositionHelper("Projection Wide Swapchain");
         InteractiveLayerManager interactiveLayerManager(compositionHelper, "projection_wide.png",
@@ -644,7 +427,8 @@ namespace Conformance
                         for (size_t view = 0; view < views.size(); view++) {
                             const_cast<XrFovf&>(projLayer->views[view].fov) = views[view].fov;
                             const_cast<XrPosef&>(projLayer->views[view].pose) = views[view].pose;
-                            GetGlobalData().graphicsPlugin->RenderView(projLayer->views[view], swapchainImage, format, cubes);
+                            GetGlobalData().graphicsPlugin->RenderView(projLayer->views[view], swapchainImage, format,
+                                                                       RenderParams().Draw(cubes));
                         }
                     });
 
@@ -656,7 +440,7 @@ namespace Conformance
         RenderLoop(compositionHelper.GetSession(), updateLayers).Loop();
     }
 
-    TEST_CASE("Projection Separate Swapchains", "[composition][interactive]")
+    TEST_CASE("Projection Separate Swapchains", "[composition][interactive][no_auto]")
     {
         CompositionHelper compositionHelper("Projection Separate Swapchains");
         InteractiveLayerManager interactiveLayerManager(compositionHelper, "projection_separate.png",
@@ -677,13 +461,15 @@ namespace Conformance
         RenderLoop(compositionHelper.GetSession(), updateLayers).Loop();
     }
 
-    TEST_CASE("Quad Hands", "[composition][interactive]")
+    TEST_CASE("Quad Hands", "[composition][interactive][no_auto]")
     {
+        GlobalData& globalData = GetGlobalData();
+
         CompositionHelper compositionHelper("Quad Hands");
         InteractiveLayerManager interactiveLayerManager(compositionHelper, "quad_hands.png",
                                                         "10x10cm Quads labeled \'L\' and \'R\' should appear 10cm along the grip "
                                                         "positive Z in front of the center of 10cm cubes rendered at the controller "
-                                                        "grip poses. "
+                                                        "grip poses, or at the origin if that controller isn't being tested."
                                                         "The quads should face you and be upright when the controllers are in "
                                                         "a thumbs-up pointing-into-screen pose. "
                                                         "Check that the quads are properly backface-culled, "
@@ -728,13 +514,20 @@ namespace Conformance
         std::vector<XrSpace> gripSpaces;
 
         // Create XrSpaces for each grip pose
-        for (XrPath subactionPath : subactionPaths) {
+        for (int i = 0; i < 2; i++) {
             XrSpace space;
-            XrActionSpaceCreateInfo spaceCreateInfo{XR_TYPE_ACTION_SPACE_CREATE_INFO};
-            spaceCreateInfo.action = gripPoseAction;
-            spaceCreateInfo.subactionPath = subactionPath;
-            spaceCreateInfo.poseInActionSpace = {{0, 0, 0, 1}, {0, 0, 0}};
-            XRC_CHECK_THROW_XRCMD(xrCreateActionSpace(compositionHelper.GetSession(), &spaceCreateInfo, &space));
+            if ((i == 0 && globalData.leftHandUnderTest) || (i == 1 && globalData.rightHandUnderTest)) {
+                XrActionSpaceCreateInfo spaceCreateInfo{XR_TYPE_ACTION_SPACE_CREATE_INFO};
+                spaceCreateInfo.action = gripPoseAction;
+                spaceCreateInfo.subactionPath = subactionPaths[i];
+                spaceCreateInfo.poseInActionSpace = {{0, 0, 0, 1}, {0, 0, 0}};
+                XRC_CHECK_THROW_XRCMD(xrCreateActionSpace(compositionHelper.GetSession(), &spaceCreateInfo, &space));
+            }
+            else {
+                XrReferenceSpaceCreateInfo spaceCreateInfo{XR_TYPE_REFERENCE_SPACE_CREATE_INFO, nullptr, XR_REFERENCE_SPACE_TYPE_LOCAL,
+                                                           XrPosefCPP()};
+                XRC_CHECK_THROW_XRCMD(xrCreateReferenceSpace(compositionHelper.GetSession(), &spaceCreateInfo, &space));
+            }
             gripSpaces.push_back(std::move(space));
         }
 
@@ -773,7 +566,7 @@ namespace Conformance
         RenderLoop(compositionHelper.GetSession(), updateLayers).Loop();
     }
 
-    TEST_CASE("Projection Mutable Field-of-View", "[composition][interactive]")
+    TEST_CASE("Projection Mutable Field-of-View", "[composition][interactive][no_auto]")
     {
         CompositionHelper compositionHelper("Projection Mutable Field-of-View");
         InteractiveLayerManager interactiveLayerManager(compositionHelper, "projection_mutable.png",
@@ -846,7 +639,7 @@ namespace Conformance
                             // Render using a 180 degree roll on Z which effectively creates a flip on both the X and Y axis.
                             XrCompositionLayerProjectionView rolled = projLayer->views[view];
                             XrQuaternionf_Multiply(&rolled.pose.orientation, &roll180, &views[view].pose.orientation);
-                            GetGlobalData().graphicsPlugin->RenderView(rolled, swapchainImage, format, cubes);
+                            GetGlobalData().graphicsPlugin->RenderView(rolled, swapchainImage, format, RenderParams().Draw(cubes));
 
                             // After rendering, report a flipped FOV on X and Y without the 180 degree roll, which has the same
                             // effect. This switcheroo is necessary since rendering with flipped FOV will result in an inverted

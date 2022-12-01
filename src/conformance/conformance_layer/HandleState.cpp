@@ -39,8 +39,8 @@ void RegisterHandleState(std::unique_ptr<HandleState> handleState)
     HandleStateKey mapKey(handleState->handle, handleState->type);
     auto it = g_handleStates.insert(std::pair<HandleStateKey, std::unique_ptr<HandleState>>(mapKey, std::move(handleState)));
     if (!it.second) {
-        throw HandleException(std::string("Encountered duplicate ") + to_string(handleState->type) + " handle with value " +
-                              std::to_string(handleState->handle));
+        throw HandleException(std::string("Encountered duplicate ") + to_string(mapKey.second) + " handle with value " +
+                              std::to_string(mapKey.first));
     }
 }
 

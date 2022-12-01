@@ -19,7 +19,9 @@
 #if defined(XR_USE_GRAPHICS_API_D3D11) && !defined(MISSING_DIRECTX_COLORS)
 
 #include "swapchain_parameters.h"
+#include "graphics_plugin_impl_helpers.h"
 #include "conformance_framework.h"
+#include "throw_helpers.h"
 #include "Geometry.h"
 #include <windows.h>
 #include <wrl/client.h>  // For Microsoft::WRL::ComPtr
@@ -38,13 +40,35 @@ using namespace DirectX;
 
 namespace Conformance
 {
+    struct D3D11Mesh
+    {
+        ComPtr<ID3D11Device> device;
+        ComPtr<ID3D11Buffer> vertexBuffer;
+        ComPtr<ID3D11Buffer> indexBuffer;
+        UINT numIndices;
+
+        D3D11Mesh(ComPtr<ID3D11Device> d3d11Device, span<const uint16_t> indices, span<const Geometry::Vertex> vertices)
+            : device(d3d11Device), numIndices((UINT)indices.size())
+        {
+
+            const D3D11_SUBRESOURCE_DATA vertexBufferData{vertices.data()};
+            const CD3D11_BUFFER_DESC vertexBufferDesc((UINT)(vertices.size() * sizeof(Geometry::Vertex)), D3D11_BIND_VERTEX_BUFFER);
+            XRC_CHECK_THROW_HRCMD(d3d11Device->CreateBuffer(&vertexBufferDesc, &vertexBufferData, vertexBuffer.ReleaseAndGetAddressOf()));
+
+            const D3D11_SUBRESOURCE_DATA indexBufferData{indices.data()};
+            const CD3D11_BUFFER_DESC indexBufferDesc((UINT)(indices.size() * sizeof(decltype(indices)::element_type)),
+                                                     D3D11_BIND_INDEX_BUFFER);
+            XRC_CHECK_THROW_HRCMD(d3d11Device->CreateBuffer(&indexBufferDesc, &indexBufferData, indexBuffer.ReleaseAndGetAddressOf()));
+        }
+    };
+
     // To do: Move this declaration to a header file.
     struct D3D11GraphicsPlugin : public IGraphicsPlugin
     {
     public:
         D3D11GraphicsPlugin(std::shared_ptr<IPlatformPlugin>);
 
-        ~D3D11GraphicsPlugin();
+        ~D3D11GraphicsPlugin() override;
 
         bool Initialize() override;
 
@@ -89,11 +113,13 @@ namespace Conformance
         std::shared_ptr<SwapchainImageStructs> AllocateSwapchainImageStructs(size_t size,
                                                                              const XrSwapchainCreateInfo& swapchainCreateInfo) override;
 
-        void ClearImageSlice(const XrSwapchainImageBaseHeader* colorSwapchainImage, uint32_t imageArrayIndex,
-                             int64_t colorSwapchainFormat) override;
+        void ClearImageSlice(const XrSwapchainImageBaseHeader* colorSwapchainImage, uint32_t imageArrayIndex, int64_t colorSwapchainFormat,
+                             XrColor4f bgColor = DarkSlateGrey) override;
+
+        MeshHandle MakeSimpleMesh(span<const uint16_t> idx, span<const Geometry::Vertex> vtx) override;
 
         void RenderView(const XrCompositionLayerProjectionView& layerView, const XrSwapchainImageBaseHeader* colorSwapchainImage,
-                        int64_t colorSwapchainFormat, const std::vector<Cube>& cubes) override;
+                        int64_t colorSwapchainFormat, const RenderParams& params) override;
 
     protected:
         ComPtr<ID3D11Texture2D> GetDepthStencilTexture(ID3D11Texture2D* colorTexture);
@@ -115,8 +141,9 @@ namespace Conformance
         ComPtr<ID3D11InputLayout> inputLayout;
         ComPtr<ID3D11Buffer> modelCBuffer;
         ComPtr<ID3D11Buffer> viewProjectionCBuffer;
-        ComPtr<ID3D11Buffer> cubeVertexBuffer;
-        ComPtr<ID3D11Buffer> cubeIndexBuffer;
+
+        MeshHandle m_cubeMesh;
+        VectorWithGenerationCountedHandles<D3D11Mesh, MeshHandle> m_meshes;
 
         // Map color buffer to associated depth buffer. This map is populated on demand.
         std::map<ID3D11Texture2D*, ComPtr<ID3D11Texture2D>> colorToDepthMap;
@@ -263,17 +290,7 @@ namespace Conformance
                 XRC_CHECK_THROW_HRCMD(
                     d3d11Device->CreateBuffer(&viewProjectionConstantBufferDesc, nullptr, viewProjectionCBuffer.ReleaseAndGetAddressOf()));
 
-                const D3D11_SUBRESOURCE_DATA vertexBufferData{Geometry::c_cubeVertices.data()};
-                const CD3D11_BUFFER_DESC vertexBufferDesc((UINT)(Geometry::c_cubeVertices.size() * sizeof(Geometry::c_cubeVertices[0])),
-                                                          D3D11_BIND_VERTEX_BUFFER);
-                XRC_CHECK_THROW_HRCMD(
-                    d3d11Device->CreateBuffer(&vertexBufferDesc, &vertexBufferData, cubeVertexBuffer.ReleaseAndGetAddressOf()));
-
-                const D3D11_SUBRESOURCE_DATA indexBufferData{Geometry::c_cubeIndices.data()};
-                const CD3D11_BUFFER_DESC indexBufferDesc((UINT)(Geometry::c_cubeIndices.size() * sizeof(Geometry::c_cubeIndices[0])),
-                                                         D3D11_BIND_INDEX_BUFFER);
-                XRC_CHECK_THROW_HRCMD(
-                    d3d11Device->CreateBuffer(&indexBufferDesc, &indexBufferData, cubeIndexBuffer.ReleaseAndGetAddressOf()));
+                m_cubeMesh = MakeCubeMesh();
             }
 
             return true;
@@ -301,9 +318,10 @@ namespace Conformance
         inputLayout.Reset();
         modelCBuffer.Reset();
         viewProjectionCBuffer.Reset();
-        cubeVertexBuffer.Reset();
-        cubeIndexBuffer.Reset();
         colorToDepthMap.clear();
+
+        m_cubeMesh = {};
+        m_meshes.clear();
 
         d3d11DeviceContext.Reset();
         d3d11Device.Reset();
@@ -563,7 +581,7 @@ namespace Conformance
     }
 
     void D3D11GraphicsPlugin::ClearImageSlice(const XrSwapchainImageBaseHeader* colorSwapchainImage, uint32_t imageArrayIndex,
-                                              int64_t colorSwapchainFormat)
+                                              int64_t colorSwapchainFormat, XrColor4f bgColor)
     {
         ID3D11Texture2D* const colorTexture = reinterpret_cast<const XrSwapchainImageD3D11KHR*>(colorSwapchainImage)->texture;
 
@@ -575,7 +593,8 @@ namespace Conformance
         // TODO: Do not clear to a color when using a pass-through view configuration.
         XRC_CHECK_THROW_HRCMD(
             d3d11Device->CreateRenderTargetView(colorTexture, &renderTargetViewDesc, renderTargetView.ReleaseAndGetAddressOf()));
-        d3d11DeviceContext->ClearRenderTargetView(renderTargetView.Get(), DirectX::Colors::DarkSlateGray);
+        FLOAT bg[] = {bgColor.r, bgColor.g, bgColor.b, bgColor.a};
+        d3d11DeviceContext->ClearRenderTargetView(renderTargetView.Get(), bg);
 
         // Clear depth buffer.
         const ComPtr<ID3D11Texture2D> depthStencilTexture = GetDepthStencilTexture(colorTexture);
@@ -587,21 +606,17 @@ namespace Conformance
         d3d11DeviceContext->ClearDepthStencilView(depthStencilView.Get(), D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
     }
 
+    inline MeshHandle D3D11GraphicsPlugin::MakeSimpleMesh(span<const uint16_t> idx, span<const Geometry::Vertex> vtx)
+
+    {
+        auto handle = m_meshes.emplace_back(d3d11Device, idx, vtx);
+        return handle;
+    }
+
     void D3D11GraphicsPlugin::RenderView(const XrCompositionLayerProjectionView& layerView,
                                          const XrSwapchainImageBaseHeader* colorSwapchainImage, int64_t colorSwapchainFormat,
-                                         const std::vector<Cube>& cubes)
+                                         const RenderParams& params)
     {
-        auto LoadXrPose = [](const XrPosef& pose) -> XMMATRIX {
-            return XMMatrixAffineTransformation(DirectX::g_XMOne, DirectX::g_XMZero,
-                                                XMLoadFloat4(reinterpret_cast<const XMFLOAT4*>(&pose.orientation)),
-                                                XMLoadFloat3(reinterpret_cast<const XMFLOAT3*>(&pose.position)));
-        };
-
-        auto LoadXrMatrix = [](const XrMatrix4x4f& matrix) -> XMMATRIX {
-            // XrMatrix4x4f has same memory layout as DirectX Math (Row-major,post-multiplied = column-major,pre-multiplied)
-            return XMLoadFloat4x4(reinterpret_cast<const XMFLOAT4X4*>(&matrix));
-        };
-
         ID3D11Texture2D* const colorTexture = reinterpret_cast<const XrSwapchainImageD3D11KHR*>(colorSwapchainImage)->texture;
 
         CD3D11_VIEWPORT viewport((float)layerView.subImage.imageRect.offset.x, (float)layerView.subImage.imageRect.offset.y,
@@ -640,24 +655,43 @@ namespace Conformance
         d3d11DeviceContext->PSSetShader(pixelShader.Get(), nullptr, 0);
 
         // Set cube primitive data.
-        const UINT strides[] = {sizeof(Geometry::Vertex)};
-        const UINT offsets[] = {0};
-        std::array<ID3D11Buffer*, 1> vertexBuffers{{cubeVertexBuffer.Get()}};
-        d3d11DeviceContext->IASetVertexBuffers(0, (UINT)vertexBuffers.size(), vertexBuffers.data(), strides, offsets);
-        d3d11DeviceContext->IASetIndexBuffer(cubeIndexBuffer.Get(), DXGI_FORMAT_R16_UINT, 0);
         d3d11DeviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
         d3d11DeviceContext->IASetInputLayout(inputLayout.Get());
+        MeshHandle lastMeshHandle;
 
-        // Render each cube
-        for (const Cube& cube : cubes) {
+        const auto drawMesh = [&, this](const MeshDrawable mesh) {
+            D3D11Mesh& d3dMesh = m_meshes[mesh.handle];
+            if (mesh.handle != lastMeshHandle) {
+                // We are now rendering a new mesh
+                // Set primitive data.
+
+                const UINT strides[] = {sizeof(Geometry::Vertex)};
+                const UINT offsets[] = {0};
+                std::array<ID3D11Buffer*, 1> vertexBuffers{{d3dMesh.vertexBuffer.Get()}};
+                d3d11DeviceContext->IASetVertexBuffers(0, (UINT)vertexBuffers.size(), vertexBuffers.data(), strides, offsets);
+                d3d11DeviceContext->IASetIndexBuffer(d3dMesh.indexBuffer.Get(), DXGI_FORMAT_R16_UINT, 0);
+
+                lastMeshHandle = mesh.handle;
+            }
+
             // Compute and update the model transform.
             ModelConstantBuffer model;
-            XMStoreFloat4x4(&model.Model,
-                            XMMatrixTranspose(XMMatrixScaling(cube.Scale.x, cube.Scale.y, cube.Scale.z) * LoadXrPose(cube.Pose)));
+            XMStoreFloat4x4(&model.Model, XMMatrixTranspose(XMMatrixScaling(mesh.params.scale.x, mesh.params.scale.y, mesh.params.scale.z) *
+                                                            LoadXrPose(mesh.params.pose)));
             d3d11DeviceContext->UpdateSubresource(modelCBuffer.Get(), 0, nullptr, &model, 0, 0);
 
-            // Draw the cube.
-            d3d11DeviceContext->DrawIndexed((UINT)Geometry::c_cubeIndices.size(), 0, 0);
+            // Draw the mesh.
+            d3d11DeviceContext->DrawIndexed(d3dMesh.numIndices, 0, 0);
+        };
+
+        // Render each cube
+        for (const Cube& cube : params.cubes) {
+            drawMesh(MeshDrawable{m_cubeMesh, cube.params.pose, cube.params.scale});
+        }
+
+        // Render each mesh
+        for (const auto& mesh : params.meshes) {
+            drawMesh(mesh);
         }
     }
 
