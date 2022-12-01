@@ -1,0 +1,43 @@
+# Copyright 2021-2022, Collabora, Ltd.
+# SPDX-License-Identifier: CC0-1.0
+
+name: Android OpenXR-CTS - Android Build
+on:
+  workflow_call:
+    inputs:
+      gradleTask:
+        description: "Gradle task to run"
+        type: string
+        required: true
+      gradleOutputDir:
+        description: "Where do we look for the output?"
+        type: string
+        required: true
+
+jobs:
+  # CTS
+  build-android-cts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Get modern CMake and Ninja
+        uses: lukka/get-cmake@v3.26.3
+
+      - name: set up JDK 11
+        uses: actions/setup-java@v3
+        with:
+          java-version: "11"
+          distribution: "temurin"
+          cache: gradle
+
+      - uses: gradle/gradle-build-action@v2
+        with:
+          arguments: ${{ inputs.gradleTask }}
+          build-root-directory: src/conformance
+
+      - name: Upload unsigned artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: android-openxr-cts-unsigned
+          path: ${{ inputs.gradleOutputDir }}
