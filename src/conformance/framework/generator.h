@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2022, The Khronos Group Inc.
+// Copyright (c) 2019-2023, The Khronos Group Inc.
 // Copyright (c) 2019 Collabora, Ltd.
 //
 // SPDX-License-Identifier: Apache-2.0
@@ -48,11 +48,11 @@
  * ```
  * // Generate every combination of these flags, including none of the flags.
  * auto&& generator = bitmaskGeneratorIncluding0({
- *      {"XR_SWAPCHAIN_USAGE_UNORDERED_ACCESS_BIT", 0x00000004},
- *      {"XR_SWAPCHAIN_USAGE_TRANSFER_SRC_BIT", 0x00000008},
- *      {"XR_SWAPCHAIN_USAGE_TRANSFER_DST_BIT", 0x00000010},
- *      {"XR_SWAPCHAIN_USAGE_SAMPLED_BIT", 0x00000020},
- *      {"XR_SWAPCHAIN_USAGE_MUTABLE_FORMAT_BIT", 0x00000040},
+ *      XR_SWAPCHAIN_USAGE_UNORDERED_ACCESS_BIT,
+ *      XR_SWAPCHAIN_USAGE_TRANSFER_SRC_BIT,
+ *      XR_SWAPCHAIN_USAGE_TRANSFER_DST_BIT,
+ *      XR_SWAPCHAIN_USAGE_SAMPLED_BIT,
+ *      XR_SWAPCHAIN_USAGE_MUTABLE_FORMAT_BIT,
  * });
  * while (generator.next()) {
  *      auto val = generator.get();

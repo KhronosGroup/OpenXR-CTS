@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2022, The Khronos Group Inc.
+// Copyright (c) 2019-2023, The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -27,7 +27,7 @@
 #include "conformance_utils.h"
 #include "platform_plugin.h"
 #include "graphics_plugin.h"
-#include <catch2/catch.hpp>
+#include <catch2/catch_test_macros.hpp>
 
 #ifdef XR_USE_PLATFORM_WIN32
 #include "windows.h"
@@ -179,10 +179,11 @@ namespace Conformance
         /// Default is /interaction_profiles/khr/simple_controller alone.
         std::vector<std::string> enabledInteractionProfiles;
 
-        /// Indicates if the runtime returns XR_ERROR_HANDLE_INVALID upon usage of invalid handles.
-        /// Note that as of 4/2019 the OpenXR specification is inconsistent in its requirement for
-        /// functions returning XR_ERROR_HANDLE_INVALID. Some functions must return it, some may, with
-        /// no rationale. Originally it was all must, but there was some debate...
+        /// Indicates if the runtime should be tested to ensure it returns XR_ERROR_HANDLE_INVALID
+        /// upon usage of invalid handles that are not undefined behavior to read.
+        /// The OpenXR specification does not require this because it cannot (uninitialized memory
+        /// used as a handle may trigger undefined behavior at the C level), but some runtimes will
+        /// attempt to identify bad handles where they can.
         /// Default is false.
         bool invalidHandleValidation{false};
 
@@ -218,8 +219,8 @@ namespace Conformance
 
     public:
         XrVersion apiVersion{XR_CURRENT_API_VERSION};
-        size_t testSuccessCount{};
-        size_t testFailureCount{};
+        uint64_t testSuccessCount{};
+        uint64_t testFailureCount{};
     };
 
     // A single place where all singleton data hangs off of.
@@ -341,7 +342,7 @@ namespace Conformance
 
         /// Required instance creation extension struct, or nullptr.
         /// This is a pointer into IPlatformPlugin-provided memory.
-        XrBaseInStructure* requiredPlaformInstanceCreateStruct{};
+        XrBaseInStructure* requiredPlatformInstanceCreateStruct{};
     };
 
     /// Returns the default singleton global data.
@@ -453,7 +454,7 @@ FunctionType GetInstanceExtensionFunctionNoexcept(XrInstance instance, const cha
 /// This is not required by the spec, but some runtimes do it as it is permitted.
 #define OPTIONAL_INVALID_HANDLE_VALIDATION_INFO            \
     if (GetGlobalData().options.invalidHandleValidation) { \
-        INFO("Invalid handle validation (optional)")       \
+        INFO("Invalid handle validation (optional)");      \
     }                                                      \
     if (GetGlobalData().options.invalidHandleValidation)
 
@@ -467,7 +468,7 @@ FunctionType GetInstanceExtensionFunctionNoexcept(XrInstance instance, const cha
 /// Not all devices can do this.
 #define OPTIONAL_DISCONNECTABLE_DEVICE_INFO                  \
     if (!GetGlobalData().options.nonDisconnectableDevices) { \
-        INFO("Disconnectable device (optional)")             \
+        INFO("Disconnectable device (optional)");            \
     }                                                        \
     if (!GetGlobalData().options.nonDisconnectableDevices)
 
@@ -480,7 +481,7 @@ FunctionType GetInstanceExtensionFunctionNoexcept(XrInstance instance, const cha
 /// @}
 
 // Stringification for Catch2.
-// See https://github.com/catchorg/Catch2/blob/master/docs/tostring.md
+// See https://github.com/catchorg/Catch2/blob/devel/docs/tostring.md
 #define ENUM_CASE_STR(name, val) \
     case name:                   \
         return #name;

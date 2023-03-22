@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2022, The Khronos Group Inc.
+// Copyright (c) 2019-2023, The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -22,7 +22,7 @@
 #include <set>
 #include <string>
 #include <cstring>
-#include <catch2/catch.hpp>
+#include <catch2/catch_test_macros.hpp>
 #include <openxr/openxr.h>
 
 namespace Conformance
@@ -68,19 +68,15 @@ namespace Conformance
         OPTIONAL_INVALID_HANDLE_VALIDATION_SECTION
         {
             // Invalid handle validation
-            {
-                // Invalid handle validation
-                {
-                    // Exercise XR_ERROR_HANDLE_INVALID
-                    result = xrGetSystem(XR_NULL_HANDLE_CPP, &systemGetInfo, &systemId);
-                    CHECK(ValidateResultAllowed("xrGetSystem", result));
-                    CHECK(result == XR_ERROR_HANDLE_INVALID);
 
-                    result = xrGetSystem(globalData.invalidInstance, &systemGetInfo, &systemId);
-                    CHECK(ValidateResultAllowed("xrGetSystem", result));
-                    CHECK(result == XR_ERROR_HANDLE_INVALID);
-                }
-            }
+            // Exercise XR_ERROR_HANDLE_INVALID
+            result = xrGetSystem(XR_NULL_HANDLE_CPP, &systemGetInfo, &systemId);
+            CHECK(ValidateResultAllowed("xrGetSystem", result));
+            CHECK(result == XR_ERROR_HANDLE_INVALID);
+
+            result = xrGetSystem(globalData.invalidInstance, &systemGetInfo, &systemId);
+            CHECK(ValidateResultAllowed("xrGetSystem", result));
+            CHECK(result == XR_ERROR_HANDLE_INVALID);
         }
     }
 }  // namespace Conformance

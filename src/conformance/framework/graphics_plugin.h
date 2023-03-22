@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2022, The Khronos Group Inc.
+// Copyright (c) 2019-2023, The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -45,11 +45,18 @@
 #endif
 
 #if defined(XR_USE_GRAPHICS_API_OPENGL)
-#ifdef _WIN32
+
+#if defined(_WIN32)
 #include <windows.h>
-#endif
+#endif  // defined(_WIN32)
+
+#if defined(__APPLE__)
+#include <OpenGL/gl.h>
+#else
 #include <GL/gl.h>
-#endif
+#endif  // defined(__APPLE__)
+
+#endif  // defined(XR_USE_GRAPHICS_API_OPENGL)
 
 #if defined(XR_USE_GRAPHICS_API_OPENGL_ES)
 #include <EGL/egl.h>
@@ -71,6 +78,8 @@ namespace Conformance
     // Import a backported implementation of std::span, or std::span itself if available.
 
     using nonstd::span;
+
+    class ISwapchainImageData;
 
     /// Color constant used as the default clear color.
     constexpr XrColor4f DarkSlateGrey = {0.184313729f, 0.309803933f, 0.309803933f, 1.0f};
@@ -209,6 +218,9 @@ namespace Conformance
         virtual bool InitializeDevice(XrInstance instance, XrSystemId systemId, bool checkGraphicsRequirements = true,
                                       uint32_t deviceCreationFlags = 0) = 0;
 
+        /// Clear any memory associated with swapchains, particularly auto-created accompanying depth buffers.
+        virtual void ClearSwapchainCache() = 0;
+
         /// Some graphics devices can accumulate memory usage unless you flush them, and some of our
         /// tests create and destroy large amounts of memory.
         virtual void Flush()
@@ -236,7 +248,7 @@ namespace Conformance
         /// Must have successfully called InitializeDevice before calling this or else this returns nullptr.
         virtual const XrBaseInStructure* GetGraphicsBinding() const = 0;
 
-        virtual void CopyRGBAImage(const XrSwapchainImageBaseHeader* /*swapchainImage*/, int64_t /*imageFormat*/, uint32_t /*arraySlice*/,
+        virtual void CopyRGBAImage(const XrSwapchainImageBaseHeader* /*swapchainImage*/, uint32_t /*arraySlice*/,
                                    const RGBAImage& /*image*/) = 0;
 
         /// Returns a name for an image format. Returns "unknown" for unknown formats.
@@ -272,44 +284,50 @@ namespace Conformance
         /// Select the preferred swapchain format.
         virtual int64_t GetSRGBA8Format() const = 0;
 
-        struct SwapchainImageStructs
-        {
-            virtual ~SwapchainImageStructs() = default;
-
-            std::vector<XrSwapchainImageBaseHeader*> imagePtrVector;
-        };
-
-        /// Allocates an array of XrSwapchainImages in a portable way and returns a pointer to a base
-        /// class which is pointers into that array. This is all for the purpose of being able to call
-        /// the xrEnumerateSwapchainImages function in a platform-independent way. The user of this
-        /// must not use the images beyond the lifetime of the shared_ptr.
+        /// Allocates an object owning (among other things) an array of XrSwapchainImage* in a portable way and
+        /// returns an **observing** pointer to an interface providing generic access to the associated pointers.
+        /// (The object remains owned by the graphics plugin, and will be destroyed on @ref ShutdownDevice())
+        /// This is all for the purpose of being able to call the xrEnumerateSwapchainImages function
+        /// in a platform-independent way. The user of this must not use the images beyond @ref ShutdownDevice()
         ///
         /// Example usage:
-        ///   std::shared_ptr<SwapchainImageStructs> p = graphicsPlugin->AllocateSwapchainImageStructs(3, swapchainCreateInfo);
-        ///   xrEnumerateSwapchainImages(swapchain, 3, nullptr, p->imagePtrVector.data());
         ///
-        virtual std::shared_ptr<SwapchainImageStructs> AllocateSwapchainImageStructs(size_t size,
-                                                                                     const XrSwapchainCreateInfo& swapchainCreateInfo) = 0;
+        /// ```c++
+        /// ISwapchainImageData * p = graphicsPlugin->AllocateSwapchainImageData(3, swapchainCreateInfo);
+        /// xrEnumerateSwapchainImages(swapchain, 3, &count, p->GetColorImageArray());
+        /// ```
+        virtual ISwapchainImageData* AllocateSwapchainImageData(size_t size, const XrSwapchainCreateInfo& swapchainCreateInfo) = 0;
 
-        virtual void ClearImageSlice(const XrSwapchainImageBaseHeader* colorSwapchainImage, uint32_t imageArrayIndex,
-                                     int64_t colorSwapchainFormat, XrColor4f bgColor = DarkSlateGrey) = 0;
+        /// Allocates an object owning (among other things) an array of XrSwapchainImage* in a portable way and
+        /// returns an **observing** pointer to an interface providing generic access to the associated pointers.
+        ///
+        /// Signals that we will use a depth swapchain allocated by the runtime, instead of a fallback depth
+        /// allocated by the plugin.
+        virtual ISwapchainImageData*
+        AllocateSwapchainImageDataWithDepthSwapchain(size_t size, const XrSwapchainCreateInfo& colorSwapchainCreateInfo,
+                                                     XrSwapchain depthSwapchain, const XrSwapchainCreateInfo& depthSwapchainCreateInfo) = 0;
+
+        virtual void ClearImageSlice(const XrSwapchainImageBaseHeader* colorSwapchainImage, uint32_t imageArrayIndex = 0,
+                                     XrColor4f bgColor = DarkSlateGrey) = 0;
 
         /// Create internal data for a mesh, returning a handle to refer to it.
         /// This handle expires when the internal data is cleared in Shutdown() and ShutdownDevice().
         virtual MeshHandle MakeSimpleMesh(span<const uint16_t> idx, span<const Geometry::Vertex> vtx) = 0;
 
+        /// Convenience helper function to make a mesh that is our standard cube (with R, G, B faces along X, Y, Z, respectively)
         MeshHandle MakeCubeMesh()
         {
             return MakeSimpleMesh(Geometry::c_cubeIndices, Geometry::c_cubeVertices);
         }
 
+        /// Convenience helper function to make a mesh that is "coordinate axes" also called a "gnomon"
         MeshHandle MakeGnomonMesh()
         {
             return MakeSimpleMesh(Geometry::AxisIndicator::GetInstance().indices, Geometry::AxisIndicator::GetInstance().vertices);
         };
 
         virtual void RenderView(const XrCompositionLayerProjectionView& layerView, const XrSwapchainImageBaseHeader* colorSwapchainImage,
-                                int64_t colorSwapchainFormat, const RenderParams& params) = 0;
+                                const RenderParams& params) = 0;
     };
 
     /// Create a graphics plugin for the graphics API specified in the options.

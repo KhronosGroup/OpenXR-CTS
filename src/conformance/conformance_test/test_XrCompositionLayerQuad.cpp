@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2022, The Khronos Group Inc.
+// Copyright (c) 2019-2023, The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -19,9 +19,11 @@
 #include "conformance_framework.h"
 #include "throw_helpers.h"
 #include "bitmask_generator.h"
+#include "bitmask_to_string.h"
+#include <algorithm>
 #include <openxr/openxr.h>
 #include <openxr/openxr_reflection.h>
-#include <catch2/catch.hpp>
+#include <catch2/catch_test_macros.hpp>
 
 namespace Conformance
 {
@@ -83,14 +85,13 @@ namespace Conformance
 
             {
                 INFO("Layer flags");
-                auto&& layerFlagsGenerator = bitmaskGeneratorIncluding0(
-                    {{"XR_COMPOSITION_LAYER_CORRECT_CHROMATIC_ABERRATION_BIT", XR_COMPOSITION_LAYER_CORRECT_CHROMATIC_ABERRATION_BIT},
-                     {"XR_COMPOSITION_LAYER_BLEND_TEXTURE_SOURCE_ALPHA_BIT", XR_COMPOSITION_LAYER_BLEND_TEXTURE_SOURCE_ALPHA_BIT},
-                     {"XR_COMPOSITION_LAYER_UNPREMULTIPLIED_ALPHA_BIT", XR_COMPOSITION_LAYER_UNPREMULTIPLIED_ALPHA_BIT}});
+                auto&& layerFlagsGenerator = bitmaskGeneratorIncluding0({XR_COMPOSITION_LAYER_CORRECT_CHROMATIC_ABERRATION_BIT,
+                                                                         XR_COMPOSITION_LAYER_BLEND_TEXTURE_SOURCE_ALPHA_BIT,
+                                                                         XR_COMPOSITION_LAYER_UNPREMULTIPLIED_ALPHA_BIT});
                 while (layerFlagsGenerator.next()) {
-                    CAPTURE(layerFlagsGenerator.get().bitmask);
+                    CAPTURE(layerFlagsGenerator.get());
                     XrCompositionLayerQuad quad = makeSimpleQuad();
-                    quad.layerFlags = layerFlagsGenerator.get().bitmask;
+                    quad.layerFlags = layerFlagsGenerator.get();
                     CHECK(XR_SUCCESS == submitFrame({&quad}));
                 }
             }

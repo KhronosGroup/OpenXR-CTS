@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2022, The Khronos Group Inc.
+// Copyright (c) 2019-2023, The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -18,13 +18,14 @@
 #include "conformance_utils.h"
 #include "conformance_framework.h"
 #include "bitmask_generator.h"
+#include "bitmask_to_string.h"
 #include <array>
 #include <vector>
 #include <set>
 #include <string>
 #include <cstring>
 #include <limits>
-#include <catch2/catch.hpp>
+#include <catch2/catch_test_macros.hpp>
 #include <openxr/openxr.h>
 
 namespace Conformance
@@ -73,13 +74,13 @@ namespace Conformance
         result = CycleToNextSwapchainImage(swapchainPair, 2, 3_xrSeconds);
         REQUIRE_RESULT_SUCCEEDED(result);
 
-        auto&& layerFlagsGenerator = bitmaskGeneratorIncluding0(
-            {{"XR_COMPOSITION_LAYER_CORRECT_CHROMATIC_ABERRATION_BIT", XR_COMPOSITION_LAYER_CORRECT_CHROMATIC_ABERRATION_BIT},
-             {"XR_COMPOSITION_LAYER_BLEND_TEXTURE_SOURCE_ALPHA_BIT", XR_COMPOSITION_LAYER_BLEND_TEXTURE_SOURCE_ALPHA_BIT},
-             {"XR_COMPOSITION_LAYER_UNPREMULTIPLIED_ALPHA_BIT", XR_COMPOSITION_LAYER_UNPREMULTIPLIED_ALPHA_BIT}});
+        auto&& layerFlagsGenerator = bitmaskGeneratorIncluding0({XR_COMPOSITION_LAYER_CORRECT_CHROMATIC_ABERRATION_BIT,
+                                                                 XR_COMPOSITION_LAYER_BLEND_TEXTURE_SOURCE_ALPHA_BIT,
+                                                                 XR_COMPOSITION_LAYER_UNPREMULTIPLIED_ALPHA_BIT});
         std::array<XrEyeVisibility, 3> eyeVisibilityArray{XR_EYE_VISIBILITY_BOTH, XR_EYE_VISIBILITY_LEFT /* just these two */};
 
         while (layerFlagsGenerator.next()) {
+            CAPTURE(XrCompositionLayerFlagsCPP(layerFlagsGenerator.get()));
             for (XrSpace space : session.spaceVector) {
                 for (XrEyeVisibility eyeVisibility : eyeVisibilityArray) {
                     std::array<XrQuaternionf, 4> orientationTestArray{
@@ -109,8 +110,8 @@ namespace Conformance
                         // there must be a following layer which is the right eye.
                         std::vector<XrCompositionLayerCubeKHR> cubeLayerArray(2, {XR_TYPE_COMPOSITION_LAYER_CUBE_KHR});
 
-                        cubeLayerArray[0].layerFlags = layerFlagsGenerator.get().bitmask;
-                        cubeLayerArray[1].layerFlags = layerFlagsGenerator.get().bitmask;
+                        cubeLayerArray[0].layerFlags = layerFlagsGenerator.get();
+                        cubeLayerArray[1].layerFlags = layerFlagsGenerator.get();
 
                         cubeLayerArray[0].space = space;
                         cubeLayerArray[1].space = space;

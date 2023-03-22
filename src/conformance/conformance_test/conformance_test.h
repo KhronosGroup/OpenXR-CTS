@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2022, The Khronos Group Inc.
+// Copyright (c) 2019-2023, The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -60,9 +60,12 @@ enum XrcResult
     XRC_ERROR_INTERNAL_ERROR = -4,
 };
 
+/// Clean up after enumerating test cases or running tests. Idempotent: may call more than once.
+extern "C" CONFORMANCE_EXPORT XrcResult XRAPI_CALL XRAPI_CALL xrcCleanup(void);
+
 extern "C" CONFORMANCE_EXPORT XrcResult XRAPI_CALL xrcEnumerateTestCases(uint32_t capacityInput, uint32_t* countOutput,
                                                                          ConformanceTestCase* testCases);
 
-// Returns failure count, including tests and initialization failure.
+/// Returns failure count, including tests and initialization failure.
 extern "C" CONFORMANCE_EXPORT XrcResult XRAPI_CALL xrcRunConformanceTests(const ConformanceLaunchSettings* conformanceLaunchSettings,
                                                                           uint32_t* failureCount);

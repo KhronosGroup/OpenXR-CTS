@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2022, The Khronos Group Inc.
+// Copyright (c) 2019-2023, The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -18,10 +18,11 @@
 #include "utils.h"
 #include "conformance_utils.h"
 #include "composition_utils.h"
+#include "throw_helpers.h"
 #include "input_testinputdevice.h"
 #include "report.h"
 #include <chrono>
-#include <catch2/catch.hpp>
+#include <catch2/catch_test_macros.hpp>
 #include <string>
 #include <openxr/openxr.h>
 #include <xr_linear.h>
@@ -71,9 +72,28 @@ namespace Conformance
     struct ControllerDescription
     {
         XrPath interactionProfile;
+        std::string interactionProfileShortname;
+        std::string interactionProfilePrintname;
         eControllerComponent controllerComponents;
         eTrackpadShape trackpadShape;
     };
+
+    struct PathPrintnamePair
+    {
+        XrPath interactionProfile;
+        std::string interactionProfilePrintname;
+    };
+
+    static inline std::vector<XrBindingModificationBaseHeaderKHR*>
+    makeBasePointerVec(std::vector<XrInteractionProfileDpadBindingEXT>& vBindingModifs)
+    {
+        std::vector<XrBindingModificationBaseHeaderKHR*> vBindingModifsBase;
+        vBindingModifsBase.reserve(vBindingModifs.size());
+        for (auto& modif : vBindingModifs) {
+            vBindingModifsBase.push_back(reinterpret_cast<XrBindingModificationBaseHeaderKHR*>(&modif));
+        }
+        return vBindingModifsBase;
+    }
 
     struct DisplayMessageManager : public ITestMessageDisplay
     {
@@ -142,12 +162,8 @@ namespace Conformance
                             XrInstance instance, const char* interactionProfile)
     {
         // Add dpad binding modifiers to binding modifications vector
-        std::vector<XrInteractionProfileDpadBindingEXT> vBindingModifs;
-        vBindingModifs.push_back(*xrDpadModification);
-        std::vector<XrBindingModificationBaseHeaderKHR*> vBindingModifsBase;
-        for (XrInteractionProfileDpadBindingEXT& modif : vBindingModifs) {
-            vBindingModifsBase.push_back(reinterpret_cast<XrBindingModificationBaseHeaderKHR*>(&modif));
-        }
+        std::vector<XrInteractionProfileDpadBindingEXT> vBindingModifs{{*xrDpadModification}};
+        std::vector<XrBindingModificationBaseHeaderKHR*> vBindingModifsBase = makeBasePointerVec(vBindingModifs);
 
         XrBindingModificationsKHR xrBindingModifications{XR_TYPE_BINDING_MODIFICATIONS_KHR};
         xrBindingModifications.bindingModifications = vBindingModifsBase.data();
@@ -189,7 +205,7 @@ namespace Conformance
 
         // Create top level user path
         if (controllerComponents == eControllerComponent::Both) {
-            // We're using the "both" value as a signal to just generate the top leve path
+            // We're using the "both" value as a signal to just generate the top level path
             if (hand == eHand::Left_Hand) {
                 REQUIRE_RESULT_SUCCEEDED(xrStringToPath(instance, sLeftHand.c_str(), outPath));
             }
@@ -315,12 +331,50 @@ namespace Conformance
         REQUIRE_RESULT_SUCCEEDED(xrStringToPath(instance, "/interaction_profiles/microsoft/motion_controller", &pathMS));
 
         // Generate controller descriptions
-        vSupportedControllers.push_back({pathDaydream, eControllerComponent::Trackpad, eTrackpadShape::Round});
-        vSupportedControllers.push_back({pathIndex, eControllerComponent::Both, eTrackpadShape::Pill_Vertical});
-        vSupportedControllers.push_back({pathVive, eControllerComponent::Trackpad, eTrackpadShape::Round});
-        vSupportedControllers.push_back({pathGo, eControllerComponent::Trackpad, eTrackpadShape::Round});
-        vSupportedControllers.push_back({pathTouch, eControllerComponent::Thumbstick, eTrackpadShape::None});
-        vSupportedControllers.push_back({pathMS, eControllerComponent::Both, eTrackpadShape::Round});
+        // clang-format off
+        vSupportedControllers.clear(); // Needs to be reset, state is kept around between sections.
+        vSupportedControllers.push_back({pathDaydream, "google/daydream_controller", "Daydream Controller", eControllerComponent::Trackpad, eTrackpadShape::Round});
+        vSupportedControllers.push_back({pathIndex, "valve/index_controller", "Index Controller", eControllerComponent::Both, eTrackpadShape::Pill_Vertical});
+        vSupportedControllers.push_back({pathVive, "htc/vive_controller", "Vive Controller", eControllerComponent::Trackpad, eTrackpadShape::Round});
+        vSupportedControllers.push_back({pathGo, "oculus/go_controller", "Go Controller", eControllerComponent::Trackpad, eTrackpadShape::Round});
+        vSupportedControllers.push_back({pathTouch, "oculus/touch_controller", "Touch Controller", eControllerComponent::Thumbstick, eTrackpadShape::None});
+        vSupportedControllers.push_back({pathMS, "microsoft/motion_controller", "Motion Controller", eControllerComponent::Both, eTrackpadShape::Round});
+        // clang-format on
+    }
+
+    void InitTestControllersAndDpadPaths(XrInstance instance)
+    {
+        GlobalData& globalData = GetGlobalData();
+        if (globalData.IsInstanceExtensionSupported(XR_EXT_DPAD_BINDING_EXTENSION_NAME) ||
+            !globalData.IsInstanceExtensionSupported(XR_KHR_BINDING_MODIFICATION_EXTENSION_NAME)) {
+            WARN("XR_EXT_dpad_binding support implies XR_KHR_binding_modification support.");
+        }
+
+        // Create supported interaction profile paths
+        InitControllers(instance);
+
+        // Create dpad paths
+        InitDpadPaths(instance);
+    }
+
+    void InitInteractiveInteractionProfiles(std::vector<PathPrintnamePair>& vInteractionProfiles, eControllerComponent controllerComponent)
+    {
+        // This function will only push one set of actions and shouldn't be called with both.
+        XRC_CHECK_THROW(controllerComponent != eControllerComponent::Both);
+
+        // Find interaction profiles that support the provided controller component
+        for (auto& supportedController : vSupportedControllers) {
+            if (!IsInteractionProfileEnabled(supportedController.interactionProfileShortname.c_str())) {
+                continue;
+            }
+
+            if (supportedController.controllerComponents != controllerComponent &&
+                supportedController.controllerComponents != eControllerComponent::Both) {
+                continue;
+            }
+
+            vInteractionProfiles.push_back({supportedController.interactionProfile, supportedController.interactionProfilePrintname});
+        }
     }
 
     // Suggest binding
@@ -369,9 +423,7 @@ namespace Conformance
         vBindingModifs.push_back(dpadModifications_R);
 
         // Convert dpad binding modification to a khr binding modification struct
-        for (XrInteractionProfileDpadBindingEXT& modif : vBindingModifs) {
-            vBindingModifsBase.push_back(reinterpret_cast<XrBindingModificationBaseHeaderKHR*>(&modif));
-        }
+        vBindingModifsBase = makeBasePointerVec(vBindingModifs);
     }
 
     void SuggestBindings(XrInstance instance, std::vector<XrActionSuggestedBinding>& vActionBindingsThumbstick,
@@ -534,20 +586,8 @@ namespace Conformance
     };
 
     XrAction dpadUp_L, dpadDown_L, dpadLeft_L, dpadRight_L, dpadCenter_L, dpadUp_R, dpadDown_R, dpadLeft_R, dpadRight_R, dpadCenter_R;
-    XrActionSet InitTest(XrInstance instance)
+    XrActionSet InitInteractiveActions(XrInstance instance)
     {
-        GlobalData& globalData = GetGlobalData();
-        if (globalData.IsInstanceExtensionSupported(XR_EXT_DPAD_BINDING_EXTENSION_NAME) ||
-            !globalData.IsInstanceExtensionSupported(XR_KHR_BINDING_MODIFICATION_EXTENSION_NAME)) {
-            WARN("XR_EXT_dpad_binding support implies XR_KHR_binding_modification support.");
-        }
-
-        // Create supported interaction profile paths
-        InitControllers(instance);
-
-        // Create dpad paths
-        InitDpadPaths(instance);
-
         // Create action set
         XrActionSet dpadActionSet = XR_NULL_HANDLE;
         REQUIRE_RESULT_SUCCEEDED(CreateActionSet(&dpadActionSet, "dpads", 0, instance));
@@ -568,36 +608,26 @@ namespace Conformance
         return dpadActionSet;
     }
 
-    void InitInputBindings(std::vector<XrPath>& interactionProfiles, std::vector<XrActionSuggestedBinding>& vActionBindings,
-                           eControllerComponent controllerComponent)
+    void InitInteractiveActionBindings(std::vector<XrActionSuggestedBinding>& vActionBindings, eControllerComponent controllerComponent)
     {
-        // Find interaction profiles that support the provided controller component
-        for (auto& supportedController : vSupportedControllers) {
-            if (supportedController.controllerComponents == controllerComponent ||
-                supportedController.controllerComponents == eControllerComponent::Both) {
-                interactionProfiles.push_back(supportedController.interactionProfile);
-            }
-        }
+        // This function will only push one set of actions and shouldn't be called with both.
+        XRC_CHECK_THROW(controllerComponent != eControllerComponent::Both);
+
+        auto thumbOrPad = [controllerComponent](XrPath thumb, XrPath pad) -> XrPath {
+            return (controllerComponent == eControllerComponent::Thumbstick) ? thumb : pad;
+        };
 
         // Create action bindings
-        vActionBindings.push_back(
-            {dpadUp_L, (controllerComponent == eControllerComponent::Thumbstick) ? pathDpad_Thumbstick_Up_L : pathDpad_Trackpad_Up_L});
-        vActionBindings.push_back({dpadDown_L, (controllerComponent == eControllerComponent::Thumbstick) ? pathDpad_Thumbstick_Down_L
-                                                                                                         : pathDpad_Trackpad_Down_L});
-        vActionBindings.push_back({dpadLeft_L, (controllerComponent == eControllerComponent::Thumbstick) ? pathDpad_Thumbstick_Left_L
-                                                                                                         : pathDpad_Trackpad_Left_L});
-        vActionBindings.push_back({dpadRight_L, (controllerComponent == eControllerComponent::Thumbstick) ? pathDpad_Thumbstick_Right_L
-                                                                                                          : pathDpad_Trackpad_Right_L});
+        vActionBindings.push_back({dpadUp_L, thumbOrPad(pathDpad_Thumbstick_Up_L, pathDpad_Trackpad_Up_L)});
+        vActionBindings.push_back({dpadDown_L, thumbOrPad(pathDpad_Thumbstick_Down_L, pathDpad_Trackpad_Down_L)});
+        vActionBindings.push_back({dpadLeft_L, thumbOrPad(pathDpad_Thumbstick_Left_L, pathDpad_Trackpad_Left_L)});
+        vActionBindings.push_back({dpadRight_L, thumbOrPad(pathDpad_Thumbstick_Right_L, pathDpad_Trackpad_Right_L)});
 
-        vActionBindings.push_back(
-            {dpadUp_R, (controllerComponent == eControllerComponent::Thumbstick) ? pathDpad_Thumbstick_Up_R : pathDpad_Trackpad_Up_R});
-        vActionBindings.push_back({dpadDown_R, (controllerComponent == eControllerComponent::Thumbstick) ? pathDpad_Thumbstick_Down_R
-                                                                                                         : pathDpad_Trackpad_Down_R});
-        vActionBindings.push_back({dpadLeft_R, (controllerComponent == eControllerComponent::Thumbstick) ? pathDpad_Thumbstick_Left_R
-                                                                                                         : pathDpad_Trackpad_Left_R});
-        vActionBindings.push_back({dpadRight_R, (controllerComponent == eControllerComponent::Thumbstick) ? pathDpad_Thumbstick_Right_R
-                                                                                                          : pathDpad_Trackpad_Right_R});
-        if (controllerComponent == eControllerComponent::Trackpad || controllerComponent == eControllerComponent::Both) {
+        vActionBindings.push_back({dpadUp_R, thumbOrPad(pathDpad_Thumbstick_Up_R, pathDpad_Trackpad_Up_R)});
+        vActionBindings.push_back({dpadDown_R, thumbOrPad(pathDpad_Thumbstick_Down_R, pathDpad_Trackpad_Down_R)});
+        vActionBindings.push_back({dpadLeft_R, thumbOrPad(pathDpad_Thumbstick_Left_R, pathDpad_Trackpad_Left_R)});
+        vActionBindings.push_back({dpadRight_R, thumbOrPad(pathDpad_Thumbstick_Right_R, pathDpad_Trackpad_Right_R)});
+        if (controllerComponent == eControllerComponent::Trackpad) {
             vActionBindings.push_back({dpadCenter_L, pathDpad_Trackpad_Center_L});
             vActionBindings.push_back({dpadCenter_R, pathDpad_Trackpad_Center_R});
         }
@@ -722,7 +752,7 @@ namespace Conformance
                                 (topLevelPath == pathHand_L) ? dpadUp_L : dpadUp_R, actionMap);
     }
 
-    void Test_Interactive(std::vector<TestSet>& tests, std::vector<XrPath> interactionProfiles, XrActionSet dpadActionSet,
+    void Test_Interactive(std::vector<TestSet>& tests, XrPath interactionProfile, XrActionSet dpadActionSet,
                           std::vector<XrActionSuggestedBinding> vActionBindings, XrBindingModificationsKHR* pBindingModifications,
                           fnWaitForDpadInput fnTest, CompositionHelper* compositionHelper, bool bSkipHumanInteraction = true)
     {
@@ -731,9 +761,7 @@ namespace Conformance
         REQUIRE(instance != XR_NULL_HANDLE);
 
         // Suggest bindings
-        for (auto& interactionProfile : interactionProfiles) {
-            SuggestBinding(instance, interactionProfile, vActionBindings, pBindingModifications, XR_SUCCESS);
-        }
+        SuggestBinding(instance, interactionProfile, vActionBindings, pBindingModifications, XR_SUCCESS);
 
         // Start session
         compositionHelper->BeginSession();
@@ -1121,7 +1149,7 @@ namespace Conformance
         }
     }
 
-    TEST_CASE("XR_EXT_dpad_binding_interactive_thumbstick", "[actions][interactive][no_auto]")
+    TEST_CASE("XR_EXT_dpad_binding-interactive_thumbstick", "[actions][interactive][no_auto]")
     {
         GlobalData& globalData = GetGlobalData();
         if (!globalData.IsInstanceExtensionSupported(XR_EXT_DPAD_BINDING_EXTENSION_NAME) ||
@@ -1135,57 +1163,74 @@ namespace Conformance
         XrInstance instance = compositionHelper.GetInstance();
         REQUIRE(instance != XR_NULL_HANDLE);
 
-        XrActionSet dpadActionSet = InitTest(compositionHelper.GetInstance());
+        // Per-instance
+        InitTestControllersAndDpadPaths(compositionHelper.GetInstance());
 
         // Set dpad suggested bindings
-        std::vector<XrPath> interactionProfiles;
-        std::vector<XrActionSuggestedBinding> vActionBindings;
-        InitInputBindings(interactionProfiles, vActionBindings, eControllerComponent::Thumbstick);
+        std::vector<PathPrintnamePair> interactionProfiles{};
+        InitInteractiveInteractionProfiles(interactionProfiles, eControllerComponent::Thumbstick);
 
-        SECTION("Runtime default dpad directions")
-        {
-            // Generate tests
-            std::vector<TestSet> tests;
-            GenerateDirectionalTestSet(tests, eControllerComponent::Thumbstick);
-
-            // Start test
-            fnWaitForDpadInput waitForDpadInput = &WaitForDpadInput;
-            Test_Interactive(tests, interactionProfiles, dpadActionSet, vActionBindings, nullptr, waitForDpadInput, &compositionHelper);
+        if (interactionProfiles.size() == 0) {
+            //! @todo Change to SKIP once catch2 has been updated https://github.com/KhronosGroup/SYCL-CTS/pull/469
+            ReportF("Enabled interaction profile(s) doesn't have thumbstick skipping test");
+            return;
         }
 
-        SECTION("Sticky dpad")
-        {
-            XrInteractionProfileDpadBindingEXT xrDpadModification_L{XR_TYPE_INTERACTION_PROFILE_DPAD_BINDING_EXT};
-            XrInteractionProfileDpadBindingEXT xrDpadModification_R{XR_TYPE_INTERACTION_PROFILE_DPAD_BINDING_EXT};
-            CreateStickyBindings(&xrDpadModification_L, &xrDpadModification_R, dpadActionSet, eControllerComponent::Thumbstick);
+        // Setup ActionSet and Actions.
+        XrActionSet dpadActionSet = InitInteractiveActions(instance);
 
-            // Setup binding modifications
-            std::vector<XrInteractionProfileDpadBindingEXT> vBindingModifs;
-            vBindingModifs.push_back(xrDpadModification_L);
-            vBindingModifs.push_back(xrDpadModification_R);
+        // Needs to happen after we have called InitInteractiveActions and actions are setup.
+        std::vector<XrActionSuggestedBinding> vActionBindings{};
+        InitInteractiveActionBindings(vActionBindings, eControllerComponent::Thumbstick);
 
-            // Convert dpad binding modifications to khr
-            std::vector<XrBindingModificationBaseHeaderKHR*> vBindingModifsBase;
-            for (auto& modif : vBindingModifs) {
-                vBindingModifsBase.push_back(reinterpret_cast<XrBindingModificationBaseHeaderKHR*>(&modif));
+        for (auto& pair : interactionProfiles) {
+            // This needs to be section as Test_Interactive calls suggests bindings without creating new actions.
+            // So we need to use catch2 to create a new set of actions, actionset, session and instance.
+            DYNAMIC_SECTION(pair.interactionProfilePrintname)
+            {
+
+                SECTION("Runtime default dpad directions")
+                {
+                    // Generate tests
+                    std::vector<TestSet> tests;
+                    GenerateDirectionalTestSet(tests, eControllerComponent::Thumbstick);
+
+                    // Start test
+                    fnWaitForDpadInput waitForDpadInput = &WaitForDpadInput;
+                    Test_Interactive(tests, pair.interactionProfile, dpadActionSet, vActionBindings, nullptr, waitForDpadInput,
+                                     &compositionHelper);
+                }
+
+                SECTION("Sticky dpad")
+                {
+                    XrInteractionProfileDpadBindingEXT xrDpadModification_L{XR_TYPE_INTERACTION_PROFILE_DPAD_BINDING_EXT};
+                    XrInteractionProfileDpadBindingEXT xrDpadModification_R{XR_TYPE_INTERACTION_PROFILE_DPAD_BINDING_EXT};
+                    CreateStickyBindings(&xrDpadModification_L, &xrDpadModification_R, dpadActionSet, eControllerComponent::Thumbstick);
+
+                    // Setup binding modifications
+                    std::vector<XrInteractionProfileDpadBindingEXT> vBindingModifs{{xrDpadModification_L, xrDpadModification_R}};
+
+                    // Convert dpad binding modifications to khr
+                    std::vector<XrBindingModificationBaseHeaderKHR*> vBindingModifsBase = makeBasePointerVec(vBindingModifs);
+
+                    XrBindingModificationsKHR xrBindingModifications{XR_TYPE_BINDING_MODIFICATIONS_KHR};
+                    xrBindingModifications.bindingModifications = vBindingModifsBase.data();
+                    xrBindingModifications.bindingModificationCount = (uint32_t)vBindingModifsBase.size();
+
+                    // Create test set
+                    std::vector<TestSet> tests;
+                    GenerateStickyTestSet(tests, eControllerComponent::Thumbstick);
+
+                    // Start test
+                    fnWaitForDpadInput waitForSticky = &WaitForStickyDpadInput;
+                    Test_Interactive(tests, pair.interactionProfile, dpadActionSet, vActionBindings, &xrBindingModifications, waitForSticky,
+                                     &compositionHelper);
+                }
             }
-
-            XrBindingModificationsKHR xrBindingModifications{XR_TYPE_BINDING_MODIFICATIONS_KHR};
-            xrBindingModifications.bindingModifications = vBindingModifsBase.data();
-            xrBindingModifications.bindingModificationCount = (uint32_t)vBindingModifsBase.size();
-
-            // Create test set
-            std::vector<TestSet> tests;
-            GenerateStickyTestSet(tests, eControllerComponent::Thumbstick);
-
-            // Start test
-            fnWaitForDpadInput waitForSticky = &WaitForStickyDpadInput;
-            Test_Interactive(tests, interactionProfiles, dpadActionSet, vActionBindings, &xrBindingModifications, waitForSticky,
-                             &compositionHelper);
         }
     }
 
-    TEST_CASE("XR_EXT_dpad_binding_interactive_trackpad", "[actions][interactive][no_auto]")
+    TEST_CASE("XR_EXT_dpad_binding-interactive_trackpad", "[actions][interactive][no_auto]")
     {
         GlobalData& globalData = GetGlobalData();
         if (!globalData.IsInstanceExtensionSupported(XR_EXT_DPAD_BINDING_EXTENSION_NAME) ||
@@ -1199,53 +1244,68 @@ namespace Conformance
         XrInstance instance = compositionHelper.GetInstance();
         REQUIRE(instance != XR_NULL_HANDLE);
 
-        XrActionSet dpadActionSet = InitTest(compositionHelper.GetInstance());
+        // Per-instance
+        InitTestControllersAndDpadPaths(instance);
 
         // Set dpad suggested bindings
-        std::vector<XrPath> interactionProfiles;
-        std::vector<XrActionSuggestedBinding> vActionBindings;
-        InitInputBindings(interactionProfiles, vActionBindings, eControllerComponent::Trackpad);
+        std::vector<PathPrintnamePair> interactionProfiles{};
+        InitInteractiveInteractionProfiles(interactionProfiles, eControllerComponent::Trackpad);
 
-        SECTION("Runtime default dpad directions")
-        {
-            // Generate tests
-            std::vector<TestSet> tests;
-            GenerateDirectionalTestSet(tests, eControllerComponent::Trackpad);
-
-            // Start test
-            fnWaitForDpadInput waitForDpadInput = &WaitForDpadInput;
-            Test_Interactive(tests, interactionProfiles, dpadActionSet, vActionBindings, nullptr, waitForDpadInput, &compositionHelper);
+        if (interactionProfiles.size() == 0) {
+            //! @todo Change to SKIP once catch2 has been updated https://github.com/KhronosGroup/SYCL-CTS/pull/469
+            ReportF("Enabled interaction profile(s) doesn't have trackpad skipping test");
+            return;
         }
 
-        SECTION("Sticky dpad")
-        {
-            XrInteractionProfileDpadBindingEXT xrDpadModification_L{XR_TYPE_INTERACTION_PROFILE_DPAD_BINDING_EXT};
-            XrInteractionProfileDpadBindingEXT xrDpadModification_R{XR_TYPE_INTERACTION_PROFILE_DPAD_BINDING_EXT};
-            CreateStickyBindings(&xrDpadModification_L, &xrDpadModification_R, dpadActionSet, eControllerComponent::Trackpad);
+        // Setup ActionSet and Actions.
+        XrActionSet dpadActionSet = InitInteractiveActions(instance);
 
-            // Setup binding modifications
-            std::vector<XrInteractionProfileDpadBindingEXT> vBindingModifs;
-            vBindingModifs.push_back(xrDpadModification_L);
-            vBindingModifs.push_back(xrDpadModification_R);
+        // Needs to happen after we have called InitInteractiveActions and actions are setup.
+        std::vector<XrActionSuggestedBinding> vActionBindings{};
+        InitInteractiveActionBindings(vActionBindings, eControllerComponent::Trackpad);
 
-            // Convert dpad binding modifications to khr
-            std::vector<XrBindingModificationBaseHeaderKHR*> vBindingModifsBase;
-            for (auto& modif : vBindingModifs) {
-                vBindingModifsBase.push_back(reinterpret_cast<XrBindingModificationBaseHeaderKHR*>(&modif));
+        for (auto& pair : interactionProfiles) {
+            // This needs to be section as Test_Interactive calls suggests bindings without creating new actions.
+            // So we need to use catch2 to create a new set of actions, actionset, session and instance.
+            DYNAMIC_SECTION(pair.interactionProfilePrintname)
+            {
+                SECTION("Runtime default dpad directions")
+                {
+                    // Generate tests
+                    std::vector<TestSet> tests;
+                    GenerateDirectionalTestSet(tests, eControllerComponent::Trackpad);
+
+                    // Start test
+                    fnWaitForDpadInput waitForDpadInput = &WaitForDpadInput;
+                    Test_Interactive(tests, pair.interactionProfile, dpadActionSet, vActionBindings, nullptr, waitForDpadInput,
+                                     &compositionHelper);
+                }
+                SECTION("Sticky dpad")
+                {
+                    XrInteractionProfileDpadBindingEXT xrDpadModification_L{XR_TYPE_INTERACTION_PROFILE_DPAD_BINDING_EXT};
+                    XrInteractionProfileDpadBindingEXT xrDpadModification_R{XR_TYPE_INTERACTION_PROFILE_DPAD_BINDING_EXT};
+                    CreateStickyBindings(&xrDpadModification_L, &xrDpadModification_R, dpadActionSet, eControllerComponent::Trackpad);
+
+                    // Setup binding modifications
+                    std::vector<XrInteractionProfileDpadBindingEXT> vBindingModifs{{xrDpadModification_L, xrDpadModification_R}};
+
+                    // Convert dpad binding modifications to khr
+                    std::vector<XrBindingModificationBaseHeaderKHR*> vBindingModifsBase = makeBasePointerVec(vBindingModifs);
+
+                    XrBindingModificationsKHR xrBindingModifications{XR_TYPE_BINDING_MODIFICATIONS_KHR};
+                    xrBindingModifications.bindingModifications = vBindingModifsBase.data();
+                    xrBindingModifications.bindingModificationCount = (uint32_t)vBindingModifsBase.size();
+
+                    // Create test set
+                    std::vector<TestSet> tests;
+                    GenerateStickyTestSet(tests, eControllerComponent::Trackpad);
+
+                    // Start test
+                    fnWaitForDpadInput waitForSticky = &WaitForStickyDpadInput;
+                    Test_Interactive(tests, pair.interactionProfile, dpadActionSet, vActionBindings, &xrBindingModifications, waitForSticky,
+                                     &compositionHelper);
+                }
             }
-
-            XrBindingModificationsKHR xrBindingModifications{XR_TYPE_BINDING_MODIFICATIONS_KHR};
-            xrBindingModifications.bindingModifications = vBindingModifsBase.data();
-            xrBindingModifications.bindingModificationCount = (uint32_t)vBindingModifsBase.size();
-
-            // Create test set
-            std::vector<TestSet> tests;
-            GenerateStickyTestSet(tests, eControllerComponent::Trackpad);
-
-            // Start test
-            fnWaitForDpadInput waitForSticky = &WaitForStickyDpadInput;
-            Test_Interactive(tests, interactionProfiles, dpadActionSet, vActionBindings, &xrBindingModifications, waitForSticky,
-                             &compositionHelper);
         }
     }
 }  // namespace Conformance

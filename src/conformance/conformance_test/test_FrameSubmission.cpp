@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2022, The Khronos Group Inc.
+// Copyright (c) 2019-2023, The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -14,6 +14,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <algorithm>
 #include <thread>
 #include <condition_variable>
 #include <queue>
@@ -25,7 +26,7 @@
 #include "report.h"
 #include <openxr/openxr.h>
 #include <openxr/openxr_reflection.h>
-#include <catch2/catch.hpp>
+#include <catch2/catch_test_macros.hpp>
 
 #define ENUM_LIST(name, val) name,
 constexpr XrEnvironmentBlendMode SupportedBlendModes[] = {XR_LIST_ENUM_XrEnvironmentBlendMode(ENUM_LIST)};
@@ -33,7 +34,7 @@ constexpr XrEnvironmentBlendMode SupportedBlendModes[] = {XR_LIST_ENUM_XrEnviron
 namespace Conformance
 {
     // Tests for xrBeginFrame, xrWaitFrame, xrEndFrame without testing specific composition layer types.
-    TEST_CASE("Frame Submission", "")
+    TEST_CASE("FrameSubmission", "")
     {
         GlobalData& globalData = GetGlobalData();
         if (!globalData.IsUsingGraphicsPlugin()) {
@@ -41,7 +42,7 @@ namespace Conformance
             return;
         }
 
-        SECTION("Before xrBeginSession")
+        SECTION("Before_xrBeginSession")
         {
             AutoBasicSession session(AutoBasicSession::createSession);
 
@@ -50,7 +51,7 @@ namespace Conformance
             CHECK(XR_ERROR_SESSION_NOT_RUNNING == xrBeginFrame(session, nullptr));
         }
 
-        SECTION("Call order")
+        SECTION("CallOrder")
         {
             AutoBasicSession session(AutoBasicSession::beginSession);
 
@@ -112,7 +113,7 @@ namespace Conformance
             }
         }
 
-        SECTION("EndFrameInfo Tests")
+        SECTION("EndFrameInfo")
         {
             AutoBasicSession session(AutoBasicSession::beginSession | AutoBasicSession::createSpaces);
 
@@ -196,7 +197,7 @@ namespace Conformance
             }
         }
 
-        SECTION("After xrEndSession")
+        SECTION("After_xrEndSession")
         {
             AutoBasicSession session(AutoBasicSession::beginSession | AutoBasicSession::createSpaces | AutoBasicSession::createSwapchains);
 
@@ -214,7 +215,7 @@ namespace Conformance
 
     // Test uses spends 90% of a predictedDisplayPeriod on both the rendering thread and primary thread. Although the total time
     // spent is over 100% of allowable time, the OpenXR frame API calls should be made concurrently allowing full frame rate.
-    TEST_CASE("Timed Pipelined Frame Submission", "")
+    TEST_CASE("Timed_Pipelined_Frame_Submission", "")
     {
         using ns = std::chrono::nanoseconds;
         using ms = std::chrono::duration<float, std::milli>;

@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2022, The Khronos Group Inc.
+// Copyright (c) 2019-2023, The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -18,9 +18,11 @@
 #include "conformance_utils.h"
 #include "conformance_framework.h"
 #include "bitmask_generator.h"
+#include "bitmask_to_string.h"
+#include <algorithm>
 #include <openxr/openxr.h>
 #include <openxr/openxr_reflection.h>
-#include <catch2/catch.hpp>
+#include <catch2/catch_test_macros.hpp>
 
 namespace Conformance
 {
@@ -34,7 +36,7 @@ namespace Conformance
             Layer.views = ProjectionViews.data();  // New address must be updated.
         }
 
-        ProjectionLayerWithViews(std::vector<XrView> views, XrSpace space, std::function<XrSwapchainSubImage(uint32_t)> getSubImage)
+        ProjectionLayerWithViews(std::vector<XrView> views, XrSpace space, const std::function<XrSwapchainSubImage(uint32_t)>& getSubImage)
         {
             for (size_t viewIndex = 0; viewIndex < views.size(); viewIndex++) {
                 XrCompositionLayerProjectionView projectionView{XR_TYPE_COMPOSITION_LAYER_PROJECTION_VIEW};
@@ -99,7 +101,7 @@ namespace Conformance
             std::vector<XrView> views(viewCount, {XR_TYPE_VIEW});
             uint32_t viewCountOut = viewCount;
             REQUIRE(xrLocateViews(session, &locateInfo, &viewState, viewCount, &viewCountOut, views.data()) == XR_SUCCESS);
-
+            CAPTURE(XrViewStateFlagsCPP(viewState.viewStateFlags));
             // Must have a pose in order to submit projection layers.
             REQUIRE_MSG((viewState.viewStateFlags & XR_VIEW_STATE_ORIENTATION_VALID_BIT) != 0,
                         "Projection layer tests require view orientation tracking");
@@ -155,18 +157,15 @@ namespace Conformance
 
             {
                 INFO("Layer flags");
-                auto&& layerFlagsGenerator = bitmaskGeneratorIncluding0(
-                    {BitmaskData{"XR_COMPOSITION_LAYER_CORRECT_CHROMATIC_ABERRATION_BIT",
-                                 XR_COMPOSITION_LAYER_CORRECT_CHROMATIC_ABERRATION_BIT},
-                     BitmaskData{"XR_COMPOSITION_LAYER_BLEND_TEXTURE_SOURCE_ALPHA_BIT",
-                                 XR_COMPOSITION_LAYER_BLEND_TEXTURE_SOURCE_ALPHA_BIT},
-                     BitmaskData{"XR_COMPOSITION_LAYER_UNPREMULTIPLIED_ALPHA_BIT", XR_COMPOSITION_LAYER_UNPREMULTIPLIED_ALPHA_BIT}});
+                auto&& layerFlagsGenerator = bitmaskGeneratorIncluding0({XR_COMPOSITION_LAYER_CORRECT_CHROMATIC_ABERRATION_BIT,
+                                                                         XR_COMPOSITION_LAYER_BLEND_TEXTURE_SOURCE_ALPHA_BIT,
+                                                                         XR_COMPOSITION_LAYER_UNPREMULTIPLIED_ALPHA_BIT});
                 while (layerFlagsGenerator.next()) {
-                    CAPTURE(layerFlagsGenerator.get().bitmask);
+                    CAPTURE(XrCompositionLayerFlagsCPP(layerFlagsGenerator.get()));
                     XrFrameState frameState = waitAndBeginFrame();
                     std::vector<XrView> views = locateViews(frameState);
                     ProjectionLayerWithViews projectionLayerWithViews(views, session.spaceVector.front(), createColorSwapchainSubImage);
-                    projectionLayerWithViews.Layer.layerFlags = layerFlagsGenerator.get().bitmask;
+                    projectionLayerWithViews.Layer.layerFlags = layerFlagsGenerator.get();
                     CHECK(XR_SUCCESS == endFrame(frameState, {&projectionLayerWithViews.Layer}));
                 }
             }

@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2022, The Khronos Group Inc.
+// Copyright (c) 2019-2023, The Khronos Group Inc.
 // Copyright (c) 2019 Collabora, Ltd.
 //
 // SPDX-License-Identifier: Apache-2.0
@@ -35,51 +35,24 @@
 namespace Conformance
 {
     /*!
-     * String description and value of a specific bit or collection of bits forming a bit flag/bitmask.
-     */
-    struct BitmaskData
-    {
-        std::string description;
-        uint64_t bitmask;
-
-        /// Is this an empty description and 0 bitmask?
-        bool empty() const
-        {
-            return bitmask == 0 && description.empty();
-        }
-
-        /// Update this bitmask with another via bitwise-or
-        BitmaskData& operator|=(BitmaskData const& other);
-    };
-
-    /*!
-     * Bitwise-OR operator for BitmaskData that combines the bits as well as the descriptions in a readable way.
-     *
-     * @relates BitmaskData
-     */
-    BitmaskData operator|(BitmaskData const& lhs, BitmaskData const& rhs);
-
-    /*!
      * Generate all combinations of the supplied list of bitmasks,
      * including the 0 combination with none of the element (and thus bits).
      *
-     * @see BitmaskData
      * @see bitmaskGenerator
      *
      * @ingroup cts_generators
      */
-    GeneratorWrapper<BitmaskData const&> bitmaskGeneratorIncluding0(std::initializer_list<BitmaskData> const& bits);
+    GeneratorWrapper<uint64_t const&> bitmaskGeneratorIncluding0(std::initializer_list<uint64_t> const& bits);
 
     /*!
      * Generate all combinations of the supplied list of bitmasks that include at least one set element.
      *
      * This excludes the 0 combination.
      *
-     * @see BitmaskData
      * @see bitmaskGeneratorIncluding0
      *
      * @ingroup cts_generators
      */
-    GeneratorWrapper<BitmaskData const&> bitmaskGenerator(std::initializer_list<BitmaskData> const& bits);
+    GeneratorWrapper<uint64_t const&> bitmaskGenerator(std::initializer_list<uint64_t> const& bits);
 
 }  // namespace Conformance

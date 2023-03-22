@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2022, The Khronos Group Inc.
+// Copyright (c) 2019-2023, The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -15,7 +15,6 @@
 // limitations under the License.
 
 #include "utils.h"
-#include "platform_utils.hpp"
 #include <string>
 #include <cstdio>
 #include <ctime>

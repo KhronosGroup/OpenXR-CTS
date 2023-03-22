@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2022, The Khronos Group Inc.
+// Copyright (c) 2019-2023, The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -13,6 +13,8 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
+#pragma once
 
 #include <utils.h>
 #include <vector>
@@ -40,6 +42,11 @@ namespace Conformance
         UNCOMPRESSED,
         COMPRESSED,
     };
+    enum SwapchainFormatSupportsRendering
+    {
+        NO_RENDERING_SUPPORT,
+        RENDERING_SUPPORT,
+    };
 
     /// Defines XrSwapchainCreateInfo test parameters for a single given image format.
     /// Sometimes values are zeroed, for the case that use of them is invalid or unsupportable.
@@ -61,6 +68,9 @@ namespace Conformance
 
         /// Whether the format is a compressed format.
         SwapchainFormatIsCompressed compressedFormat;
+
+        /// Whether the image format can be rendered to.
+        SwapchainFormatSupportsRendering supportsRendering;
 
         /// The graphics-specific created image format returned by xrCreateSwapchain, may be different from imageFormat in some cases.
         int64_t expectedCreatedImageFormat;

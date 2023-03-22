@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2022, The Khronos Group Inc.
+// Copyright (c) 2019-2023, The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -88,6 +88,7 @@ namespace Conformance
         InteractionManager& GetInteractionManager();
 
         XrInstance GetInstance() const;
+        XrSystemId GetSystemId() const;
         XrSession GetSession() const;
 
         std::vector<XrViewConfigurationView> EnumerateConfigurationViews();
@@ -104,7 +105,7 @@ namespace Conformance
 
         void EndFrame(XrTime predictedDisplayTime, std::vector<XrCompositionLayerBaseHeader*> layers);
 
-        void AcquireWaitReleaseImage(XrSwapchain swapchain, std::function<void(const XrSwapchainImageBaseHeader*, int64_t)> doUpdate);
+        void AcquireWaitReleaseImage(XrSwapchain swapchain, const std::function<void(const XrSwapchainImageBaseHeader*)>& doUpdate);
 
         XrSpace CreateReferenceSpace(XrReferenceSpaceType type, XrPosef pose = XrPosefCPP());
 
@@ -146,7 +147,7 @@ namespace Conformance
         std::list<XrCompositionLayerQuad> m_quads;
 
         std::map<XrSwapchain, XrSwapchainCreateInfo> m_createdSwapchains;
-        std::map<XrSwapchain, std::shared_ptr<Conformance::IGraphicsPlugin::SwapchainImageStructs>> m_swapchainImages;
+        std::map<XrSwapchain, ISwapchainImageData*> m_swapchainImages;
         std::vector<XrSpace> m_spaces;
 
         // For the menu overlays:
@@ -167,14 +168,14 @@ namespace Conformance
         public:
             virtual ~ViewRenderer();
             /// Usually must call  @ref IGraphicsPlugin::ClearImageSlice with @p swapchainImage , array index 0,
-            /// @p format , and a background color of choice.
-            /// Must call IGraphicsPlugin::RenderView with @p projectionView , @p swapchainImage , @p format ,
+            /// and a background color of choice.
+            /// Must call IGraphicsPlugin::RenderView with @p projectionView , @p swapchainImage ,
             /// and the geometry to draw.
             /// Projection view pose/fov fields are preset to match the corresponding view fields.
             /// Views are located relative to GetLocalSpace()
             virtual void RenderView(const BaseProjectionLayerHelper& projectionLayerHelper, uint32_t viewIndex,
                                     const XrViewState& viewState, const XrView& view, XrCompositionLayerProjectionView& projectionView,
-                                    const XrSwapchainImageBaseHeader* swapchainImage, uint64_t format) = 0;
+                                    const XrSwapchainImageBaseHeader* swapchainImage) = 0;
         };
 
         /// Gets view state/location, then for each view, calls your ViewRenderer from within
@@ -232,21 +233,16 @@ namespace Conformance
             ~ViewRenderer() override = default;
             void RenderView(const BaseProjectionLayerHelper& /* projectionLayerHelper */, uint32_t /* viewIndex */,
                             const XrViewState& /* viewState */, const XrView& /* view */, XrCompositionLayerProjectionView& projectionView,
-                            const XrSwapchainImageBaseHeader* swapchainImage, uint64_t format) override
+                            const XrSwapchainImageBaseHeader* swapchainImage) override
             {
-                GetGlobalData().graphicsPlugin->ClearImageSlice(swapchainImage, 0, format);
-                GetGlobalData().graphicsPlugin->RenderView(projectionView, swapchainImage, format, RenderParams{}.Draw(m_cubes));
+                GetGlobalData().graphicsPlugin->ClearImageSlice(swapchainImage);
+                GetGlobalData().graphicsPlugin->RenderView(projectionView, swapchainImage, RenderParams{}.Draw(m_cubes));
             }
 
         private:
             const std::vector<Cube>& m_cubes;
         };
     };
-}  // namespace Conformance
-
-namespace
-{
-    using namespace Conformance;
 
     const XrVector3f UpVector{0, 1, 0};
 
@@ -460,4 +456,4 @@ namespace
         XrCompositionLayerQuad* m_exampleQuad;
         std::vector<XrCompositionLayerBaseHeader*> m_sceneLayers;
     };
-}  // namespace
+}  // namespace Conformance

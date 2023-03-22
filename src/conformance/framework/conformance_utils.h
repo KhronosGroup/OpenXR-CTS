@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2022, The Khronos Group Inc.
+// Copyright (c) 2019-2023, The Khronos Group Inc.
 // Copyright (c) 2019 Collabora, Ltd.
 //
 // SPDX-License-Identifier: Apache-2.0
@@ -75,6 +75,9 @@ namespace Conformance
     /// ValidateResultAllowed
     ///
     /// Returns true if the given function (e.g. "xrPollEvent") may return the given result (e.g. XR_ERROR_PATH_INVALID).
+    ///
+    /// NOTE: Most usages of this function are unnecessary as the Conformance Layer (mandatory for conformance) already
+    /// checks this for every call.
     ///
     /// Example usage:
     /// ```
@@ -206,6 +209,11 @@ namespace Conformance
     namespace deleters
     {
 
+        struct SwapchainDelete
+        {
+            typedef XrSwapchain pointer;
+            void operator()(XrSwapchain s) const;
+        };
         struct InstanceDeleteCHECK
         {
             typedef XrInstance pointer;
@@ -318,11 +326,16 @@ namespace Conformance
     /// ```
     using SwapchainCHECK = ScopedHandle<XrSwapchain, deleters::SwapchainDeleteCHECK>;
 
-    /// SpaceREQUIRE
+    /// SwapchainREQUIRE
     ///
     /// This is similar to SwapchainCHECK except that it uses REQUIRE on the result of xrDestroySwapchain.
     ///
     using SwapchainREQUIRE = ScopedHandle<XrSwapchain, deleters::SwapchainDeleteREQUIRE>;
+
+    /// SwapchainScoped
+    ///
+    /// Like SwapchainREQUIRE but with no checking of the return value.
+    using SwapchainScoped = ScopedHandle<XrSwapchain, deleters::SwapchainDelete>;
 
     /// Returns an extension struct pointer suitable for use as a struct next parameter.
     /// The returns extension is one that is not defined by the OpenXR spec and serves the
@@ -343,7 +356,7 @@ namespace Conformance
     void InsertUnrecognizableExtension(Struct* inStructure)
     {
         // We have a bit of declspec and casting here because there are two types of
-        // next pointers, oonst and non-const.
+        // next pointers, const and non-const.
         auto nextSaved = inStructure->next;  // This is const or non-const void*
         inStructure->next = (decltype(nextSaved))GetUnrecognizableExtension();
         reinterpret_cast<Struct*>(const_cast<void*>(inStructure->next))->next = nextSaved;
@@ -555,6 +568,9 @@ namespace Conformance
         XrSystemId systemId{XR_NULL_SYSTEM_ID};
     };
 
+    /// Finds an XrSystemId suitable for testing of additional functionality.
+    XrResult FindBasicSystem(XrInstance instance, XrSystemId* systemId);
+
     /// Creates an XrSession suitable for enabling testing of additional functionality.
     /// If enableGraphicsSystem is false then no graphics system is specified with the
     /// call to xrCreateSession. This is useful for testing headless operation and runtime behavior
@@ -641,7 +657,7 @@ namespace Conformance
             return session;
         }
 
-        std::vector<XrEnvironmentBlendMode> SupportedEnvironmentBlendModes() const
+        const std::vector<XrEnvironmentBlendMode>& SupportedEnvironmentBlendModes() const noexcept
         {
             return environmentBlendModeVector;
         }

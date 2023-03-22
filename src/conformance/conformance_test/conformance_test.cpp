@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2022, The Khronos Group Inc.
+// Copyright (c) 2019-2023, The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -14,28 +14,35 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "throw_helpers.h"
 #define CATCH_CONFIG_NOSTDOUT
 #ifdef XR_USE_PLATFORM_ANDROID
 #define CATCH_CONFIG_NO_CPP11_TO_STRING
 #define CATCH_CONFIG_FALLBACK_STRINGIFIER
-#endif  /// XR_USE_PLATFORM_ANDROID
+#endif  // XR_USE_PLATFORM_ANDROID
 
-#define CATCH_CONFIG_RUNNER  // Tell catch2 that we will be supplying main() ourselves.
-#include <catch2/catch.hpp>
+#include <catch2/catch_test_macros.hpp>
+#include <catch2/internal/catch_clara.hpp>
+#include <catch2/catch_session.hpp>
+#include <catch2/reporters/catch_reporter_event_listener.hpp>
+#include <catch2/reporters/catch_reporter_registrars.hpp>
+#include <catch2/catch_test_case_info.hpp>
 
+#include "throw_helpers.h"
 #include <conformance_framework.h>
 #include <conformance_utils.h>
 #include <openxr/openxr.h>
+#include <cstddef>
 #include <vector>
 #include <string>
 #include <string.h>
 #include <unordered_map>
 
+#include "throw_helpers.h"
+#include "environment.h"
 #include "conformance_test.h"
 #include "report.h"
 #include "utils.h"
-#include "platform_utils.hpp"
+#include "platform_utils.hpp"  // for OPENXR_API_LAYER_PATH_ENV_VAR
 #include "filesystem_utils.hpp"
 #include "two_call_util.h"
 #include "conformance_utils.h"
@@ -57,11 +64,9 @@ namespace
         int overflow(int c) override
         {
             auto c_as_char = traits_type::to_char_type(c);
+            m_s += c_as_char;  // add to local buffer
             if (c_as_char == '\n') {
                 sync();  // flush on newlines
-            }
-            else {
-                m_s += c_as_char;  // add to local buffer
             }
             return c;
         }
@@ -89,6 +94,7 @@ namespace
         ReportStr("*********************************************\n");
     }
 
+    /// Display test environment info on the console.
     void ReportTestEnvironment()
     {
         GlobalData& globalData = GetGlobalData();
@@ -126,7 +132,7 @@ namespace
         ReportF("");
     }
 
-    TEST_CASE("Describe Graphics Plugin", "")
+    TEST_CASE("DescribeGraphicsPlugin", "")
     {
         GlobalData& globalData = GetGlobalData();
         if (globalData.IsGraphicsPluginRequired()) {
@@ -143,7 +149,7 @@ namespace
     }
 
     // Ensure conformance is configured correctly.
-    TEST_CASE("Validate Environment")
+    TEST_CASE("ValidateEnvironment")
     {
         GlobalData& globalData = GetGlobalData();
 
@@ -154,9 +160,9 @@ namespace
         REQUIRE_MSG(IsInstanceExtensionEnabled(XR_EXT_DEBUG_UTILS_EXTENSION_NAME), "Debug utils extension required by conformance layer");
     }
 
-    Catch::clara::Parser MakeCLIParser(Conformance::GlobalData& globalData)
+    Catch::Clara::Parser MakeCLIParser(Conformance::GlobalData& globalData)
     {
-        using namespace Catch::clara;
+        using namespace Catch::Clara;
         auto& options = globalData.options;
 
         /// Handle rand seed arg
@@ -342,24 +348,26 @@ namespace
         globalData.leftHandUnderTest = globalData.options.leftHandEnabled;
         globalData.rightHandUnderTest = globalData.options.rightHandEnabled;
 
-        // Check for required parameters.
-        if (GetGlobalData().options.graphicsPlugin.empty()) {  // If no graphics system was specified...
-            if (GetGlobalData().IsGraphicsPluginRequired()) {  // and if one is required...
-                ReportStr("graphicsPlugin parameter is required.");
-                return false;
+        if (!(catchSession.configData().listTests || catchSession.configData().listTags || catchSession.configData().listListeners ||
+              catchSession.configData().listReporters)) {
+            // Check for required parameters, if we are actually going to run tests
+            if (GetGlobalData().options.graphicsPlugin.empty()) {  // If no graphics system was specified...
+                if (GetGlobalData().IsGraphicsPluginRequired()) {  // and if one is required...
+                    ReportStr("graphicsPlugin parameter is required.");
+                    return false;
+                }
             }
         }
-
         return result == 0;
     }
 
     // Implements a class that listens to the results of individual test runs. This is used for
     // collecting telemetry.
-    struct ConformanceTestListener : Catch::TestEventListenerBase
+    struct ConformanceTestListener : Catch::EventListenerBase
     {
-        using Base = Catch::TestEventListenerBase;
+        using Base = Catch::EventListenerBase;
 
-        using TestEventListenerBase::TestEventListenerBase;  // inherit constructor
+        using EventListenerBase::EventListenerBase;  // inherit constructor
 
         void testCaseEnded(Catch::TestCaseStats const& testCaseStats) override
         {
@@ -375,19 +383,19 @@ namespace
             Base::sectionStarting(sectionInfo);
 
             // Track test progress by outputting the current test section.
-            std::string indentStr(m_sectionIndent * 2, ' ');
+            std::string indentStr(static_cast<long>(m_sectionIndent) * 2, ' ');
             g_conformanceLaunchSettings->message(MessageType_TestSectionStarting,
-                                                 (indentStr + "Executing \"" + sectionInfo.name + "\" tests...").c_str());
+                                                 (indentStr + "Executing \"" + sectionInfo.name + "\" tests...\n").c_str());
             m_sectionIndent++;
         }
         void sectionEnded(Catch::SectionStats const& sectionStats) override
         {
             // Show a summary if something failed but leave the details to the (e.g. console or xml) reporter.
             if (sectionStats.assertions.failed > 0) {
-                std::string indentStr(m_sectionIndent * 2, ' ');
+                std::string indentStr(static_cast<long>(m_sectionIndent) * 2, ' ');
                 g_conformanceLaunchSettings->message(
                     MessageType_AssertionFailed,
-                    (indentStr + std::to_string(sectionStats.assertions.failed) + " assertion(s) failed").c_str());
+                    (indentStr + std::to_string(sectionStats.assertions.failed) + " assertion(s) failed\n").c_str());
             }
 
             Base::sectionEnded(sectionStats);
@@ -398,7 +406,16 @@ namespace
     };
     CATCH_REGISTER_LISTENER(ConformanceTestListener)
 
-    static Catch::Session catchSession;  // Only one Catch Session can ever be created.
+    // static Catch::Session catchSession;  // Only one Catch Session can ever be created.
+    static std::shared_ptr<Catch::Session> catchSession;
+
+    static Catch::Session& CreateOrGetCatchSession()
+    {
+        if (catchSession == nullptr) {
+            catchSession = std::make_shared<Catch::Session>();
+        }
+        return *catchSession;
+    }
 }  // namespace
 
 // We need to redirect catch2 output through the reporting infrastructure.
@@ -425,9 +442,17 @@ namespace Catch
     }
 }  // namespace Catch
 
+XrcResult XRAPI_CALL xrcCleanup()
+{
+    GetGlobalData().Shutdown();
+    Catch::cleanUp();
+    catchSession = nullptr;
+    return XRC_SUCCESS;
+}
+
 XrcResult XRAPI_CALL xrcEnumerateTestCases(uint32_t capacityInput, uint32_t* countOutput, ConformanceTestCase* testCases)
 {
-    auto catchTestCases = Catch::getAllTestCasesSorted(catchSession.config());
+    auto catchTestCases = Catch::getAllTestCasesSorted(CreateOrGetCatchSession().config());
     *countOutput = (uint32_t)catchTestCases.size();
 
     if (capacityInput == 0) {
@@ -439,9 +464,10 @@ XrcResult XRAPI_CALL xrcEnumerateTestCases(uint32_t capacityInput, uint32_t* cou
     }
 
     int i = 0;
-    for (const Catch::TestCase& testCase : catchTestCases) {
-        strcpy(testCases[i].testName, testCase.name.c_str());
-        strcpy(testCases[i].tags, testCase.tagsAsString().c_str());
+    for (const Catch::TestCaseHandle& testCase : catchTestCases) {
+        auto& testCaseInfo = testCase.getTestCaseInfo();
+        strcpy(testCases[i].testName, testCaseInfo.name.c_str());
+        strcpy(testCases[i].tags, testCaseInfo.tagsAsString().c_str());
         i++;
     }
 
@@ -454,8 +480,8 @@ XrcResult XRAPI_CALL xrcRunConformanceTests(const ConformanceLaunchSettings* con
 
     // Reset the state of the catch session since catch session must be re-used across multiple calls
     // and cannot be recreated.
-    catchSession.useConfigData({});
-    catchSession.cli(Catch::makeCommandLineParser(catchSession.configData()));
+    CreateOrGetCatchSession().useConfigData({});
+    CreateOrGetCatchSession().cli(Catch::makeCommandLineParser(CreateOrGetCatchSession().configData()));
 
     ResetGlobalData();
     g_conformanceLaunchSettings = conformanceLaunchSettings;
@@ -466,36 +492,39 @@ XrcResult XRAPI_CALL xrcRunConformanceTests(const ConformanceLaunchSettings* con
         Conformance::g_reportCallback = [&](const char* message) { conformanceLaunchSettings->message(MessageType_Stdout, message); };
 
         // Disable loader error output by default, as we intentionally generate errors.
-        if (!PlatformUtilsGetEnvSet("XR_LOADER_DEBUG"))      // If not already set to something...
-            PlatformUtilsSetEnv("XR_LOADER_DEBUG", "none");  // then set to disabled.
+        if (!GetEnvSet("XR_LOADER_DEBUG"))      // If not already set to something...
+            SetEnv("XR_LOADER_DEBUG", "none");  // then set to disabled.
 
         // Search for layers in the conformance executable folder so that the conformance_layer is included automatically.
-        PlatformUtilsSetEnv(OPENXR_API_LAYER_PATH_ENV_VAR, "./");
+        SetEnv(OPENXR_API_LAYER_PATH_ENV_VAR, "./");
 
         ReportTestHeader();
 
-        if (!UpdateOptionsFromCommandLine(catchSession, conformanceLaunchSettings->argc, conformanceLaunchSettings->argv)) {
+        if (!UpdateOptionsFromCommandLine(CreateOrGetCatchSession(), conformanceLaunchSettings->argc, conformanceLaunchSettings->argv)) {
             ReportStr("Test failure: Command line arguments were invalid or insufficient.");
             return XRC_ERROR_COMMAND_LINE_INVALID;
         }
-
-        bool initialized = GetGlobalData().Initialize();
-        if (initialized) {
-            ReportTestEnvironment();
+        auto& catchConfigData = CreateOrGetCatchSession().configData();
+        bool skipActuallyTesting =
+            catchConfigData.listTests || catchConfigData.listTags || catchConfigData.listListeners || catchConfigData.listReporters;
+        bool initialized = true;
+        if (!skipActuallyTesting) {
+            initialized = GetGlobalData().Initialize();
+            if (initialized) {
+                ReportTestEnvironment();
+            }
         }
 
-        if (catchSession.configData().listTestNamesOnly) {
+        if (CreateOrGetCatchSession().configData().verbosity == Catch::Verbosity::Quiet) {
             // If we only want the test names, "run()" will just print them,
             // then we want to exit without dumping more mess on the screen.
             ReportStr("\nTest names:");
-            catchSession.run();
+            CreateOrGetCatchSession().run();
         }
 
         if (initialized) {
-            *failureCount = catchSession.run();
+            *failureCount = CreateOrGetCatchSession().run();
             conformanceTestsRun = true;
-
-            GetGlobalData().Shutdown();
         }
         else {
             ReportStr("Test failure: Test data initialization failed.");
@@ -522,6 +551,8 @@ XrcResult XRAPI_CALL xrcRunConformanceTests(const ConformanceLaunchSettings* con
             "%s",
             report.c_str());
     }
+
+    xrcCleanup();
 
     g_conformanceLaunchSettings = nullptr;
     return result;

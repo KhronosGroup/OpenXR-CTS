@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2022, The Khronos Group Inc.
+// Copyright (c) 2019-2023, The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -27,7 +27,8 @@
 #include <set>
 #include <string>
 #include <cstring>
-#include <catch2/catch.hpp>
+#include <catch2/catch_test_macros.hpp>
+#include <catch2/generators/catch_generators.hpp>
 #include <openxr/openxr.h>
 
 namespace Conformance
@@ -285,7 +286,7 @@ namespace Conformance
         return {mesh, bgColor};
     }
 
-    TEST_CASE("XR_KHR_visibility_mask_interactive", "[XR_KHR_visibility_mask][interactive][no_auto]")
+    TEST_CASE("XR_KHR_visibility_mask-interactive", "[XR_KHR_visibility_mask][interactive][no_auto]")
     {
         // successcodes="XR_SUCCESS,XR_SESSION_LOSS_PENDING"
         // errorcodes="XR_ERROR_HANDLE_INVALID,XR_ERROR_INSTANCE_LOST,XR_ERROR_RUNTIME_FAILURE,XR_ERROR_VALIDATION_FAILURE,

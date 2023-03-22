@@ -17,8 +17,10 @@
 #include "utils.h"
 #include "conformance_utils.h"
 #include "conformance_framework.h"
+#include "swapchain_image_data.h"
 #include "throw_helpers.h"
 
+#include <algorithm>
 #include <array>
 #include <vector>
 #include <string>
@@ -30,7 +32,7 @@
 #include <mutex>
 #include <chrono>
 #include <random>
-#include <catch2/catch.hpp>
+#include <catch2/catch_test_macros.hpp>
 #include <openxr/openxr.h>
 
 // Include all dependencies of openxr_platform as configured
@@ -429,7 +431,7 @@ namespace Conformance
 
     void Exercise_xrPollEvent(ThreadTestEnvironment& env)
     {
-        // We can't likely exercise this well unless multiple threads are dequeing messages at
+        // We can't likely exercise this well unless multiple threads are dequeuing messages at
         // the same time. We need a means to tell the runtime to queue such messages.
         XrEventDataBuffer eventDataBuffer{XR_TYPE_EVENT_DATA_BUFFER};
         XRC_CHECK_THROW_XRCMD(xrPollEvent(env.GetAutoBasicSession().GetInstance(), &eventDataBuffer));
@@ -673,10 +675,9 @@ namespace Conformance
             uint32_t countOutput;
             XRC_CHECK_THROW_XRCMD(xrEnumerateSwapchainImages(swapchain, 0, &countOutput, nullptr));
 
-            std::shared_ptr<IGraphicsPlugin::SwapchainImageStructs> p =
-                graphicsPlugin->AllocateSwapchainImageStructs(countOutput, createInfo);
+            ISwapchainImageData* p = graphicsPlugin->AllocateSwapchainImageData(countOutput, createInfo);
             uint32_t newCountOutput;
-            XRC_CHECK_THROW_XRCMD(xrEnumerateSwapchainImages(swapchain, countOutput, &newCountOutput, p->imagePtrVector[0]));
+            XRC_CHECK_THROW_XRCMD(xrEnumerateSwapchainImages(swapchain, countOutput, &newCountOutput, p->GetColorImageArray()));
             XRC_CHECK_THROW(newCountOutput == countOutput);
 
             XRC_CHECK_THROW_XRCMD(xrDestroySwapchain(swapchain));

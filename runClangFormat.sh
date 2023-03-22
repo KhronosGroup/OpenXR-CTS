@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright (c) 2017-2022, The Khronos Group Inc.
+# Copyright (c) 2017-2023, The Khronos Group Inc.
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -18,7 +18,7 @@
 set -e
 (
     PREFERRED_CLANG_FORMAT=clang-format-10
-    ACCEPTABLE_CLANG_FORMATS="${PREFERRED_CLANG_FORMAT} clang-format-11 clang-format-12 clang-format-13 clang-format-14 clang-format"
+    ACCEPTABLE_CLANG_FORMATS="${PREFERRED_CLANG_FORMAT} clang-format-11 clang-format-12 clang-format-13 clang-format-14 clang-format-15 clang-format"
     cd "$(dirname $0)"
     if [ ! "${CLANGFORMAT}" ]; then
         for tool in ${ACCEPTABLE_CLANG_FORMATS}; do

@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2022, The Khronos Group Inc.
+// Copyright (c) 2019-2023, The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -14,6 +14,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <algorithm>
 #include <array>
 #include <thread>
 #include <numeric>
@@ -23,7 +24,7 @@
 #include "conformance_utils.h"
 #include "conformance_framework.h"
 #include "composition_utils.h"
-#include <catch2/catch.hpp>
+#include <catch2/catch_test_macros.hpp>
 #include <openxr/openxr.h>
 #include <xr_linear.h>
 
@@ -34,7 +35,7 @@ namespace Conformance
     // Purpose: Verify behavior of quad visibility and occlusion with the expectation that:
     // 1. Quads render with painters algo.
     // 2. Quads which are facing away are not visible.
-    TEST_CASE("Quad Occlusion", "[composition][interactive][no_auto]")
+    TEST_CASE("QuadOcclusion", "[composition][interactive][no_auto]")
     {
         CompositionHelper compositionHelper("Quad Occlusion");
         InteractiveLayerManager interactiveLayerManager(
@@ -68,8 +69,8 @@ namespace Conformance
     // Purpose: Verify order of transforms by exercising the two ways poses can be specified:
     // 1. A pose offset when creating the space
     // 2. A pose offset when adding the layer
-    // If the poses are applied in an incorrect order, the quads will not rendener in the correct place or orientation.
-    TEST_CASE("Quad Poses", "[composition][interactive][no_auto]")
+    // If the poses are applied in an incorrect order, the quads will not render in the correct place or orientation.
+    TEST_CASE("QuadPoses", "[composition][interactive][no_auto]")
     {
         CompositionHelper compositionHelper("Quad Poses");
         InteractiveLayerManager interactiveLayerManager(
@@ -114,7 +115,7 @@ namespace Conformance
     }
 
     // Purpose: Validates alpha blending (both premultiplied and unpremultiplied).
-    TEST_CASE("Source Alpha Blending", "[composition][interactive][no_auto]")
+    TEST_CASE("SourceAlphaBlending", "[composition][interactive][no_auto]")
     {
         CompositionHelper compositionHelper("Source Alpha Blending");
         InteractiveLayerManager interactiveLayerManager(compositionHelper, "source_alpha_blending.png",
@@ -201,7 +202,7 @@ namespace Conformance
     }
 
     // Purpose: Validate eye visibility flags.
-    TEST_CASE("Eye Visibility", "[composition][interactive][no_auto]")
+    TEST_CASE("EyeVisibility", "[composition][interactive][no_auto]")
     {
         CompositionHelper compositionHelper("Eye Visibility");
         InteractiveLayerManager interactiveLayerManager(compositionHelper, "eye_visibility.png",
@@ -229,7 +230,7 @@ namespace Conformance
         }).Loop();
     }
 
-    TEST_CASE("Subimage Tests", "[composition][interactive][no_auto]")
+    TEST_CASE("Subimage", "[composition][interactive][no_auto]")
     {
         CompositionHelper compositionHelper("Subimage Tests");
         InteractiveLayerManager interactiveLayerManager(
@@ -252,13 +253,14 @@ namespace Conformance
         // Create an array swapchain
         auto swapchainCreateInfo =
             compositionHelper.DefaultColorSwapchainCreateInfo(ImageWidth, ImageHeight, XR_SWAPCHAIN_CREATE_STATIC_IMAGE_BIT);
-        swapchainCreateInfo.format = GetGlobalData().graphicsPlugin->GetSRGBA8Format();
+        int64_t format = GetGlobalData().graphicsPlugin->GetSRGBA8Format();
+        swapchainCreateInfo.format = format;
         swapchainCreateInfo.arraySize = ImageArrayCount;
         const XrSwapchain swapchain = compositionHelper.CreateSwapchain(swapchainCreateInfo);
 
         // Render a grid of numbers (1,2,3,4) in slice 0 and (5,6,7,8) in slice 1 of the swapchain
         // Create a quad layer referencing each number cell.
-        compositionHelper.AcquireWaitReleaseImage(swapchain, [&](const XrSwapchainImageBaseHeader* swapchainImage, int64_t format) {
+        compositionHelper.AcquireWaitReleaseImage(swapchain, [&](const XrSwapchainImageBaseHeader* swapchainImage) {
             int number = 1;
             for (int arraySlice = 0; arraySlice < ImageArrayCount; arraySlice++) {
                 Conformance::RGBAImage numberGridImage(ImageWidth, ImageHeight);
@@ -288,7 +290,7 @@ namespace Conformance
                     interactiveLayerManager.AddLayer(quad);
                 }
                 numberGridImage.ConvertToSRGB();
-                GetGlobalData().graphicsPlugin->CopyRGBAImage(swapchainImage, format, arraySlice, numberGridImage);
+                GetGlobalData().graphicsPlugin->CopyRGBAImage(swapchainImage, arraySlice, numberGridImage);
             }
         });
 
@@ -297,7 +299,7 @@ namespace Conformance
         }).Loop();
     }
 
-    TEST_CASE("Projection Array Swapchain", "[composition][interactive][no_auto]")
+    TEST_CASE("ProjectionArraySwapchain", "[composition][interactive][no_auto]")
     {
         CompositionHelper compositionHelper("Projection Array Swapchain");
         InteractiveLayerManager interactiveLayerManager(
@@ -351,15 +353,13 @@ namespace Conformance
                 const auto& views = std::get<std::vector<XrView>>(viewData);
 
                 // Render into each slice of the array swapchain using the projection layer view fov and pose.
-                compositionHelper.AcquireWaitReleaseImage(swapchain, [&](const XrSwapchainImageBaseHeader* swapchainImage, int64_t format) {
+                compositionHelper.AcquireWaitReleaseImage(swapchain, [&](const XrSwapchainImageBaseHeader* swapchainImage) {
                     for (uint32_t slice = 0; slice < (uint32_t)views.size(); slice++) {
-                        GetGlobalData().graphicsPlugin->ClearImageSlice(swapchainImage, projLayer->views[slice].subImage.imageArrayIndex,
-                                                                        format);
+                        GetGlobalData().graphicsPlugin->ClearImageSlice(swapchainImage, projLayer->views[slice].subImage.imageArrayIndex);
 
                         const_cast<XrFovf&>(projLayer->views[slice].fov) = views[slice].fov;
                         const_cast<XrPosef&>(projLayer->views[slice].pose) = views[slice].pose;
-                        GetGlobalData().graphicsPlugin->RenderView(projLayer->views[slice], swapchainImage, format,
-                                                                   RenderParams().Draw(cubes));
+                        GetGlobalData().graphicsPlugin->RenderView(projLayer->views[slice], swapchainImage, RenderParams().Draw(cubes));
                     }
                 });
 
@@ -371,7 +371,7 @@ namespace Conformance
         RenderLoop(compositionHelper.GetSession(), updateLayers).Loop();
     }
 
-    TEST_CASE("Projection Wide Swapchain", "[composition][interactive][no_auto]")
+    TEST_CASE("ProjectionWideSwapchain", "[composition][interactive][no_auto]")
     {
         CompositionHelper compositionHelper("Projection Wide Swapchain");
         InteractiveLayerManager interactiveLayerManager(compositionHelper, "projection_wide.png",
@@ -421,16 +421,14 @@ namespace Conformance
                 const auto& views = std::get<std::vector<XrView>>(viewData);
 
                 // Render into each view port of the wide swapchain using the projection layer view fov and pose.
-                compositionHelper.AcquireWaitReleaseImage(
-                    swapchain, [&](const XrSwapchainImageBaseHeader* swapchainImage, uint64_t format) {
-                        GetGlobalData().graphicsPlugin->ClearImageSlice(swapchainImage, 0, format);
-                        for (size_t view = 0; view < views.size(); view++) {
-                            const_cast<XrFovf&>(projLayer->views[view].fov) = views[view].fov;
-                            const_cast<XrPosef&>(projLayer->views[view].pose) = views[view].pose;
-                            GetGlobalData().graphicsPlugin->RenderView(projLayer->views[view], swapchainImage, format,
-                                                                       RenderParams().Draw(cubes));
-                        }
-                    });
+                compositionHelper.AcquireWaitReleaseImage(swapchain, [&](const XrSwapchainImageBaseHeader* swapchainImage) {
+                    GetGlobalData().graphicsPlugin->ClearImageSlice(swapchainImage);
+                    for (size_t view = 0; view < views.size(); view++) {
+                        const_cast<XrFovf&>(projLayer->views[view].fov) = views[view].fov;
+                        const_cast<XrPosef&>(projLayer->views[view].pose) = views[view].pose;
+                        GetGlobalData().graphicsPlugin->RenderView(projLayer->views[view], swapchainImage, RenderParams().Draw(cubes));
+                    }
+                });
 
                 layers.push_back(reinterpret_cast<XrCompositionLayerBaseHeader*>(projLayer));
             }
@@ -440,7 +438,7 @@ namespace Conformance
         RenderLoop(compositionHelper.GetSession(), updateLayers).Loop();
     }
 
-    TEST_CASE("Projection Separate Swapchains", "[composition][interactive][no_auto]")
+    TEST_CASE("ProjectionSeparateSwapchains", "[composition][interactive][no_auto]")
     {
         CompositionHelper compositionHelper("Projection Separate Swapchains");
         InteractiveLayerManager interactiveLayerManager(compositionHelper, "projection_separate.png",
@@ -461,7 +459,7 @@ namespace Conformance
         RenderLoop(compositionHelper.GetSession(), updateLayers).Loop();
     }
 
-    TEST_CASE("Quad Hands", "[composition][interactive][no_auto]")
+    TEST_CASE("QuadHands", "[composition][interactive][no_auto]")
     {
         GlobalData& globalData = GetGlobalData();
 
@@ -566,7 +564,7 @@ namespace Conformance
         RenderLoop(compositionHelper.GetSession(), updateLayers).Loop();
     }
 
-    TEST_CASE("Projection Mutable Field-of-View", "[composition][interactive][no_auto]")
+    TEST_CASE("ProjectionMutableFieldOfView", "[composition][interactive][no_auto]")
     {
         CompositionHelper compositionHelper("Projection Mutable Field-of-View");
         InteractiveLayerManager interactiveLayerManager(compositionHelper, "projection_mutable.png",
@@ -624,32 +622,31 @@ namespace Conformance
                 const auto& views = std::get<std::vector<XrView>>(viewData);
 
                 // Render into each view port of the wide swapchain using the projection layer view fov and pose.
-                compositionHelper.AcquireWaitReleaseImage(
-                    swapchain, [&](const XrSwapchainImageBaseHeader* swapchainImage, uint64_t format) {
-                        GetGlobalData().graphicsPlugin->ClearImageSlice(swapchainImage, 0, format);
-                        for (size_t view = 0; view < views.size(); view++) {
-                            // Copy over the provided FOV and pose but use 40% of the suggested FOV.
-                            const_cast<XrFovf&>(projLayer->views[view].fov) = views[view].fov;
-                            const_cast<XrPosef&>(projLayer->views[view].pose) = views[view].pose;
-                            const_cast<float&>(projLayer->views[view].fov.angleUp) *= 0.4f;
-                            const_cast<float&>(projLayer->views[view].fov.angleDown) *= 0.4f;
-                            const_cast<float&>(projLayer->views[view].fov.angleLeft) *= 0.4f;
-                            const_cast<float&>(projLayer->views[view].fov.angleRight) *= 0.4f;
+                compositionHelper.AcquireWaitReleaseImage(swapchain, [&](const XrSwapchainImageBaseHeader* swapchainImage) {
+                    GetGlobalData().graphicsPlugin->ClearImageSlice(swapchainImage);
+                    for (size_t view = 0; view < views.size(); view++) {
+                        // Copy over the provided FOV and pose but use 40% of the suggested FOV.
+                        const_cast<XrFovf&>(projLayer->views[view].fov) = views[view].fov;
+                        const_cast<XrPosef&>(projLayer->views[view].pose) = views[view].pose;
+                        const_cast<float&>(projLayer->views[view].fov.angleUp) *= 0.4f;
+                        const_cast<float&>(projLayer->views[view].fov.angleDown) *= 0.4f;
+                        const_cast<float&>(projLayer->views[view].fov.angleLeft) *= 0.4f;
+                        const_cast<float&>(projLayer->views[view].fov.angleRight) *= 0.4f;
 
-                            // Render using a 180 degree roll on Z which effectively creates a flip on both the X and Y axis.
-                            XrCompositionLayerProjectionView rolled = projLayer->views[view];
-                            XrQuaternionf_Multiply(&rolled.pose.orientation, &roll180, &views[view].pose.orientation);
-                            GetGlobalData().graphicsPlugin->RenderView(rolled, swapchainImage, format, RenderParams().Draw(cubes));
+                        // Render using a 180 degree roll on Z which effectively creates a flip on both the X and Y axis.
+                        XrCompositionLayerProjectionView rolled = projLayer->views[view];
+                        XrQuaternionf_Multiply(&rolled.pose.orientation, &roll180, &views[view].pose.orientation);
+                        GetGlobalData().graphicsPlugin->RenderView(rolled, swapchainImage, RenderParams().Draw(cubes));
 
-                            // After rendering, report a flipped FOV on X and Y without the 180 degree roll, which has the same
-                            // effect. This switcheroo is necessary since rendering with flipped FOV will result in an inverted
-                            // winding causing normally hidden triangles to be visible and visible triangles to be hidden.
-                            const_cast<float&>(projLayer->views[view].fov.angleUp) = -projLayer->views[view].fov.angleUp;
-                            const_cast<float&>(projLayer->views[view].fov.angleDown) = -projLayer->views[view].fov.angleDown;
-                            const_cast<float&>(projLayer->views[view].fov.angleLeft) = -projLayer->views[view].fov.angleLeft;
-                            const_cast<float&>(projLayer->views[view].fov.angleRight) = -projLayer->views[view].fov.angleRight;
-                        }
-                    });
+                        // After rendering, report a flipped FOV on X and Y without the 180 degree roll, which has the same
+                        // effect. This switcheroo is necessary since rendering with flipped FOV will result in an inverted
+                        // winding causing normally hidden triangles to be visible and visible triangles to be hidden.
+                        const_cast<float&>(projLayer->views[view].fov.angleUp) = -projLayer->views[view].fov.angleUp;
+                        const_cast<float&>(projLayer->views[view].fov.angleDown) = -projLayer->views[view].fov.angleDown;
+                        const_cast<float&>(projLayer->views[view].fov.angleLeft) = -projLayer->views[view].fov.angleLeft;
+                        const_cast<float&>(projLayer->views[view].fov.angleRight) = -projLayer->views[view].fov.angleRight;
+                    }
+                });
 
                 layers.push_back(reinterpret_cast<XrCompositionLayerBaseHeader*>(projLayer));
             }

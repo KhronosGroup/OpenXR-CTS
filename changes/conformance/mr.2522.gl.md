@@ -1,0 +1,2 @@
+- Improvement: Update bundled `stb_image.h` from 2.22 to 2.27.
+- Improvement: Update bundled `stb_truetype.h` from 1.21 to 1.26.

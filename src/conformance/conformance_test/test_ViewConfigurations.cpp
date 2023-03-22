@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2022, The Khronos Group Inc.
+// Copyright (c) 2019-2023, The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -22,7 +22,7 @@
 #include <set>
 #include <string>
 #include <cstring>
-#include <catch2/catch.hpp>
+#include <catch2/catch_test_macros.hpp>
 #include <openxr/openxr.h>
 
 namespace Conformance
@@ -120,7 +120,6 @@ namespace Conformance
                         XR_TYPE_VIEW_CONFIGURATION_VIEW, nullptr, UINT32_MAX, UINT32_MAX, UINT32_MAX, UINT32_MAX, UINT32_MAX, UINT32_MAX};
 
                     REQUIRE_NOTHROW(vcvArray.resize(countOutput, initView));
-                    countOutput = 0;
 
                     if (countOutput >= 2)  // The -1 below needs the result to be >0 because 0 is a special case as exercised above.
                     {
@@ -159,6 +158,15 @@ namespace Conformance
                         InsertUnrecognizableExtensionArray(vcvArray.data(), vcvArray.size());
                         REQUIRE(xrEnumerateViewConfigurationViews(instance, instance.systemId, vct, countOutput, &countOutput,
                                                                   vcvArray.data()) == XR_SUCCESS);
+                    }
+
+                    SECTION("Bad struct type")
+                    {
+                        const XrViewConfigurationView invalidInitView{XR_TYPE_UNKNOWN, nullptr,    UINT32_MAX, UINT32_MAX,
+                                                                      UINT32_MAX,      UINT32_MAX, UINT32_MAX, UINT32_MAX};
+                        std::vector<XrViewConfigurationView> invalidVcvArray(countOutput, invalidInitView);
+                        REQUIRE(xrEnumerateViewConfigurationViews(instance, instance.systemId, vct, countOutput, &countOutput,
+                                                                  invalidVcvArray.data()) == XR_ERROR_VALIDATION_FAILURE);
                     }
                 }
             }

@@ -1,11 +1,20 @@
-// Copyright (c) 2017-2022, The Khronos Group Inc.
+// Copyright (c) 2017-2023, The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 #pragma once
 
 #if (defined(XR_USE_GRAPHICS_API_D3D11) || defined(XR_USE_GRAPHICS_API_D3D12)) && !defined(MISSING_DIRECTX_COLORS)
+#include <openxr/openxr.h>
 
+#include "xr_linear.h"
+#include "swapchain_parameters.h"
+
+#include <dxgi.h>
+#include <d3dcommon.h>
 #include <DirectXMath.h>
+#include <wrl.h>
+#include <string>
+#include <map>
 
 namespace Conformance
 {
@@ -55,6 +64,22 @@ namespace Conformance
 
     typedef std::map<int64_t, SwapchainCreateTestParameters> SwapchainTestMap;
     SwapchainTestMap& GetDxgiSwapchainTestMap();
+
+    /// Implementation for IGraphicsPlugin::GetSwapchainCreateTestParameters for D3D11/12
+    bool GetDxgiSwapchainCreateTestParameters(int64_t imageFormat, SwapchainCreateTestParameters* swapchainTestParameters);
+
+    /// Implementation for GetImageFormatName for d3d plugins
+    std::string GetDxgiImageFormatName(int64_t imageFormat);
+
+    /// Implementation for IsImageFormatKnown for d3d plugins
+    bool IsDxgiImageFormatKnown(int64_t imageFormat);
+
+    static constexpr DXGI_FORMAT kDefaultDepthFormat = DXGI_FORMAT_D32_FLOAT;
+    static constexpr DXGI_FORMAT kDefaultDepthFormatTypeless = DXGI_FORMAT_R32_TYPELESS;
+
+    /// Either get the format from the depth swapchain create info, or return the default format
+    DXGI_FORMAT GetDepthStencilFormatOrDefault(const XrSwapchainCreateInfo* createInfo);
+
 }  // namespace Conformance
 
 #endif

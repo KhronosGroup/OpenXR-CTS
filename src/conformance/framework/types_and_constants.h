@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2022, The Khronos Group Inc.
+// Copyright (c) 2019-2023, The Khronos Group Inc.
 // Copyright (c) 2019 Collabora, Ltd.
 //
 // SPDX-License-Identifier: Apache-2.0
@@ -61,7 +61,7 @@ namespace Conformance
 /// an image format of INT64_MAX, so that currently works for all APIs.
 #define XRC_INVALID_IMAGE_FORMAT INT64_MAX
 
-/// Specifies a structure type for an extension which is unknownable by any
+/// Specifies a structure type for an extension which is unknowable by any
 /// application or runtime.
 ///
 /// Used for validating that runtimes properly ignore unrecognized extension structs.

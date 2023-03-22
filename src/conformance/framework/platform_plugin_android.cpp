@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2022, The Khronos Group Inc.
+// Copyright (c) 2019-2023, The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -58,9 +58,7 @@ namespace Conformance
 
         virtual bool Initialize() override
         {
-            memset(&instanceCreateInfoAndroid, 0, sizeof(instanceCreateInfoAndroid));
-            instanceCreateInfoAndroid.type = XR_TYPE_INSTANCE_CREATE_INFO_ANDROID_KHR;
-            instanceCreateInfoAndroid.next = NULL;
+            instanceCreateInfoAndroid = {XR_TYPE_INSTANCE_CREATE_INFO_ANDROID_KHR};
             instanceCreateInfoAndroid.applicationVM = Conformance_Android_Get_Application_VM();
             instanceCreateInfoAndroid.applicationActivity = Conformance_Android_Get_Application_Activity();
 

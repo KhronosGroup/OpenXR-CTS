@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2022, The Khronos Group Inc.
+// Copyright (c) 2019-2023, The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -75,19 +75,16 @@ static jobject AndroidApplicationActivity = NULL;
 static AAssetManager* AndroidAssetManager = NULL;
 void* Conformance_Android_Get_Application_VM()
 {
-    ALOGV("AndroidApplicationVM = %p", AndroidApplicationVM);
     return AndroidApplicationVM;
 }
 
 void* Conformance_Android_Get_Application_Activity()
 {
-    ALOGV("AndroidApplicationActivity = %p", AndroidApplicationActivity);
     return AndroidApplicationActivity;
 }
 
 void* Conformance_Android_Get_Asset_Manager()
 {
-    ALOGV("AndroidAssetManager = %p", AndroidAssetManager);
     return AndroidAssetManager;
 }
 
@@ -209,7 +206,7 @@ void android_main(struct android_app* app)
     app->activity->vm->AttachCurrentThread(&Env, nullptr);
 
     // Note that AttachCurrentThread will reset the thread name.
-    prctl(PR_SET_NAME, (long)"OVR::Main", 0, 0, 0);
+    prctl(PR_SET_NAME, (long)"CTSMain", 0, 0, 0);
 
     AndroidAssetManager = app->activity->assetManager;
 
@@ -220,10 +217,7 @@ void android_main(struct android_app* app)
     PFN_xrInitializeLoaderKHR xrInitializeLoaderKHR;
     if (XR_SUCCEEDED(xrGetInstanceProcAddr(XR_NULL_HANDLE, "xrInitializeLoaderKHR", (PFN_xrVoidFunction*)(&xrInitializeLoaderKHR))) &&
         xrInitializeLoaderKHR != NULL) {
-        XrLoaderInitInfoAndroidKHR loaderInitializeInfoAndroid;
-        memset(&loaderInitializeInfoAndroid, 0, sizeof(loaderInitializeInfoAndroid));
-        loaderInitializeInfoAndroid.type = XR_TYPE_LOADER_INIT_INFO_ANDROID_KHR;
-        loaderInitializeInfoAndroid.next = NULL;
+        XrLoaderInitInfoAndroidKHR loaderInitializeInfoAndroid = {XR_TYPE_LOADER_INIT_INFO_ANDROID_KHR};
         loaderInitializeInfoAndroid.applicationVM = app->activity->vm;
         loaderInitializeInfoAndroid.applicationContext = app->activity->clazz;
         xrInitializeLoaderKHR((XrLoaderInitInfoBaseHeaderKHR*)&loaderInitializeInfoAndroid);
@@ -323,8 +317,8 @@ void android_main(struct android_app* app)
                         }
                     }
                     else {
-                        args.push_back("--use-colour");
-                        args.push_back("no");  /// no console coloring
+                        args.push_back("--colour-mode");
+                        args.push_back("none");  /// no console coloring
                         args.push_back("--reporter");
                         args.push_back("console");  /// use the console reporter
                     }
