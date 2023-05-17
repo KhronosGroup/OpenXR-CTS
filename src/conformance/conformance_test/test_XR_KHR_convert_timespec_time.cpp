@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2022, The Khronos Group Inc.
+// Copyright (c) 2019-2023, The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -17,7 +17,7 @@
 #include "utils.h"
 #include "conformance_utils.h"
 #include "conformance_framework.h"
-#include <catch2/catch.hpp>
+#include <catch2/catch_test_macros.hpp>
 #include <openxr/openxr.h>
 
 // Include all dependencies of openxr_platform as configured
@@ -36,7 +36,7 @@ namespace Conformance
 #ifdef XR_USE_TIMESPEC
         GlobalData& globalData = GetGlobalData();
         if (!globalData.IsInstanceExtensionSupported("XR_KHR_convert_timespec_time")) {
-            return;
+            SKIP(XR_KHR_CONVERT_TIMESPEC_TIME_EXTENSION_NAME " not supported");
         }
 
         // XrResult xrConvertTimespecTimeToTimeKHR(XrInstance xrInstance, const struct timespec* timespecTime, XrTime* time);

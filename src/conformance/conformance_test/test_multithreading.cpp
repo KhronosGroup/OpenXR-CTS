@@ -17,8 +17,10 @@
 #include "utils.h"
 #include "conformance_utils.h"
 #include "conformance_framework.h"
+#include "swapchain_image_data.h"
 #include "throw_helpers.h"
 
+#include <algorithm>
 #include <array>
 #include <vector>
 #include <string>
@@ -30,7 +32,7 @@
 #include <mutex>
 #include <chrono>
 #include <random>
-#include <catch2/catch.hpp>
+#include <catch2/catch_test_macros.hpp>
 #include <openxr/openxr.h>
 
 // Include all dependencies of openxr_platform as configured
@@ -179,6 +181,16 @@ namespace Conformance
         // XR_KHR_vulkan_enable / XR_KHR_vulkan_enable2
         // Access to the VkQueue must be externally synchronized for xrBeginFrame, xrEndFrame, xrAcquireSwapchainImage, xrReleaseSwapchainImage
         std::mutex vulkanQueueMutex;
+
+        std::unique_lock<std::mutex> LockQueueIfVulkan(const GlobalData& globalData)
+        {
+            if (globalData.IsInstanceExtensionEnabled(XR_KHR_VULKAN_ENABLE_EXTENSION_NAME) ||
+                globalData.IsInstanceExtensionEnabled(XR_KHR_VULKAN_ENABLE2_EXTENSION_NAME)) {
+                return std::unique_lock<std::mutex>(vulkanQueueMutex);
+            }
+            return {};
+        }
+
 #endif  // defined(XR_USE_GRAPHICS_API_VULKAN)
 
 #if defined(XR_USE_GRAPHICS_API_OPENGL)
@@ -190,6 +202,15 @@ namespace Conformance
         // xrAcquireSwapchainImage, xrWaitSwapchainImageand xrReleaseSwapchainImage.
         // It may be bound in the thread calling those functions.
         std::mutex openGlContextMutex;
+
+        std::unique_lock<std::mutex> LockContextIfOpenGL(const GlobalData& globalData)
+        {
+            if (globalData.IsInstanceExtensionEnabled(XR_KHR_OPENGL_ENABLE_EXTENSION_NAME)) {
+                return std::unique_lock<std::mutex>(openGlContextMutex);
+            }
+            return {};
+        }
+
 #endif  // defined(XR_USE_GRAPHICS_API_OPENGL)
 
     protected:
@@ -429,7 +450,7 @@ namespace Conformance
 
     void Exercise_xrPollEvent(ThreadTestEnvironment& env)
     {
-        // We can't likely exercise this well unless multiple threads are dequeing messages at
+        // We can't likely exercise this well unless multiple threads are dequeuing messages at
         // the same time. We need a means to tell the runtime to queue such messages.
         XrEventDataBuffer eventDataBuffer{XR_TYPE_EVENT_DATA_BUFFER};
         XRC_CHECK_THROW_XRCMD(xrPollEvent(env.GetAutoBasicSession().GetInstance(), &eventDataBuffer));
@@ -630,9 +651,7 @@ namespace Conformance
         std::shared_ptr<IGraphicsPlugin> graphicsPlugin = globalData.GetGraphicsPlugin();
 
 #if defined(XR_USE_GRAPHICS_API_OPENGL)
-        bool isOpenGL = globalData.IsInstanceExtensionEnabled(XR_KHR_OPENGL_ENABLE_EXTENSION_NAME);
-        std::unique_lock<std::mutex> glLock =
-            isOpenGL ? std::unique_lock<std::mutex>(env.openGlContextMutex) : std::unique_lock<std::mutex>();
+        std::unique_lock<std::mutex> glLock = env.LockContextIfOpenGL(globalData);
 #endif  // defined(XR_USE_GRAPHICS_API_OPENGL)
 
         XrSwapchain swapchain;
@@ -657,9 +676,7 @@ namespace Conformance
         std::shared_ptr<IGraphicsPlugin> graphicsPlugin = globalData.GetGraphicsPlugin();
 
 #if defined(XR_USE_GRAPHICS_API_OPENGL)
-        bool isOpenGL = globalData.IsInstanceExtensionEnabled(XR_KHR_OPENGL_ENABLE_EXTENSION_NAME);
-        std::unique_lock<std::mutex> glLock =
-            isOpenGL ? std::unique_lock<std::mutex>(env.openGlContextMutex) : std::unique_lock<std::mutex>();
+        std::unique_lock<std::mutex> glLock = env.LockContextIfOpenGL(globalData);
 #endif  // defined(XR_USE_GRAPHICS_API_OPENGL)
 
         XrSwapchainCreateInfo createInfo;
@@ -673,10 +690,9 @@ namespace Conformance
             uint32_t countOutput;
             XRC_CHECK_THROW_XRCMD(xrEnumerateSwapchainImages(swapchain, 0, &countOutput, nullptr));
 
-            std::shared_ptr<IGraphicsPlugin::SwapchainImageStructs> p =
-                graphicsPlugin->AllocateSwapchainImageStructs(countOutput, createInfo);
+            ISwapchainImageData* p = graphicsPlugin->AllocateSwapchainImageData(countOutput, createInfo);
             uint32_t newCountOutput;
-            XRC_CHECK_THROW_XRCMD(xrEnumerateSwapchainImages(swapchain, countOutput, &newCountOutput, p->imagePtrVector[0]));
+            XRC_CHECK_THROW_XRCMD(xrEnumerateSwapchainImages(swapchain, countOutput, &newCountOutput, p->GetColorImageArray()));
             XRC_CHECK_THROW(newCountOutput == countOutput);
 
             XRC_CHECK_THROW_XRCMD(xrDestroySwapchain(swapchain));
@@ -689,16 +705,11 @@ namespace Conformance
         std::shared_ptr<IGraphicsPlugin> graphicsPlugin = globalData.GetGraphicsPlugin();
 
 #if defined(XR_USE_GRAPHICS_API_VULKAN)
-        bool isVulkan = globalData.IsInstanceExtensionEnabled(XR_KHR_VULKAN_ENABLE_EXTENSION_NAME) ||
-                        globalData.IsInstanceExtensionEnabled(XR_KHR_VULKAN_ENABLE2_EXTENSION_NAME);
-        std::unique_lock<std::mutex> vkLock =
-            isVulkan ? std::unique_lock<std::mutex>(env.vulkanQueueMutex) : std::unique_lock<std::mutex>();
+        std::unique_lock<std::mutex> vkLock = env.LockQueueIfVulkan(globalData);
 #endif  // defined(XR_USE_GRAPHICS_API_VULKAN)
 
 #if defined(XR_USE_GRAPHICS_API_OPENGL)
-        bool isOpenGL = globalData.IsInstanceExtensionEnabled(XR_KHR_OPENGL_ENABLE_EXTENSION_NAME);
-        std::unique_lock<std::mutex> glLock =
-            isOpenGL ? std::unique_lock<std::mutex>(env.openGlContextMutex) : std::unique_lock<std::mutex>();
+        std::unique_lock<std::mutex> glLock = env.LockContextIfOpenGL(globalData);
 #endif  // defined(XR_USE_GRAPHICS_API_OPENGL)
 
         XrSwapchain swapchain;

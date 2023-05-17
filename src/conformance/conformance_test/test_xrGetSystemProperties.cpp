@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2022, The Khronos Group Inc.
+// Copyright (c) 2019-2023, The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -22,7 +22,7 @@
 #include <set>
 #include <string>
 #include <cstring>
-#include <catch2/catch.hpp>
+#include <catch2/catch_test_macros.hpp>
 #include <openxr/openxr.h>
 
 namespace Conformance
@@ -30,26 +30,26 @@ namespace Conformance
 
     TEST_CASE("xrGetSystemProperties", "")
     {
-        auto &globalData = GetGlobalData();
-
-        AutoBasicInstance instance;
-
         XrSystemProperties systemProperties{XR_TYPE_SYSTEM_PROPERTIES};
 
-        // Test invalid system id
+        SECTION("InvalidSystemId")
         {
+            AutoBasicInstance instance;
+
             REQUIRE(XR_ERROR_SYSTEM_INVALID == xrGetSystemProperties(instance, XR_NULL_SYSTEM_ID, &systemProperties));
         }
+        SECTION("ValidSystemId")
+        {
 
-        XrSystemGetInfo systemGetInfo{XR_TYPE_SYSTEM_GET_INFO, nullptr, globalData.options.formFactorValue};
-        XrSystemId systemId = XR_NULL_SYSTEM_ID;
-        REQUIRE(XR_SUCCESS == xrGetSystem(instance, &systemGetInfo, &systemId));
+            AutoBasicInstance instance{AutoBasicInstance::createSystemId};
+            XrSystemId systemId = instance.systemId;
 
-        REQUIRE(XR_SUCCESS == xrGetSystemProperties(instance, systemId, &systemProperties));
-        CHECK(systemProperties.systemId == systemId);
-        CHECK(strlen(systemProperties.systemName) > 0);
-        CHECK(systemProperties.graphicsProperties.maxLayerCount >= XR_MIN_COMPOSITION_LAYERS_SUPPORTED);
-        CHECK(systemProperties.graphicsProperties.maxSwapchainImageHeight > 0);
-        CHECK(systemProperties.graphicsProperties.maxSwapchainImageWidth > 0);
+            REQUIRE(XR_SUCCESS == xrGetSystemProperties(instance, systemId, &systemProperties));
+            CHECK(systemProperties.systemId == systemId);
+            CHECK(strlen(systemProperties.systemName) > 0);
+            CHECK(systemProperties.graphicsProperties.maxLayerCount >= XR_MIN_COMPOSITION_LAYERS_SUPPORTED);
+            CHECK(systemProperties.graphicsProperties.maxSwapchainImageHeight > 0);
+            CHECK(systemProperties.graphicsProperties.maxSwapchainImageWidth > 0);
+        }
     }
 }  // namespace Conformance

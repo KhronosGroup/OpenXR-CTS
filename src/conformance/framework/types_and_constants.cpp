@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2022, The Khronos Group Inc.
+// Copyright (c) 2019-2023, The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -14,7 +14,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include <catch2/catch.hpp>
+#include <catch2/catch_test_macros.hpp>
 #include "utils.h"
 #include "report.h"
 #include "two_call_util.h"

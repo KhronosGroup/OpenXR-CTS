@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2022, The Khronos Group Inc.
+// Copyright (c) 2019-2023, The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -42,6 +42,7 @@ namespace Conformance
     using UpdateLayers = std::function<void(const XrFrameState&)>;
     using EndFrame = std::function<bool(const XrFrameState&)>;  // Return false to stop the loop.
 
+    /// Minimal wrapper for the OpenXR render loop.
     class RenderLoop
     {
     public:
@@ -61,6 +62,7 @@ namespace Conformance
         std::atomic<XrTime> m_lastPredictedDisplayTime;
     };
 
+    /// Helper to simplify action-related code in tests that are not specifically testing action code.
     struct InteractionManager
     {
         InteractionManager(XrInstance instance, XrSession session);
@@ -80,6 +82,7 @@ namespace Conformance
         std::vector<XrActionSet> m_actionSets;
     };
 
+    /// A helper for basic frame loop and rendering operations, wrapping an instance, session, and @ref InteractionManager
     struct CompositionHelper
     {
         CompositionHelper(const char* testName, const std::vector<const char*>& additionalEnabledExtensions = std::vector<const char*>());
@@ -87,7 +90,17 @@ namespace Conformance
 
         InteractionManager& GetInteractionManager();
 
+        /// Access the instance handle owned by this object.
+        ///
+        /// @note Do not destroy the handle returned from this method through OpenXR. It is cleaned up on object destruction.
         XrInstance GetInstance() const;
+
+        /// Access the system ID used to create the session in this object.
+        XrSystemId GetSystemId() const;
+
+        /// Access the session handle owned by this object.
+        ///
+        /// @note Do not destroy the handle returned from this method through OpenXR. It is cleaned up on object destruction.
         XrSession GetSession() const;
 
         std::vector<XrViewConfigurationView> EnumerateConfigurationViews();
@@ -96,33 +109,97 @@ namespace Conformance
 
         void BeginSession();
 
-        std::tuple<XrViewState, std::vector<XrView>> LocateViews(XrSpace space, int64_t displayTime);
+        /// Locate views relative to @p space at time @p displayTime
+        ///
+        /// @return a tuple of the view state and a vector of views.
+        ///
+        /// @param space Base space - does *not* need to have been created/tracked using this object.
+        /// @param displayTime the predicted display time of the next frame
+        std::tuple<XrViewState, std::vector<XrView>> LocateViews(XrSpace space, XrTime displayTime);
 
+        /// Check for OpenXR events and handle them.
+        ///
+        /// @return false if an unexpected session state transition means the test should exit early
         bool PollEvents();
 
         EventQueue& GetEventQueue() const;
 
         void EndFrame(XrTime predictedDisplayTime, std::vector<XrCompositionLayerBaseHeader*> layers);
 
-        void AcquireWaitReleaseImage(XrSwapchain swapchain, std::function<void(const XrSwapchainImageBaseHeader*, int64_t)> doUpdate);
-
+        /// Create a handle for a reference space of type @p type owned by this class.
+        ///
+        /// The only reason you would use this is to allow this object to perform cleanup of the space for you.
+        /// It is not used elsewhere in the class.
+        ///
+        /// @note Do not destroy the handle returned from this method through OpenXR. It is cleaned up on object destruction.
         XrSpace CreateReferenceSpace(XrReferenceSpaceType type, XrPosef pose = XrPosefCPP());
 
+        /// Return the XrSwapchainCreateInfo for a basic color swapchain of given width and height, with optional arguments.
+        ///
+        /// Usage flags are `XR_SWAPCHAIN_USAGE_SAMPLED_BIT | XR_SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT`
+        ///
+        /// Some RGBA format will be chosen if @p format is not specified.
         XrSwapchainCreateInfo DefaultColorSwapchainCreateInfo(uint32_t width, uint32_t height, XrSwapchainCreateFlags createFlags = 0,
                                                               int64_t format = -1);
 
+        /// Create a swapchain image handled by this class.
+        ///
+        /// @note Do not destroy this directly using OpenXR functions: use @ref DestroySwapchain instead.
+        ///
+        /// Specializations of this function:
+        ///
+        /// - @ref CreateStaticSwapchainSolidColor
+        /// - @ref CreateStaticSwapchainImage
         XrSwapchain CreateSwapchain(const XrSwapchainCreateInfo& createInfo);
 
+        /// Destroy a swapchain image created using @ref CreateSwapchain()
+        ///
+        /// @param swapchain A swapchain created with @ref CreateSwapchain or a specialization of it.
         void DestroySwapchain(XrSwapchain swapchain);
 
+        /// Perform an xrAcquireSwapchainImage, xrWaitSwapchainImage, xrReleaseSwapchainImage sequence,
+        /// calling your update functor between Wait and Release.
+        ///
+        /// Also does Acquire, Wait, Release on corresponding depth image managed by the graphics plugin.
+        ///
+        /// @throws on timeout or other error
+        ///
+        /// @param swapchain A swapchain created with @ref CreateSwapchain or a specialization of it.
+        /// @param doUpdate A functor to call between Wait and Release that will be passed the swapchain image as a base header pointer.
+        void AcquireWaitReleaseImage(XrSwapchain swapchain, const std::function<void(const XrSwapchainImageBaseHeader*)>& doUpdate);
+
+        /// Create and return a static swapchain that has had a solid color texture copied to it: specialization of @ref CreateSwapchain
+        ///
+        /// Color is interpreted in a *linear* color space (and thus converted before upload), not SRGB/gamma.
+        ///
+        /// @note Do not destroy this directly using OpenXR functions: use @ref DestroySwapchain instead.
         XrSwapchain CreateStaticSwapchainSolidColor(const XrColor4f& color);
 
+        /// Create and return a static swapchain that has had an RGBAImage copied to it: specialization of @ref CreateSwapchain
+        ///
+        /// @note Do not destroy this directly using OpenXR functions: use @ref DestroySwapchain instead.
         XrSwapchain CreateStaticSwapchainImage(const RGBAImage& rgbaImage);
 
+        /// For a swapchain created using @ref CreateSwapchain or one of its specialized versions, return a `XrSwapchainSubImage` structure
+        /// populated with the full sub-image as default (start at 0, 0, full width and height) and the provided
+        /// optional @p imageArrayIndex
+        ///
+        /// @param swapchain A swapchain created with @ref CreateSwapchain or a specialization of it.
+        /// @param imageArrayIndex The index/slice in the image array to use, if applicable.
         XrSwapchainSubImage MakeDefaultSubImage(XrSwapchain swapchain, uint32_t imageArrayIndex = 0);
 
+        /// Create a quad layer structure owned by this object, displaying @p swapchain with @p width
+        /// attached to the provided @p space with optional @p pose
+        ///
+        /// @param swapchain A swapchain created with @ref CreateSwapchain or a specialization of it.
+        /// @param space The space to attach the quad layer to.
+        /// @param width The width for the quad layer, goes directly to XrCompositionLayerQuad::size.width
+        /// @param pose The pose of the quad in @p space
         XrCompositionLayerQuad* CreateQuadLayer(XrSwapchain swapchain, XrSpace space, float width, XrPosef pose = XrPosefCPP());
 
+        /// Create a projection layer structure (with projection view) owned by this object, attached to the provided @p space.
+        ///
+        /// Typically used with @ref MakeDefaultSubImage to finish populating the structure.
         XrCompositionLayerProjection* CreateProjectionLayer(XrSpace space);
 
     private:
@@ -137,7 +214,7 @@ namespace Conformance
 
         std::unique_ptr<InteractionManager> m_interactionManager;
 
-        uint64_t m_defaultColorFormat;
+        int64_t m_defaultColorFormat;
         XrViewConfigurationType m_primaryViewType;
         uint32_t m_projectionViewCount{0};
 
@@ -146,7 +223,7 @@ namespace Conformance
         std::list<XrCompositionLayerQuad> m_quads;
 
         std::map<XrSwapchain, XrSwapchainCreateInfo> m_createdSwapchains;
-        std::map<XrSwapchain, std::shared_ptr<Conformance::IGraphicsPlugin::SwapchainImageStructs>> m_swapchainImages;
+        std::map<XrSwapchain, ISwapchainImageData*> m_swapchainImages;
         std::vector<XrSpace> m_spaces;
 
         // For the menu overlays:
@@ -167,14 +244,14 @@ namespace Conformance
         public:
             virtual ~ViewRenderer();
             /// Usually must call  @ref IGraphicsPlugin::ClearImageSlice with @p swapchainImage , array index 0,
-            /// @p format , and a background color of choice.
-            /// Must call IGraphicsPlugin::RenderView with @p projectionView , @p swapchainImage , @p format ,
+            /// and a background color of choice.
+            /// Must call IGraphicsPlugin::RenderView with @p projectionView , @p swapchainImage ,
             /// and the geometry to draw.
             /// Projection view pose/fov fields are preset to match the corresponding view fields.
             /// Views are located relative to GetLocalSpace()
             virtual void RenderView(const BaseProjectionLayerHelper& projectionLayerHelper, uint32_t viewIndex,
                                     const XrViewState& viewState, const XrView& view, XrCompositionLayerProjectionView& projectionView,
-                                    const XrSwapchainImageBaseHeader* swapchainImage, uint64_t format) = 0;
+                                    const XrSwapchainImageBaseHeader* swapchainImage) = 0;
         };
 
         /// Gets view state/location, then for each view, calls your ViewRenderer from within
@@ -198,7 +275,7 @@ namespace Conformance
         std::vector<XrSwapchain> m_swapchains;
     };
 
-    // Helper class to provide simple world-locked projection layer of some cubes. Each view of the projection is a separate swapchain.
+    /// Helper class to provide simple world-locked projection layer of some cubes. Each view of the projection is a separate swapchain.
     class SimpleProjectionLayerHelper
     {
     public:
@@ -232,21 +309,16 @@ namespace Conformance
             ~ViewRenderer() override = default;
             void RenderView(const BaseProjectionLayerHelper& /* projectionLayerHelper */, uint32_t /* viewIndex */,
                             const XrViewState& /* viewState */, const XrView& /* view */, XrCompositionLayerProjectionView& projectionView,
-                            const XrSwapchainImageBaseHeader* swapchainImage, uint64_t format) override
+                            const XrSwapchainImageBaseHeader* swapchainImage) override
             {
-                GetGlobalData().graphicsPlugin->ClearImageSlice(swapchainImage, 0, format);
-                GetGlobalData().graphicsPlugin->RenderView(projectionView, swapchainImage, format, RenderParams{}.Draw(m_cubes));
+                GetGlobalData().graphicsPlugin->ClearImageSlice(swapchainImage);
+                GetGlobalData().graphicsPlugin->RenderView(projectionView, swapchainImage, RenderParams{}.Draw(m_cubes));
             }
 
         private:
             const std::vector<Cube>& m_cubes;
         };
     };
-}  // namespace Conformance
-
-namespace
-{
-    using namespace Conformance;
 
     const XrVector3f UpVector{0, 1, 0};
 
@@ -267,14 +339,14 @@ namespace
         constexpr XrColor4f Orange = {1, 0.65f, 0, 1};
         constexpr XrColor4f Transparent = {0, 0, 0, 0};
 
-        // Avoid including red which is a "failure color".
+        /// A list of unique colors, not including red which is a "failure color".
         constexpr std::array<XrColor4f, 4> UniqueColors{Green, Blue, Yellow, Orange};
     }  // namespace Colors
 
     namespace Math
     {
-        // Do a linear conversion of a number from one range to another range.
-        // e.g. 5 in range [0-8] projected into range (-.6 to 0.6) is 0.15.
+        /// Do a linear conversion of a number from one range to another range.
+        /// e.g. 5 in range [0-8] projected into range (-.6 to 0.6) is 0.15.
         static inline float LinearMap(int i, int sourceMin, int sourceMax, float targetMin, float targetMax)
         {
             float percent = (i - sourceMin) / (float)sourceMax;
@@ -299,7 +371,7 @@ namespace
         }
     }  // namespace Quat
 
-    // Appends composition layers for interacting with interactive composition tests.
+    /// Appends composition layers for interacting with interactive composition tests.
     struct InteractiveLayerManager
     {
         InteractiveLayerManager(CompositionHelper& compositionHelper, const char* exampleImage, const char* descriptionText)
@@ -460,4 +532,4 @@ namespace
         XrCompositionLayerQuad* m_exampleQuad;
         std::vector<XrCompositionLayerBaseHeader*> m_sceneLayers;
     };
-}  // namespace
+}  // namespace Conformance

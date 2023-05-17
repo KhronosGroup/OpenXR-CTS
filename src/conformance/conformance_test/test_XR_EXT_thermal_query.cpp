@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2022, The Khronos Group Inc.
+// Copyright (c) 2019-2023, The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -18,7 +18,7 @@
 #include "conformance_utils.h"
 #include "conformance_framework.h"
 #include <cmath>
-#include <catch2/catch.hpp>
+#include <catch2/catch_test_macros.hpp>
 #include <openxr/openxr.h>
 
 namespace Conformance
@@ -28,7 +28,7 @@ namespace Conformance
     {
         GlobalData& globalData = GetGlobalData();
         if (!globalData.IsInstanceExtensionSupported("XR_EXT_thermal_query")) {
-            return;
+            SKIP(XR_EXT_THERMAL_QUERY_EXTENSION_NAME " not supported");
         }
 
         // Set up the session we will use for the testing

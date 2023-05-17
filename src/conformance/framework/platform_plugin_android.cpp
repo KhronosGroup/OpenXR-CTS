@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2022, The Khronos Group Inc.
+// Copyright (c) 2019-2023, The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -22,7 +22,8 @@
 #include <android/log.h>
 #include <android/window.h>             // for AWINDOW_FLAG_KEEP_SCREEN_ON
 #include <android/native_window_jni.h>  // for native window JNI
-#include <android_native_app_glue.h>
+
+#include "conformance_framework.h"
 
 #ifdef XR_USE_GRAPHICS_API_VULKAN
 #define VK_USE_PLATFORM_ANDROID_KHR
@@ -39,10 +40,6 @@
 #include <openxr/openxr.h>
 #include <openxr/openxr_platform.h>
 
-/// Let the infrastructure provide these
-extern void* Conformance_Android_Get_Application_VM();
-extern void* Conformance_Android_Get_Application_Activity();
-
 namespace Conformance
 {
 
@@ -58,9 +55,7 @@ namespace Conformance
 
         virtual bool Initialize() override
         {
-            memset(&instanceCreateInfoAndroid, 0, sizeof(instanceCreateInfoAndroid));
-            instanceCreateInfoAndroid.type = XR_TYPE_INSTANCE_CREATE_INFO_ANDROID_KHR;
-            instanceCreateInfoAndroid.next = NULL;
+            instanceCreateInfoAndroid = {XR_TYPE_INSTANCE_CREATE_INFO_ANDROID_KHR};
             instanceCreateInfoAndroid.applicationVM = Conformance_Android_Get_Application_VM();
             instanceCreateInfoAndroid.applicationActivity = Conformance_Android_Get_Application_Activity();
 

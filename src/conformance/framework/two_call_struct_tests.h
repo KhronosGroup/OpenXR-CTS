@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2022, The Khronos Group Inc.
+// Copyright (c) 2019-2023, The Khronos Group Inc.
 // Copyright (c) 2019 Collabora, Ltd.
 //
 // SPDX-License-Identifier: Apache-2.0
@@ -30,7 +30,7 @@
 #include <sstream>
 
 #include <stdint.h>
-#include <catch2/catch.hpp>
+#include <catch2/catch_test_macros.hpp>
 
 namespace Conformance
 {
@@ -46,7 +46,7 @@ namespace Conformance
 
             /// Allocate all arrays to the full requested size from @p structWithCounts and assign all pointer fields and capacities in the returned struct.
             ///
-            /// @param twoCallStorage the @ref TwoCallStructStorage instance containing the backing vectors (cleared by this call)
+            /// @param twoCallStorage the @ref storage::TwoCallStructStorage instance containing the backing vectors (cleared by this call)
             /// @param twoCallStruct the structure you want modified and returned
             /// @param structWithCounts a structure whose *CountOutput fields are populated.
             ///

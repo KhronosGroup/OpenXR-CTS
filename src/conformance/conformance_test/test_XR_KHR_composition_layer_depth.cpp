@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2022, The Khronos Group Inc.
+// Copyright (c) 2019-2023, The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -24,7 +24,7 @@
 #include <string>
 #include <cstring>
 #include <limits>
-#include <catch2/catch.hpp>
+#include <catch2/catch_test_macros.hpp>
 #include <openxr/openxr.h>
 
 namespace Conformance
@@ -34,19 +34,19 @@ namespace Conformance
     TEST_CASE("XR_KHR_composition_layer_depth", "")
     {
         GlobalData& globalData = GetGlobalData();
-        if (!globalData.IsInstanceExtensionSupported("XR_KHR_composition_layer_depth")) {
-            return;
+        if (!globalData.IsInstanceExtensionSupported(XR_KHR_COMPOSITION_LAYER_DEPTH_EXTENSION_NAME)) {
+            SKIP(XR_KHR_COMPOSITION_LAYER_DEPTH_EXTENSION_NAME " not supported");
         }
 
         if (!globalData.IsUsingGraphicsPlugin()) {
-            return;
+            SKIP("Test run not using graphics plugin");
         }
 
         auto graphicsPlugin = globalData.GetGraphicsPlugin();
 
         auto timeout = (globalData.options.debugMode ? 3600s : 10s);
         CAPTURE(timeout);
-        AutoBasicInstance instance({"XR_KHR_composition_layer_depth"});
+        AutoBasicInstance instance({XR_KHR_COMPOSITION_LAYER_DEPTH_EXTENSION_NAME});
         AutoBasicSession session(AutoBasicSession::createSession | AutoBasicSession::beginSession | AutoBasicSession::createSwapchains |
                                      AutoBasicSession::createSpaces,
                                  instance);
@@ -68,11 +68,9 @@ namespace Conformance
             REQUIRE_RESULT_SUCCEEDED(result);
         }
 
-        auto&& layerFlagsGenerator = bitmaskGeneratorIncluding0(
-            {{"XR_COMPOSITION_LAYER_CORRECT_CHROMATIC_ABERRATION_BIT", XR_COMPOSITION_LAYER_CORRECT_CHROMATIC_ABERRATION_BIT},
-             {"XR_COMPOSITION_LAYER_BLEND_TEXTURE_SOURCE_ALPHA_BIT", XR_COMPOSITION_LAYER_BLEND_TEXTURE_SOURCE_ALPHA_BIT},
-             {"XR_COMPOSITION_LAYER_UNPREMULTIPLIED_ALPHA_BIT", XR_COMPOSITION_LAYER_UNPREMULTIPLIED_ALPHA_BIT}});
-
+        auto&& layerFlagsGenerator = bitmaskGeneratorIncluding0({XR_COMPOSITION_LAYER_CORRECT_CHROMATIC_ABERRATION_BIT,
+                                                                 XR_COMPOSITION_LAYER_BLEND_TEXTURE_SOURCE_ALPHA_BIT,
+                                                                 XR_COMPOSITION_LAYER_UNPREMULTIPLIED_ALPHA_BIT});
         while (layerFlagsGenerator.next()) {
             // minDepth and maxDepth are the range of depth values the depthSwapchain could have,
             //   in the range of [0.0,1.0]. This is akin to min and max values of OpenGL's glDepthRange,

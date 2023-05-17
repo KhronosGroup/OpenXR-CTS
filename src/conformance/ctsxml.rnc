@@ -1,0 +1,167 @@
+# Copyright (c) 2013-2023, The Khronos Group Inc.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# Relax-NG (compact) schema for additional elements in JUnit test log reports from the CTS.
+# Shares some types with the main spec's registry schema
+start =
+    TestEnvironment, ConformanceReportSummary, ActiveLayersAndExtensions
+
+ConformanceReportSummary =
+    element ctsConformanceReport {
+        element apiVersion { MajorAttr, MinorAttr, PatchAttr, text },
+        element results {
+            attribute testSuccessCount { xsd:nonNegativeInteger },
+            attribute testFailureCount { xsd:nonNegativeInteger }
+        },
+        TimedSubmission?,
+        SwapchainFormats?
+    }
+
+TimedSubmission =
+    element timedSubmission {
+        element averageWaitTime {
+            attribute ms { xsd:float }
+        },
+        element averageAppFrameTime {
+            attribute ms { xsd:float }
+        },
+        element averageDisplayPeriod {
+            attribute ms { xsd:float }
+        },
+        element averageBeginWaitTime {
+            attribute ms { xsd:float }
+        },
+        element overhead {
+            attribute percent { xsd:float }
+        }
+    }
+
+SwapchainFormats =
+    element swapchainFormats {
+        element format {
+            attribute name { xsd:token },
+            attribute value { xsd:integer }
+        }+
+    }
+
+InstanceProperties =
+    element runtimeInstanceProperties {
+        element runtimeVersion { MajorAttr, MinorAttr, PatchAttr },
+        element runtimeName { text }
+    }
+
+ApiLayerProperties =
+    element apiLayerProperties {
+        attribute layerName { XrLayerName_t },
+        attribute layerVersion { xsd:positiveInteger },
+        attribute specVersionMajor { VersionComponent_t },
+        attribute specVersionMinor { VersionComponent_t },
+        attribute specVersionPatch { VersionComponent_t }
+    }
+
+AvailableApiLayers = element availableApiLayers { ApiLayerProperties* }
+
+AvailableInstanceExtensions =
+    element availableInstanceExtensions {
+        element extensionProperties {
+            attribute extensionName { XrExtName_t },
+            attribute extensionVersion { xsd:positiveInteger }
+        }
+    }
+
+TestOptions =
+    element testOptions {
+        element graphicsPlugin {
+            attribute value { xsd:token }
+        },
+        element formFactor {
+            attribute string { xsd:token },
+            attribute value { XrUpperSnakeCase_t }
+        },
+        element enabledHands {
+            attribute string { "both" | "left" | "right" },
+            attribute leftHandEnabled { xsd:boolean },
+            attribute rightHandEnabled { xsd:boolean }
+        },
+        element viewConfiguration {
+            attribute string { xsd:token },
+            attribute value { XrUpperSnakeCase_t }
+        },
+        element environmentBlendMode {
+            attribute string { xsd:token },
+            attribute value { XrUpperSnakeCase_t }
+        },
+        element enabledAPILayers {
+            element layer {
+                attribute name { XrLayerName_t }
+            }*
+        },
+        element enabledInstanceExtensions {
+            element extension {
+                attribute name { XrExtName_t }
+            }*
+        },
+        element enabledInteractionProfiles {
+            element interactionProfile {
+                attribute path { XrInteractionProfilePath_t }
+            }*
+        },
+        element invalidHandleValidation {
+            attribute value { xsd:boolean }
+        },
+        element nonDisconnectableDevices {
+            attribute value { xsd:boolean }
+        },
+        element fileLineLoggingEnabled {
+            attribute value { xsd:boolean }
+        },
+        element debugMode {
+            attribute value { xsd:boolean }
+        }
+    }
+
+TestEnvironment =
+    element ctsTestEnvironment {
+        InstanceProperties,
+        TestOptions,
+        AvailableApiLayers,
+        AvailableInstanceExtensions,
+        element graphicsPluginDescription { text }?
+    }
+
+# These are the layers and extensions enabled by the tests, as well as those specified in the options.
+ActiveLayersAndExtensions =
+    element activeAPILayersAndExtensions {
+        element activeAPILayers {
+            element layer {
+                attribute name { XrLayerName_t }
+            }*
+        },
+        element activeInstanceExtensions {
+            element extension {
+                attribute name { XrExtName_t }
+            }*
+        }
+    }
+
+VersionComponent_t = xsd:unsignedInt
+
+MajorAttr = attribute major { VersionComponent_t }
+MinorAttr = attribute minor { VersionComponent_t }
+PatchAttr = attribute patch { VersionComponent_t }
+
+# TODO make more precise
+XrInteractionProfilePath_t = xsd:token
+
+# Shared types from registry.rnc
+
+HexValue_t = xsd:token { pattern = "0[xX][0-9a-fA-F]+" }
+
+XrExtName_t = xsd:NCName { pattern = "XR_[A-Z]+(_[A-Za-z0-9]+)+" }
+
+XrUpperSnakeCase_t =
+    xsd:NCName { pattern = "XR_[A-Z0-9]+(_[A-Z0-9]+)*" }
+
+# TODO make more precise
+XrLayerName_t = xsd:token

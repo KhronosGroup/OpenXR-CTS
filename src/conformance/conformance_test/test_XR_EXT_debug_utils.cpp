@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2022, The Khronos Group Inc.
+// Copyright (c) 2019-2023, The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -18,13 +18,14 @@
 #include "conformance_utils.h"
 #include "conformance_framework.h"
 #include "throw_helpers.h"
+#include <algorithm>
 #include <array>
 #include <utility>
 #include <vector>
 #include <set>
 #include <string>
 #include <cstring>
-#include <catch2/catch.hpp>
+#include <catch2/catch_test_macros.hpp>
 #include <openxr/openxr.h>
 
 namespace Conformance
@@ -96,7 +97,7 @@ namespace Conformance
             AutoBasicInstance instance;
             ValidateInstanceExtensionFunctionNotSupported(instance, "xrCreateDebugUtilsMessengerEXT");
 
-            return;
+            SKIP(XR_EXT_DEBUG_UTILS_EXTENSION_NAME " not supported");
         }
 
         SECTION("xrSubmitDebugUtilsMessageEXT")
@@ -154,7 +155,7 @@ namespace Conformance
             CleanupInstanceOnScopeExit cleanup(instance);
 
             XrInstanceCreateInfo createInfo{XR_TYPE_INSTANCE_CREATE_INFO};
-            createInfo.next = globalData.requiredPlaformInstanceCreateStruct;
+            createInfo.next = globalData.requiredPlatformInstanceCreateStruct;
 
             strcpy(createInfo.applicationInfo.applicationName, "conformance test : XR_EXT_debug_utils");
             createInfo.applicationInfo.applicationVersion = 1;
@@ -205,8 +206,8 @@ namespace Conformance
 
             // Add debug info
             createInfo.next = &debugInfo;
-            if (globalData.requiredPlaformInstanceCreateStruct) {
-                debugInfo.next = globalData.requiredPlaformInstanceCreateStruct;
+            if (globalData.requiredPlatformInstanceCreateStruct) {
+                debugInfo.next = globalData.requiredPlatformInstanceCreateStruct;
             }
 
             createInfo.enabledApiLayerCount = (uint32_t)enabledApiLayers.size();

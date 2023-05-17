@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2022, The Khronos Group Inc.
+// Copyright (c) 2019-2023, The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -14,17 +14,20 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "catch2/catch_message.hpp"
 #include "utils.h"
 #include "report.h"
 #include "two_call.h"
 #include "report.h"
 #include "conformance_utils.h"
+#include "bitmask_to_string.h"
 #include "conformance_framework.h"
 #include "composition_utils.h"
 #include "input_testinputdevice.h"
 #include "action_utils.h"
 #include <openxr/openxr.h>
-#include <catch2/catch.hpp>
+#include <catch2/catch_test_macros.hpp>
+#include <catch2/catch_approx.hpp>
 #include <chrono>
 #include <atomic>
 #include <set>
@@ -380,7 +383,7 @@ namespace Conformance
                 REQUIRE_RESULT(xrSuggestInteractionProfileBindings(instance, &bindings), XR_ERROR_VALIDATION_FAILURE);
             }
         }
-        SECTION("Path formats and whitelisting")
+        SECTION("Path formats and known profiles")
         {
             std::vector<std::string> invalidInteractionProfiles{"/invalid", "/interaction_profiles", "/interaction_profiles/invalid",
                                                                 "/interaction_profiles/khr/simple_controller/invalid"};
@@ -399,7 +402,7 @@ namespace Conformance
 
             SECTION("Unknown interaction profile")
             {
-                for (auto invalidIP : invalidInteractionProfiles) {
+                for (const auto& invalidIP : invalidInteractionProfiles) {
                     bindings.interactionProfile = StringToPath(instance, invalidIP.c_str());
                     REQUIRE_RESULT(xrSuggestInteractionProfileBindings(instance, &bindings), XR_ERROR_PATH_UNSUPPORTED);
                 }
@@ -409,7 +412,7 @@ namespace Conformance
             }
             SECTION("Unknown binding path")
             {
-                for (auto invalidBindingPath : invalidBindingPaths) {
+                for (const auto& invalidBindingPath : invalidBindingPaths) {
                     XrActionSuggestedBinding invalidBindingPathBinding = {action, StringToPath(instance, invalidBindingPath.c_str())};
                     bindings.suggestedBindings = &invalidBindingPathBinding;
                     REQUIRE_RESULT(xrSuggestInteractionProfileBindings(instance, &bindings), XR_ERROR_PATH_UNSUPPORTED);
@@ -455,7 +458,7 @@ namespace Conformance
                     CAPTURE(ipMetadata.InteractionProfilePathString);
                     bindings.interactionProfile = StringToPath(instance, ipMetadata.InteractionProfilePathString.c_str());
                     bindings.countSuggestedBindings = 1;
-                    for (const auto& inputSourcePathData : ipMetadata.WhitelistData) {
+                    for (const auto& inputSourcePathData : ipMetadata.InputSourcePaths) {
                         const std::string& bindingPath = inputSourcePathData.Path;
                         CAPTURE(bindingPath);
                         const XrActionType& actionType = inputSourcePathData.Type;
@@ -568,7 +571,7 @@ namespace Conformance
             &actionLayerManager, &compositionHelper.GetInteractionManager(), compositionHelper.GetInstance(),
             compositionHelper.GetSession(),
             StringToPath(compositionHelper.GetInstance(), cSimpleKHRInteractionProfileDefinition.InteractionProfilePathString.c_str()),
-            path, cSimpleKHRInteractionProfileDefinition.WhitelistData);
+            path, cSimpleKHRInteractionProfileDefinition.InputSourcePaths);
 
         compositionHelper.GetInteractionManager().AddActionSet(actionSet);
 
@@ -778,9 +781,28 @@ namespace Conformance
                 getInfo.action = poseAction;
                 REQUIRE_RESULT(xrGetActionStatePose(session, &getInfo, &poseState), XR_SUCCESS);
 
-                REQUIRE_RESULT_SUCCEEDED(
-                    xrApplyHapticFeedback(session, &hapticActionInfo, reinterpret_cast<XrHapticBaseHeader*>(&hapticPacket)));
-                REQUIRE_RESULT_SUCCEEDED(xrStopHapticFeedback(session, &hapticActionInfo));
+                // We cannot be in the FOCUSED state here as we are not submitting frames for
+                // this session.
+                // The spec for `xrApplyHapticFeedback` and `xrStopHapticFeedback` requires that
+                // the runtime must: return `XR_SESSION_NOT_FOCUSED` in the case that the session
+                // is not focused. However, for the initial version of OpenXR 1.0, this test
+                // required that the functions return `XR_SUCCESS` and we only added this change
+                // to the spec later (see issue 1270), so it is not really right to enforce this
+                // return code; but we can warn runtimes here instead.
+                XrResult applyResult =
+                    xrApplyHapticFeedback(session, &hapticActionInfo, reinterpret_cast<XrHapticBaseHeader*>(&hapticPacket));
+                REQUIRE_RESULT_SUCCEEDED(applyResult);
+                if (applyResult != XR_SESSION_NOT_FOCUSED) {
+                    WARN(
+                        "Runtime should prefer XR_SESSION_NOT_FOCUSED over XR_SUCCESS when calling xrApplyHapticFeedback when the session is not focused.");
+                }
+
+                XrResult stopResult = xrStopHapticFeedback(session, &hapticActionInfo);
+                REQUIRE_RESULT_SUCCEEDED(stopResult);
+                if (applyResult != XR_SESSION_NOT_FOCUSED) {
+                    WARN(
+                        "Runtime should prefer XR_SESSION_NOT_FOCUSED over XR_SUCCESS when calling xrStopHapticFeedback when the session is not focused.");
+                }
             }
             SECTION("Current interaction profile")
             {
@@ -836,7 +858,8 @@ namespace Conformance
     }
     TEST_CASE("xrSuggestInteractionProfileBindings_order", "[actions][interactive]")
     {
-        auto suggestBindingsAndGetCurrentInteractionProfile = [](bool reverse, const std::string& topLevelPathString) {
+        auto suggestBindingsAndGetCurrentInteractionProfile = [](bool reverse, bool nullPathExpected,
+                                                                 const std::string& topLevelPathString) {
             CompositionHelper compositionHelper("xrSuggestInteractionProfileBindings_order");
             compositionHelper.BeginSession();
 
@@ -865,19 +888,19 @@ namespace Conformance
                 XrPath interactionProfilePath = StringToPath(compositionHelper.GetInstance(), interactionProfileName.c_str());
 
                 bool bindingSuggested = false;
-                for (auto& bindings : interactionProfile.WhitelistData) {
+                for (auto& bindings : interactionProfile.InputSourcePaths) {
                     // We use the same pattern as the rest of the action conformance suite
                     // and only bind the boolean actions. Note that we bind "boolAction"
                     // to *every* boolean input, not just the first one.
                     if (bindings.Type != XR_ACTION_TYPE_BOOLEAN_INPUT) {
                         continue;
                     }
-                    XrActionSuggestedBinding binding = {boolAction, StringToPath(compositionHelper.GetInstance(), bindings.Path.c_str())};
+                    XrActionSuggestedBinding binding = {boolAction, StringToPath(compositionHelper.GetInstance(), bindings.Path)};
                     interactionManager.AddActionBindings(interactionProfilePath, {binding});
                     bindingSuggested = true;
                 }
                 if (bindingSuggested) {
-                    // Keep track of the ordering to sanity check later
+                    // Keep track of the ordering to verify later
                     interactionProfileOrder.push_back(interactionProfilePath);
                 }
             };
@@ -900,7 +923,7 @@ namespace Conformance
                 &actionLayerManager, &compositionHelper.GetInteractionManager(), compositionHelper.GetInstance(),
                 compositionHelper.GetSession(),
                 StringToPath(compositionHelper.GetInstance(), cSimpleKHRInteractionProfileDefinition.InteractionProfilePathString.c_str()),
-                userHandLeftXrPath, cSimpleKHRInteractionProfileDefinition.WhitelistData);
+                userHandLeftXrPath, cSimpleKHRInteractionProfileDefinition.InputSourcePaths);
 
             // This function calls xrSuggestInteractionProfileBindings() before attaching the actionsets
             interactionManager.AttachActionSets(&interactionProfileOrder);
@@ -913,16 +936,40 @@ namespace Conformance
                                                           StringToPath(compositionHelper.GetInstance(), topLevelPathString.c_str()),
                                                           &interactionProfileState),
                            XR_SUCCESS);
-            REQUIRE(interactionProfileState.interactionProfile != XR_NULL_PATH);
 
-            // XrPaths are only valid for the lifetime of the instance so we return a string
-            return PathToString(compositionHelper.GetInstance(), interactionProfileState.interactionProfile);
+            // Are we expecting the topLevelPath to have a active input?
+            if (nullPathExpected) {
+                if (interactionProfileState.interactionProfile != XR_NULL_PATH) {
+                    WARN("Got non-null interactionProfile on path not being tested");
+                }
+
+                // Not a valid path, but okay to return since we only compare.
+                return std::string("<XR_NULL_PATH>");
+            }
+            else {
+                REQUIRE(interactionProfileState.interactionProfile != XR_NULL_PATH);
+
+                // XrPaths are only valid for the lifetime of the instance so we return a string
+                return PathToString(compositionHelper.GetInstance(), interactionProfileState.interactionProfile);
+            }
         };
 
-        for (const auto& topLevelPath : {"/user/hand/left", "/user/hand/right"}) {
+        GlobalData& globalData = GetGlobalData();
+        std::vector<std::tuple<std::string, bool>> list = {
+            {"/user/hand/left", !globalData.leftHandUnderTest},
+            {"/user/hand/right", !globalData.rightHandUnderTest},
+        };
+
+        for (const auto& entry : list) {
+            std::string topLevelPath;
+            bool nullPathExpected;
+            std::tie(topLevelPath, nullPathExpected) = entry;
+
             CAPTURE(topLevelPath);
-            auto forwardPath = suggestBindingsAndGetCurrentInteractionProfile(/*reverse = */ false, topLevelPath);
-            auto reversePath = suggestBindingsAndGetCurrentInteractionProfile(/*reverse =  */ true, topLevelPath);
+            CAPTURE(nullPathExpected);
+
+            auto forwardPath = suggestBindingsAndGetCurrentInteractionProfile(/*reverse = */ false, nullPathExpected, topLevelPath);
+            auto reversePath = suggestBindingsAndGetCurrentInteractionProfile(/*reverse =  */ true, nullPathExpected, topLevelPath);
             REQUIRE(forwardPath == reversePath);
         }
     }
@@ -955,14 +1002,14 @@ namespace Conformance
             &actionLayerManager, &compositionHelper.GetInteractionManager(), compositionHelper.GetInstance(),
             compositionHelper.GetSession(),
             StringToPath(compositionHelper.GetInstance(), cSimpleKHRInteractionProfileDefinition.InteractionProfilePathString.c_str()),
-            leftHandPath, cSimpleKHRInteractionProfileDefinition.WhitelistData);
+            leftHandPath, cSimpleKHRInteractionProfileDefinition.InputSourcePaths);
 
         XrPath rightHandPath{StringToPath(compositionHelper.GetInstance(), "/user/hand/right")};
         std::shared_ptr<IInputTestDevice> rightHandInputDevice = CreateTestDevice(
             &actionLayerManager, &compositionHelper.GetInteractionManager(), compositionHelper.GetInstance(),
             compositionHelper.GetSession(),
             StringToPath(compositionHelper.GetInstance(), cSimpleKHRInteractionProfileDefinition.InteractionProfilePathString.c_str()),
-            rightHandPath, cSimpleKHRInteractionProfileDefinition.WhitelistData);
+            rightHandPath, cSimpleKHRInteractionProfileDefinition.InputSourcePaths);
 
         XrActionsSyncInfo syncInfo{XR_TYPE_ACTIONS_SYNC_INFO};
         XrActiveActionSet activeActionSet{actionSet};
@@ -1070,7 +1117,7 @@ namespace Conformance
     {
         GlobalData& globalData = GetGlobalData();
         std::vector<const char*> extensions;
-        if (globalData.IsInstanceExtensionSupported("XR_EXT_active_action_set_priority"))
+        if (globalData.IsInstanceExtensionSupported(XR_EXT_ACTIVE_ACTION_SET_PRIORITY_EXTENSION_NAME))
             extensions.push_back(XR_EXT_ACTIVE_ACTION_SET_PRIORITY_EXTENSION_NAME);
         CompositionHelper compositionHelper("xrSyncActions", extensions);
 
@@ -1084,14 +1131,14 @@ namespace Conformance
         std::shared_ptr<IInputTestDevice> leftHandInputDevice =
             CreateTestDevice(&actionLayerManager, &compositionHelper.GetInteractionManager(), compositionHelper.GetInstance(),
                              compositionHelper.GetSession(), simpleControllerInteractionProfile, leftHandPath,
-                             cSimpleKHRInteractionProfileDefinition.WhitelistData);
+                             cSimpleKHRInteractionProfileDefinition.InputSourcePaths);
 
         std::string rightHandPathString = "/user/hand/right";
         XrPath rightHandPath{StringToPath(compositionHelper.GetInstance(), "/user/hand/right")};
         std::shared_ptr<IInputTestDevice> rightHandInputDevice =
             CreateTestDevice(&actionLayerManager, &compositionHelper.GetInteractionManager(), compositionHelper.GetInstance(),
                              compositionHelper.GetSession(), simpleControllerInteractionProfile, rightHandPath,
-                             cSimpleKHRInteractionProfileDefinition.WhitelistData);
+                             cSimpleKHRInteractionProfileDefinition.InputSourcePaths);
 
         bool leftUnderTest = GetGlobalData().leftHandUnderTest;
         std::string defaultDevicePathStr = leftUnderTest ? leftHandPathString : rightHandPathString;
@@ -1714,7 +1761,7 @@ namespace Conformance
         }
     }
 
-    TEST_CASE("State query functions interactive", "[actions][interactive][gamepad]")
+    TEST_CASE("StateQueryFunctionsInteractive", "[actions][interactive][gamepad]")
     {
         struct ActionInfo
         {
@@ -1741,7 +1788,7 @@ namespace Conformance
             XrPath inputDevicePath{StringToPath(compositionHelper.GetInstance(), topLevelPathString.data())};
             std::shared_ptr<IInputTestDevice> inputDevice =
                 CreateTestDevice(&actionLayerManager, &compositionHelper.GetInteractionManager(), compositionHelper.GetInstance(),
-                                 compositionHelper.GetSession(), interactionProfile, inputDevicePath, ipMetadata.WhitelistData);
+                                 compositionHelper.GetSession(), interactionProfile, inputDevicePath, ipMetadata.InputSourcePaths);
 
             XrActionSet actionSet{XR_NULL_HANDLE};
 
@@ -1768,7 +1815,7 @@ namespace Conformance
 
             auto InputSourceDataForTopLevelPath = [&]() {
                 std::vector<InputSourcePathData> ret;
-                for (InputSourcePathData inputSourceData : ipMetadata.WhitelistData) {
+                for (const InputSourcePathData& inputSourceData : ipMetadata.InputSourcePaths) {
                     if (!prefixedByTopLevelPath(inputSourceData.Path)) {
                         continue;
                     }
@@ -1779,7 +1826,7 @@ namespace Conformance
             auto ActionsForTopLevelPath = [&](XrActionType type) -> std::vector<ActionInfo> {
                 auto inputSourceDataList = InputSourceDataForTopLevelPath();
                 std::vector<ActionInfo> actions;
-                for (InputSourcePathData inputSourceData : inputSourceDataList) {
+                for (const InputSourcePathData& inputSourceData : inputSourceDataList) {
                     if (type != inputSourceData.Type) {
                         continue;
                     }
@@ -1812,7 +1859,7 @@ namespace Conformance
                     strcpy(actionCreateInfo.actionName, std::get<0>(actionNames).c_str());
                     REQUIRE_RESULT(xrCreateAction(actionSet, &actionCreateInfo, &action), XR_SUCCESS);
 
-                    XrPath bindingPath = StringToPath(compositionHelper.GetInstance(), inputSourceData.Path.c_str());
+                    XrPath bindingPath = StringToPath(compositionHelper.GetInstance(), inputSourceData.Path);
                     compositionHelper.GetInteractionManager().AddActionBindings(interactionProfile, {{action, bindingPath}});
 
                     ActionInfo info{};
@@ -1856,7 +1903,7 @@ namespace Conformance
                         strcpy(actionCreateInfo.actionName, std::get<0>(actionNames).c_str());
                         REQUIRE_RESULT(xrCreateAction(actionSet, &actionCreateInfo, &xAction), XR_SUCCESS);
 
-                        std::string xSubBindingPath = std::string(inputSourceData.Path.c_str()) + "/x";
+                        std::string xSubBindingPath = std::string(inputSourceData.Path) + "/x";
                         bindingPath = StringToPath(compositionHelper.GetInstance(), xSubBindingPath.c_str());
                         compositionHelper.GetInteractionManager().AddActionBindings(interactionProfile, {{xAction, bindingPath}});
 
@@ -1865,7 +1912,7 @@ namespace Conformance
                         strcpy(actionCreateInfo.actionName, std::get<0>(actionNames).c_str());
                         REQUIRE_RESULT(xrCreateAction(actionSet, &actionCreateInfo, &yAction), XR_SUCCESS);
 
-                        std::string ySubBindingPath = std::string(inputSourceData.Path.c_str()) + "/y";
+                        std::string ySubBindingPath = std::string(inputSourceData.Path) + "/y";
                         bindingPath = StringToPath(compositionHelper.GetInstance(), ySubBindingPath.c_str());
                         compositionHelper.GetInteractionManager().AddActionBindings(interactionProfile, {{yAction, bindingPath}});
                         break;
@@ -1875,7 +1922,7 @@ namespace Conformance
                         break;
                     case XR_ACTION_TYPE_MAX_ENUM:
                     default:
-                        ReportF("Unexpected action type %d", inputSourceData.Type);
+                        WARN("Unexpected action type " << inputSourceData.Type);
                         break;
                     }
 
@@ -1910,8 +1957,8 @@ namespace Conformance
                             continue;
                         }
                         auto prefixedByParentPath =
-                            (inputSourceData.Path.length() > parentPath.size()) &&
-                            (std::mismatch(parentPath.begin(), parentPath.end(), inputSourceData.Path.begin()).first == parentPath.end());
+                            (std::string(inputSourceData.Path).length() > parentPath.size()) &&
+                            (std::mismatch(parentPath.begin(), parentPath.end(), inputSourceData.Path).first == parentPath.end());
                         if (prefixedByParentPath) {
                             return true;
                         }
@@ -1939,12 +1986,12 @@ namespace Conformance
                             HasSubpathOfType(inputSourceData.Path, XR_ACTION_TYPE_BOOLEAN_INPUT)) {
                             continue;
                         }
-                        else if (coercionType == XR_ACTION_TYPE_FLOAT_INPUT &&
-                                 HasSubpathOfType(inputSourceData.Path, XR_ACTION_TYPE_FLOAT_INPUT)) {
+                        if (coercionType == XR_ACTION_TYPE_FLOAT_INPUT &&
+                            HasSubpathOfType(inputSourceData.Path, XR_ACTION_TYPE_FLOAT_INPUT)) {
                             continue;
                         }
-                        else if (coercionType == XR_ACTION_TYPE_POSE_INPUT &&
-                                 HasSubpathOfType(inputSourceData.Path, XR_ACTION_TYPE_POSE_INPUT)) {
+                        if (coercionType == XR_ACTION_TYPE_POSE_INPUT &&
+                            HasSubpathOfType(inputSourceData.Path, XR_ACTION_TYPE_POSE_INPUT)) {
                             continue;
                         }
                     }
@@ -1957,7 +2004,7 @@ namespace Conformance
                     strcpy(actionCreateInfo.actionName, std::get<0>(actionNames).c_str());
                     REQUIRE_RESULT(xrCreateAction(actionSet, &actionCreateInfo, &action), XR_SUCCESS);
 
-                    XrPath bindingPath = StringToPath(compositionHelper.GetInstance(), inputSourceData.Path.c_str());
+                    XrPath bindingPath = StringToPath(compositionHelper.GetInstance(), inputSourceData.Path);
                     compositionHelper.GetInteractionManager().AddActionBindings(interactionProfile, {{action, bindingPath}});
 
                     ActionInfo info{};
@@ -1980,7 +2027,7 @@ namespace Conformance
                 strcpy(actionCreateInfo.actionName, std::get<0>(actionNames).c_str());
                 REQUIRE_RESULT(xrCreateAction(actionSet, &actionCreateInfo, &action), XR_SUCCESS);
 
-                for (InputSourcePathData inputSourceData : inputSourceDataList) {
+                for (const InputSourcePathData& inputSourceData : inputSourceDataList) {
                     if (type != inputSourceData.Type) {
                         continue;
                     }
@@ -1988,7 +2035,7 @@ namespace Conformance
                         continue;
                     }
 
-                    XrPath bindingPath = StringToPath(compositionHelper.GetInstance(), inputSourceData.Path.c_str());
+                    XrPath bindingPath = StringToPath(compositionHelper.GetInstance(), inputSourceData.Path);
                     compositionHelper.GetInteractionManager().AddActionBindings(interactionProfile, {{action, bindingPath}});
                 }
 
@@ -1997,7 +2044,7 @@ namespace Conformance
 
                 return info;
             };
-            auto concat = [](std::vector<ActionInfo> a, std::vector<std::vector<ActionInfo>> tail) {
+            auto concat = [](std::vector<ActionInfo> a, const std::vector<std::vector<ActionInfo>>& tail) {
                 for (const auto& b : tail) {
                     a.insert(a.end(), b.begin(), b.end());
                 }
@@ -2104,9 +2151,9 @@ namespace Conformance
                         REQUIRE_RESULT(xrGetActionStateVector2f(compositionHelper.GetSession(), &getInfo, &combinedVectorState),
                                        XR_SUCCESS);
 
-                        REQUIRE((bool)combinedBoolState.isActive == booleanActions.size() > 0);
-                        REQUIRE((bool)combinedFloatState.isActive == floatActions.size() > 0);
-                        REQUIRE((bool)combinedVectorState.isActive == vectorActions.size() > 0);
+                        REQUIRE((bool)combinedBoolState.isActive == (booleanActions.size() > 0));
+                        REQUIRE((bool)combinedFloatState.isActive == (floatActions.size() > 0));
+                        REQUIRE((bool)combinedVectorState.isActive == (vectorActions.size() > 0));
 
                         bool shouldBeChanged = (combinedBoolState.currentState != previousBoolState.currentState) &&
                                                combinedBoolState.isActive && previousBoolState.isActive;
@@ -2140,7 +2187,7 @@ namespace Conformance
                             if (actionInfo.UnseenValues.count(key) > 0) {
                                 actionInfo.UnseenValues.erase(key);
 #if !defined(NDEBUG)
-                                ReportF("%s saw %d", actionInfo.Data.Path.c_str(), key);
+                                ReportF("%s saw %d", actionInfo.Data.Path, key);
 #endif
                             }
                             // If we've seen all the values mark the whole action as seen.
@@ -2151,7 +2198,7 @@ namespace Conformance
                             // For now just prompt with the first still-pending action and its values.
                             if (!nextActionPrompt.empty())
                                 return;
-                            nextActionPrompt = "\n" + actionInfo.Data.Path + ":\n";
+                            nextActionPrompt = "\n" + std::string(actionInfo.Data.Path) + ":\n";
                             auto fmt_float = [](float v) -> std::string {
                                 auto s = std::to_string(v);
                                 if (s.length() > 4)
@@ -2164,11 +2211,11 @@ namespace Conformance
                                     nextActionPrompt += remainingKeys ? "true " : "false ";
                                     break;
                                 case XR_ACTION_TYPE_FLOAT_INPUT:
-                                    nextActionPrompt += fmt_float(remainingKeys * cStepSize) + " ";
+                                    nextActionPrompt += fmt_float(static_cast<float>(remainingKeys) * cStepSize) + " ";
                                     break;
                                 case XR_ACTION_TYPE_VECTOR2F_INPUT: {
-                                    float x = ((remainingKeys % 10) - 2) * cStepSize;
-                                    float y = ((remainingKeys / 10) - 2) * cStepSize;
+                                    float x = static_cast<float>((remainingKeys % 10) - 2) * cStepSize;
+                                    float y = ((static_cast<float>(remainingKeys) / 10) - 2) * cStepSize;
                                     nextActionPrompt += "(" + fmt_float(x) + "," + fmt_float(y) + ") ";
                                     break;
                                 }
@@ -2177,7 +2224,7 @@ namespace Conformance
                                     break;
                                 case XR_ACTION_TYPE_MAX_ENUM:
                                 default:
-                                    ReportF("Unexpected action type %d", actionInfo.Data.Type);
+                                    WARN("Unexpected action type " << actionInfo.Data.Type);
                                     break;
                                 }
                             }
@@ -2320,21 +2367,21 @@ namespace Conformance
                                     synthesizedY = 0.f;
                                 }
                             }
-                            for (auto actionInfo : booleanActions) {
-                                inputDevice->SetButtonStateBool(StringToPath(compositionHelper.GetInstance(), actionInfo.Data.Path.c_str()),
+                            for (const auto& actionInfo : booleanActions) {
+                                inputDevice->SetButtonStateBool(StringToPath(compositionHelper.GetInstance(), actionInfo.Data.Path),
                                                                 synthesizedX > 0.5f, true);
                             }
 
-                            for (auto actionInfo : floatActions) {
-                                inputDevice->SetButtonStateFloat(
-                                    StringToPath(compositionHelper.GetInstance(), actionInfo.Data.Path.c_str()), synthesizedX, 0, true);
+                            for (const auto& actionInfo : floatActions) {
+                                inputDevice->SetButtonStateFloat(StringToPath(compositionHelper.GetInstance(), actionInfo.Data.Path),
+                                                                 synthesizedX, 0, true);
                             }
 
-                            for (auto actionInfo : vectorActions) {
+                            for (const auto& actionInfo : vectorActions) {
                                 float x = (synthesizedX - 0.5f) * 2.f;
                                 float y = (synthesizedY - 0.5f) * 2.f;
-                                inputDevice->SetButtonStateVector2(
-                                    StringToPath(compositionHelper.GetInstance(), actionInfo.Data.Path.c_str()), {x, y}, 0, true);
+                                inputDevice->SetButtonStateVector2(StringToPath(compositionHelper.GetInstance(), actionInfo.Data.Path),
+                                                                   {x, y}, 0, true);
                             }
                         }
 
@@ -2378,7 +2425,7 @@ namespace Conformance
                 INFO("Pose state query");
 
                 for (const auto& poseActionData : poseActions) {
-                    INFO(poseActionData.Data.Path.c_str());
+                    CAPTURE(poseActionData.Data.Path);
 
                     XrActionStateGetInfo getInfo{XR_TYPE_ACTION_STATE_GET_INFO};
                     getInfo.action = poseActionData.Action;
@@ -2401,14 +2448,14 @@ namespace Conformance
                 }
             }
 
-            INFO("Haptics state query")
+            INFO("Haptics state query");
             {
                 // Need at least one boolean action to confirm haptics
                 if (booleanActions.size() > 0) {
                     for (const auto& hapticActionData : hapticActions) {
-                        INFO(hapticActionData.Data.Path.c_str());
+                        CAPTURE(hapticActionData.Data.Path);
 
-                        XrPath inputSourcePath = StringToPath(compositionHelper.GetInstance(), booleanActions[0].Data.Path.c_str());
+                        XrPath inputSourcePath = StringToPath(compositionHelper.GetInstance(), booleanActions[0].Data.Path);
 
                         XrHapticActionInfo hapticActionInfo{XR_TYPE_HAPTIC_ACTION_INFO};
                         hapticActionInfo.action = hapticActionData.Action;
@@ -2504,7 +2551,7 @@ namespace Conformance
             {
                 INFO("Boolean->Float");
                 for (const auto& booleanToFloatActionData : floatActionsCoercedToBoolean) {
-                    XrPath inputSourcePath = StringToPath(compositionHelper.GetInstance(), booleanToFloatActionData.Data.Path.c_str());
+                    XrPath inputSourcePath = StringToPath(compositionHelper.GetInstance(), booleanToFloatActionData.Data.Path);
 
                     XrActionStateGetInfo getInfo{XR_TYPE_ACTION_STATE_GET_INFO};
                     getInfo.action = booleanToFloatActionData.Action;
@@ -2532,7 +2579,7 @@ namespace Conformance
 
                 INFO("Float->Boolean");
                 for (const auto& floatToBooleanActionData : booleanActionsCoercedToFloat) {
-                    XrPath inputSourcePath = StringToPath(compositionHelper.GetInstance(), floatToBooleanActionData.Data.Path.c_str());
+                    XrPath inputSourcePath = StringToPath(compositionHelper.GetInstance(), floatToBooleanActionData.Data.Path);
 
                     XrActionStateGetInfo getInfo{XR_TYPE_ACTION_STATE_GET_INFO};
                     getInfo.action = floatToBooleanActionData.Action;
@@ -2541,20 +2588,20 @@ namespace Conformance
 
                     REQUIRE_RESULT(xrGetActionStateFloat(compositionHelper.GetSession(), &getInfo, &floatState), XR_SUCCESS);
                     REQUIRE(floatState.isActive);
-                    REQUIRE(floatState.currentState == Approx(0.0f).margin(cLargeEpsilon));
+                    REQUIRE(floatState.currentState == Catch::Approx(0.0f).margin(cLargeEpsilon));
 
                     inputDevice->SetButtonStateBool(inputSourcePath, true, false, actionSet);
 
                     REQUIRE_RESULT(xrGetActionStateFloat(compositionHelper.GetSession(), &getInfo, &floatState), XR_SUCCESS);
                     REQUIRE(floatState.isActive);
-                    REQUIRE(floatState.currentState == Approx(1.0f).margin(cLargeEpsilon));
+                    REQUIRE(floatState.currentState == Catch::Approx(1.0f).margin(cLargeEpsilon));
                     REQUIRE(floatState.lastChangeTime > 0);
 
                     inputDevice->SetButtonStateBool(inputSourcePath, false, false, actionSet);
 
                     REQUIRE_RESULT(xrGetActionStateFloat(compositionHelper.GetSession(), &getInfo, &floatState), XR_SUCCESS);
                     REQUIRE(floatState.isActive);
-                    REQUIRE(floatState.currentState == Approx(0.0f).margin(cLargeEpsilon));
+                    REQUIRE(floatState.currentState == Catch::Approx(0.0f).margin(cLargeEpsilon));
                     REQUIRE(floatState.lastChangeTime > 0);
                 }
 
@@ -2605,7 +2652,7 @@ namespace Conformance
         }
     }
 
-    TEST_CASE("State query functions and haptics", "[actions]")
+    TEST_CASE("StateQueryFunctionsAndHaptics", "[actions]")
     {
         CompositionHelper compositionHelper("Input device state query");
 
@@ -2907,7 +2954,7 @@ namespace Conformance
         std::shared_ptr<IInputTestDevice> leftHandInputDevice = CreateTestDevice(
             &actionLayerManager, &compositionHelper.GetInteractionManager(), compositionHelper.GetInstance(),
             compositionHelper.GetSession(), simpleControllerInteractionProfile,
-            StringToPath(compositionHelper.GetInstance(), "/user/hand/left"), cSimpleKHRInteractionProfileDefinition.WhitelistData);
+            StringToPath(compositionHelper.GetInstance(), "/user/hand/left"), cSimpleKHRInteractionProfileDefinition.InputSourcePaths);
 
         compositionHelper.GetInteractionManager().AddActionSet(actionSet);
         compositionHelper.GetInteractionManager().AddActionBindings(
@@ -2956,7 +3003,7 @@ namespace Conformance
                     "xrLocateSpace on action space created before and after binding suggestion should return the same locationFlags");
     }
 
-    TEST_CASE("Action spaces", "[actions][interactive]")
+    TEST_CASE("ActionSpaces", "[actions][interactive]")
     {
         GlobalData& globalData = GetGlobalData();
 
@@ -2988,12 +3035,12 @@ namespace Conformance
         std::shared_ptr<IInputTestDevice> leftHandInputDevice =
             CreateTestDevice(&actionLayerManager, &compositionHelper.GetInteractionManager(), compositionHelper.GetInstance(),
                              compositionHelper.GetSession(), simpleControllerInteractionProfile, leftHandPath,
-                             cSimpleKHRInteractionProfileDefinition.WhitelistData);
+                             cSimpleKHRInteractionProfileDefinition.InputSourcePaths);
 
         std::shared_ptr<IInputTestDevice> rightHandInputDevice =
             CreateTestDevice(&actionLayerManager, &compositionHelper.GetInteractionManager(), compositionHelper.GetInstance(),
                              compositionHelper.GetSession(), simpleControllerInteractionProfile, rightHandPath,
-                             cSimpleKHRInteractionProfileDefinition.WhitelistData);
+                             cSimpleKHRInteractionProfileDefinition.InputSourcePaths);
 
         compositionHelper.GetInteractionManager().AddActionSet(actionSet);
         compositionHelper.GetInteractionManager().AddActionBindings(
@@ -3019,8 +3066,8 @@ namespace Conformance
         spaceCreateInfo.action = poseAction;
 
         // Can track left or right, but may: only switch at xrSyncActions.
-        XrSpace actionSpace{XR_NULL_HANDLE};
-        REQUIRE_RESULT(xrCreateActionSpace(compositionHelper.GetSession(), &spaceCreateInfo, &actionSpace), XR_SUCCESS);
+        XrSpace actionSpaceWithoutSubactionPath{XR_NULL_HANDLE};
+        REQUIRE_RESULT(xrCreateActionSpace(compositionHelper.GetSession(), &spaceCreateInfo, &actionSpaceWithoutSubactionPath), XR_SUCCESS);
 
         // Only tracks left
         spaceCreateInfo.subactionPath = leftHandPath;
@@ -3052,10 +3099,13 @@ namespace Conformance
 
             auto PosesAreEqual = [](XrPosef a, XrPosef b) -> bool {
                 constexpr float e = 0.001f;  // 1mm
-                return (a.position.x == Approx(b.position.x).epsilon(e)) && (a.position.y == Approx(b.position.y).epsilon(e)) &&
-                       (a.position.z == Approx(b.position.z).epsilon(e)) && (a.orientation.x == Approx(b.orientation.x).epsilon(e)) &&
-                       (a.orientation.y == Approx(b.orientation.y).epsilon(e)) && (a.orientation.z == Approx(b.orientation.z).epsilon(e)) &&
-                       (a.orientation.w == Approx(b.orientation.w).epsilon(e));
+                return (a.position.x == Catch::Approx(b.position.x).epsilon(e)) &&
+                       (a.position.y == Catch::Approx(b.position.y).epsilon(e)) &&
+                       (a.position.z == Catch::Approx(b.position.z).epsilon(e)) &&
+                       (a.orientation.x == Catch::Approx(b.orientation.x).epsilon(e)) &&
+                       (a.orientation.y == Catch::Approx(b.orientation.y).epsilon(e)) &&
+                       (a.orientation.z == Catch::Approx(b.orientation.z).epsilon(e)) &&
+                       (a.orientation.w == Catch::Approx(b.orientation.w).epsilon(e));
             };
 
             if (globalData.leftHandUnderTest && globalData.rightHandUnderTest) {
@@ -3096,7 +3146,7 @@ namespace Conformance
                 XrSpaceLocation currentRelation{XR_TYPE_SPACE_LOCATION, &currentVelocity};
                 XrTime locateTime =
                     actionLayerManager.GetRenderLoop().GetLastPredictedDisplayTime();  // Ensure using the same time for the pose checks.
-                REQUIRE_RESULT(xrLocateSpace(actionSpace, localSpace, locateTime, &currentRelation), XR_SUCCESS);
+                REQUIRE_RESULT(xrLocateSpace(actionSpaceWithoutSubactionPath, localSpace, locateTime, &currentRelation), XR_SUCCESS);
                 REQUIRE_RESULT(xrLocateSpace(leftSpace, localSpace, locateTime, &leftRelation), XR_SUCCESS);
                 REQUIRE_RESULT(xrLocateSpace(rightSpace, localSpace, locateTime, &rightRelation), XR_SUCCESS);
                 REQUIRE(currentRelation.locationFlags != 0);
@@ -3112,8 +3162,8 @@ namespace Conformance
                 INFO("Left is off but we're still tracking it");
                 // wait for it to go away
                 REQUIRE(actionLayerManager.WaitForLocatability("left", leftSpace, localSpace, &leftRelation, false));
-                REQUIRE_RESULT(xrLocateSpace(actionSpace, localSpace, actionLayerManager.GetRenderLoop().GetLastPredictedDisplayTime(),
-                                             &currentRelation),
+                REQUIRE_RESULT(xrLocateSpace(actionSpaceWithoutSubactionPath, localSpace,
+                                             actionLayerManager.GetRenderLoop().GetLastPredictedDisplayTime(), &currentRelation),
                                XR_SUCCESS);
                 REQUIRE(0 == currentRelation.locationFlags);
 
@@ -3122,8 +3172,8 @@ namespace Conformance
 
                 // It should still be unlocatable
                 INFO("We are still tracking left as action spaces pick one device and stick with it");
-                REQUIRE_RESULT(xrLocateSpace(actionSpace, localSpace, actionLayerManager.GetRenderLoop().GetLastPredictedDisplayTime(),
-                                             &currentRelation),
+                REQUIRE_RESULT(xrLocateSpace(actionSpaceWithoutSubactionPath, localSpace,
+                                             actionLayerManager.GetRenderLoop().GetLastPredictedDisplayTime(), &currentRelation),
                                XR_SUCCESS);
                 REQUIRE(0 == currentRelation.locationFlags);
 
@@ -3131,8 +3181,8 @@ namespace Conformance
                 rightHandInputDevice->SetDeviceActive(false);
 
                 INFO("We are still tracking left, but it's off");
-                REQUIRE_RESULT(xrLocateSpace(actionSpace, localSpace, actionLayerManager.GetRenderLoop().GetLastPredictedDisplayTime(),
-                                             &currentRelation),
+                REQUIRE_RESULT(xrLocateSpace(actionSpaceWithoutSubactionPath, localSpace,
+                                             actionLayerManager.GetRenderLoop().GetLastPredictedDisplayTime(), &currentRelation),
                                XR_SUCCESS);
                 REQUIRE(0 == currentRelation.locationFlags);
 
@@ -3140,8 +3190,8 @@ namespace Conformance
                 actionLayerManager.SyncActionsUntilFocusWithMessage(syncInfo);
 
                 INFO("We are still tracking left, but they're both off");
-                REQUIRE_RESULT(xrLocateSpace(actionSpace, localSpace, actionLayerManager.GetRenderLoop().GetLastPredictedDisplayTime(),
-                                             &currentRelation),
+                REQUIRE_RESULT(xrLocateSpace(actionSpaceWithoutSubactionPath, localSpace,
+                                             actionLayerManager.GetRenderLoop().GetLastPredictedDisplayTime(), &currentRelation),
                                XR_SUCCESS);
                 REQUIRE(0 == currentRelation.locationFlags);
 
@@ -3153,16 +3203,16 @@ namespace Conformance
                 REQUIRE(actionLayerManager.WaitForLocatability("left", leftSpace, localSpace, &leftRelation, true));
                 REQUIRE(actionLayerManager.WaitForLocatability("right", rightSpace, localSpace, &rightRelation, true));
 
-                REQUIRE_RESULT(xrLocateSpace(actionSpace, localSpace, actionLayerManager.GetRenderLoop().GetLastPredictedDisplayTime(),
-                                             &currentRelation),
+                REQUIRE_RESULT(xrLocateSpace(actionSpaceWithoutSubactionPath, localSpace,
+                                             actionLayerManager.GetRenderLoop().GetLastPredictedDisplayTime(), &currentRelation),
                                XR_SUCCESS);
                 REQUIRE(0 != currentRelation.locationFlags);
 
                 INFO("The action space should remain locatable despite destruction of the action");
                 REQUIRE_RESULT(xrDestroyAction(poseAction), XR_SUCCESS);
 
-                REQUIRE_RESULT(xrLocateSpace(actionSpace, localSpace, actionLayerManager.GetRenderLoop().GetLastPredictedDisplayTime(),
-                                             &currentRelation),
+                REQUIRE_RESULT(xrLocateSpace(actionSpaceWithoutSubactionPath, localSpace,
+                                             actionLayerManager.GetRenderLoop().GetLastPredictedDisplayTime(), &currentRelation),
                                XR_SUCCESS);
                 REQUIRE(0 != currentRelation.locationFlags);
                 REQUIRE_RESULT(xrLocateSpace(leftSpace, localSpace, actionLayerManager.GetRenderLoop().GetLastPredictedDisplayTime(),
@@ -3185,8 +3235,8 @@ namespace Conformance
                                    XR_ERROR_HANDLE_INVALID);
                 }
 
-                REQUIRE_RESULT(xrLocateSpace(actionSpace, localSpace, actionLayerManager.GetRenderLoop().GetLastPredictedDisplayTime(),
-                                             &currentRelation),
+                REQUIRE_RESULT(xrLocateSpace(actionSpaceWithoutSubactionPath, localSpace,
+                                             actionLayerManager.GetRenderLoop().GetLastPredictedDisplayTime(), &currentRelation),
                                XR_SUCCESS);
                 REQUIRE(0 != currentRelation.locationFlags);
                 REQUIRE_RESULT(xrLocateSpace(leftSpace, localSpace, actionLayerManager.GetRenderLoop().GetLastPredictedDisplayTime(),
@@ -3207,8 +3257,8 @@ namespace Conformance
 
                 XrPath controllerSubactionPath = globalData.leftHandUnderTest ? leftHandPath : rightHandPath;
 
-                XrSpace controllerSpace = globalData.leftHandUnderTest ? leftSpace : rightSpace;
-                XrSpaceLocation controllerRelation{XR_TYPE_SPACE_LOCATION};
+                XrSpace actionSpaceWithSubactionPath = globalData.leftHandUnderTest ? leftSpace : rightSpace;
+                XrSpaceLocation relationWithSubactionPath{XR_TYPE_SPACE_LOCATION};
 
                 // This will wait until it is inactive, which implies not locatable
                 {
@@ -3219,10 +3269,10 @@ namespace Conformance
                 actionLayerManager.DisplayMessage("Place controller somewhere static but trackable");
                 actionLayerManager.Sleep_For(5s);
 
-                // Tries to locate the controller space, anad returns the location flags.
+                // Tries to locate the controller space, and returns the location flags.
                 auto checkTrackingFlags = [&]() -> XrSpaceLocationFlags {
                     XrSpaceLocation location{XR_TYPE_SPACE_LOCATION, nullptr, 0, XrPosefCPP{}};
-                    REQUIRE_RESULT(xrLocateSpace(controllerSpace, localSpace,
+                    REQUIRE_RESULT(xrLocateSpace(actionSpaceWithSubactionPath, localSpace,
                                                  actionLayerManager.GetRenderLoop().GetLastPredictedDisplayTime(), &location),
                                    XR_SUCCESS);
                     return location.locationFlags;
@@ -3253,6 +3303,7 @@ namespace Conformance
                     INFO("Make sure that a re-connected device that was inactive doesn't become active or locatable without xrSyncActions");
                     WaitUntilPredicateWithTimeout(
                         [&] {
+                            CAPTURE(XrSpaceLocationFlagsCPP(checkTrackingFlags()));
                             REQUIRE((checkTrackingFlags() & XR_SPACE_LOCATION_ORIENTATION_VALID_BIT) == 0);
 
                             REQUIRE(getActionStatePoseActive() == false);
@@ -3264,7 +3315,7 @@ namespace Conformance
 
                 // OK, now we can call xrSyncActions - should be active immediately once we do so.
                 {
-                    INFO("Confirming the pose state still inactive")
+                    INFO("Confirming the pose state still inactive");
                     CAPTURE(getActionStatePoseActive());
                     actionLayerManager.SyncActionsUntilFocusWithMessage(syncInfo);
                     INFO("Have now done xrSyncActions, would expect trackable, on controller to be active in this case");
@@ -3280,24 +3331,29 @@ namespace Conformance
                 // wait to gain
                 {
                     INFO("Controller should be on and trackable");
-                    REQUIRE(actionLayerManager.WaitForLocatability("only", controllerSpace, localSpace, &controllerRelation, true));
+                    REQUIRE(actionLayerManager.WaitForLocatability("only", actionSpaceWithSubactionPath, localSpace,
+                                                                   &relationWithSubactionPath, true));
                 }
 
                 // Try locating - verify that our action space that is not filtered by subaction path
                 // has picked up the active controller
                 XrSpaceVelocity currentVelocity{XR_TYPE_SPACE_VELOCITY};
-                XrSpaceLocation currentRelation{XR_TYPE_SPACE_LOCATION, &currentVelocity};
+                XrSpaceLocation relationWithoutSubactionPath{XR_TYPE_SPACE_LOCATION, &currentVelocity};
                 XrTime locateTime =
                     actionLayerManager.GetRenderLoop().GetLastPredictedDisplayTime();  // Ensure using the same time for the pose checks.
                 {
-                    INFO("Making sure our space with no subaction path filter has found our active controller")
-                    REQUIRE_RESULT(xrLocateSpace(actionSpace, localSpace, locateTime, &currentRelation), XR_SUCCESS);
-                    REQUIRE_RESULT(xrLocateSpace(controllerSpace, localSpace, locateTime, &controllerRelation), XR_SUCCESS);
-                    REQUIRE(currentRelation.locationFlags != 0);
-                    REQUIRE(controllerRelation.locationFlags != 0);
-                    CAPTURE(currentRelation.pose);
-                    CAPTURE(controllerRelation.pose);
-                    REQUIRE(PosesAreEqual(currentRelation.pose, controllerRelation.pose));
+                    INFO("Making sure our space with no subaction path filter has found our active controller");
+                    REQUIRE_RESULT(xrLocateSpace(actionSpaceWithSubactionPath, localSpace, locateTime, &relationWithSubactionPath),
+                                   XR_SUCCESS);
+                    REQUIRE(relationWithSubactionPath.locationFlags != 0);
+                    CAPTURE(relationWithSubactionPath.pose);
+
+                    REQUIRE_RESULT(xrLocateSpace(actionSpaceWithoutSubactionPath, localSpace, locateTime, &relationWithoutSubactionPath),
+                                   XR_SUCCESS);
+                    REQUIRE(relationWithoutSubactionPath.locationFlags != 0);
+                    CAPTURE(relationWithoutSubactionPath.pose);
+
+                    REQUIRE(PosesAreEqual(relationWithoutSubactionPath.pose, relationWithSubactionPath.pose));
                 }
 
                 {
@@ -3308,9 +3364,10 @@ namespace Conformance
                     INFO(
                         "Turn off controller and wait until orientation is no longer valid, without calling xrSyncActions so runtime cannot change bindings");
                     availableInputDevice->SetDeviceActiveWithoutWaiting(false);
-                    availableInputDevice->Wait(
-                        false, IInputTestDevice::WaitUntilLosesOrGainsOrientationValidity{
-                                   controllerSpace, localSpace, actionLayerManager.GetRenderLoop().GetLastPredictedDisplayTime()});
+                    auto lastUsed = availableInputDevice->Wait(
+                        false,
+                        IInputTestDevice::WaitUntilLosesOrGainsOrientationValidity{
+                            actionSpaceWithSubactionPath, localSpace, actionLayerManager.GetRenderLoop().GetLastPredictedDisplayTime()});
                     {
                         INFO("Pose action state must still say 'active' because we didn't yet xrSyncActions");
                         REQUIRE(getActionStatePoseActive());
@@ -3319,9 +3376,10 @@ namespace Conformance
                     {
                         INFO(
                             "Locating action space created with subaction path (for 'off' controller) must have neither orientation nor position tracked.");
-                        REQUIRE_RESULT(xrLocateSpace(actionSpace, localSpace, locateTime, &currentRelation), XR_SUCCESS);
-                        CAPTURE(currentRelation.locationFlags);
-                        REQUIRE((currentRelation.locationFlags &
+                        REQUIRE_RESULT(xrLocateSpace(actionSpaceWithoutSubactionPath, localSpace, lastUsed, &relationWithoutSubactionPath),
+                                       XR_SUCCESS);
+                        CAPTURE(relationWithoutSubactionPath.locationFlags);
+                        REQUIRE((relationWithoutSubactionPath.locationFlags &
                                  (XR_SPACE_LOCATION_POSITION_TRACKED_BIT | XR_SPACE_LOCATION_ORIENTATION_TRACKED_BIT)) == 0);
                     }
 
@@ -3330,16 +3388,17 @@ namespace Conformance
                             "Locating action space created without subaction path, but known to be bound to the same "
                             "(off) controller, must also have neither orientation nor position tracked: "
                             "Runtime not allowed to change binding without xrSyncActions call");
-                        REQUIRE_RESULT(xrLocateSpace(controllerSpace, localSpace, locateTime, &controllerRelation), XR_SUCCESS);
-                        CAPTURE(controllerRelation.locationFlags);
-                        REQUIRE((controllerRelation.locationFlags &
+                        REQUIRE_RESULT(xrLocateSpace(actionSpaceWithSubactionPath, localSpace, lastUsed, &relationWithSubactionPath),
+                                       XR_SUCCESS);
+                        CAPTURE(relationWithSubactionPath.locationFlags);
+                        REQUIRE((relationWithSubactionPath.locationFlags &
                                  (XR_SPACE_LOCATION_POSITION_TRACKED_BIT | XR_SPACE_LOCATION_ORIENTATION_TRACKED_BIT)) == 0);
                     }
 
                     // now run xrSyncActions
                     availableInputDevice->Wait(false, IInputTestDevice::WaitUntilBoolActionIsActiveUpdated{});
 
-                    INFO("After xrSyncActions, both spaces must still be not locatable, and the action must now report being inactive.")
+                    INFO("After xrSyncActions, both spaces must still be not locatable, and the action must now report being inactive.");
                     REQUIRE_FALSE(getActionStatePoseActive());
                     {
                         INFO("xrGetActionStatePose with subactionPath populated: must be inactive");
@@ -3370,17 +3429,29 @@ namespace Conformance
                         "should still be in a trackable location");
                     availableInputDevice->SetDeviceActive(true);
                     actionLayerManager.SyncActionsUntilFocusWithMessage(syncInfo);
-                    REQUIRE(actionLayerManager.WaitForLocatability("only", controllerSpace, localSpace, &controllerRelation, true));
+                    REQUIRE(actionLayerManager.WaitForLocatability("only", actionSpaceWithSubactionPath, localSpace,
+                                                                   &relationWithSubactionPath, true));
+
+                    INFO("Verify that the space without a subaction path has also gotten this device");
+                    REQUIRE_RESULT_UNQUALIFIED_SUCCESS(xrLocateSpace(actionSpaceWithoutSubactionPath, localSpace,
+                                                                     actionLayerManager.GetRenderLoop().GetLastPredictedDisplayTime(),
+                                                                     &relationWithoutSubactionPath));
+                    REQUIRE(0 != relationWithoutSubactionPath.locationFlags);
                 }
 
                 {
                     INFO("The action space must remain locatable despite destruction of the action");
                     REQUIRE_RESULT(xrDestroyAction(poseAction), XR_SUCCESS);
 
-                    REQUIRE_RESULT(xrLocateSpace(actionSpace, localSpace, actionLayerManager.GetRenderLoop().GetLastPredictedDisplayTime(),
-                                                 &currentRelation),
-                                   XR_SUCCESS);
-                    REQUIRE(0 != currentRelation.locationFlags);
+                    REQUIRE_RESULT_UNQUALIFIED_SUCCESS(xrLocateSpace(actionSpaceWithSubactionPath, localSpace,
+                                                                     actionLayerManager.GetRenderLoop().GetLastPredictedDisplayTime(),
+                                                                     &relationWithSubactionPath));
+                    REQUIRE(0 != relationWithSubactionPath.locationFlags);
+
+                    REQUIRE_RESULT_UNQUALIFIED_SUCCESS(xrLocateSpace(actionSpaceWithoutSubactionPath, localSpace,
+                                                                     actionLayerManager.GetRenderLoop().GetLastPredictedDisplayTime(),
+                                                                     &relationWithoutSubactionPath));
+                    REQUIRE(0 != relationWithoutSubactionPath.locationFlags);
 
                     actionLayerManager.SyncActionsUntilFocusWithMessage(syncInfo);
 
@@ -3398,7 +3469,7 @@ namespace Conformance
         }
     }
 
-    TEST_CASE("xrEnumerateBoundSourcesForAction and xrGetInputSourceLocalizedName", "[actions][interactive]")
+    TEST_CASE("xrEnumerateBoundSourcesForAction_and_xrGetInputSourceLocalizedName", "[actions][interactive]")
     {
         CompositionHelper compositionHelper("BoundSources and LocalizedName");
 
@@ -3428,7 +3499,7 @@ namespace Conformance
             &actionLayerManager, &compositionHelper.GetInteractionManager(), compositionHelper.GetInstance(),
             compositionHelper.GetSession(),
             StringToPath(compositionHelper.GetInstance(), cSimpleKHRInteractionProfileDefinition.InteractionProfilePathString.c_str()),
-            path, cSimpleKHRInteractionProfileDefinition.WhitelistData);
+            path, cSimpleKHRInteractionProfileDefinition.InputSourcePaths);
 
         compositionHelper.GetInteractionManager().AddActionSet(actionSet);
         compositionHelper.GetInteractionManager().AddActionBindings(

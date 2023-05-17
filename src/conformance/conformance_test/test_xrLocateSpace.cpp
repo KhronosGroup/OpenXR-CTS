@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2022, The Khronos Group Inc.
+// Copyright (c) 2019-2023, The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -16,9 +16,10 @@
 
 #include "conformance_utils.h"
 #include "conformance_framework.h"
+#include "bitmask_to_string.h"
 #include "two_call.h"
 #include <cmath>
-#include <catch2/catch.hpp>
+#include <catch2/catch_test_macros.hpp>
 #include <openxr/openxr.h>
 
 namespace Conformance
@@ -46,6 +47,7 @@ namespace Conformance
 
         // compare the calculated pose with the expected pose
         auto ValidateSpaceLocation = [](XrSpaceLocation& spaceLocation, XrPosef& expectedPose) -> void {
+            CAPTURE(XrSpaceLocationFlagsCPP(spaceLocation.locationFlags));
             CHECK((spaceLocation.locationFlags & XR_SPACE_LOCATION_POSITION_VALID_BIT) != 0);
             CHECK((spaceLocation.locationFlags & XR_SPACE_LOCATION_ORIENTATION_VALID_BIT) != 0);
 

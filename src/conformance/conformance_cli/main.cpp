@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2022, The Khronos Group Inc.
+// Copyright (c) 2019-2023, The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 
@@ -24,19 +24,19 @@ namespace
 {
     XRAPI_ATTR void XRAPI_CALL OnTestMessage(MessageType type, const char* message)
     {
-        constexpr const char* ResetColorAndNewLine = "\033[0m\n";
+        constexpr const char* ResetColor = "\033[0m";
         switch (type) {
         case MessageType_Stdout:
-            std::cout << message << std::endl;
+            std::cout << message;
             break;
         case MessageType_Stderr:
-            std::cerr << message << std::endl;
+            std::cerr << message;
             break;
         case MessageType_AssertionFailed:
-            std::cout << /* Red */ "\033[1;31m" << message << ResetColorAndNewLine;
+            std::cout << /* Red */ "\033[1;31m" << message << ResetColor;
             break;
         case MessageType_TestSectionStarting:
-            std::cout << /* White */ "\033[1;37m" << message << ResetColorAndNewLine;
+            std::cout << /* White */ "\033[1;37m" << message << ResetColor;
             break;
         }
     }
@@ -67,6 +67,8 @@ int main(int argc, const char** argv)
     if (result != XRC_SUCCESS) {
         return 2;  // Tests failed to run.
     }
+
+    xrcCleanup();
 
     return failureCount == 0 ? 0 : 1;
 }

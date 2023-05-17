@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2022, The Khronos Group Inc.
+// Copyright (c) 2019-2023, The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -17,7 +17,7 @@
 #include "conformance_utils.h"
 #include "conformance_framework.h"
 #include "matchers.h"
-#include <catch2/catch.hpp>
+#include <catch2/catch_test_macros.hpp>
 #include <openxr/openxr.h>
 
 #define AS_LIST(name, val) {name, #name},
@@ -86,18 +86,25 @@ namespace Conformance
                       XR_ERROR_HANDLE_INVALID);
             }
 
+            SECTION("Exercise 0 as an invalid time")
             {
-                INFO("Exercise 0 as an invalid time.");
                 locateInfo.displayTime = 0;
                 CAPTURE(locateInfo.displayTime);
                 CHECK(XR_ERROR_TIME_INVALID == xrLocateViews(session, &locateInfo, &viewState, viewCount, &viewCountOut, views.data()));
             }
 
+            SECTION("Exercise negative values as an invalid time")
             {
-                INFO("Exercise negative values as an invalid time.");
                 locateInfo.displayTime = (XrTime)-42;
                 CAPTURE(locateInfo.displayTime);
                 CHECK(XR_ERROR_TIME_INVALID == xrLocateViews(session, &locateInfo, &viewState, viewCount, &viewCountOut, views.data()));
+            }
+
+            SECTION("Bad struct type")
+            {
+                std::vector<XrView> invalidViews(viewCount, {XR_TYPE_UNKNOWN});
+                REQUIRE(xrLocateViews(session, &locateInfo, &viewState, viewCount, &viewCountOut, invalidViews.data()) ==
+                        XR_ERROR_VALIDATION_FAILURE);
             }
         }
         SECTION("all known view types")
@@ -127,7 +134,7 @@ namespace Conformance
                 CAPTURE(isSupportedType);
 
                 if (!valid) {
-                    INFO("Not a valid view configuration type given the enabled extensions")
+                    INFO("Not a valid view configuration type given the enabled extensions");
                     CHECK_MSG(!isSupportedType, "Cannot support invalid view configuration type");
                 }
 

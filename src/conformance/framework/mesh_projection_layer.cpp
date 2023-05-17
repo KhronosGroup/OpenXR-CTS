@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2022, The Khronos Group Inc.
+// Copyright (c) 2019-2023, The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -15,10 +15,15 @@
 // limitations under the License.
 
 #include "mesh_projection_layer.h"
+#include "composition_utils.h"
+#include "graphics_plugin.h"
+
+#include <vector>
 
 namespace
 {
-    using Conformance::span;
+    using namespace Conformance;
+
     class MeshViewRenderer : public BaseProjectionLayerHelper::ViewRenderer
     {
     public:
@@ -29,14 +34,14 @@ namespace
         ~MeshViewRenderer() override = default;
         void RenderView(const BaseProjectionLayerHelper& /* projectionLayerHelper */, uint32_t viewIndex,
                         const XrViewState& /* viewState */, const XrView& view, XrCompositionLayerProjectionView& projectionView,
-                        const XrSwapchainImageBaseHeader* swapchainImage, uint64_t format) override
+                        const XrSwapchainImageBaseHeader* swapchainImage) override
         {
             // Clear to customized background color
-            GetGlobalData().graphicsPlugin->ClearImageSlice(swapchainImage, 0, format, m_bgColors[viewIndex]);
+            GetGlobalData().graphicsPlugin->ClearImageSlice(swapchainImage, 0, m_bgColors[viewIndex]);
 
             // Draw the mesh
             auto meshHandles = {MeshDrawable(m_meshes[viewIndex], view.pose, {1.0, 1.0, 1.0})};
-            GetGlobalData().graphicsPlugin->RenderView(projectionView, swapchainImage, format, RenderParams{}.Draw(meshHandles));
+            GetGlobalData().graphicsPlugin->RenderView(projectionView, swapchainImage, RenderParams{}.Draw(meshHandles));
         }
 
     private:

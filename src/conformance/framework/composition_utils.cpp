@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2022, The Khronos Group Inc.
+// Copyright (c) 2019-2023, The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -15,17 +15,20 @@
 // limitations under the License.
 
 #include "composition_utils.h"
+#include "swapchain_image_data.h"
+#include "types_and_constants.h"
 #include "utils.h"
 #include "report.h"
 #include "conformance_framework.h"
 #include "throw_helpers.h"
+#include <algorithm>
 #include <fstream>
 #include <array>
 #include <string>
 #include <cstring>
 #include <thread>
 #include <condition_variable>
-#include <catch2/catch.hpp>
+#include <catch2/catch_test_macros.hpp>
 #include <xr_linear.h>
 
 using namespace std::chrono_literals;
@@ -146,7 +149,9 @@ namespace Conformance
     {
         m_primaryViewType = GetGlobalData().GetOptions().viewConfigurationValue;
 
-        XRC_CHECK_THROW_XRCMD(CreateBasicInstance(m_instance.resetAndGetAddress(), true, additionalEnabledExtensions));
+        XrInstance instanceRaw{XR_NULL_HANDLE_CPP};
+        XRC_CHECK_THROW_XRCMD(CreateBasicInstance(&instanceRaw, true, additionalEnabledExtensions));
+        m_instance.adopt(instanceRaw);
 
         m_eventQueue = std::unique_ptr<EventQueue>(new EventQueue(m_instance.get()));
         m_privateEventReader = std::unique_ptr<EventReader>(new EventReader(*m_eventQueue));
@@ -223,6 +228,11 @@ namespace Conformance
         return m_instance.get();
     }
 
+    XrSystemId CompositionHelper::GetSystemId() const
+    {
+        return m_systemId;
+    }
+
     XrSession CompositionHelper::GetSession() const
     {
         return m_session;
@@ -272,7 +282,7 @@ namespace Conformance
         XRC_CHECK_THROW_XRCMD(xrBeginSession(m_session, &beginInfo));
     }
 
-    std::tuple<XrViewState, std::vector<XrView>> CompositionHelper::LocateViews(XrSpace space, int64_t displayTime)
+    std::tuple<XrViewState, std::vector<XrView>> CompositionHelper::LocateViews(XrSpace space, XrTime displayTime)
     {
         XrViewLocateInfo viewLocateInfo{XR_TYPE_VIEW_LOCATE_INFO};
         viewLocateInfo.displayTime = displayTime;
@@ -324,25 +334,26 @@ namespace Conformance
     }
 
     void CompositionHelper::AcquireWaitReleaseImage(XrSwapchain swapchain,
-                                                    std::function<void(const XrSwapchainImageBaseHeader*, int64_t)> doUpdate)
+                                                    const std::function<void(const XrSwapchainImageBaseHeader*)>& doUpdate)
     {
-        uint32_t imageIndex;
+        uint32_t colorImageIndex;
         XrSwapchainImageAcquireInfo acquireInfo{XR_TYPE_SWAPCHAIN_IMAGE_ACQUIRE_INFO};
-        XRC_CHECK_THROW_XRCMD(xrAcquireSwapchainImage(swapchain, &acquireInfo, &imageIndex));
+        XRC_CHECK_THROW_XRCMD(xrAcquireSwapchainImage(swapchain, &acquireInfo, &colorImageIndex));
 
         XrSwapchainImageWaitInfo waitInfo{XR_TYPE_SWAPCHAIN_IMAGE_WAIT_INFO};
         waitInfo.timeout = 500_xrMilliseconds;  // Call can block waiting for image to become available for writing.
         XRC_CHECK_THROW_XRCMD(xrWaitSwapchainImage(swapchain, &waitInfo));
+        m_swapchainImages[swapchain]->AcquireAndWaitDepthSwapchainImage(colorImageIndex);
 
         std::unique_lock<std::mutex> lock(m_mutex);
-        const XrSwapchainImageBaseHeader* image = m_swapchainImages[swapchain]->imagePtrVector[imageIndex];
-        const uint64_t format = m_createdSwapchains[swapchain].format;
+        const XrSwapchainImageBaseHeader* image = m_swapchainImages[swapchain]->GetGenericColorImage(colorImageIndex);
         lock.unlock();
 
-        doUpdate(image, format);
+        doUpdate(image);
 
         XrSwapchainImageReleaseInfo releaseInfo{XR_TYPE_SWAPCHAIN_IMAGE_RELEASE_INFO};
         XRC_CHECK_THROW_XRCMD(xrReleaseSwapchainImage(swapchain, &releaseInfo));
+        m_swapchainImages[swapchain]->ReleaseDepthSwapchainImage();
     }
 
     XrSpace CompositionHelper::CreateReferenceSpace(XrReferenceSpaceType type, XrPosef pose /*= XrPosefCPP()*/)
@@ -397,9 +408,8 @@ namespace Conformance
         uint32_t imageCount;
         XRC_CHECK_THROW_XRCMD(xrEnumerateSwapchainImages(swapchain, 0, &imageCount, nullptr));
 
-        std::shared_ptr<Conformance::IGraphicsPlugin::SwapchainImageStructs> swapchainImages =
-            GetGlobalData().graphicsPlugin->AllocateSwapchainImageStructs(imageCount, createInfo);
-        XRC_CHECK_THROW_XRCMD(xrEnumerateSwapchainImages(swapchain, imageCount, &imageCount, swapchainImages->imagePtrVector[0]));
+        ISwapchainImageData* swapchainImages = GetGlobalData().graphicsPlugin->AllocateSwapchainImageData(imageCount, createInfo);
+        XRC_CHECK_THROW_XRCMD(xrEnumerateSwapchainImages(swapchain, imageCount, &imageCount, swapchainImages->GetColorImageArray()));
         m_swapchainImages[swapchain] = swapchainImages;
 
         return swapchain;
@@ -407,6 +417,9 @@ namespace Conformance
 
     void CompositionHelper::DestroySwapchain(XrSwapchain swapchain)
     {
+        // Drop all associated resources.
+        m_swapchainImages[swapchain]->Reset();
+
         XRC_CHECK_THROW_XRCMD(xrDestroySwapchain(swapchain));
 
         std::lock_guard<std::mutex> lock(m_mutex);
@@ -433,14 +446,14 @@ namespace Conformance
         const int64_t format = GetGlobalData().graphicsPlugin->GetSRGBA8Format();
         auto swapchainCreateInfo =
             DefaultColorSwapchainCreateInfo(rgbaImage.width, rgbaImage.height, XR_SWAPCHAIN_CREATE_STATIC_IMAGE_BIT, format);
-
+        swapchainCreateInfo.usageFlags |= XR_SWAPCHAIN_USAGE_TRANSFER_DST_BIT;
         const XrSwapchain swapchain = CreateSwapchain(swapchainCreateInfo);
 
         RGBAImage srgbImage = rgbaImage;
         if (!rgbaImage.isSrgb)
             srgbImage.ConvertToSRGB();
-        AcquireWaitReleaseImage(swapchain, [&](const XrSwapchainImageBaseHeader* swapchainImage, uint64_t format) {
-            GetGlobalData().graphicsPlugin->CopyRGBAImage(swapchainImage, format, 0, srgbImage);
+        AcquireWaitReleaseImage(swapchain, [&](const XrSwapchainImageBaseHeader* swapchainImage) {
+            GetGlobalData().graphicsPlugin->CopyRGBAImage(swapchainImage, 0, srgbImage);
         });
 
         return swapchain;
@@ -527,22 +540,19 @@ namespace Conformance
 
             // Render into each view swapchain using the recommended view fov and pose.
             for (uint32_t viewIndex = 0; viewIndex < GetViewCount(); viewIndex++) {
-                m_compositionHelper.AcquireWaitReleaseImage(
-                    m_swapchains[viewIndex], [&](const XrSwapchainImageBaseHeader* swapchainImage, uint64_t format) {
-                        auto& projectionView = const_cast<XrCompositionLayerProjectionView&>(m_projLayer->views[viewIndex]);
-                        auto& view = views[viewIndex];
-                        projectionView.fov = view.fov;
-                        projectionView.pose = view.pose;
-                        renderer.RenderView(*this, viewIndex, viewState, view, projectionView, swapchainImage, format);
-                    });
+                m_compositionHelper.AcquireWaitReleaseImage(m_swapchains[viewIndex], [&](const XrSwapchainImageBaseHeader* swapchainImage) {
+                    auto& projectionView = const_cast<XrCompositionLayerProjectionView&>(m_projLayer->views[viewIndex]);
+                    auto& view = views[viewIndex];
+                    projectionView.fov = view.fov;
+                    projectionView.pose = view.pose;
+                    renderer.RenderView(*this, viewIndex, viewState, view, projectionView, swapchainImage);
+                });
             }
 
             return reinterpret_cast<XrCompositionLayerBaseHeader*>(m_projLayer);
         }
-        else {
-            // Cannot use the projection layer because the swapchains it uses may not have ever been acquired and released.
-            return nullptr;
-        }
+        // Cannot use the projection layer because the swapchains it uses may not have ever been acquired and released.
+        return nullptr;
     }
 
 }  // namespace Conformance

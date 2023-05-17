@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2022, The Khronos Group Inc.
+// Copyright (c) 2019-2023, The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -23,7 +23,7 @@
 #include <set>
 #include <string>
 #include <cstring>
-#include <catch2/catch.hpp>
+#include <catch2/catch_test_macros.hpp>
 #include <openxr/openxr.h>
 
 #ifdef XR_USE_GRAPHICS_API_VULKAN
@@ -35,15 +35,12 @@ namespace Conformance
     TEST_CASE("XR_KHR_vulkan_enable2", "")
     {
         GlobalData& globalData = GetGlobalData();
-        if (!globalData.IsInstanceExtensionEnabled("XR_KHR_vulkan_enable2")) {
-            return;
+        if (!globalData.IsInstanceExtensionEnabled(XR_KHR_VULKAN_ENABLE2_EXTENSION_NAME)) {
+            SKIP(XR_KHR_VULKAN_ENABLE2_EXTENSION_NAME " not enabled");
         }
 
-        AutoBasicInstance instance;
-
-        XrSystemGetInfo systemGetInfo{XR_TYPE_SYSTEM_GET_INFO, nullptr, globalData.options.formFactorValue};
-        XrSystemId systemId = XR_NULL_SYSTEM_ID;
-        REQUIRE_RESULT_UNQUALIFIED_SUCCESS(xrGetSystem(instance, &systemGetInfo, &systemId));
+        AutoBasicInstance instance{AutoBasicInstance::createSystemId};
+        XrSystemId systemId = instance.systemId;
 
         // Create the graphics plugin we'll need to exercise session create functionality below.
         std::shared_ptr<IGraphicsPlugin> graphicsPlugin;

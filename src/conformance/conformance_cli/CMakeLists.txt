@@ -1,4 +1,4 @@
-# Copyright (c) 2020-2022, The Khronos Group Inc.
+# Copyright (c) 2020-2023, The Khronos Group Inc.
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -62,3 +62,6 @@ install(
 if(MSVC)
     install(FILES $<TARGET_PDB_FILE:conformance_cli> DESTINATION conformance OPTIONAL)
 endif()
+
+# Install the README
+install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/../conformance_test/readme.md DESTINATION conformance)

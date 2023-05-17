@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2022, The Khronos Group Inc.
+// Copyright (c) 2019-2023, The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -17,7 +17,7 @@
 #include "utils.h"
 #include "conformance_utils.h"
 #include "conformance_framework.h"
-#include <catch2/catch.hpp>
+#include <catch2/catch_test_macros.hpp>
 #include <openxr/openxr.h>
 
 // Include all dependencies of openxr_platform as configured
@@ -34,11 +34,11 @@ namespace Conformance
     TEST_CASE("XR_KHR_win32_convert_performance_counter_time", "")
     {
         GlobalData& globalData = GetGlobalData();
-        if (!globalData.IsInstanceExtensionSupported("XR_KHR_win32_convert_performance_counter_time")) {
-            return;
+        if (!globalData.IsInstanceExtensionSupported(XR_KHR_WIN32_CONVERT_PERFORMANCE_COUNTER_TIME_EXTENSION_NAME)) {
+            SKIP(XR_KHR_WIN32_CONVERT_PERFORMANCE_COUNTER_TIME_EXTENSION_NAME " not supported");
         }
 
-        AutoBasicInstance instance({"XR_KHR_win32_convert_performance_counter_time"});
+        AutoBasicInstance instance({XR_KHR_WIN32_CONVERT_PERFORMANCE_COUNTER_TIME_EXTENSION_NAME});
 
         auto xrConvertWin32PerformanceCounterToTimeKHR = GetInstanceExtensionFunction<PFN_xrConvertWin32PerformanceCounterToTimeKHR>(
             instance, "xrConvertWin32PerformanceCounterToTimeKHR");
@@ -92,6 +92,15 @@ namespace Conformance
             CHECK(xrConvertTimeToWin32PerformanceCounterKHR(instance, XrTime(0), &li1) == XR_ERROR_TIME_INVALID);
 
             CHECK(xrConvertTimeToWin32PerformanceCounterKHR(instance, XrTime(-1), &li1) == XR_ERROR_TIME_INVALID);
+        }
+
+        SECTION("Invalid performance counter")
+        {
+            XrTime time1;
+            LARGE_INTEGER li1;
+
+            li1.QuadPart = -1;
+            CHECK(xrConvertWin32PerformanceCounterToTimeKHR(instance, &li1, &time1) == XR_ERROR_TIME_INVALID);
         }
 
         SECTION("Matches frame timing")

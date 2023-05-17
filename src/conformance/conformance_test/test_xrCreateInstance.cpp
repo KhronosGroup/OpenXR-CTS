@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2022, The Khronos Group Inc.
+// Copyright (c) 2019-2023, The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -14,6 +14,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "catch2/catch_message.hpp"
 #include "utils.h"
 #include "conformance_utils.h"
 #include "conformance_framework.h"
@@ -22,7 +23,7 @@
 #include <set>
 #include <string>
 #include <cstring>
-#include <catch2/catch.hpp>
+#include <catch2/catch_test_macros.hpp>
 #include <openxr/openxr.h>
 
 namespace Conformance
@@ -45,8 +46,8 @@ namespace Conformance
         // Leave engineName and engineVersion empty, which is valid usage.
         createInfo.applicationInfo.apiVersion = XR_CURRENT_API_VERSION;
 
-        if (globalData.requiredPlaformInstanceCreateStruct)
-            createInfo.next = globalData.requiredPlaformInstanceCreateStruct;
+        if (globalData.requiredPlatformInstanceCreateStruct)
+            createInfo.next = globalData.requiredPlatformInstanceCreateStruct;
 
         // Layers enabled at least for run-time conformance
         StringVec enabledApiLayers = globalData.enabledAPILayerNames;
@@ -192,13 +193,13 @@ namespace Conformance
             {
                 SECTION("Invalid createInfo.type")
                 {
-                    createInfo.type = XR_TYPE_SYSTEM_GET_INFO;  // wrong type on purpose!
+                    CAPTURE(createInfo.type = XR_TYPE_SYSTEM_GET_INFO);  // wrong type on purpose!
                     CHECK(xrCreateInstance(&createInfo, &instance) == XR_ERROR_VALIDATION_FAILURE);
                 }
 
                 SECTION("Invalid createInfo.createFlags")
                 {
-                    createInfo.createFlags = 0x42;
+                    CAPTURE(createInfo.createFlags = 0x42);
                     // "There are currently no instance creation flags. This is reserved for future use."
                     CHECK(xrCreateInstance(&createInfo, &instance) == XR_ERROR_VALIDATION_FAILURE);
                 }

@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2022, The Khronos Group Inc.
+// Copyright (c) 2019-2023, The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -14,6 +14,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "matchers.h"
 #include "utils.h"
 #include "conformance_utils.h"
 #include "conformance_framework.h"
@@ -27,7 +28,8 @@
 #include <set>
 #include <string>
 #include <cstring>
-#include <catch2/catch.hpp>
+#include <catch2/catch_test_macros.hpp>
+#include <catch2/generators/catch_generators.hpp>
 #include <openxr/openxr.h>
 
 namespace Conformance
@@ -69,6 +71,26 @@ namespace Conformance
         return 0;
     }
 
+    static bool HasVisibilityMask(XrSession session, PFN_xrGetVisibilityMaskKHR xrGetVisibilityMaskKHR_,
+                                  XrViewConfigurationType viewConfigurationType)
+    {
+
+        int num_empty = 0;
+        for (XrVisibilityMaskTypeKHR maskType :
+             {XR_VISIBILITY_MASK_TYPE_HIDDEN_TRIANGLE_MESH_KHR, XR_VISIBILITY_MASK_TYPE_VISIBLE_TRIANGLE_MESH_KHR,
+              XR_VISIBILITY_MASK_TYPE_LINE_LOOP_KHR}) {
+
+            XrVisibilityMaskKHR visibilityMask{XR_TYPE_VISIBILITY_MASK_KHR};
+            REQUIRE_RESULT_SUCCEEDED(xrGetVisibilityMaskKHR_(session, viewConfigurationType, 0, maskType, &visibilityMask));
+            if (visibilityMask.vertexCountOutput == 0) {
+                num_empty++;
+            }
+        }
+        INFO("Either all mask types return vertices, or none return vertices");
+        REQUIRE_THAT(num_empty, In<int>({0, 3}));
+        return num_empty == 0;
+    }
+
     TEST_CASE("XR_KHR_visibility_mask", "[XR_KHR_visibility_mask]")
     {
         // successcodes="XR_SUCCESS,XR_SESSION_LOSS_PENDING"
@@ -80,15 +102,15 @@ namespace Conformance
 
         GlobalData& globalData = GetGlobalData();
 
-        if (!globalData.IsInstanceExtensionSupported("XR_KHR_visibility_mask")) {
-            return;
+        if (!globalData.IsInstanceExtensionSupported(XR_KHR_VISIBILITY_MASK_EXTENSION_NAME)) {
+            SKIP(XR_KHR_VISIBILITY_MASK_EXTENSION_NAME " not supported");
         }
 
         if (!globalData.IsUsingGraphicsPlugin()) {
-            return;
+            SKIP("Test run not using graphics plugin");
         }
 
-        AutoBasicInstance instance({"XR_KHR_visibility_mask"});
+        AutoBasicInstance instance({XR_KHR_VISIBILITY_MASK_EXTENSION_NAME});
         AutoBasicSession session(AutoBasicSession::OptionFlags::createSession, instance);
 
         // Verify that we can acquire the function.
@@ -102,6 +124,15 @@ namespace Conformance
         // We need to exercise the two call idiom (call once to get required capacities).
 
         const XrViewConfigurationType viewConfigurationType = globalData.options.viewConfigurationValue;
+
+        // First, make sure that either all mask types get an output, or none of them do.
+        // SKip the rest of the test if there is no mask.
+        bool hasMask = HasVisibilityMask(session, xrGetVisibilityMaskKHR_, viewConfigurationType);
+        if (!hasMask) {
+            WARN("Could not evaluate conformance of two-call idiom behavior because no visibility mask available");
+            SKIP("No vertices returned, so no visibility mask available in this system.");
+        }
+
         uint32_t viewCount = viewCountForConfiguration(viewConfigurationType);
         const auto twoCallData = getTwoCallStructData<XrVisibilityMaskKHR>();
         XrVisibilityMaskTypeKHR maskType =
@@ -285,7 +316,7 @@ namespace Conformance
         return {mesh, bgColor};
     }
 
-    TEST_CASE("XR_KHR_visibility_mask_interactive", "[XR_KHR_visibility_mask][interactive][no_auto]")
+    TEST_CASE("XR_KHR_visibility_mask-interactive", "[XR_KHR_visibility_mask][interactive][no_auto]")
     {
         // successcodes="XR_SUCCESS,XR_SESSION_LOSS_PENDING"
         // errorcodes="XR_ERROR_HANDLE_INVALID,XR_ERROR_INSTANCE_LOST,XR_ERROR_RUNTIME_FAILURE,XR_ERROR_VALIDATION_FAILURE,
@@ -296,12 +327,12 @@ namespace Conformance
 
         GlobalData& globalData = GetGlobalData();
 
-        if (!globalData.IsInstanceExtensionSupported("XR_KHR_visibility_mask")) {
-            return;
+        if (!globalData.IsInstanceExtensionSupported(XR_KHR_VISIBILITY_MASK_EXTENSION_NAME)) {
+            SKIP(XR_KHR_VISIBILITY_MASK_EXTENSION_NAME " not supported");
         }
 
         if (!globalData.IsUsingGraphicsPlugin()) {
-            return;
+            SKIP("Test run not using graphics plugin");
         }
 
         CompositionHelper compositionHelper("Visibility Mask", {XR_KHR_VISIBILITY_MASK_EXTENSION_NAME});
@@ -329,6 +360,13 @@ namespace Conformance
         // We need to exercise the two call idiom (call once to get required capacities).
 
         const XrViewConfigurationType viewConfigurationType = globalData.options.viewConfigurationValue;
+
+        // First, make sure that either all mask types get an output, or none of them do.
+        // SKip the rest of the test if there is no mask.
+        bool hasMask = HasVisibilityMask(compositionHelper.GetSession(), xrGetVisibilityMaskKHR_, viewConfigurationType);
+        if (!hasMask) {
+            SKIP("No vertices returned, so no visibility mask available in this system.");
+        }
 
         std::vector<XrColor4f> bgColors{meshProjectionLayerHelper.GetViewCount(), DarkSlateGrey};
 

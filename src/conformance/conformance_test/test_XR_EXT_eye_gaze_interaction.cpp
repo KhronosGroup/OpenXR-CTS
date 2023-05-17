@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2022, The Khronos Group Inc.
+// Copyright (c) 2019-2023, The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -21,6 +21,7 @@
 #include "two_call.h"
 #include "utils.h"
 #include "xr_linear.h"
+#include <catch2/catch_test_macros.hpp>
 
 using namespace Conformance;
 
@@ -37,38 +38,21 @@ namespace Conformance
     static constexpr XrVector3f kVectorUp{0, 1, 0};
     static constexpr XrVector3f kVectorForward{0, 0, -1};
 
-    static bool SystemSupportsEyeGazeInteraction(XrInstance instance)
+    static bool SystemSupportsEyeGazeInteraction(XrInstance instance, XrSystemId systemId)
     {
-        GlobalData& globalData = GetGlobalData();
         XrSystemEyeGazeInteractionPropertiesEXT eyeGazeSystemProperties{XR_TYPE_SYSTEM_EYE_GAZE_INTERACTION_PROPERTIES_EXT};
         XrSystemProperties systemProperties{XR_TYPE_SYSTEM_PROPERTIES, &eyeGazeSystemProperties};
 
-        XrSystemGetInfo systemGetInfo{XR_TYPE_SYSTEM_GET_INFO};
-        systemGetInfo.formFactor = globalData.options.formFactorValue;
-
-        XrSystemId systemId = XR_NULL_SYSTEM_ID;
-        REQUIRE_RESULT(xrGetSystem(instance, &systemGetInfo, &systemId), XR_SUCCESS);
-        REQUIRE_RESULT(xrGetSystemProperties(instance, systemId, &systemProperties), XR_SUCCESS);
+        REQUIRE(xrGetSystemProperties(instance, systemId, &systemProperties) == XR_SUCCESS);
 
         return eyeGazeSystemProperties.supportsEyeGazeInteraction != XR_FALSE;
     }
-
-    static XrVector3f RotateVectorByQuaternion(const XrQuaternionf& look, const XrVector3f& pose)
-    {
-        XrMatrix4x4f m{};
-        XrMatrix4x4f_CreateFromQuaternion(&m, &look);
-
-        XrVector3f result{};
-        XrMatrix4x4f_TransformVector3f(&result, &m, &pose);
-
-        return result;
-    };
 
     TEST_CASE("XR_EXT_eye_gaze_interaction", "[XR_EXT_eye_gaze_interaction][interactive][no_auto]")
     {
         GlobalData& globalData = GetGlobalData();
         if (!globalData.IsInstanceExtensionSupported(XR_EXT_EYE_GAZE_INTERACTION_EXTENSION_NAME)) {
-            return;
+            SKIP(XR_EXT_EYE_GAZE_INTERACTION_EXTENSION_NAME " not supported");
         }
 
         SECTION("Extension not enabled")
@@ -78,20 +62,24 @@ namespace Conformance
                 // validate that the extension has not been force enabled...
                 // system should never set `supportsEyeGazeInteraction` to XR_TRUE unless
                 // the extension has been enabled.
-                if (!globalData.enabledInstanceExtensionNames.contains(XR_EXT_EYE_GAZE_INTERACTION_EXTENSION_NAME)) {
-                    AutoBasicInstance instance;
-                    REQUIRE(!SystemSupportsEyeGazeInteraction(instance));
+                if (!globalData.IsInstanceExtensionEnabled(XR_EXT_EYE_GAZE_INTERACTION_EXTENSION_NAME)) {
+                    AutoBasicInstance instance{AutoBasicInstance::createSystemId};
+                    XrSystemId systemId = instance.systemId;
+                    REQUIRE(!SystemSupportsEyeGazeInteraction(instance, systemId));
+                }
+                else {
+                    WARN(XR_EXT_EYE_GAZE_INTERACTION_EXTENSION_NAME " force-enabled, cannot test behavior when extension is disabled.");
                 }
             }
         }
 
         SECTION("Extension enabled")
         {
-            AutoBasicInstance instance({XR_EXT_EYE_GAZE_INTERACTION_EXTENSION_NAME});
-            if (!SystemSupportsEyeGazeInteraction(instance)) {
+            AutoBasicInstance instance({XR_EXT_EYE_GAZE_INTERACTION_EXTENSION_NAME}, AutoBasicInstance::createSystemId);
+            XrSystemId systemId = instance.systemId;
+            if (!SystemSupportsEyeGazeInteraction(instance, systemId)) {
                 // This runtime does support eye gaze, but this headset does not which is fine.
-                WARN("Device does not support eye gaze interaction");
-                return;
+                SKIP("System does not support eye gaze interaction");
             }
 
             SECTION("Create and destroy eye gaze actions")
@@ -223,10 +211,11 @@ namespace Conformance
             // Verify that eye gaze interaction input can be combined with other input sources.
             // Use Simple Controller profile as opposed to vendor-specific inputs for broader coverage.
 
-            AutoBasicInstance instance({XR_EXT_EYE_GAZE_INTERACTION_EXTENSION_NAME});
-            if (!SystemSupportsEyeGazeInteraction(instance)) {
+            AutoBasicInstance instance({XR_EXT_EYE_GAZE_INTERACTION_EXTENSION_NAME}, AutoBasicInstance::createSystemId);
+            XrSystemId systemId = instance.systemId;
+            if (!SystemSupportsEyeGazeInteraction(instance, systemId)) {
                 // This runtime does support eye gaze, but this headset does not which is fine.
-                WARN("Device does not support eye gaze interaction");
+                WARN("System does not support eye gaze interaction");
                 return;
             }
 
@@ -301,9 +290,9 @@ namespace Conformance
         {
             CompositionHelper compositionHelper("XR_EXT_eye_gaze_interaction localization", {XR_EXT_EYE_GAZE_INTERACTION_EXTENSION_NAME});
 
-            if (!SystemSupportsEyeGazeInteraction(compositionHelper.GetInstance())) {
+            if (!SystemSupportsEyeGazeInteraction(compositionHelper.GetInstance(), compositionHelper.GetSystemId())) {
                 // This runtime does support eye tracking, but this headset does not which is fine.
-                WARN("Device does not support eye gaze interaction");
+                WARN("System does not support eye gaze interaction");
                 return;
             }
 
@@ -389,21 +378,20 @@ namespace Conformance
         }
     }
 
-    TEST_CASE("XR_EXT_eye_gaze_interaction_interactive_gaze_only", "[XR_EXT_eye_gaze_interaction][scenario][interactive][no_auto]")
+    TEST_CASE("XR_EXT_eye_gaze_interaction-interactive_gaze_only", "[XR_EXT_eye_gaze_interaction][scenario][interactive][no_auto]")
     {
         GlobalData& globalData = GetGlobalData();
 
         if (!globalData.IsInstanceExtensionSupported(XR_EXT_EYE_GAZE_INTERACTION_EXTENSION_NAME)) {
-            return;
+            SKIP(XR_EXT_EYE_GAZE_INTERACTION_EXTENSION_NAME " not supported");
         }
 
         CompositionHelper compositionHelper("XR_EXT_eye_gaze_interaction interactive gaze only",
                                             {XR_EXT_EYE_GAZE_INTERACTION_EXTENSION_NAME});
 
-        if (!SystemSupportsEyeGazeInteraction(compositionHelper.GetInstance())) {
+        if (!SystemSupportsEyeGazeInteraction(compositionHelper.GetInstance(), compositionHelper.GetSystemId())) {
             // This runtime does support eye tracking, but this headset does not which is fine.
-            WARN("Device does not support eye gaze interaction");
-            return;
+            SKIP("System does not support eye gaze interaction");
         }
 
         // Actions
@@ -557,11 +545,14 @@ namespace Conformance
                         // That means, forward vector (0, 0, -1) rotated by the orientation of the gaze.
                         static constexpr XrVector3f rayEdgesScale{0.003f, 0.003f, 1.0f};
                         static constexpr float rayOffsetFromHead = 0.2f;  // 20cm from head
-                        const XrVector3f gazeDirection = RotateVectorByQuaternion(rayPose.orientation, kVectorForward);
+
+                        XrVector3f gazeDirection{};
+                        XrQuaternionf_RotateVector3f(&gazeDirection, &rayPose.orientation, &kVectorForward);
                         const float rayOffsetForward = rayEdgesScale.z / 2 + rayOffsetFromHead;
                         rayPose.position = XrVector3f{rayPose.position.x + (rayOffsetForward)*gazeDirection.x,
                                                       rayPose.position.y + (rayOffsetForward)*gazeDirection.y,
                                                       rayPose.position.z + (rayOffsetForward)*gazeDirection.z};
+
                         renderedCubes.push_back(Cube{rayPose, rayEdgesScale});
                     }
                 }
@@ -577,14 +568,13 @@ namespace Conformance
 
                     // Render into each view port of the wide swapchain using the projection layer view fov and pose.
                     for (size_t view = 0; view < views.size(); view++) {
-                        compositionHelper.AcquireWaitReleaseImage(
-                            swapchains[view], [&](const XrSwapchainImageBaseHeader* swapchainImage, uint64_t format) {
-                                GetGlobalData().graphicsPlugin->ClearImageSlice(swapchainImage, 0, format);
-                                const_cast<XrFovf&>(projLayer->views[view].fov) = views[view].fov;
-                                const_cast<XrPosef&>(projLayer->views[view].pose) = views[view].pose;
-                                GetGlobalData().graphicsPlugin->RenderView(projLayer->views[view], swapchainImage, format,
-                                                                           RenderParams().Draw(renderedCubes));
-                            });
+                        compositionHelper.AcquireWaitReleaseImage(swapchains[view], [&](const XrSwapchainImageBaseHeader* swapchainImage) {
+                            GetGlobalData().graphicsPlugin->ClearImageSlice(swapchainImage);
+                            const_cast<XrFovf&>(projLayer->views[view].fov) = views[view].fov;
+                            const_cast<XrPosef&>(projLayer->views[view].pose) = views[view].pose;
+                            GetGlobalData().graphicsPlugin->RenderView(projLayer->views[view], swapchainImage,
+                                                                       RenderParams().Draw(renderedCubes));
+                        });
                     }
 
                     layers.push_back({reinterpret_cast<XrCompositionLayerBaseHeader*>(projLayer)});

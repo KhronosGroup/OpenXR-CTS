@@ -23,7 +23,7 @@
 #include "conformance_framework.h"
 #include "throw_helpers.h"
 #include "composition_utils.h"
-#include <catch2/catch.hpp>
+#include <catch2/catch_test_macros.hpp>
 #include <openxr/openxr.h>
 #include <xr_linear.h>
 
@@ -40,8 +40,8 @@ namespace Conformance
     TEST_CASE("XR_EXT_palm_pose", "[scenario][interactive][no_auto]")
     {
         GlobalData& globalData = GetGlobalData();
-        if (!globalData.IsInstanceExtensionSupported("XR_EXT_palm_pose")) {
-            return;
+        if (!globalData.IsInstanceExtensionSupported(XR_EXT_PALM_POSE_EXTENSION_NAME)) {
+            SKIP(XR_EXT_PALM_POSE_EXTENSION_NAME " not supported");
         }
 
         const char* exampleImage = "palm_pose.png";
@@ -51,7 +51,7 @@ namespace Conformance
             "A hand in a pointing pose is rendered in the other hand using the palm action space. "
             "Press select to swap hands. Press menu to complete the validation.";
 
-        CompositionHelper compositionHelper("XR_EXT_palm_pose", {"XR_EXT_palm_pose"});
+        CompositionHelper compositionHelper(XR_EXT_PALM_POSE_EXTENSION_NAME, {XR_EXT_PALM_POSE_EXTENSION_NAME});
 
         const XrSpace localSpace = compositionHelper.CreateReferenceSpace(XR_REFERENCE_SPACE_TYPE_LOCAL, XrPosefCPP{});
 
@@ -375,15 +375,15 @@ namespace Conformance
 
                 // Render into each view port of the wide swapchain using the projection layer view fov and pose.
                 for (size_t view = 0; view < views.size(); view++) {
-                    compositionHelper.AcquireWaitReleaseImage(
-                        swapchains[view],  //
-                        [&](const XrSwapchainImageBaseHeader* swapchainImage, uint64_t format) {
-                            GetGlobalData().graphicsPlugin->ClearImageSlice(swapchainImage, 0, format);
-                            const_cast<XrFovf&>(projLayer->views[view].fov) = views[view].fov;
-                            const_cast<XrPosef&>(projLayer->views[view].pose) = views[view].pose;
-                            GetGlobalData().graphicsPlugin->RenderView(projLayer->views[view], swapchainImage, format,
-                                                                       RenderParams().Draw(renderedCubes));
-                        });
+                    compositionHelper.AcquireWaitReleaseImage(swapchains[view],  //
+                                                              [&](const XrSwapchainImageBaseHeader* swapchainImage) {
+                                                                  GetGlobalData().graphicsPlugin->ClearImageSlice(swapchainImage);
+                                                                  const_cast<XrFovf&>(projLayer->views[view].fov) = views[view].fov;
+                                                                  const_cast<XrPosef&>(projLayer->views[view].pose) = views[view].pose;
+                                                                  GetGlobalData().graphicsPlugin->RenderView(
+                                                                      projLayer->views[view], swapchainImage,
+                                                                      RenderParams().Draw(renderedCubes));
+                                                              });
                 }
 
                 layers.push_back({reinterpret_cast<XrCompositionLayerBaseHeader*>(projLayer)});

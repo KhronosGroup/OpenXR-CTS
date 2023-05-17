@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2022, The Khronos Group Inc.
+// Copyright (c) 2019-2023, The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -31,20 +31,17 @@ namespace Conformance
 
     extern std::function<void(const char*)> g_reportCallback;
 
-    /// Direct report function.
-    /// May include multiple lines separated by \n.
-    /// This function supplies the final newline.
-    void ReportStr(const char* str);
-
-    /// Formatted report function via va_list.
-    /// May include multiple lines separated by \n.
-    /// This function supplies the final newline.
-    void ReportV(const char* format, va_list args);
-
     /// Formatted report function.
     /// May include multiple lines separated by \n.
     /// This function supplies the final newline.
+    ///
+    /// @todo Any code that uses this, must be modified to output to the CTS catch2 reporter.
+    ///
+    /// Do not write new code that uses this function!
     void ReportF(const char* format, ...);
+
+    /// Formatted report function, like ReportF, but for console output only (when XML report output has another way of including this data)
+    void ReportConsoleOnlyF(const char* format, ...);
 
     /// @}
 

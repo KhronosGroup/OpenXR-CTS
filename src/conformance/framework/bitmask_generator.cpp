@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2022, The Khronos Group Inc.
+// Copyright (c) 2019-2023, The Khronos Group Inc.
 // Copyright (c) 2019 Collabora, Ltd.
 //
 // SPDX-License-Identifier: Apache-2.0
@@ -39,7 +39,7 @@ namespace Conformance
          * which supplied bitmasks should be enabled in a given generated output.
          * Yes, this is a bitmask that selects bitmasks.
          */
-        class BitmaskGenerator : public GeneratorBase<BitmaskData const&>
+        class BitmaskGenerator : public GeneratorBase<uint64_t const&>
         {
         public:
             ~BitmaskGenerator() override = default;
@@ -49,17 +49,17 @@ namespace Conformance
             BitmaskGenerator(BitmaskGenerator&&) = delete;
             BitmaskGenerator& operator=(BitmaskGenerator&&) = delete;
 
-            static std::unique_ptr<GeneratorBase<BitmaskData const&>> create(bool zeroOk, std::initializer_list<BitmaskData> const& bits)
+            static std::unique_ptr<GeneratorBase<uint64_t const&>> create(bool zeroOk, std::initializer_list<uint64_t> const& bits)
             {
                 std::unique_ptr<BitmaskGenerator> generator(new BitmaskGenerator(zeroOk, bits));
                 return generator;
             }
 
-            BitmaskGenerator(bool zeroOk, std::initializer_list<BitmaskData> const& bits) : bits_(bits), zeroOk_(zeroOk)
+            BitmaskGenerator(bool zeroOk, std::initializer_list<uint64_t> const& bits) : bits_(bits), zeroOk_(zeroOk)
             {
             }
 
-            BitmaskData const& get() override
+            uint64_t const& get() override
             {
                 return current_;
             }
@@ -81,7 +81,7 @@ namespace Conformance
                     return false;
                 }
 
-                BitmaskData accumulate{{}, 0};
+                uint64_t accumulate = 0;
                 // Loop through the bits of our index to determine whether to enable a given bitmask
                 for (size_t i = 0; i < n; ++i) {
                     uint64_t indexBit = (uint64_t(0x1) << i);
@@ -95,53 +95,21 @@ namespace Conformance
             }
 
         private:
-            std::vector<BitmaskData> bits_;
+            std::vector<uint64_t> bits_;
             bool zeroOk_;
             bool gotZeroYet_ = false;
             uint64_t currentIndex_ = 0;
-            BitmaskData current_;
+            uint64_t current_ = 0;
         };
 
     }  // namespace
 
-    BitmaskData operator|(BitmaskData const& lhs, BitmaskData const& rhs)
-    {
-        if (lhs.empty()) {
-            return rhs;
-        }
-        if (rhs.empty()) {
-            return lhs;
-        }
-        // If we are here, we are combining two non-empty.
-        BitmaskData ret{lhs};
-        ret |= rhs;
-        return ret;
-    }
-
-    BitmaskData& BitmaskData::operator|=(BitmaskData const& other)
-    {
-        if (this == &other) {
-            return *this;
-        }
-        if (other.empty()) {
-            return *this;
-        }
-        if (empty()) {
-            *this = other;
-            return *this;
-        }
-        description += " | ";
-        description += other.description;
-        bitmask |= other.bitmask;
-        return *this;
-    }
-
-    GeneratorWrapper<BitmaskData const&> bitmaskGeneratorIncluding0(std::initializer_list<BitmaskData> const& bits)
+    GeneratorWrapper<uint64_t const&> bitmaskGeneratorIncluding0(std::initializer_list<uint64_t> const& bits)
     {
         return {BitmaskGenerator::create(true, bits)};
     }
 
-    GeneratorWrapper<BitmaskData const&> bitmaskGenerator(std::initializer_list<BitmaskData> const& bits)
+    GeneratorWrapper<uint64_t const&> bitmaskGenerator(std::initializer_list<uint64_t> const& bits)
     {
         return {BitmaskGenerator::create(false, bits)};
     }

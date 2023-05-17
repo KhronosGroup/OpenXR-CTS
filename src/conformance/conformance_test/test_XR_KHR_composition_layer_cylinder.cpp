@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2022, The Khronos Group Inc.
+// Copyright (c) 2019-2023, The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -18,13 +18,14 @@
 #include "conformance_utils.h"
 #include "conformance_framework.h"
 #include "bitmask_generator.h"
+#include "bitmask_to_string.h"
 #include <array>
 #include <vector>
 #include <set>
 #include <string>
 #include <cstring>
 #include <limits>
-#include <catch2/catch.hpp>
+#include <catch2/catch_test_macros.hpp>
 #include <openxr/openxr.h>
 
 namespace Conformance
@@ -34,18 +35,18 @@ namespace Conformance
     TEST_CASE("XR_KHR_composition_layer_cylinder", "")
     {
         GlobalData& globalData = GetGlobalData();
-        if (!globalData.IsInstanceExtensionSupported("XR_KHR_composition_layer_cylinder")) {
-            return;
+        if (!globalData.IsInstanceExtensionSupported(XR_KHR_COMPOSITION_LAYER_CYLINDER_EXTENSION_NAME)) {
+            SKIP(XR_KHR_COMPOSITION_LAYER_CYLINDER_EXTENSION_NAME " not supported");
         }
 
         if (!globalData.IsUsingGraphicsPlugin()) {
-            return;
+            SKIP("Test run not using graphics plugin");
         }
 
         auto timeout = (GetGlobalData().options.debugMode ? 3600s : 10s);
         CAPTURE(timeout);
 
-        AutoBasicInstance instance({"XR_KHR_composition_layer_cylinder"});
+        AutoBasicInstance instance({XR_KHR_COMPOSITION_LAYER_CYLINDER_EXTENSION_NAME});
         AutoBasicSession session(AutoBasicSession::createSession | AutoBasicSession::beginSession | AutoBasicSession::createSwapchains |
                                      AutoBasicSession::createSpaces,
                                  instance);
@@ -58,13 +59,13 @@ namespace Conformance
         // The current XrSessionState is XR_SESSION_STATE_FOCUSED.
         XrResult result;
 
-        auto&& layerFlagsGenerator = bitmaskGeneratorIncluding0(
-            {{"XR_COMPOSITION_LAYER_CORRECT_CHROMATIC_ABERRATION_BIT", XR_COMPOSITION_LAYER_CORRECT_CHROMATIC_ABERRATION_BIT},
-             {"XR_COMPOSITION_LAYER_BLEND_TEXTURE_SOURCE_ALPHA_BIT", XR_COMPOSITION_LAYER_BLEND_TEXTURE_SOURCE_ALPHA_BIT},
-             {"XR_COMPOSITION_LAYER_UNPREMULTIPLIED_ALPHA_BIT", XR_COMPOSITION_LAYER_UNPREMULTIPLIED_ALPHA_BIT}});
+        auto&& layerFlagsGenerator = bitmaskGeneratorIncluding0({XR_COMPOSITION_LAYER_CORRECT_CHROMATIC_ABERRATION_BIT,
+                                                                 XR_COMPOSITION_LAYER_BLEND_TEXTURE_SOURCE_ALPHA_BIT,
+                                                                 XR_COMPOSITION_LAYER_UNPREMULTIPLIED_ALPHA_BIT});
         std::array<XrEyeVisibility, 3> eyeVisibilityArray{XR_EYE_VISIBILITY_BOTH, XR_EYE_VISIBILITY_LEFT /* just these two */};
 
         while (layerFlagsGenerator.next()) {
+            CAPTURE(XrCompositionLayerFlagsCPP(layerFlagsGenerator.get()));
             for (XrSpace space : session.spaceVector) {
                 for (XrEyeVisibility eyeVisibility : eyeVisibilityArray) {
                     std::array<float, 3> radiusTestArray{0, 1.f, INFINITY};  // Spec explicitly supports radius 0 and +infinity
@@ -78,7 +79,7 @@ namespace Conformance
                         // there must be a following layer which is the right eye.
                         std::vector<XrCompositionLayerCylinderKHR> cylinderLayerArray(2, {XR_TYPE_COMPOSITION_LAYER_CYLINDER_KHR});
 
-                        cylinderLayerArray[0].layerFlags = layerFlagsGenerator.get().bitmask;
+                        cylinderLayerArray[0].layerFlags = layerFlagsGenerator.get();
                         cylinderLayerArray[0].space = space;
                         cylinderLayerArray[0].eyeVisibility = eyeVisibility;
 

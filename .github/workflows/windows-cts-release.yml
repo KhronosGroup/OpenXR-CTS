@@ -1,0 +1,53 @@
+# Copyright 2021-2023, Collabora, Ltd.
+# SPDX-License-Identifier: CC0-1.0
+
+name: Build Windows release artifacts
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+jobs:
+  msvc-build:
+    strategy:
+      fail-fast: true
+      matrix:
+        preset:
+          - cts-win32
+          - cts-x64
+
+    uses: "./.github/workflows/msvc-build-preset.yml"
+    with:
+      preset: "${{ matrix.preset }}"
+      artifactName: "openxr-${{ matrix.preset }}"
+      buildType: "RelWithDebInfo"
+      subdir: "install/conformance"
+
+  publish-win:
+    if: startsWith(github.ref, 'refs/tags/')
+    needs:
+      - msvc-build
+    env:
+      TAGNAME: "${{ github.event.release.tag_name }}"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Retrieve Win32 build
+        uses: actions/download-artifact@v3
+        with:
+          name: openxr-cts-win32
+          path: openxr-cts-win32
+      - name: Compress Win32
+        run: '7za a "$TAGNAME-win32.zip" openxr-cts-win32'
+
+      - name: Retrieve x64 build
+        uses: actions/download-artifact@v3
+        with:
+          name: openxr-cts-x64
+          path: openxr-cts-x64
+      - name: Compress x64
+        run: '7za a "$TAGNAME-x64.zip" openxr-cts-x64'
+
+      - name: Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: "${{ github.event.release.tag_name }}-*.zip"

@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2022, The Khronos Group Inc.
+// Copyright (c) 2019-2023, The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -14,11 +14,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// if no PATH_PREFIX is provided by the build system use the system provided
-// path.
-#ifndef PATH_PREFIX
-#define PATH_PREFIX ""
-#endif
+#include "conformance/platform_specific/android_intent_extras.h"
+#include "utils.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -33,28 +30,14 @@
 #include <thread>
 #include <vector>
 
-#define XR_USE_GRAPHICS_API_OPENGL_ES 1
-#include <EGL/egl.h>
-#include <EGL/eglext.h>
-#include <GLES3/gl3.h>
-#include <GLES3/gl3ext.h>
-
-#define XR_USE_GRAPHICS_API_VULKAN 1
-#define VK_USE_PLATFORM_ANDROID_KHR
-#include <vulkan/vulkan.h>
-
-#define XR_USE_PLATFORM_ANDROID 1
 #include <android/log.h>
 #include <android/native_window_jni.h>
 #include <android_native_app_glue.h>
 
 #include <openxr/openxr.h>
-#include <openxr/openxr_platform.h>
 
 #include <conformance_test.h>
 #include <conformance_framework.h>
-
-#include "conformance_framework.h"
 
 /// #define DEBUG 1
 #define LOG_TAG "OpenXR_Conformance"
@@ -75,19 +58,21 @@ static jobject AndroidApplicationActivity = NULL;
 static AAssetManager* AndroidAssetManager = NULL;
 void* Conformance_Android_Get_Application_VM()
 {
-    ALOGV("AndroidApplicationVM = %p", AndroidApplicationVM);
     return AndroidApplicationVM;
+}
+
+void* Conformance_Android_Get_Application_Context()
+{
+    return AndroidApplicationActivity;
 }
 
 void* Conformance_Android_Get_Application_Activity()
 {
-    ALOGV("AndroidApplicationActivity = %p", AndroidApplicationActivity);
     return AndroidApplicationActivity;
 }
 
 void* Conformance_Android_Get_Asset_Manager()
 {
-    ALOGV("AndroidAssetManager = %p", AndroidAssetManager);
     return AndroidAssetManager;
 }
 
@@ -186,6 +171,17 @@ XRAPI_ATTR void XRAPI_CALL OnTestMessage(MessageType type, const char* message)
     }
 }
 
+static std::string computeOutputPath(struct android_app* app, const std::string& filename)
+{
+// if no PATH_PREFIX is provided by the build system use the system provided
+// path.
+#ifndef PATH_PREFIX
+    return std::string(app->activity->externalDataPath) + "/" + filename;
+#else
+    return std::string(PATH_PREFIX) + filename;
+#endif
+}
+
 /**
  * This is the main entry point of a native application that is using
  * android_native_app_glue.  It runs in its own thread, with its own
@@ -209,25 +205,13 @@ void android_main(struct android_app* app)
     app->activity->vm->AttachCurrentThread(&Env, nullptr);
 
     // Note that AttachCurrentThread will reset the thread name.
-    prctl(PR_SET_NAME, (long)"OVR::Main", 0, 0, 0);
+    prctl(PR_SET_NAME, (long)"CTSMain", 0, 0, 0);
 
     AndroidAssetManager = app->activity->assetManager;
 
     // Hook up android handlers
     app->onAppCmd = app_handle_cmd;
     app->onInputEvent = app_handle_input;
-
-    PFN_xrInitializeLoaderKHR xrInitializeLoaderKHR;
-    if (XR_SUCCEEDED(xrGetInstanceProcAddr(XR_NULL_HANDLE, "xrInitializeLoaderKHR", (PFN_xrVoidFunction*)(&xrInitializeLoaderKHR))) &&
-        xrInitializeLoaderKHR != NULL) {
-        XrLoaderInitInfoAndroidKHR loaderInitializeInfoAndroid;
-        memset(&loaderInitializeInfoAndroid, 0, sizeof(loaderInitializeInfoAndroid));
-        loaderInitializeInfoAndroid.type = XR_TYPE_LOADER_INIT_INFO_ANDROID_KHR;
-        loaderInitializeInfoAndroid.next = NULL;
-        loaderInitializeInfoAndroid.applicationVM = app->activity->vm;
-        loaderInitializeInfoAndroid.applicationContext = app->activity->clazz;
-        xrInitializeLoaderKHR((XrLoaderInitInfoBaseHeaderKHR*)&loaderInitializeInfoAndroid);
-    }
 
     // Testing exception handling - needed for the conformance tests
     try {
@@ -265,85 +249,76 @@ void android_main(struct android_app* app)
                     ATTACH_THREAD;
                     ALOGV("... begin conformance test ...");
 
-                    /// Hard-Code these to match regular C declaration of `int main( int argc, char * argv[] )`
-                    std::vector<const char*> args = {
-                        "OpenXR_Conformance_Test_Android",  /// app name
+                    // Hard-Code these to match regular C declaration of `int main( int argc, char * argv[] )`
+                    Conformance::StringVec args;
+                    args.push_back("OpenXR_Conformance_Test_Android");  // app name
+                    args.push_back("--colour-mode");
+                    args.push_back("none");  /// no console coloring
+                    args.push_back("--reporter");
+                    args.push_back("console");  /// use the "console" reporter
+
+                    bool haveGraphicsPlugin = false;
+
+                    auto checkForGraphics = [&](const std::string& arg) {
+                        if (arg == "--graphicsPlugin" || arg == "-G") {
+                            haveGraphicsPlugin = true;
+                        }
                     };
-                    char* append = argstr;
-                    int count = 1;
 
-                    bool reportXml = false;
+                    // First grab the old property args.
+                    std::vector<std::string> propertyArgs;
+                    Conformance::DelimitedStringToStringVector(argstr, propertyArgs);
 
-                    while (*append != 0) {
-                        while (*append == ' ') {
-                            append++;
+                    for (const auto& arg : propertyArgs) {
+                        if (arg == "-O") {
+                            // Old way of turning on XML output
+                            // Now ignored
+                            continue;
                         }
-                        if (*append != 0) {
-                            if (strcmp(append, "-O") == 0) {
-                                reportXml = true;
-                            }
-                            else {
-                                args.insert(args.begin() + count, append);
-                                count++;
-                            }
-                        }
-                        while (*append != ' ' && *append != 0) {
-                            append++;
-                        }
-                        if (*append == ' ') {
-                            *append = 0;
-                            append++;
-                        }
+                        args.push_back(arg);
+                        checkForGraphics(arg);
                     }
-                    bool hasGfxFlag = false;
-                    for (int i = 0; i < (int)args.size(); i++) {
-                        std::string s = args[i];
-                        if (s == "-G") {
-                            hasGfxFlag = true;
-                            break;
-                        }
+
+                    // Now check the startup intent extras for the "new style" way of passing args
+                    auto intentExtraData = Conformance::parseIntentExtras(Conformance_Android_Get_Application_VM(),
+                                                                          Conformance_Android_Get_Application_Activity());
+
+                    // Set XML output depending on the intent args
+                    bool reportXml = intentExtraData.shouldAddXmlOutput;
+                    for (const auto& arg : intentExtraData.arguments) {
+                        args.push_back(arg);
+                        checkForGraphics(arg);
                     }
-                    if (hasGfxFlag == false) {
-                        args.push_back("-G");
+                    if (!haveGraphicsPlugin) {
+                        args.push_back("--graphicsPlugin");
                         args.push_back("OpenGLES");
                     }
-
                     if (reportXml) {
-                        args.push_back("-r");
-                        args.push_back("xml");
-                        args.push_back("-o");
-                        if (strlen(PATH_PREFIX) == 0) {
-                            static std::string base_path;
-                            base_path = app->activity->externalDataPath;
-                            base_path += "/openxr_conformance.xml";
-                            args.push_back(base_path.c_str());
-                        }
-                        else {
-                            args.push_back(PATH_PREFIX "openxr_conformance.xml");
-                        }
-                    }
-                    else {
-                        args.push_back("--use-colour");
-                        args.push_back("no");  /// no console coloring
+                        auto outputPath = computeOutputPath(app, intentExtraData.xmlFilename);
                         args.push_back("--reporter");
-                        args.push_back("console");  /// use the console reporter
+                        args.push_back("ctsxml::out=" + outputPath);
                     }
 
-                    for (int i = 0; i < (int)args.size(); i++) {
+                    for (uint32_t i = 0; i < args.size(); i++) {
                         ALOGV("arg[%d] = %s", i, args[i]);
                     }
 
                     ConformanceLaunchSettings launchSettings;
-                    launchSettings.argc = args.size();
-                    launchSettings.argv = (&args[0]);
+                    launchSettings.argc = static_cast<int>(args.size());
+                    launchSettings.argv = args.data();
                     launchSettings.message = OnTestMessage;
 
                     uint32_t failureCount = 0;
                     XrcResult result = xrcRunConformanceTests(&launchSettings, &failureCount);
-                    const int exitResult = result == XRC_SUCCESS ? 0 : std::max((uint32_t)1, failureCount);
+                    const int exitResult = result == XRC_SUCCESS ? 0 : (int)std::max((uint32_t)1, failureCount);
                     ALOGV("Exit Result %d", exitResult);
 
+                    // Clean up conformance test
+                    xrcCleanup();
+
                     ALOGV("... end conformance test ...");
+
+                    xrcCleanup();
 
                     // give the logger some time to flush
                     std::this_thread::sleep_for(std::chrono::milliseconds(200));

@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2022, The Khronos Group Inc.
+// Copyright (c) 2019-2023, The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -14,10 +14,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "conformance_framework.h"
 #include "utils.h"
 #include "conformance_utils.h"
 #include "composition_utils.h"
-#include <catch2/catch.hpp>
+#include <catch2/catch_test_macros.hpp>
 #include <openxr/openxr.h>
 #include <xr_linear.h>
 
@@ -30,19 +31,12 @@ namespace Conformance
     constexpr int RIGHT_HAND = 1;
     constexpr int HAND_COUNT = 2;
 
-    static bool SystemSupportsHandTracking(XrInstance instance)
+    static bool SystemSupportsHandTracking(XrInstance instance, XrSystemId systemId)
     {
-        GlobalData& globalData = GetGlobalData();
         XrSystemHandTrackingPropertiesEXT handTrackingSystemProperties{XR_TYPE_SYSTEM_HAND_TRACKING_PROPERTIES_EXT};
         XrSystemProperties systemProperties{XR_TYPE_SYSTEM_PROPERTIES};
         systemProperties.next = &handTrackingSystemProperties;
-
-        XrSystemGetInfo systemGetInfo{XR_TYPE_SYSTEM_GET_INFO};
-        systemGetInfo.formFactor = globalData.options.formFactorValue;
-
-        XrSystemId systemId = XR_NULL_SYSTEM_ID;
-        REQUIRE(XR_SUCCESS == xrGetSystem(instance, &systemGetInfo, &systemId));
-        REQUIRE(XR_SUCCESS == xrGetSystemProperties(instance, systemId, &systemProperties));
+        REQUIRE(xrGetSystemProperties(instance, systemId, &systemProperties) == XR_SUCCESS);
 
         return handTrackingSystemProperties.supportsHandTracking == XR_TRUE;
     }
@@ -54,28 +48,32 @@ namespace Conformance
             // Runtime does not support extension - it should not be possible to get function pointers.
             AutoBasicInstance instance;
             ValidateInstanceExtensionFunctionNotSupported(instance, "xrCreateHandTrackerEXT");
-            return;
+            SKIP(XR_EXT_HAND_TRACKING_EXTENSION_NAME " not supported");
         }
 
         SECTION("Extension not enabled")
         {
-            if (!globalData.enabledInstanceExtensionNames.contains(XR_EXT_HAND_TRACKING_EXTENSION_NAME)) {
+            if (!globalData.IsInstanceExtensionEnabled(XR_EXT_HAND_TRACKING_EXTENSION_NAME)) {
                 AutoBasicInstance instance;
                 ValidateInstanceExtensionFunctionNotSupported(instance, "xrCreateHandTrackerEXT");
+            }
+            else {
+                WARN(XR_EXT_HAND_TRACKING_EXTENSION_NAME " force-enabled, cannot test behavior when extension is disabled.");
             }
         }
 
         SECTION("Create and Destroy trackers")
         {
-            AutoBasicInstance instance({XR_EXT_HAND_TRACKING_EXTENSION_NAME});
+            AutoBasicInstance instance({XR_EXT_HAND_TRACKING_EXTENSION_NAME}, AutoBasicInstance::createSystemId);
 
             auto xrCreateHandTrackerEXT = GetInstanceExtensionFunction<PFN_xrCreateHandTrackerEXT>(instance, "xrCreateHandTrackerEXT");
             auto xrDestroyHandTrackerEXT = GetInstanceExtensionFunction<PFN_xrDestroyHandTrackerEXT>(instance, "xrDestroyHandTrackerEXT");
 
-            if (!SystemSupportsHandTracking(instance)) {
+            XrSystemId systemId = instance.systemId;
+            if (!SystemSupportsHandTracking(instance, systemId)) {
                 // This runtime does support hand tracking, but this headset does not
                 // support hand tracking, which is fine.
-                WARN("Device does not support hand tracking");
+                SKIP("System does not support hand tracking");
                 return;
             }
 
@@ -93,7 +91,7 @@ namespace Conformance
     }
 
     // Purpose: Ensure that if the hand tracking extension is enabled, you can see some hands!
-    TEST_CASE("XR_EXT_hand_tracking_interactive", "[scenario][interactive][no_auto]")
+    TEST_CASE("XR_EXT_hand_tracking-interactive", "[scenario][interactive][no_auto]")
     {
         const char* instructions =
             "Small cubes are rendered to represent the joints of each hand. "
@@ -101,16 +99,15 @@ namespace Conformance
 
         GlobalData& globalData = GetGlobalData();
         if (!globalData.IsInstanceExtensionSupported(XR_EXT_HAND_TRACKING_EXTENSION_NAME)) {
-            return;
+            SKIP(XR_EXT_HAND_TRACKING_EXTENSION_NAME " not supported");
         }
 
         CompositionHelper compositionHelper("XR_EXT_hand_tracking", {"XR_EXT_hand_tracking"});
 
-        if (!SystemSupportsHandTracking(compositionHelper.GetInstance())) {
+        if (!SystemSupportsHandTracking(compositionHelper.GetInstance(), compositionHelper.GetSystemId())) {
             // This runtime does support hand tracking, but this headset does not
             // support hand tracking, which is fine.
-            WARN("Device does not support hand tracking");
-            return;
+            SKIP("System does not support hand tracking");
         }
 
         XrInstance instance = compositionHelper.GetInstance();
@@ -211,15 +208,15 @@ namespace Conformance
 
                 // Render into each viewport of the wide swapchain using the projection layer view fov and pose.
                 for (size_t view = 0; view < views.size(); view++) {
-                    compositionHelper.AcquireWaitReleaseImage(
-                        swapchains[view],  //
-                        [&](const XrSwapchainImageBaseHeader* swapchainImage, uint64_t format) {
-                            GetGlobalData().graphicsPlugin->ClearImageSlice(swapchainImage, 0, format);
-                            const_cast<XrFovf&>(projLayer->views[view].fov) = views[view].fov;
-                            const_cast<XrPosef&>(projLayer->views[view].pose) = views[view].pose;
-                            GetGlobalData().graphicsPlugin->RenderView(projLayer->views[view], swapchainImage, format,
-                                                                       RenderParams().Draw(renderedCubes));
-                        });
+                    compositionHelper.AcquireWaitReleaseImage(swapchains[view],  //
+                                                              [&](const XrSwapchainImageBaseHeader* swapchainImage) {
+                                                                  GetGlobalData().graphicsPlugin->ClearImageSlice(swapchainImage);
+                                                                  const_cast<XrFovf&>(projLayer->views[view].fov) = views[view].fov;
+                                                                  const_cast<XrPosef&>(projLayer->views[view].pose) = views[view].pose;
+                                                                  GetGlobalData().graphicsPlugin->RenderView(
+                                                                      projLayer->views[view], swapchainImage,
+                                                                      RenderParams().Draw(renderedCubes));
+                                                              });
                 }
 
                 layers.push_back({reinterpret_cast<XrCompositionLayerBaseHeader*>(projLayer)});

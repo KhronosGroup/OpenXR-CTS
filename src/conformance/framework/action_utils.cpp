@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2022, The Khronos Group Inc.
+// Copyright (c) 2019-2023, The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -131,7 +131,7 @@ namespace Conformance
         }
 
         if (!message.empty()) {
-            ReportStr(("Interaction message: " + message).c_str());
+            ReportF("Interaction message: %s", message.c_str());
         }
 
         constexpr int TitleFontHeightPixels = 40;
@@ -161,7 +161,7 @@ namespace Conformance
 
         *static_cast<XrCompositionLayerQuad*>(this) = {XR_TYPE_COMPOSITION_LAYER_QUAD};
         size.width = 1;
-        size.height = size.width * image->height / image->width;
+        size.height = size.width * static_cast<float>(image->height) / static_cast<float>(image->width);
         pose = XrPosef{{0, 0, 0, 1}, {0, 0, -1.5f}};
         subImage = m_compositionHelper.MakeDefaultSubImage(messageSwapchain);
         space = compositionSpace;

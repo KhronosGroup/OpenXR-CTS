@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2022, The Khronos Group Inc.
+// Copyright (c) 2019-2023, The Khronos Group Inc.
 // Copyright (c) 2019 Collabora, Ltd.
 //
 // SPDX-License-Identifier: Apache-2.0
@@ -30,7 +30,7 @@
 #include <sstream>
 
 #include <stdint.h>
-#include <catch2/catch.hpp>
+#include <catch2/catch_test_macros.hpp>
 
 namespace Conformance
 {
@@ -283,14 +283,14 @@ namespace Conformance
      *
      * For the paired "name, member object pointer" parameters, it's recommended to use the `NAME_AND_MEMPTR()` macro to automatically stringify the member name.
      *
-     * This returns data for an "array set" with no arrays: build up metadata for the arrays by repeatedly calling @ref ArraySetData::Array in a chained or "builder" pattern.
+     * This returns data for an "array set" with no arrays: build up metadata for the arrays by repeatedly calling the member function `Array()` in a chained or "builder" pattern.
      *
      * @tparam StructType Deduced from the provided member object pointers.
      *
      * @param capacityInputName The name of the `*CapacityInput` field
      * @param capacityInputFieldPointer A member object pointer to the `*CapacityInput` field
      * @param countOutputName The name of the `*CountOutput` field
-     * @param countOutputFieldPointerA member object pointer to the `*CountOutput` field
+     * @param countOutputFieldPointer A member object pointer to the `*CountOutput` field
      *
      * @return An instance of some metadata::ArraySetData<> type
      *
@@ -311,7 +311,7 @@ namespace Conformance
      *
      * @param empty An empty instance of your two-call-struct type
      * @param a one or more @ref metadata::ArraySetData objects.
-     * Each may be created by calling @ref CapacityInputCountOutput() then (repeatedly) calling @ref ArraySetData::Array in a chained or "builder" pattern.
+     * Each may be created by calling @ref CapacityInputCountOutput() then (repeatedly) calling the member function `Array()` in a chained or "builder" pattern.
      *
      * @tparam StructType The structure type, deduced based on @p empty
      * @tparam ArraySets Deduced based on parameters

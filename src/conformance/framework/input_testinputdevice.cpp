@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2022, The Khronos Group Inc.
+// Copyright (c) 2019-2023, The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -42,12 +42,12 @@ typedef XrResult(XRAPI_PTR* PFN_xrSetInputDeviceLocationEXT)(XrSession session, 
                                                              XrPosef pose);
 // On android platforms sleeping the main thread stalls the interactive tests
 #ifdef XR_USE_PLATFORM_ANDROID
-const std::chrono::nanoseconds waitDelay = 0ms;
+static constexpr std::chrono::nanoseconds waitDelay = 0ms;
 #else
-const std::chrono::nanoseconds waitDelay = 5ms;
+static constexpr std::chrono::nanoseconds waitDelay = 5ms;
 #endif  // XR_USE_PLATFORM_ANDROID
 
-const std::chrono::nanoseconds instructionDelay = 250ms;
+static constexpr std::chrono::nanoseconds instructionDelay = 250ms;
 
 namespace Conformance
 {
@@ -72,7 +72,7 @@ namespace Conformance
 
         HumanDrivenInputdevice(ITestMessageDisplay* const messageDisplay, InteractionManager* const interactionManager, XrInstance instance,
                                XrSession session, XrPath interactionProfile, XrPath topLevelPath,
-                               const InteractionProfileWhitelistData& interactionProfilePaths)
+                               const InputSourcePathCollection& interactionProfilePaths)
             : m_messageDisplay(messageDisplay)
             , m_instance(instance)
             , m_session(session)
@@ -120,7 +120,7 @@ namespace Conformance
                     m_firstBooleanAction = action;
                 }
 
-                const XrPath bindingPath = StringToPath(instance, inputSourceData.Path.c_str());
+                const XrPath bindingPath = StringToPath(instance, inputSourceData.Path);
                 m_actionMap.insert({bindingPath, action});
                 interactionManager->AddActionBindings(m_interactionProfile, {{action, bindingPath}});
             }
@@ -218,16 +218,17 @@ namespace Conformance
 
             m_messageDisplay->DisplayMessage("");
         }
-        void Wait(bool state, const WaitUntilLosesOrGainsOrientationValidity& waitCondition) const override
+        XrTime Wait(bool state, const WaitUntilLosesOrGainsOrientationValidity& waitCondition) const override
         {
             XrSpace space{waitCondition.actionSpace};
             XrSpace baseSpace{waitCondition.baseSpace};
 
             const auto initialTime = std::chrono::steady_clock::now();
-
-            auto makeTimestamp = [=] {
+            XrTime lastUsed;
+            auto makeTimestamp = [=, &lastUsed] {
                 auto nanos = std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - initialTime);
-                return waitCondition.initialLocateTime + nanos.count();
+                lastUsed = waitCondition.initialLocateTime + nanos.count();
+                return lastUsed;
             };
 
             auto checkTracking = [&]() -> XrSpaceLocationFlags {
@@ -257,6 +258,7 @@ namespace Conformance
                         "Input device activity not detected");
 
             m_messageDisplay->DisplayMessage("");
+            return lastUsed;
         }
 
         void SetDeviceActiveViaConformanceAutomationIfPossible(bool state) const
@@ -512,7 +514,7 @@ namespace Conformance
     std::unique_ptr<IInputTestDevice> CreateTestDevice(ITestMessageDisplay* const messageDisplay,
                                                        InteractionManager* const interactionManager, XrInstance instance, XrSession session,
                                                        XrPath interactionProfile, XrPath topLevelPath,
-                                                       const InteractionProfileWhitelistData& interactionProfilePaths)
+                                                       const InputSourcePathCollection& interactionProfilePaths)
     {
         return std::make_unique<HumanDrivenInputdevice>(messageDisplay, interactionManager, instance, session, interactionProfile,
                                                         topLevelPath, interactionProfilePaths);

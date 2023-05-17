@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2022, The Khronos Group Inc.
+// Copyright (c) 2019-2023, The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -14,15 +14,22 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <cstdint>
 #include <memory>
+#include <tuple>
 #include "graphics_plugin.h"
+#include "openxr/openxr.h"
 
 #ifdef XR_USE_GRAPHICS_API_VULKAN
 
+#include "vulkan_utils.h"
+
+#include <algorithm>
 #include <list>
 #include <unordered_set>
 #include "report.h"
 #include "hex_and_handles.h"
+#include "swapchain_image_data.h"
 #include "graphics_plugin_impl_helpers.h"
 #include "throw_helpers.h"
 #include "swapchain_parameters.h"
@@ -32,151 +39,8 @@
 #include <common/xr_linear.h>
 #include <openxr/openxr_platform.h>
 
-//#define USE_ONLINE_VULKAN_SHADERC
-#ifdef USE_ONLINE_VULKAN_SHADERC
-#include <shaderc/shaderc.hpp>
-#endif
-
-#if defined(VK_USE_PLATFORM_WIN32_KHR)
-// Define USE_MIRROR_WINDOW to open an otherwise-unused window for e.g. RenderDoc
-//#define USE_MIRROR_WINDOW
-#endif
-
-// Define USE_CHECKPOINTS to use the nvidia checkpoint extension
-//#define USE_CHECKPOINTS
-
-// glslangValidator doesn't wrap its output in brackets if you don't have it define the whole array.
-#if defined(USE_GLSLANGVALIDATOR)
-#define SPV_PREFIX {
-#define SPV_SUFFIX }
-#else
-#define SPV_PREFIX
-#define SPV_SUFFIX
-#endif
-
 namespace Conformance
 {
-    static std::string vkResultString(VkResult res)
-    {
-        switch (res) {
-        case VK_SUCCESS:
-            return "SUCCESS";
-        case VK_NOT_READY:
-            return "NOT_READY";
-        case VK_TIMEOUT:
-            return "TIMEOUT";
-        case VK_EVENT_SET:
-            return "EVENT_SET";
-        case VK_EVENT_RESET:
-            return "EVENT_RESET";
-        case VK_INCOMPLETE:
-            return "INCOMPLETE";
-        case VK_ERROR_OUT_OF_HOST_MEMORY:
-            return "ERROR_OUT_OF_HOST_MEMORY";
-        case VK_ERROR_OUT_OF_DEVICE_MEMORY:
-            return "ERROR_OUT_OF_DEVICE_MEMORY";
-        case VK_ERROR_INITIALIZATION_FAILED:
-            return "ERROR_INITIALIZATION_FAILED";
-        case VK_ERROR_DEVICE_LOST:
-            return "ERROR_DEVICE_LOST";
-        case VK_ERROR_MEMORY_MAP_FAILED:
-            return "ERROR_MEMORY_MAP_FAILED";
-        case VK_ERROR_LAYER_NOT_PRESENT:
-            return "ERROR_LAYER_NOT_PRESENT";
-        case VK_ERROR_EXTENSION_NOT_PRESENT:
-            return "ERROR_EXTENSION_NOT_PRESENT";
-        case VK_ERROR_FEATURE_NOT_PRESENT:
-            return "ERROR_FEATURE_NOT_PRESENT";
-        case VK_ERROR_INCOMPATIBLE_DRIVER:
-            return "ERROR_INCOMPATIBLE_DRIVER";
-        case VK_ERROR_TOO_MANY_OBJECTS:
-            return "ERROR_TOO_MANY_OBJECTS";
-        case VK_ERROR_FORMAT_NOT_SUPPORTED:
-            return "ERROR_FORMAT_NOT_SUPPORTED";
-        case VK_ERROR_SURFACE_LOST_KHR:
-            return "ERROR_SURFACE_LOST_KHR";
-        case VK_ERROR_NATIVE_WINDOW_IN_USE_KHR:
-            return "ERROR_NATIVE_WINDOW_IN_USE_KHR";
-        case VK_SUBOPTIMAL_KHR:
-            return "SUBOPTIMAL_KHR";
-        case VK_ERROR_OUT_OF_DATE_KHR:
-            return "ERROR_OUT_OF_DATE_KHR";
-        case VK_ERROR_INCOMPATIBLE_DISPLAY_KHR:
-            return "ERROR_INCOMPATIBLE_DISPLAY_KHR";
-        case VK_ERROR_VALIDATION_FAILED_EXT:
-            return "ERROR_VALIDATION_FAILED_EXT";
-        case VK_ERROR_INVALID_SHADER_NV:
-            return "ERROR_INVALID_SHADER_NV";
-        default:
-            return std::to_string(res);
-        }
-    }
-
-#define LIST_PIPE_STAGES(_)           \
-    _(TOP_OF_PIPE)                    \
-    _(DRAW_INDIRECT)                  \
-    _(VERTEX_INPUT)                   \
-    _(VERTEX_SHADER)                  \
-    _(TESSELLATION_CONTROL_SHADER)    \
-    _(TESSELLATION_EVALUATION_SHADER) \
-    _(GEOMETRY_SHADER)                \
-    _(FRAGMENT_SHADER)                \
-    _(EARLY_FRAGMENT_TESTS)           \
-    _(LATE_FRAGMENT_TESTS)            \
-    _(COLOR_ATTACHMENT_OUTPUT)        \
-    _(COMPUTE_SHADER)                 \
-    _(TRANSFER)                       \
-    _(BOTTOM_OF_PIPE)                 \
-    _(HOST)                           \
-    _(ALL_GRAPHICS)                   \
-    _(ALL_COMMANDS)
-
-    std::string GetPipelineStages(VkPipelineStageFlags stages)
-    {
-        std::string desc;
-#define MK_PIPE_STAGE_CHECK(n)                \
-    if (stages & VK_PIPELINE_STAGE_##n##_BIT) \
-        desc += " " #n;
-        LIST_PIPE_STAGES(MK_PIPE_STAGE_CHECK)
-#undef MK_PIPE_STAGE_CHECK
-        return desc;
-    }
-
-    [[noreturn]] inline void ThrowVkResult(VkResult res, const char* originator = nullptr, const char* sourceLocation = nullptr)
-    {
-        Throw("VkResult failure " + vkResultString(res), originator, sourceLocation);
-    }
-
-#if defined(USE_CHECKPOINTS)
-#define _CHECKPOINT(line) Checkpoint(__FUNCTION__ ":" #line)
-#define CHECKPOINT() _CHECKPOINT(__LINE__)
-#define SHOW_CHECKPOINTS() ShowCheckpoints()
-    static void ShowCheckpoints();
-#else
-#define CHECKPOINT() \
-    do               \
-        ;            \
-    while (0)
-#define SHOW_CHECKPOINTS() \
-    do                     \
-        ;                  \
-    while (0)
-#endif
-
-    inline VkResult CheckThrowVkResult(VkResult res, const char* originator = nullptr, const char* sourceLocation = nullptr)
-    {
-        if ((res) < VK_SUCCESS) {
-            SHOW_CHECKPOINTS();
-            ThrowVkResult(res, originator, sourceLocation);
-        }
-
-        return res;
-    }
-
-// XXX These really shouldn't have trailing ';'s
-#define XRC_THROW_VK(res, cmd) ThrowVkResult(res, #cmd, XRC_FILE_AND_LINE);
-#define XRC_CHECK_THROW_VKCMD(cmd) CheckThrowVkResult(cmd, #cmd, XRC_FILE_AND_LINE);
-#define XRC_CHECK_THROW_VKRESULT(res, cmdStr) CheckThrowVkResult(res, cmdStr, XRC_FILE_AND_LINE);
 
 #ifdef USE_ONLINE_VULKAN_SHADERC
     constexpr char VertexShaderGlsl[] =
@@ -221,1030 +85,135 @@ namespace Conformance
 )_";
 #endif  // USE_ONLINE_VULKAN_SHADERC
 
-    struct MemoryAllocator
+    struct VulkanArraySliceState
     {
-        void Init(VkPhysicalDevice physicalDevice, VkDevice device)
+        VulkanArraySliceState() = default;
+        VulkanArraySliceState(const VulkanArraySliceState&) = delete;
+        std::vector<RenderTarget> m_renderTarget;  // per swapchain index
+        RenderPass m_rp{};
+        Pipeline m_pipe{};
+
+        void init(const VulkanDebugObjectNamer& namer, VkDevice device, uint32_t capacity, const VkExtent2D size, VkFormat colorFormat,
+                  VkFormat depthFormat, VkSampleCountFlagBits sampleCount, const PipelineLayout& layout, const ShaderProgram& sp,
+                  const VkVertexInputBindingDescription& bindDesc, span<const VkVertexInputAttributeDescription> attrDesc)
         {
-            m_vkDevice = device;
-            vkGetPhysicalDeviceMemoryProperties(physicalDevice, &m_memProps);
+            m_renderTarget.resize(capacity);
+            m_rp.Create(namer, device, colorFormat, depthFormat, sampleCount);
+            m_pipe.Dynamic(VK_DYNAMIC_STATE_SCISSOR);
+            m_pipe.Dynamic(VK_DYNAMIC_STATE_VIEWPORT);
+            m_pipe.Create(device, size, layout, m_rp, sp, bindDesc, attrDesc);
         }
 
         void Reset()
         {
-            m_memProps = {};
-            m_vkDevice = VK_NULL_HANDLE;
-        }
-
-        static const VkFlags defaultFlags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
-
-        void Allocate(VkMemoryRequirements const& memReqs, VkDeviceMemory* mem, VkFlags flags = defaultFlags,
-                      const void* pNext = nullptr) const
-        {
-            // Search memtypes to find first index with those properties
-            for (uint32_t i = 0; i < m_memProps.memoryTypeCount; ++i) {
-                if ((memReqs.memoryTypeBits & (1 << i)) != 0u) {
-                    // Type is available, does it match user properties?
-                    if ((m_memProps.memoryTypes[i].propertyFlags & flags) == flags) {
-                        VkMemoryAllocateInfo memAlloc{VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO, pNext};
-                        memAlloc.allocationSize = memReqs.size;
-                        memAlloc.memoryTypeIndex = i;
-                        XRC_CHECK_THROW_VKCMD(vkAllocateMemory(m_vkDevice, &memAlloc, nullptr, mem));
-                        return;
-                    }
-                }
-            }
-            XRC_THROW("Memory format not supported");
-        }
-
-    private:
-        VkDevice m_vkDevice{VK_NULL_HANDLE};
-        VkPhysicalDeviceMemoryProperties m_memProps{};
-    };
-
-    // CmdBuffer - manage VkCommandBuffer state
-    struct CmdBuffer
-    {
-        enum class CmdBufferState
-        {
-            Undefined,
-            Initialized,
-            Recording,
-            Executable,
-            Executing
-        };
-
-        CmdBufferState state{CmdBufferState::Undefined};
-        VkCommandPool pool{VK_NULL_HANDLE};
-        VkCommandBuffer buf{VK_NULL_HANDLE};
-        VkFence execFence{VK_NULL_HANDLE};
-
-        CmdBuffer() = default;
-
-        CmdBuffer(const CmdBuffer&) = delete;
-        CmdBuffer& operator=(const CmdBuffer&) = delete;
-        CmdBuffer(CmdBuffer&&) = delete;
-        CmdBuffer& operator=(CmdBuffer&&) = delete;
-
-        void Reset()
-        {
-            SetState(CmdBufferState::Undefined);
-            if (m_vkDevice != nullptr) {
-                if (buf != VK_NULL_HANDLE) {
-                    vkFreeCommandBuffers(m_vkDevice, pool, 1, &buf);
-                }
-                if (pool != VK_NULL_HANDLE) {
-                    vkDestroyCommandPool(m_vkDevice, pool, nullptr);
-                }
-                if (execFence != VK_NULL_HANDLE) {
-                    vkDestroyFence(m_vkDevice, execFence, nullptr);
-                }
-            }
-            buf = VK_NULL_HANDLE;
-            pool = VK_NULL_HANDLE;
-            execFence = VK_NULL_HANDLE;
-            m_vkDevice = nullptr;
-        }
-
-        ~CmdBuffer()
-        {
-            Reset();
-        }
-
-        bool Init(VkDevice device, uint32_t queueFamilyIndex)
-        {
-            XRC_CHECK_THROW((state == CmdBufferState::Undefined) || (state == CmdBufferState::Initialized))
-
-            m_vkDevice = device;
-
-            // Create a command pool to allocate our command buffer from
-            VkCommandPoolCreateInfo cmdPoolInfo{VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO};
-            cmdPoolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
-            cmdPoolInfo.queueFamilyIndex = queueFamilyIndex;
-            XRC_CHECK_THROW_VKCMD(vkCreateCommandPool(m_vkDevice, &cmdPoolInfo, nullptr, &pool));
-
-            // Create the command buffer from the command pool
-            VkCommandBufferAllocateInfo cmd{VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO};
-            cmd.commandPool = pool;
-            cmd.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-            cmd.commandBufferCount = 1;
-            XRC_CHECK_THROW_VKCMD(vkAllocateCommandBuffers(m_vkDevice, &cmd, &buf));
-
-            VkFenceCreateInfo fenceInfo{VK_STRUCTURE_TYPE_FENCE_CREATE_INFO};
-            XRC_CHECK_THROW_VKCMD(vkCreateFence(m_vkDevice, &fenceInfo, nullptr, &execFence));
-
-            SetState(CmdBufferState::Initialized);
-            return true;
-        }
-
-        bool Begin()
-        {
-            XRC_CHECK_THROW(state == CmdBufferState::Initialized);
-            VkCommandBufferBeginInfo cmdBeginInfo{VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
-            XRC_CHECK_THROW_VKCMD(vkBeginCommandBuffer(buf, &cmdBeginInfo));
-            SetState(CmdBufferState::Recording);
-            return true;
-        }
-
-        bool End()
-        {
-            XRC_CHECK_THROW(state == CmdBufferState::Recording);
-            XRC_CHECK_THROW_VKCMD(vkEndCommandBuffer(buf));
-            SetState(CmdBufferState::Executable);
-            return true;
-        }
-
-        bool Exec(VkQueue queue)
-        {
-            XRC_CHECK_THROW(state == CmdBufferState::Executable);
-
-            VkSubmitInfo submitInfo{VK_STRUCTURE_TYPE_SUBMIT_INFO};
-            submitInfo.commandBufferCount = 1;
-            submitInfo.pCommandBuffers = &buf;
-            XRC_CHECK_THROW_VKCMD(vkQueueSubmit(queue, 1, &submitInfo, execFence));
-
-            SetState(CmdBufferState::Executing);
-            return true;
-        }
-
-        bool Wait()
-        {
-            // Waiting on a not-in-flight command buffer is a no-op
-            if (state == CmdBufferState::Initialized) {
-                return true;
-            }
-
-            XRC_CHECK_THROW(state == CmdBufferState::Executing);
-
-            const uint32_t timeoutNs = 1 * 1000 * 1000 * 1000;
-            for (int i = 0; i < 5; ++i) {
-                auto res = vkWaitForFences(m_vkDevice, 1, &execFence, VK_TRUE, timeoutNs);
-                if (res == VK_SUCCESS) {
-                    // Buffer can be executed multiple times...
-                    SetState(CmdBufferState::Executable);
-                    return true;
-                }
-                //Log::Write(Log::Level::Info, "Waiting for CmdBuffer fence timed out, retrying...");
-            }
-
-            return false;
-        }
-
-        bool Clear()
-        {
-            if (state != CmdBufferState::Initialized) {
-                XRC_CHECK_THROW(state == CmdBufferState::Executable);
-
-                XRC_CHECK_THROW_VKCMD(vkResetFences(m_vkDevice, 1, &execFence));
-                XRC_CHECK_THROW_VKCMD(vkResetCommandBuffer(buf, 0));
-
-                SetState(CmdBufferState::Initialized);
-            }
-
-            return true;
-        }
-
-    private:
-        VkDevice m_vkDevice{VK_NULL_HANDLE};
-
-        void SetState(CmdBufferState newState)
-        {
-            state = newState;
+            m_pipe.Reset();
+            m_rp.Reset();
+            m_renderTarget.clear();
         }
     };
 
-    // ShaderProgram to hold a pair of vertex & fragment shaders
-    struct ShaderProgram
+    class VulkanSwapchainImageData : public SwapchainImageDataBase<XrSwapchainImageVulkanKHR>
     {
-        std::array<VkPipelineShaderStageCreateInfo, 2> shaderInfo{
-            {{VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO}, {VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO}}};
-
-        ShaderProgram() = default;
-
-        void Reset()
+        void init(uint32_t capacity, VkFormat colorFormat, const PipelineLayout& layout, const ShaderProgram& sp,
+                  const VkVertexInputBindingDescription& bindDesc, span<const VkVertexInputAttributeDescription> attrDesc)
         {
-            if (m_vkDevice != nullptr) {
-                for (auto& si : shaderInfo) {
-                    if (si.module != VK_NULL_HANDLE) {
-                        vkDestroyShaderModule(m_vkDevice, si.module, nullptr);
-                    }
-                    si.module = VK_NULL_HANDLE;
-                }
-            }
-            shaderInfo = {{{VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO}, {VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO}}};
-            m_vkDevice = nullptr;
-        }
-
-        ~ShaderProgram()
-        {
-            Reset();
-        }
-
-        ShaderProgram(const ShaderProgram&) = delete;
-        ShaderProgram& operator=(const ShaderProgram&) = delete;
-        ShaderProgram(ShaderProgram&&) = delete;
-        ShaderProgram& operator=(ShaderProgram&&) = delete;
-
-        void LoadVertexShader(const std::vector<uint32_t>& code)
-        {
-            Load(0, code);
-        }
-
-        void LoadFragmentShader(const std::vector<uint32_t>& code)
-        {
-            Load(1, code);
-        }
-
-        void Init(VkDevice device)
-        {
-            m_vkDevice = device;
-        }
-
-    private:
-        VkDevice m_vkDevice{VK_NULL_HANDLE};
-
-        void Load(uint32_t index, const std::vector<uint32_t>& code)
-        {
-            VkShaderModuleCreateInfo modInfo{VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO};
-
-            auto& si = shaderInfo[index];
-            si.pName = "main";
-            std::string name;
-
-            switch (index) {
-            case 0:
-                si.stage = VK_SHADER_STAGE_VERTEX_BIT;
-                name = "vertex";
-                break;
-            case 1:
-                si.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
-                name = "fragment";
-                break;
-            default:
-                XRC_THROW("Unknown code index " + std::to_string(index));
-            }
-
-            modInfo.codeSize = code.size() * sizeof(code[0]);
-            modInfo.pCode = &code[0];
-            XRC_CHECK_THROW_MSG((modInfo.codeSize > 0) && modInfo.pCode, "Invalid shader " + name);
-
-            XRC_CHECK_THROW_VKCMD(vkCreateShaderModule(m_vkDevice, &modInfo, nullptr, &si.module));
-
-            //Log::Write(Log::Level::Info, Fmt("Loaded %s shader", name.c_str()));
-        }
-    };
-
-    // VertexBuffer base class
-    struct VertexBufferBase
-    {
-        VkBuffer idxBuf{VK_NULL_HANDLE};
-        VkDeviceMemory idxMem{VK_NULL_HANDLE};
-        VkBuffer vtxBuf{VK_NULL_HANDLE};
-        VkDeviceMemory vtxMem{VK_NULL_HANDLE};
-        VkVertexInputBindingDescription bindDesc{};
-        std::vector<VkVertexInputAttributeDescription> attrDesc{};
-        struct
-        {
-            uint32_t idx;
-            uint32_t vtx;
-        } count = {0, 0};
-
-        VertexBufferBase() = default;
-
-        void Reset()
-        {
-            if (m_vkDevice != nullptr) {
-                if (idxBuf != VK_NULL_HANDLE) {
-                    vkDestroyBuffer(m_vkDevice, idxBuf, nullptr);
-                }
-                if (idxMem != VK_NULL_HANDLE) {
-                    vkFreeMemory(m_vkDevice, idxMem, nullptr);
-                }
-                if (vtxBuf != VK_NULL_HANDLE) {
-                    vkDestroyBuffer(m_vkDevice, vtxBuf, nullptr);
-                }
-                if (vtxMem != VK_NULL_HANDLE) {
-                    vkFreeMemory(m_vkDevice, vtxMem, nullptr);
-                }
-            }
-            idxBuf = VK_NULL_HANDLE;
-            idxMem = VK_NULL_HANDLE;
-            vtxBuf = VK_NULL_HANDLE;
-            vtxMem = VK_NULL_HANDLE;
-            bindDesc = {};
-            attrDesc.clear();
-            count = {0, 0};
-            m_vkDevice = nullptr;
-        }
-
-        ~VertexBufferBase()
-        {
-            Reset();
-        }
-
-        VertexBufferBase(const VertexBufferBase&) = delete;
-        VertexBufferBase& operator=(const VertexBufferBase&) = delete;
-        VertexBufferBase(VertexBufferBase&&) = delete;
-        VertexBufferBase& operator=(VertexBufferBase&&) = delete;
-        void Init(VkDevice device, const MemoryAllocator* memAllocator, const std::vector<VkVertexInputAttributeDescription>& attr)
-        {
-            m_vkDevice = device;
-            m_memAllocator = memAllocator;
-            attrDesc = attr;
-        }
-
-    protected:
-        VkDevice m_vkDevice{VK_NULL_HANDLE};
-        void AllocateBufferMemory(VkBuffer buf, VkDeviceMemory* mem) const
-        {
-            VkMemoryRequirements memReq = {};
-            vkGetBufferMemoryRequirements(m_vkDevice, buf, &memReq);
-            m_memAllocator->Allocate(memReq, mem);
-        }
-
-        /// Swap the internals with another object.
-        /// Used by VertexBuffer<T> to provide move construction/assignment.
-        void Swap(VertexBufferBase& other)
-        {
-            using std::swap;
-            swap(idxBuf, other.idxBuf);
-            swap(idxMem, other.idxMem);
-            swap(vtxBuf, other.vtxBuf);
-            swap(vtxMem, other.vtxMem);
-            swap(bindDesc, other.bindDesc);
-            swap(attrDesc, other.attrDesc);
-            swap(count, other.count);
-            swap(m_vkDevice, other.m_vkDevice);
-            swap(m_memAllocator, other.m_memAllocator);
-        }
-
-    private:
-        const MemoryAllocator* m_memAllocator{nullptr};
-    };
-
-    // VertexBuffer template to wrap the indices and vertices
-    template <typename T>
-    struct VertexBuffer : public VertexBufferBase
-    {
-        static constexpr VkVertexInputBindingDescription c_bindingDesc = {0, sizeof(T), VK_VERTEX_INPUT_RATE_VERTEX};
-
-        /// Default constructible
-        VertexBuffer() = default;
-
-        /// Move-constructor
-        VertexBuffer(VertexBuffer<T>&& other) : VertexBuffer()
-        {
-            Swap(other);
-        }
-
-        /// Move-assignment
-        VertexBuffer& operator=(VertexBuffer<T>&& other)
-        {
-            if (this == &other) {
-                return *this;
-            }
-            Reset();
-            Swap(other);
-            return *this;
-        }
-
-        // no copy construct
-        VertexBuffer(const VertexBuffer<T>&) = delete;
-        // no copy assign
-        VertexBuffer& operator=(const VertexBuffer<T>&) = delete;
-
-        bool Create(uint32_t idxCount, uint32_t vtxCount)
-        {
-            VkBufferCreateInfo bufInfo{VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO};
-            bufInfo.usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
-            bufInfo.size = sizeof(uint16_t) * idxCount;
-            XRC_CHECK_THROW_VKCMD(vkCreateBuffer(m_vkDevice, &bufInfo, nullptr, &idxBuf));
-            AllocateBufferMemory(idxBuf, &idxMem);
-            XRC_CHECK_THROW_VKCMD(vkBindBufferMemory(m_vkDevice, idxBuf, idxMem, 0));
-
-            bufInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
-            bufInfo.size = sizeof(T) * vtxCount;
-            XRC_CHECK_THROW_VKCMD(vkCreateBuffer(m_vkDevice, &bufInfo, nullptr, &vtxBuf));
-            AllocateBufferMemory(vtxBuf, &vtxMem);
-            XRC_CHECK_THROW_VKCMD(vkBindBufferMemory(m_vkDevice, vtxBuf, vtxMem, 0));
-
-            bindDesc = c_bindingDesc;
-
-            count = {idxCount, vtxCount};
-
-            return true;
-        }
-
-        void UpdateIndices(const uint16_t* data, uint32_t elements, uint32_t offset = 0)
-        {
-            uint16_t* map = nullptr;
-            XRC_CHECK_THROW_VKCMD(vkMapMemory(m_vkDevice, idxMem, sizeof(map[0]) * offset, sizeof(map[0]) * elements, 0, (void**)&map));
-            for (size_t i = 0; i < elements; ++i) {
-                map[i] = data[i];
-            }
-            vkUnmapMemory(m_vkDevice, idxMem);
-        }
-
-        void UpdateVertices(const T* data, uint32_t elements, uint32_t offset = 0)
-        {
-            T* map = nullptr;
-            XRC_CHECK_THROW_VKCMD(vkMapMemory(m_vkDevice, vtxMem, sizeof(map[0]) * offset, sizeof(map[0]) * elements, 0, (void**)&map));
-            for (size_t i = 0; i < elements; ++i) {
-                map[i] = data[i];
-            }
-            vkUnmapMemory(m_vkDevice, vtxMem);
-        }
-    };
-    template <typename T>
-    constexpr VkVertexInputBindingDescription VertexBuffer<T>::c_bindingDesc;
-
-    // RenderPass wrapper
-    struct RenderPass
-    {
-        VkFormat colorFmt{};
-        VkFormat depthFmt{};
-        VkRenderPass pass{VK_NULL_HANDLE};
-
-        RenderPass() = default;
-
-        bool Create(VkDevice device, VkFormat aColorFmt, VkFormat aDepthFmt)
-        {
-            m_vkDevice = device;
-            colorFmt = aColorFmt;
-            depthFmt = aDepthFmt;
-
-            VkSubpassDescription subpass = {};
-            subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
-
-            VkAttachmentReference colorRef = {0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL};
-            VkAttachmentReference depthRef = {1, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL};
-
-            std::array<VkAttachmentDescription, 2> at = {};
-
-            VkRenderPassCreateInfo rpInfo{VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO};
-            rpInfo.attachmentCount = 0;
-            rpInfo.pAttachments = at.data();
-            rpInfo.subpassCount = 1;
-            rpInfo.pSubpasses = &subpass;
-
-            if (colorFmt != VK_FORMAT_UNDEFINED) {
-                colorRef.attachment = rpInfo.attachmentCount++;
-
-                at[colorRef.attachment].format = colorFmt;
-                at[colorRef.attachment].samples = VK_SAMPLE_COUNT_1_BIT;
-                at[colorRef.attachment].loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
-                at[colorRef.attachment].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-                at[colorRef.attachment].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-                at[colorRef.attachment].stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-                at[colorRef.attachment].initialLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-                at[colorRef.attachment].finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-
-                subpass.colorAttachmentCount = 1;
-                subpass.pColorAttachments = &colorRef;
-            }
-
-            if (depthFmt != VK_FORMAT_UNDEFINED) {
-                depthRef.attachment = rpInfo.attachmentCount++;
-
-                at[depthRef.attachment].format = depthFmt;
-                at[depthRef.attachment].samples = VK_SAMPLE_COUNT_1_BIT;
-                at[depthRef.attachment].loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
-                at[depthRef.attachment].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-                at[depthRef.attachment].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-                at[depthRef.attachment].stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-                at[depthRef.attachment].initialLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-                at[depthRef.attachment].finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-
-                subpass.pDepthStencilAttachment = &depthRef;
-            }
-
-            XRC_CHECK_THROW_VKCMD(vkCreateRenderPass(m_vkDevice, &rpInfo, nullptr, &pass));
-
-            return true;
-        }
-
-        void Reset()
-        {
-            if (m_vkDevice != nullptr) {
-                if (pass != VK_NULL_HANDLE) {
-                    vkDestroyRenderPass(m_vkDevice, pass, nullptr);
-                }
-            }
-            pass = VK_NULL_HANDLE;
-            m_vkDevice = nullptr;
-        }
-
-        ~RenderPass()
-        {
-            Reset();
-        }
-
-        RenderPass(const RenderPass&) = delete;
-        RenderPass& operator=(const RenderPass&) = delete;
-        RenderPass(RenderPass&&) = delete;
-        RenderPass& operator=(RenderPass&&) = delete;
-
-    private:
-        VkDevice m_vkDevice{VK_NULL_HANDLE};
-    };
-
-    // VkImage + framebuffer wrapper
-    struct RenderTarget
-    {
-        VkImage colorImage{VK_NULL_HANDLE};
-        VkImage depthImage{VK_NULL_HANDLE};
-        VkImageView colorView{VK_NULL_HANDLE};
-        VkImageView depthView{VK_NULL_HANDLE};
-        VkFramebuffer fb{VK_NULL_HANDLE};
-
-        RenderTarget() = default;
-
-        ~RenderTarget()
-        {
-            if (m_vkDevice != VK_NULL_HANDLE) {
-                if (fb != VK_NULL_HANDLE) {
-                    vkDestroyFramebuffer(m_vkDevice, fb, nullptr);
-                }
-                if (colorView != VK_NULL_HANDLE) {
-                    vkDestroyImageView(m_vkDevice, colorView, nullptr);
-                }
-                if (depthView != VK_NULL_HANDLE) {
-                    vkDestroyImageView(m_vkDevice, depthView, nullptr);
-                }
-            }
-
-            // Note we don't own color/depthImage, it will get destroyed when xrDestroySwapchain is called
-            colorImage = VK_NULL_HANDLE;
-            depthImage = VK_NULL_HANDLE;
-            colorView = VK_NULL_HANDLE;
-            depthView = VK_NULL_HANDLE;
-            fb = VK_NULL_HANDLE;
-            m_vkDevice = VK_NULL_HANDLE;
-        }
-
-        RenderTarget(RenderTarget&& other) noexcept : RenderTarget()
-        {
-            using std::swap;
-            swap(colorImage, other.colorImage);
-            swap(depthImage, other.depthImage);
-            swap(colorView, other.colorView);
-            swap(depthView, other.depthView);
-            swap(fb, other.fb);
-            swap(m_vkDevice, other.m_vkDevice);
-        }
-        RenderTarget& operator=(RenderTarget&& other) noexcept
-        {
-            if (&other == this) {
-                return *this;
-            }
-            // Clean up ourselves.
-            this->~RenderTarget();
-            using std::swap;
-            swap(colorImage, other.colorImage);
-            swap(depthImage, other.depthImage);
-            swap(colorView, other.colorView);
-            swap(depthView, other.depthView);
-            swap(fb, other.fb);
-            swap(m_vkDevice, other.m_vkDevice);
-            return *this;
-        }
-        void Create(VkDevice device, VkImage aColorImage, VkImage aDepthImage, uint32_t baseArrayLayer, VkExtent2D size,
-                    RenderPass& renderPass)
-        {
-            m_vkDevice = device;
-
-            colorImage = aColorImage;
-            depthImage = aDepthImage;
-
-            std::array<VkImageView, 2> attachments{};
-            uint32_t attachmentCount = 0;
-
-            // Create color image view
-            if (colorImage != VK_NULL_HANDLE) {
-                VkImageViewCreateInfo colorViewInfo{VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO};
-                colorViewInfo.image = colorImage;
-                colorViewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
-                colorViewInfo.format = renderPass.colorFmt;
-                colorViewInfo.components.r = VK_COMPONENT_SWIZZLE_R;
-                colorViewInfo.components.g = VK_COMPONENT_SWIZZLE_G;
-                colorViewInfo.components.b = VK_COMPONENT_SWIZZLE_B;
-                colorViewInfo.components.a = VK_COMPONENT_SWIZZLE_A;
-                colorViewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-                colorViewInfo.subresourceRange.baseMipLevel = 0;
-                colorViewInfo.subresourceRange.levelCount = 1;
-                colorViewInfo.subresourceRange.baseArrayLayer = baseArrayLayer;
-                colorViewInfo.subresourceRange.layerCount = 1;
-                XRC_CHECK_THROW_VKCMD(vkCreateImageView(m_vkDevice, &colorViewInfo, nullptr, &colorView));
-                attachments[attachmentCount++] = colorView;
-            }
-
-            // Create depth image view
-            if (depthImage != VK_NULL_HANDLE) {
-                VkImageViewCreateInfo depthViewInfo{VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO};
-                depthViewInfo.image = depthImage;
-                depthViewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
-                depthViewInfo.format = renderPass.depthFmt;
-                depthViewInfo.components.r = VK_COMPONENT_SWIZZLE_R;
-                depthViewInfo.components.g = VK_COMPONENT_SWIZZLE_G;
-                depthViewInfo.components.b = VK_COMPONENT_SWIZZLE_B;
-                depthViewInfo.components.a = VK_COMPONENT_SWIZZLE_A;
-                depthViewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
-                depthViewInfo.subresourceRange.baseMipLevel = 0;
-                depthViewInfo.subresourceRange.levelCount = 1;
-                depthViewInfo.subresourceRange.baseArrayLayer = baseArrayLayer;
-                depthViewInfo.subresourceRange.layerCount = 1;
-                XRC_CHECK_THROW_VKCMD(vkCreateImageView(m_vkDevice, &depthViewInfo, nullptr, &depthView));
-                attachments[attachmentCount++] = depthView;
-            }
-
-            VkFramebufferCreateInfo fbInfo{VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO};
-            fbInfo.renderPass = renderPass.pass;
-            fbInfo.attachmentCount = attachmentCount;
-            fbInfo.pAttachments = attachments.data();
-            fbInfo.width = size.width;
-            fbInfo.height = size.height;
-            fbInfo.layers = 1;
-            XRC_CHECK_THROW_VKCMD(vkCreateFramebuffer(m_vkDevice, &fbInfo, nullptr, &fb));
-        }
-
-        RenderTarget(const RenderTarget&) = delete;
-        RenderTarget& operator=(const RenderTarget&) = delete;
-
-    private:
-        VkDevice m_vkDevice{VK_NULL_HANDLE};
-    };
-
-    // Simple vertex MVP xform & color fragment shader layout
-    struct PipelineLayout
-    {
-        VkPipelineLayout layout{VK_NULL_HANDLE};
-
-        PipelineLayout() = default;
-
-        void Reset()
-        {
-            if (m_vkDevice != nullptr) {
-                if (layout != VK_NULL_HANDLE) {
-                    vkDestroyPipelineLayout(m_vkDevice, layout, nullptr);
-                }
-            }
-            layout = VK_NULL_HANDLE;
-            m_vkDevice = nullptr;
-        }
-
-        ~PipelineLayout()
-        {
-            Reset();
-        }
-
-        void Create(VkDevice device)
-        {
-            m_vkDevice = device;
-
-            // MVP matrix is a push_constant
-            VkPushConstantRange pcr = {};
-            pcr.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
-            pcr.offset = 0;
-            pcr.size = 4 * 4 * sizeof(float);
-
-            VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo{VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO};
-            pipelineLayoutCreateInfo.pushConstantRangeCount = 1;
-            pipelineLayoutCreateInfo.pPushConstantRanges = &pcr;
-            XRC_CHECK_THROW_VKCMD(vkCreatePipelineLayout(m_vkDevice, &pipelineLayoutCreateInfo, nullptr, &layout));
-        }
-
-        PipelineLayout(const PipelineLayout&) = delete;
-        PipelineLayout& operator=(const PipelineLayout&) = delete;
-        PipelineLayout(PipelineLayout&&) = delete;
-        PipelineLayout& operator=(PipelineLayout&&) = delete;
-
-    private:
-        VkDevice m_vkDevice{VK_NULL_HANDLE};
-    };
-
-    // Pipeline wrapper for rendering pipeline state
-    struct Pipeline
-    {
-        VkPipeline pipe{VK_NULL_HANDLE};
-        VkPrimitiveTopology topology{VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST};
-        std::vector<VkDynamicState> dynamicStateEnables;
-
-        Pipeline() = default;
-        ~Pipeline()
-        {
-            Reset();
-        }
-
-        void Dynamic(VkDynamicState state)
-        {
-            dynamicStateEnables.emplace_back(state);
-        }
-
-        void Create(VkDevice device, VkExtent2D /*size*/, const PipelineLayout& layout, const RenderPass& rp, const ShaderProgram& sp,
-                    const VkVertexInputBindingDescription& bindDesc, span<const VkVertexInputAttributeDescription> attrDesc)
-        {
-            m_vkDevice = device;
-
-            VkPipelineDynamicStateCreateInfo dynamicState{VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO};
-            dynamicState.dynamicStateCount = (uint32_t)dynamicStateEnables.size();
-            dynamicState.pDynamicStates = dynamicStateEnables.data();
-
-            VkPipelineVertexInputStateCreateInfo vi{VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO};
-            vi.vertexBindingDescriptionCount = 1;
-            vi.pVertexBindingDescriptions = &bindDesc;
-            vi.vertexAttributeDescriptionCount = (uint32_t)attrDesc.size();
-            vi.pVertexAttributeDescriptions = attrDesc.data();
-
-            VkPipelineInputAssemblyStateCreateInfo ia{VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO};
-            ia.primitiveRestartEnable = VK_FALSE;
-            ia.topology = topology;
-
-            VkPipelineRasterizationStateCreateInfo rs{VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO};
-            rs.polygonMode = VK_POLYGON_MODE_FILL;
-            rs.cullMode = VK_CULL_MODE_BACK_BIT;
-            rs.frontFace = VK_FRONT_FACE_CLOCKWISE;
-            rs.depthClampEnable = VK_FALSE;
-            rs.rasterizerDiscardEnable = VK_FALSE;
-            rs.depthBiasEnable = VK_FALSE;
-            rs.depthBiasConstantFactor = 0;
-            rs.depthBiasClamp = 0;
-            rs.depthBiasSlopeFactor = 0;
-            rs.lineWidth = 1.0f;
-
-            VkPipelineColorBlendAttachmentState attachState{};
-            attachState.blendEnable = 0;
-            attachState.srcColorBlendFactor = VK_BLEND_FACTOR_ONE;
-            attachState.dstColorBlendFactor = VK_BLEND_FACTOR_ZERO;
-            attachState.colorBlendOp = VK_BLEND_OP_ADD;
-            attachState.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
-            attachState.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
-            attachState.alphaBlendOp = VK_BLEND_OP_ADD;
-            attachState.colorWriteMask =
-                VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
-
-            VkPipelineColorBlendStateCreateInfo cb{VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO};
-            cb.attachmentCount = 1;
-            cb.pAttachments = &attachState;
-            cb.logicOpEnable = VK_FALSE;
-            cb.logicOp = VK_LOGIC_OP_NO_OP;
-            cb.blendConstants[0] = 1.0f;
-            cb.blendConstants[1] = 1.0f;
-            cb.blendConstants[2] = 1.0f;
-            cb.blendConstants[3] = 1.0f;
-
-            // Use dynamic scissor and viewport
-            VkPipelineViewportStateCreateInfo vp{VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO};
-            vp.viewportCount = 1;
-            vp.scissorCount = 1;
-
-            VkPipelineDepthStencilStateCreateInfo ds{VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO};
-            ds.depthTestEnable = VK_TRUE;
-            ds.depthWriteEnable = VK_TRUE;
-            ds.depthCompareOp = VK_COMPARE_OP_LESS;
-            ds.depthBoundsTestEnable = VK_FALSE;
-            ds.stencilTestEnable = VK_FALSE;
-            ds.front.failOp = VK_STENCIL_OP_KEEP;
-            ds.front.passOp = VK_STENCIL_OP_KEEP;
-            ds.front.depthFailOp = VK_STENCIL_OP_KEEP;
-            ds.front.compareOp = VK_COMPARE_OP_ALWAYS;
-            ds.back = ds.front;
-            ds.minDepthBounds = 0.0f;
-            ds.maxDepthBounds = 1.0f;
-
-            VkPipelineMultisampleStateCreateInfo ms{VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO};
-            ms.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
-
-            VkGraphicsPipelineCreateInfo pipeInfo{VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO};
-            pipeInfo.stageCount = (uint32_t)sp.shaderInfo.size();
-            pipeInfo.pStages = sp.shaderInfo.data();
-            pipeInfo.pVertexInputState = &vi;
-            pipeInfo.pInputAssemblyState = &ia;
-            pipeInfo.pTessellationState = nullptr;
-            pipeInfo.pViewportState = &vp;
-            pipeInfo.pRasterizationState = &rs;
-            pipeInfo.pMultisampleState = &ms;
-            pipeInfo.pDepthStencilState = &ds;
-            pipeInfo.pColorBlendState = &cb;
-            if (dynamicState.dynamicStateCount > 0) {
-                pipeInfo.pDynamicState = &dynamicState;
-            }
-            pipeInfo.layout = layout.layout;
-            pipeInfo.renderPass = rp.pass;
-            pipeInfo.subpass = 0;
-            XRC_CHECK_THROW_VKCMD(vkCreateGraphicsPipelines(m_vkDevice, VK_NULL_HANDLE, 1, &pipeInfo, nullptr, &pipe));
-        }
-
-        void Reset()
-        {
-            if (m_vkDevice != nullptr) {
-                if (pipe != VK_NULL_HANDLE) {
-                    vkDestroyPipeline(m_vkDevice, pipe, nullptr);
-                }
-            }
-            pipe = VK_NULL_HANDLE;
-            m_vkDevice = nullptr;
-        }
-
-    private:
-        VkDevice m_vkDevice{VK_NULL_HANDLE};
-    };
-
-    struct DepthBuffer
-    {
-        VkDeviceMemory depthMemory{VK_NULL_HANDLE};
-        VkImage depthImage{VK_NULL_HANDLE};
-
-        DepthBuffer() = default;
-        ~DepthBuffer()
-        {
-            Reset();
-        }
-
-        void Reset()
-        {
-            if (m_vkDevice != nullptr) {
-                if (depthImage != VK_NULL_HANDLE) {
-                    vkDestroyImage(m_vkDevice, depthImage, nullptr);
-                }
-                if (depthMemory != VK_NULL_HANDLE) {
-                    vkFreeMemory(m_vkDevice, depthMemory, nullptr);
-                }
-            }
-            depthImage = VK_NULL_HANDLE;
-            depthMemory = VK_NULL_HANDLE;
-            m_vkDevice = nullptr;
-        }
-
-        DepthBuffer(DepthBuffer&& other) noexcept : DepthBuffer()
-        {
-            using std::swap;
-
-            swap(depthImage, other.depthImage);
-            swap(depthMemory, other.depthMemory);
-            swap(m_vkDevice, other.m_vkDevice);
-        }
-        DepthBuffer& operator=(DepthBuffer&& other) noexcept
-        {
-            if (&other == this) {
-                return *this;
-            }
-            // clean up self
-            this->~DepthBuffer();
-            using std::swap;
-
-            swap(depthImage, other.depthImage);
-            swap(depthMemory, other.depthMemory);
-            swap(m_vkDevice, other.m_vkDevice);
-            return *this;
-        }
-
-        void Create(VkDevice device, MemoryAllocator* memAllocator, VkFormat depthFormat, const XrSwapchainCreateInfo& swapchainCreateInfo)
-        {
-            m_vkDevice = device;
-
-            VkExtent2D size = {swapchainCreateInfo.width, swapchainCreateInfo.height};
-
-            // Create a D32 depthbuffer
-            VkImageCreateInfo imageInfo{VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO};
-            imageInfo.imageType = VK_IMAGE_TYPE_2D;
-            imageInfo.extent.width = size.width;
-            imageInfo.extent.height = size.height;
-            imageInfo.extent.depth = 1;
-            imageInfo.mipLevels = 1;
-            imageInfo.arrayLayers = swapchainCreateInfo.arraySize;
-            imageInfo.format = depthFormat;
-            imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
-            imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-            imageInfo.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
-            imageInfo.samples = (VkSampleCountFlagBits)swapchainCreateInfo.sampleCount;
-            imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-            XRC_CHECK_THROW_VKCMD(vkCreateImage(device, &imageInfo, nullptr, &depthImage));
-
-            VkMemoryRequirements memRequirements{};
-            vkGetImageMemoryRequirements(device, depthImage, &memRequirements);
-            memAllocator->Allocate(memRequirements, &depthMemory, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-            XRC_CHECK_THROW_VKCMD(vkBindImageMemory(device, depthImage, depthMemory, 0));
-        }
-
-        void TransitionLayout(CmdBuffer* cmdBuffer, VkImageLayout newLayout)
-        {
-            if (newLayout == m_vkLayout) {
-                return;
-            }
-
-            VkImageMemoryBarrier depthBarrier{VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
-            depthBarrier.srcAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-            depthBarrier.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT;
-            depthBarrier.oldLayout = m_vkLayout;
-            depthBarrier.newLayout = newLayout;
-            depthBarrier.image = depthImage;
-            depthBarrier.subresourceRange = {VK_IMAGE_ASPECT_DEPTH_BIT, 0, 1, 0, 1};
-            vkCmdPipelineBarrier(cmdBuffer->buf, VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT, VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT, 0, 0, nullptr, 0,
-                                 nullptr, 1, &depthBarrier);
-
-            m_vkLayout = newLayout;
-        }
-        DepthBuffer(const DepthBuffer&) = delete;
-        DepthBuffer& operator=(const DepthBuffer&) = delete;
-
-    private:
-        VkDevice m_vkDevice{VK_NULL_HANDLE};
-        VkImageLayout m_vkLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    };
-
-    struct SwapchainImageContext : public IGraphicsPlugin::SwapchainImageStructs
-    {
-        // A packed array of XrSwapchainImageVulkanKHR's for xrEnumerateSwapchainImages
-        std::vector<XrSwapchainImageVulkanKHR> swapchainImages;
-        VkExtent2D size{};
-        class ArraySliceState
-        {
-        public:
-            ArraySliceState() = default;
-            ArraySliceState(const ArraySliceState&)
-            {
-                ReportF("ArraySliceState copy ctor called");
-            }
-            std::vector<RenderTarget> renderTarget;  // per swapchain index
-            DepthBuffer depthBuffer{};
-            RenderPass rp{};
-            Pipeline pipe{};
-        };
-        std::vector<ArraySliceState> slice{};
-
-        SwapchainImageContext() = default;
-        ~SwapchainImageContext() override
-        {
-            Reset();
-        }
-
-        std::vector<XrSwapchainImageBaseHeader*> Create(VkDevice device, MemoryAllocator* memAllocator, uint32_t capacity,
-                                                        const XrSwapchainCreateInfo& swapchainCreateInfo, const PipelineLayout& layout,
-                                                        const ShaderProgram& sp, const VkVertexInputBindingDescription& bindDesc,
-                                                        span<const VkVertexInputAttributeDescription> attrDesc)
-        {
-            m_vkDevice = device;
-
-            size = {swapchainCreateInfo.width, swapchainCreateInfo.height};
-            VkFormat colorFormat = (VkFormat)swapchainCreateInfo.format;
-            VkFormat depthFormat = VK_FORMAT_D32_SFLOAT;
-            // XXX handle swapchainCreateInfo.sampleCount
-
-            swapchainImages.resize(capacity);
-            std::vector<XrSwapchainImageBaseHeader*> bases(capacity);
-            for (uint32_t i = 0; i < capacity; ++i) {
-                swapchainImages[i] = {XR_TYPE_SWAPCHAIN_IMAGE_VULKAN_KHR};
-                bases[i] = reinterpret_cast<XrSwapchainImageBaseHeader*>(&swapchainImages[i]);
-            }
-
-            // Array slices could probably be handled via subpasses, but use a pipe/renderpass per slice for now
-            slice.resize(swapchainCreateInfo.arraySize);
-            for (auto& s : slice) {
-                s.renderTarget.resize(capacity);
-                s.depthBuffer.Create(m_vkDevice, memAllocator, depthFormat, swapchainCreateInfo);
-                s.rp.Create(m_vkDevice, colorFormat, depthFormat);
-                s.pipe.Dynamic(VK_DYNAMIC_STATE_SCISSOR);
-                s.pipe.Dynamic(VK_DYNAMIC_STATE_VIEWPORT);
-                s.pipe.Create(m_vkDevice, size, layout, s.rp, sp, bindDesc, attrDesc);
-            }
-
-            return bases;
-        }
-
-        void Reset()
-        {
-            if (m_vkDevice) {
-                swapchainImages.clear();
-                size = {};
-                slice.clear();
-                m_vkDevice = VK_NULL_HANDLE;
+            m_depthBuffer.resize(capacity);
+            for (auto& slice : m_slices) {
+                slice.init(m_namer, m_vkDevice, capacity, m_size, colorFormat, m_depthFormat, m_sampleCount, layout, sp, bindDesc,
+                           attrDesc);
             }
         }
 
-        uint32_t ImageIndex(const XrSwapchainImageBaseHeader* swapchainImageHeader)
+    public:
+        VulkanSwapchainImageData(const VulkanDebugObjectNamer& namer, uint32_t capacity, const XrSwapchainCreateInfo& swapchainCreateInfo,
+                                 VkDevice device, MemoryAllocator* memAllocator, const PipelineLayout& layout, const ShaderProgram& sp,
+                                 const VkVertexInputBindingDescription& bindDesc, span<const VkVertexInputAttributeDescription> attrDesc)
+            : SwapchainImageDataBase(XR_TYPE_SWAPCHAIN_IMAGE_VULKAN_KHR, capacity, swapchainCreateInfo)
+            , m_namer(namer)
+            , m_vkDevice(device)
+            , m_memAllocator(memAllocator)
+            , m_size{swapchainCreateInfo.width, swapchainCreateInfo.height}
+            , m_sampleCount{(VkSampleCountFlagBits)swapchainCreateInfo.sampleCount}
+            , m_slices(swapchainCreateInfo.arraySize)
         {
-            auto p = reinterpret_cast<const XrSwapchainImageVulkanKHR*>(swapchainImageHeader);
-            return (uint32_t)(p - &swapchainImages[0]);
+            init(capacity, (VkFormat)swapchainCreateInfo.format, layout, sp, bindDesc, attrDesc);
+        }
+
+        VulkanSwapchainImageData(const VulkanDebugObjectNamer& namer, uint32_t capacity, const XrSwapchainCreateInfo& swapchainCreateInfo,
+                                 XrSwapchain depthSwapchain, const XrSwapchainCreateInfo& depthSwapchainCreateInfo, VkDevice device,
+                                 MemoryAllocator* memAllocator, const PipelineLayout& layout, const ShaderProgram& sp,
+                                 const VkVertexInputBindingDescription& bindDesc, span<const VkVertexInputAttributeDescription> attrDesc)
+            : SwapchainImageDataBase(XR_TYPE_SWAPCHAIN_IMAGE_VULKAN_KHR, capacity, swapchainCreateInfo, depthSwapchain,
+                                     depthSwapchainCreateInfo)
+            , m_namer(namer)
+            , m_vkDevice(device)
+            , m_memAllocator(memAllocator)
+            , m_size{swapchainCreateInfo.width, swapchainCreateInfo.height}
+            , m_sampleCount{(VkSampleCountFlagBits)swapchainCreateInfo.sampleCount}
+            , m_depthFormat((VkFormat)depthSwapchainCreateInfo.format)
+            , m_slices(swapchainCreateInfo.arraySize)
+        {
+            init(capacity, (VkFormat)swapchainCreateInfo.format, layout, sp, bindDesc, attrDesc);
+        }
+
+        ~VulkanSwapchainImageData() override
+        {
+            // Calling a virtual function from a destructor doesn't work the way you'd expect, so we do this here.
+            VulkanSwapchainImageData::Reset();
         }
 
         void BindRenderTarget(uint32_t index, uint32_t arraySlice, const VkRect2D& renderArea, VkRenderPassBeginInfo* renderPassBeginInfo)
         {
-            auto& s = slice[arraySlice];
-            RenderTarget& rt = s.renderTarget[index];
+            RenderTarget& rt = m_slices[arraySlice].m_renderTarget[index];
+            RenderPass& rp = m_slices[arraySlice].m_rp;
             if (rt.fb == VK_NULL_HANDLE) {
-                rt.Create(m_vkDevice, swapchainImages[index].image, s.depthBuffer.depthImage, arraySlice, size, s.rp);
+                rt.Create(m_namer, m_vkDevice, GetTypedImage(index).image, GetDepthImageForColorIndex(index).image, arraySlice, m_size, rp);
             }
-            renderPassBeginInfo->renderPass = s.rp.pass;
+            renderPassBeginInfo->renderPass = rp.pass;
             renderPassBeginInfo->framebuffer = rt.fb;
             renderPassBeginInfo->renderArea = renderArea;
         }
 
         void BindPipeline(VkCommandBuffer buf, uint32_t arraySlice)
         {
-            vkCmdBindPipeline(buf, VK_PIPELINE_BIND_POINT_GRAPHICS, slice[arraySlice].pipe.pipe);
+            vkCmdBindPipeline(buf, VK_PIPELINE_BIND_POINT_GRAPHICS, m_slices[arraySlice].m_pipe.pipe);
+        }
+
+        void TransitionLayout(uint32_t imageIndex, CmdBuffer* cmdBuffer, VkImageLayout newLayout)
+        {
+            m_depthBuffer[imageIndex].TransitionLayout(cmdBuffer, newLayout);
+        }
+
+        void Reset() override
+        {
+            for (auto& slice : m_slices) {
+                slice.Reset();
+            }
+            m_depthBuffer.clear();
+            SwapchainImageDataBase::Reset();
+        }
+
+    protected:
+        const XrSwapchainImageVulkanKHR& GetFallbackDepthSwapchainImage(uint32_t i) override
+        {
+            if (!m_depthBuffer[i].Allocated()) {
+                m_depthBuffer[i].Allocate(m_namer, m_vkDevice, m_memAllocator, m_depthFormat, this->Width(), this->Height(),
+                                          this->ArraySize(), this->SampleCount());
+            }
+
+            return m_depthBuffer[i].GetTexture();
         }
 
     private:
+        VulkanDebugObjectNamer m_namer;
         VkDevice m_vkDevice{VK_NULL_HANDLE};
+        MemoryAllocator* m_memAllocator{nullptr};
+        VkExtent2D m_size{};
+        VkSampleCountFlagBits m_sampleCount;
+        std::vector<DepthBuffer> m_depthBuffer;  // per swapchain index
+        VkFormat m_depthFormat{VK_FORMAT_D32_SFLOAT};
+
+        std::vector<VulkanArraySliceState> m_slices;
     };
 
 #if defined(USE_MIRROR_WINDOW)
@@ -1529,6 +498,13 @@ namespace Conformance
 
         ~VulkanGraphicsPlugin() override;
 
+        void Flush() override
+        {
+            if (m_vkDevice != VK_NULL_HANDLE) {
+                vkDeviceWaitIdle(m_vkDevice);
+            }
+        }
+
         std::vector<std::string> GetInstanceExtensions() const override
         {
             return {XR_KHR_VULKAN_ENABLE2_EXTENSION_NAME};
@@ -1584,6 +560,8 @@ namespace Conformance
 
         void InitializeResources();
 
+        void ClearSwapchainCache() override;
+
         void ShutdownDevice() override;
 
         const XrBaseInStructure* GetGraphicsBinding() const override;
@@ -1606,21 +584,27 @@ namespace Conformance
         // Format required by RGBAImage type.
         int64_t GetSRGBA8Format() const override;
 
-        std::shared_ptr<IGraphicsPlugin::SwapchainImageStructs>
-        AllocateSwapchainImageStructs(size_t size, const XrSwapchainCreateInfo& swapchainCreateInfo) override;
+        ISwapchainImageData* AllocateSwapchainImageData(size_t size, const XrSwapchainCreateInfo& colorSwapchainCreateInfo) override;
 
-        void CopyRGBAImage(const XrSwapchainImageBaseHeader* swapchainImageBase, int64_t imageFormat, uint32_t arraySlice,
-                           const RGBAImage& image) override;
+        ISwapchainImageData* AllocateSwapchainImageDataWithDepthSwapchain(size_t size,
+                                                                          const XrSwapchainCreateInfo& colorSwapchainCreateInfo,
+                                                                          XrSwapchain depthSwapchain,
+                                                                          const XrSwapchainCreateInfo& depthSwapchainCreateInfo) override;
+
+        // ISwapchainImageData * EnumerateSwapchainImageData(XrSwapchain colorSwapchain,
+        //                                                                  const XrSwapchainCreateInfo& swapchainCreateInfo) override;
+
+        void CopyRGBAImage(const XrSwapchainImageBaseHeader* swapchainImageBase, uint32_t arraySlice, const RGBAImage& image) override;
 
         void SetViewportAndScissor(const VkRect2D& rect);
 
-        void ClearImageSlice(const XrSwapchainImageBaseHeader* colorSwapchainImage, uint32_t imageArrayIndex, int64_t colorSwapchainFormat,
+        void ClearImageSlice(const XrSwapchainImageBaseHeader* colorSwapchainImage, uint32_t imageArrayIndex,
                              XrColor4f bgColor = DarkSlateGrey) override;
 
         MeshHandle MakeSimpleMesh(span<const uint16_t> idx, span<const Geometry::Vertex> vtx) override;
 
         void RenderView(const XrCompositionLayerProjectionView& layerView, const XrSwapchainImageBaseHeader* colorSwapchainImage,
-                        int64_t colorSwapchainFormat, const RenderParams& params) override;
+                        const RenderParams& params) override;
 
 #if defined(USE_CHECKPOINTS)
         void Checkpoint(std::string msg)
@@ -1655,12 +639,10 @@ namespace Conformance
 
     private:
         XrGraphicsBindingVulkan2KHR m_graphicsBinding{XR_TYPE_GRAPHICS_BINDING_VULKAN2_KHR};
-#if defined(USE_MIRROR_WINDOW)
-        std::list<std::shared_ptr<SwapchainImageContext>> m_swapchainImageContexts;
-#endif
-        std::map<const XrSwapchainImageBaseHeader*, std::shared_ptr<SwapchainImageContext>> m_swapchainImageContextMap;
+        SwapchainImageDataMap<VulkanSwapchainImageData> m_swapchainImageDataMap;
 
         VkDevice m_vkDevice{VK_NULL_HANDLE};
+        VulkanDebugObjectNamer m_namer{};
         uint32_t m_queueFamilyIndex = 0;
         VkQueue m_vkQueue{VK_NULL_HANDLE};
         VkSemaphore m_vkDrawDone{VK_NULL_HANDLE};
@@ -1682,107 +664,106 @@ namespace Conformance
         std::unordered_set<std::string> checkpoints{};
 #endif
 
-        PFN_vkCreateDebugReportCallbackEXT vkCreateDebugReportCallbackEXT{nullptr};
-        PFN_vkDestroyDebugReportCallbackEXT vkDestroyDebugReportCallbackEXT{nullptr};
-        VkDebugReportCallbackEXT m_vkDebugReporter{VK_NULL_HANDLE};
+        PFN_vkCreateDebugUtilsMessengerEXT vkCreateDebugUtilsMessengerEXT{nullptr};
+        PFN_vkDestroyDebugUtilsMessengerEXT vkDestroyDebugUtilsMessengerEXT{nullptr};
+        VkDebugUtilsMessengerEXT m_vkDebugUtilsMessenger{VK_NULL_HANDLE};
 
-        VkBool32 debugReport(VkDebugReportFlagsEXT flags, VkDebugReportObjectTypeEXT objectType, uint64_t /*object*/, size_t /*location*/,
-                             int32_t /*messageCode*/, const char* pLayerPrefix, const char* pMessage)
+        static std::string vkObjectTypeToString(VkObjectType objectType)
         {
-            std::string flagNames;
             std::string objName;
-            //Log::Level level = Log::Level::Error;
 
-            if ((flags & VK_DEBUG_REPORT_DEBUG_BIT_EXT) != 0u) {
-                flagNames += "DEBUG:";
-                //level = Log::Level::Verbose;
-            }
-            if ((flags & VK_DEBUG_REPORT_INFORMATION_BIT_EXT) != 0u) {
-                flagNames += "INFO:";
-                //level = Log::Level::Info;
-            }
-            if ((flags & VK_DEBUG_REPORT_PERFORMANCE_WARNING_BIT_EXT) != 0u) {
-                flagNames += "PERF:";
-                //level = Log::Level::Warning;
-            }
-            if ((flags & VK_DEBUG_REPORT_WARNING_BIT_EXT) != 0u) {
-                flagNames += "WARN:";
-                //level = Log::Level::Warning;
-            }
-            if ((flags & VK_DEBUG_REPORT_ERROR_BIT_EXT) != 0u) {
-                flagNames += "ERROR:";
-                //level = Log::Level::Error;
-            }
-
-#define LIST_OBJECT_TYPES(_) \
-    _(UNKNOWN)               \
-    _(INSTANCE)              \
-    _(PHYSICAL_DEVICE)       \
-    _(DEVICE)                \
-    _(QUEUE)                 \
-    _(SEMAPHORE)             \
-    _(COMMAND_BUFFER)        \
-    _(FENCE)                 \
-    _(DEVICE_MEMORY)         \
-    _(BUFFER)                \
-    _(IMAGE)                 \
-    _(EVENT)                 \
-    _(QUERY_POOL)            \
-    _(BUFFER_VIEW)           \
-    _(IMAGE_VIEW)            \
-    _(SHADER_MODULE)         \
-    _(PIPELINE_CACHE)        \
-    _(PIPELINE_LAYOUT)       \
-    _(RENDER_PASS)           \
-    _(PIPELINE)              \
-    _(DESCRIPTOR_SET_LAYOUT) \
-    _(SAMPLER)               \
-    _(DESCRIPTOR_POOL)       \
-    _(DESCRIPTOR_SET)        \
-    _(FRAMEBUFFER)           \
-    _(COMMAND_POOL)          \
-    _(SURFACE_KHR)           \
-    _(SWAPCHAIN_KHR)         \
-    _(DISPLAY_KHR)           \
-    _(DISPLAY_MODE_KHR)
+#define LIST_OBJECT_TYPES(_)          \
+    _(UNKNOWN)                        \
+    _(INSTANCE)                       \
+    _(PHYSICAL_DEVICE)                \
+    _(DEVICE)                         \
+    _(QUEUE)                          \
+    _(SEMAPHORE)                      \
+    _(COMMAND_BUFFER)                 \
+    _(FENCE)                          \
+    _(DEVICE_MEMORY)                  \
+    _(BUFFER)                         \
+    _(IMAGE)                          \
+    _(EVENT)                          \
+    _(QUERY_POOL)                     \
+    _(BUFFER_VIEW)                    \
+    _(IMAGE_VIEW)                     \
+    _(SHADER_MODULE)                  \
+    _(PIPELINE_CACHE)                 \
+    _(PIPELINE_LAYOUT)                \
+    _(RENDER_PASS)                    \
+    _(PIPELINE)                       \
+    _(DESCRIPTOR_SET_LAYOUT)          \
+    _(SAMPLER)                        \
+    _(DESCRIPTOR_POOL)                \
+    _(DESCRIPTOR_SET)                 \
+    _(FRAMEBUFFER)                    \
+    _(COMMAND_POOL)                   \
+    _(SURFACE_KHR)                    \
+    _(SWAPCHAIN_KHR)                  \
+    _(DISPLAY_KHR)                    \
+    _(DISPLAY_MODE_KHR)               \
+    _(DESCRIPTOR_UPDATE_TEMPLATE_KHR) \
+    _(DEBUG_UTILS_MESSENGER_EXT)
 
             switch (objectType) {
             default:
-#define MK_OBJECT_TYPE_CASE(name)                  \
-    case VK_DEBUG_REPORT_OBJECT_TYPE_##name##_EXT: \
-        objName = #name;                           \
+#define MK_OBJECT_TYPE_CASE(name) \
+    case VK_OBJECT_TYPE_##name:   \
+        objName = #name;          \
         break;
                 LIST_OBJECT_TYPES(MK_OBJECT_TYPE_CASE)
-
-#if VK_HEADER_VERSION >= 46
-                MK_OBJECT_TYPE_CASE(DESCRIPTOR_UPDATE_TEMPLATE_KHR)
-#endif
-#if VK_HEADER_VERSION >= 70
-                MK_OBJECT_TYPE_CASE(DEBUG_REPORT_CALLBACK_EXT)
-#endif
             }
 
-            if ((objectType == VK_DEBUG_REPORT_OBJECT_TYPE_INSTANCE_EXT) && (strcmp(pLayerPrefix, "Loader Message") == 0) &&
-                (strncmp(pMessage, "Device Extension:", 17) == 0)) {
-                return VK_FALSE;
+            return objName;
+        }
+        VkBool32 debugMessage(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, VkDebugUtilsMessageTypeFlagsEXT messageTypes,
+                              const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData)
+        {
+
+            std::string flagNames;
+            std::string objName;
+
+            if ((messageSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT) != 0u) {
+                flagNames += "DEBUG:";
+            }
+            if ((messageSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT) != 0u) {
+                flagNames += "INFO:";
+            }
+            if ((messageSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT) != 0u) {
+                flagNames += "WARN:";
+            }
+            if ((messageSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT) != 0u) {
+                flagNames += "ERROR:";
+            }
+            if ((messageTypes & VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT) != 0u) {
+                flagNames += "PERF:";
             }
 
-            //Log::Write(level, Fmt("%s (%s 0x%llx) [%s] %s", flagNames.c_str(), objName.c_str(), object, pLayerPrefix, pMessage));
-            if ((flags & VK_DEBUG_REPORT_ERROR_BIT_EXT) != 0u) {
-                return VK_FALSE;
+            uint64_t object = 0;
+            // skip loader messages about device extensions
+            if (pCallbackData->objectCount > 0) {
+                auto objectType = pCallbackData->pObjects[0].objectType;
+                if ((objectType == VK_OBJECT_TYPE_INSTANCE) && (strncmp(pCallbackData->pMessage, "Device Extension:", 17) == 0)) {
+                    return VK_FALSE;
+                }
+                objName = vkObjectTypeToString(objectType);
+                object = pCallbackData->pObjects[0].objectHandle;
+                if (pCallbackData->pObjects[0].pObjectName != nullptr) {
+                    objName += " " + std::string(pCallbackData->pObjects[0].pObjectName);
+                }
             }
-            if ((flags & VK_DEBUG_REPORT_WARNING_BIT_EXT) != 0u) {
-                return VK_FALSE;
-            }
+
+            ReportF("%s (%s 0x%llx) %s", flagNames.c_str(), objName.c_str(), object, pCallbackData->pMessage);
+
             return VK_FALSE;
         }
 
-        static VKAPI_ATTR VkBool32 VKAPI_CALL debugReportThunk(VkDebugReportFlagsEXT flags, VkDebugReportObjectTypeEXT objectType,
-                                                               uint64_t object, size_t location, int32_t messageCode,
-                                                               const char* pLayerPrefix, const char* pMessage, void* pUserData)
+        static VKAPI_ATTR VkBool32 VKAPI_CALL debugMessageThunk(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
+                                                                VkDebugUtilsMessageTypeFlagsEXT messageTypes,
+                                                                const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData, void* pUserData)
         {
-            return static_cast<VulkanGraphicsPlugin*>(pUserData)->debugReport(flags, objectType, object, location, messageCode,
-                                                                              pLayerPrefix, pMessage);
+            return static_cast<VulkanGraphicsPlugin*>(pUserData)->debugMessage(messageSeverity, messageTypes, pCallbackData);
         }
     };
 
@@ -2069,7 +1050,27 @@ namespace Conformance
         {
             // Note: This cannot outlive the extensionNames above, since it's just a collection of views into that string!
             std::vector<const char*> extensions;
-            extensions.push_back("VK_EXT_debug_report");
+            {
+                uint32_t extensionCount = 0;
+                XRC_CHECK_THROW_VKCMD(vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, nullptr));
+
+                std::vector<VkExtensionProperties> availableExtensions(extensionCount);
+                XRC_CHECK_THROW_VKCMD(vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, availableExtensions.data()));
+                const auto b = availableExtensions.begin();
+                const auto e = availableExtensions.end();
+
+                auto isExtSupported = [&](const char* extName) -> bool {
+                    auto it = std::find_if(
+                        b, e, [&](const VkExtensionProperties& properties) { return (0 == strcmp(extName, properties.extensionName)); });
+                    return (it != e);
+                };
+
+                // Debug utils is optional and not always available
+                if (isExtSupported(VK_EXT_DEBUG_UTILS_EXTENSION_NAME)) {
+                    extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+                }
+                // TODO add back VK_EXT_debug_report code for compatibility with older systems? (Android)
+            }
 
             std::vector<const char*> layers;
 #if !defined(NDEBUG)
@@ -2094,7 +1095,7 @@ namespace Conformance
             if (validationLayerName)
                 layers.push_back(validationLayerName);
             else
-                ReportF("No validation layers found, running without them");
+                ReportF("No Vulkan validation layers found, running without them");
 #endif
 #if defined(USE_CHECKPOINTS)
             layers.push_back("VK_NV_device_diagnostic_checkpoints");
@@ -2128,19 +1129,22 @@ namespace Conformance
         vkGetQueueCheckpointDataNV = (PFN_vkGetQueueCheckpointDataNV)vkGetInstanceProcAddr(m_vkInstance, "vkGetQueueCheckpointDataNV");
 #endif
 
-        vkCreateDebugReportCallbackEXT =
-            (PFN_vkCreateDebugReportCallbackEXT)vkGetInstanceProcAddr(m_vkInstance, "vkCreateDebugReportCallbackEXT");
-        vkDestroyDebugReportCallbackEXT =
-            (PFN_vkDestroyDebugReportCallbackEXT)vkGetInstanceProcAddr(m_vkInstance, "vkDestroyDebugReportCallbackEXT");
-        VkDebugReportCallbackCreateInfoEXT debugInfo{VK_STRUCTURE_TYPE_DEBUG_REPORT_CALLBACK_CREATE_INFO_EXT};
-        debugInfo.flags = VK_DEBUG_REPORT_ERROR_BIT_EXT | VK_DEBUG_REPORT_WARNING_BIT_EXT;
+        vkCreateDebugUtilsMessengerEXT =
+            (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(m_vkInstance, "vkCreateDebugUtilsMessengerEXT");
+        vkDestroyDebugUtilsMessengerEXT =
+            (PFN_vkDestroyDebugUtilsMessengerEXT)vkGetInstanceProcAddr(m_vkInstance, "vkDestroyDebugUtilsMessengerEXT");
+
+        if (vkCreateDebugUtilsMessengerEXT != nullptr && vkDestroyDebugUtilsMessengerEXT != nullptr) {
+            VkDebugUtilsMessengerCreateInfoEXT debugInfo{VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT};
+            debugInfo.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT;
+            debugInfo.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
 #if !defined(NDEBUG)
-        debugInfo.flags |=
-            VK_DEBUG_REPORT_INFORMATION_BIT_EXT | VK_DEBUG_REPORT_PERFORMANCE_WARNING_BIT_EXT | VK_DEBUG_REPORT_DEBUG_BIT_EXT;
+            debugInfo.messageSeverity |= VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT;
 #endif
-        debugInfo.pfnCallback = debugReportThunk;
-        debugInfo.pUserData = this;
-        XRC_CHECK_THROW_VKCMD(vkCreateDebugReportCallbackEXT(m_vkInstance, &debugInfo, nullptr, &m_vkDebugReporter));
+            debugInfo.pfnUserCallback = debugMessageThunk;
+            debugInfo.pUserData = this;
+            XRC_CHECK_THROW_VKCMD(vkCreateDebugUtilsMessengerEXT(m_vkInstance, &debugInfo, nullptr, &m_vkDebugUtilsMessenger));
+        }
 
         XrVulkanGraphicsDeviceGetInfoKHR deviceGetInfo{XR_TYPE_VULKAN_GRAPHICS_DEVICE_GET_INFO_KHR};
         deviceGetInfo.systemId = systemId;
@@ -2190,6 +1194,8 @@ namespace Conformance
         deviceCreateInfo.vulkanAllocator = nullptr;
         XRC_CHECK_THROW_XRCMD(CreateVulkanDeviceKHR(instance, &deviceCreateInfo, &m_vkDevice, &err));
         XRC_CHECK_THROW_VKCMD(err);
+
+        m_namer.Init(m_vkInstance, m_vkDevice);
 
         vkGetDeviceQueue(m_vkDevice, queueInfo.queueFamilyIndex, 0, &m_vkQueue);
 
@@ -2251,8 +1257,9 @@ namespace Conformance
         // Semaphore to block on draw complete
         VkSemaphoreCreateInfo semInfo{VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO};
         XRC_CHECK_THROW_VKCMD(vkCreateSemaphore(m_vkDevice, &semInfo, nullptr, &m_vkDrawDone));
+        XRC_CHECK_THROW_VKCMD(m_namer.SetName(VK_OBJECT_TYPE_SEMAPHORE, (uint64_t)m_vkDrawDone, "CTS draw done semaphore"));
 
-        if (!m_cmdBuffer.Init(m_vkDevice, m_queueFamilyIndex))
+        if (!m_cmdBuffer.Init(m_namer, m_vkDevice, m_queueFamilyIndex))
             XRC_THROW("Failed to create command buffer");
 
         m_pipelineLayout.Create(m_vkDevice);
@@ -2273,6 +1280,11 @@ namespace Conformance
 #endif
     }
 
+    void VulkanGraphicsPlugin::ClearSwapchainCache()
+    {
+        m_swapchainImageDataMap.Reset();
+    }
+
     void VulkanGraphicsPlugin::ShutdownDevice()
     {
         if (m_vkDevice != VK_NULL_HANDLE) {
@@ -2281,10 +1293,8 @@ namespace Conformance
 
             // Reset the swapchains to avoid calling Vulkan functions in the dtors after
             // we've shut down the device.
-            for (auto& ctx : m_swapchainImageContextMap) {
-                ctx.second->Reset();
-            }
-            m_swapchainImageContextMap.clear();
+
+            m_swapchainImageDataMap.Reset();
             m_cubeMesh = {};
             m_meshes.clear();
 
@@ -2302,14 +1312,14 @@ namespace Conformance
 
 #if defined(USE_MIRROR_WINDOW)
             m_swapchain.Reset();
-            m_swapchainImageContexts.clear();
+            m_swapchainImageData.clear();
 #endif
             vkDestroyDevice(m_vkDevice, nullptr);
             m_vkDevice = VK_NULL_HANDLE;
         }
-        if (m_vkDebugReporter != VK_NULL_HANDLE) {
-            vkDestroyDebugReportCallbackEXT(m_vkInstance, m_vkDebugReporter, nullptr);
-            m_vkDebugReporter = VK_NULL_HANDLE;
+        if (m_vkDebugUtilsMessenger != VK_NULL_HANDLE && vkDestroyDebugUtilsMessengerEXT != nullptr) {
+            vkDestroyDebugUtilsMessengerEXT(m_vkInstance, m_vkDebugUtilsMessenger, nullptr);
+            m_vkDebugUtilsMessenger = VK_NULL_HANDLE;
         }
         if (m_vkInstance != VK_NULL_HANDLE) {
             vkDestroyInstance(m_vkInstance, nullptr);
@@ -2345,48 +1355,51 @@ namespace Conformance
         0, XR_SWAPCHAIN_CREATE_PROTECTED_CONTENT_BIT, XR_SWAPCHAIN_CREATE_STATIC_IMAGE_BIT \
     }
 
-#define ADD_VK_COLOR_FORMAT2(X, Y)                                                                                         \
-    {                                                                                                                      \
-        {X},                                                                                                               \
-        {                                                                                                                  \
-            Y, IMMUTABLE, MUT_SUPPORT, COLOR, UNCOMPRESSED, X, {XRC_COLOR_TEXTURE_USAGE, XRC_COLOR_TEXTURE_USAGE_MUTABLE}, \
-                XRC_COLOR_CREATE_FLAGS, {}, {},                                                                            \
-            {                                                                                                              \
-            }                                                                                                              \
-        }                                                                                                                  \
+#define ADD_VK_COLOR_FORMAT2(X, Y)                                                                          \
+    {                                                                                                       \
+        {X},                                                                                                \
+        {                                                                                                   \
+            Y, IMMUTABLE, MUT_SUPPORT, COLOR, UNCOMPRESSED, RENDERING_SUPPORT, X,                           \
+                {XRC_COLOR_TEXTURE_USAGE, XRC_COLOR_TEXTURE_USAGE_MUTABLE}, XRC_COLOR_CREATE_FLAGS, {}, {}, \
+            {                                                                                               \
+            }                                                                                               \
+        }                                                                                                   \
     }
 #define ADD_VK_COLOR_FORMAT(X) ADD_VK_COLOR_FORMAT2(X, #X)
 
-#define ADD_VK_COLOR_IMMUTABLE_FORMAT2(X, Y)                                                                                 \
-    {                                                                                                                        \
-        {X},                                                                                                                 \
-        {                                                                                                                    \
-            Y, IMMUTABLE, NO_MUT_SUPPORT, COLOR, UNCOMPRESSED, X, {XRC_COLOR_TEXTURE_USAGE}, XRC_COLOR_CREATE_FLAGS, {}, {}, \
-            {                                                                                                                \
-            }                                                                                                                \
-        }                                                                                                                    \
+#define ADD_VK_COLOR_IMMUTABLE_FORMAT2(X, Y)                                                                                            \
+    {                                                                                                                                   \
+        {X},                                                                                                                            \
+        {                                                                                                                               \
+            Y, IMMUTABLE, NO_MUT_SUPPORT, COLOR, UNCOMPRESSED, RENDERING_SUPPORT, X, {XRC_COLOR_TEXTURE_USAGE}, XRC_COLOR_CREATE_FLAGS, \
+                {}, {},                                                                                                                 \
+            {                                                                                                                           \
+            }                                                                                                                           \
+        }                                                                                                                               \
     }
 #define ADD_VK_COLOR_IMMUTABLE_FORMAT(X) ADD_VK_COLOR_IMMUTABLE_FORMAT2(X, #X)
 
-#define ADD_VK_COLOR_COMPRESSED_FORMAT2(X, Y)                                                                                      \
-    {                                                                                                                              \
-        {X},                                                                                                                       \
-        {                                                                                                                          \
-            Y, IMMUTABLE, MUT_SUPPORT, COLOR, COMPRESSED, X, {XRC_COLOR_TEXTURE_USAGE_COMPRESSED}, XRC_COLOR_CREATE_FLAGS, {}, {}, \
-            {                                                                                                                      \
-            }                                                                                                                      \
-        }                                                                                                                          \
+#define ADD_VK_COLOR_COMPRESSED_UNRENDERABLE_FORMAT2(X, Y)                                                               \
+    {                                                                                                                    \
+        {X},                                                                                                             \
+        {                                                                                                                \
+            Y, IMMUTABLE, MUT_SUPPORT, COLOR, COMPRESSED, NO_RENDERING_SUPPORT, X, {XRC_COLOR_TEXTURE_USAGE_COMPRESSED}, \
+                XRC_COLOR_CREATE_FLAGS, {}, {},                                                                          \
+            {                                                                                                            \
+            }                                                                                                            \
+        }                                                                                                                \
     }
-#define ADD_VK_COLOR_COMPRESSED_FORMAT(X) ADD_VK_COLOR_COMPRESSED_FORMAT2(X, #X)
+#define ADD_VK_COLOR_COMPRESSED_UNRENDERABLE_FORMAT(X) ADD_VK_COLOR_COMPRESSED_UNRENDERABLE_FORMAT2(X, #X)
 
-#define ADD_VK_DEPTH_FORMAT2(X, Y)                                                                                            \
-    {                                                                                                                         \
-        {X},                                                                                                                  \
-        {                                                                                                                     \
-            Y, IMMUTABLE, MUT_SUPPORT, NON_COLOR, UNCOMPRESSED, X, {XRC_DEPTH_TEXTURE_USAGE}, XRC_DEPTH_CREATE_FLAGS, {}, {}, \
-            {                                                                                                                 \
-            }                                                                                                                 \
-        }                                                                                                                     \
+#define ADD_VK_DEPTH_FORMAT2(X, Y)                                                                                                       \
+    {                                                                                                                                    \
+        {X},                                                                                                                             \
+        {                                                                                                                                \
+            Y, IMMUTABLE, MUT_SUPPORT, NON_COLOR, UNCOMPRESSED, RENDERING_SUPPORT, X, {XRC_DEPTH_TEXTURE_USAGE}, XRC_DEPTH_CREATE_FLAGS, \
+                {}, {},                                                                                                                  \
+            {                                                                                                                            \
+            }                                                                                                                            \
+        }                                                                                                                                \
     }
 #define ADD_VK_DEPTH_FORMAT(X) ADD_VK_DEPTH_FORMAT2(X, #X)
 
@@ -2491,62 +1504,62 @@ namespace Conformance
         ADD_VK_DEPTH_FORMAT(VK_FORMAT_D32_SFLOAT),
         ADD_VK_DEPTH_FORMAT(VK_FORMAT_D32_SFLOAT_S8_UINT),
 
-        ADD_VK_COLOR_COMPRESSED_FORMAT(VK_FORMAT_ETC2_R8G8B8_UNORM_BLOCK),
-        ADD_VK_COLOR_COMPRESSED_FORMAT(VK_FORMAT_ETC2_R8G8B8A1_UNORM_BLOCK),
-        ADD_VK_COLOR_COMPRESSED_FORMAT(VK_FORMAT_ETC2_R8G8B8A8_UNORM_BLOCK),
-        ADD_VK_COLOR_COMPRESSED_FORMAT(VK_FORMAT_ETC2_R8G8B8_SRGB_BLOCK),
-        ADD_VK_COLOR_COMPRESSED_FORMAT(VK_FORMAT_ETC2_R8G8B8A1_SRGB_BLOCK),
-        ADD_VK_COLOR_COMPRESSED_FORMAT(VK_FORMAT_ETC2_R8G8B8A8_SRGB_BLOCK),
+        ADD_VK_COLOR_COMPRESSED_UNRENDERABLE_FORMAT(VK_FORMAT_ETC2_R8G8B8_UNORM_BLOCK),
+        ADD_VK_COLOR_COMPRESSED_UNRENDERABLE_FORMAT(VK_FORMAT_ETC2_R8G8B8A1_UNORM_BLOCK),
+        ADD_VK_COLOR_COMPRESSED_UNRENDERABLE_FORMAT(VK_FORMAT_ETC2_R8G8B8A8_UNORM_BLOCK),
+        ADD_VK_COLOR_COMPRESSED_UNRENDERABLE_FORMAT(VK_FORMAT_ETC2_R8G8B8_SRGB_BLOCK),
+        ADD_VK_COLOR_COMPRESSED_UNRENDERABLE_FORMAT(VK_FORMAT_ETC2_R8G8B8A1_SRGB_BLOCK),
+        ADD_VK_COLOR_COMPRESSED_UNRENDERABLE_FORMAT(VK_FORMAT_ETC2_R8G8B8A8_SRGB_BLOCK),
 
-        ADD_VK_COLOR_COMPRESSED_FORMAT(VK_FORMAT_EAC_R11_UNORM_BLOCK),
-        ADD_VK_COLOR_COMPRESSED_FORMAT(VK_FORMAT_EAC_R11G11_UNORM_BLOCK),
-        ADD_VK_COLOR_COMPRESSED_FORMAT(VK_FORMAT_EAC_R11_SNORM_BLOCK),
-        ADD_VK_COLOR_COMPRESSED_FORMAT(VK_FORMAT_EAC_R11G11_SNORM_BLOCK),
+        ADD_VK_COLOR_COMPRESSED_UNRENDERABLE_FORMAT(VK_FORMAT_EAC_R11_UNORM_BLOCK),
+        ADD_VK_COLOR_COMPRESSED_UNRENDERABLE_FORMAT(VK_FORMAT_EAC_R11G11_UNORM_BLOCK),
+        ADD_VK_COLOR_COMPRESSED_UNRENDERABLE_FORMAT(VK_FORMAT_EAC_R11_SNORM_BLOCK),
+        ADD_VK_COLOR_COMPRESSED_UNRENDERABLE_FORMAT(VK_FORMAT_EAC_R11G11_SNORM_BLOCK),
 
-        ADD_VK_COLOR_COMPRESSED_FORMAT(VK_FORMAT_ASTC_4x4_UNORM_BLOCK),
-        ADD_VK_COLOR_COMPRESSED_FORMAT(VK_FORMAT_ASTC_5x4_UNORM_BLOCK),
-        ADD_VK_COLOR_COMPRESSED_FORMAT(VK_FORMAT_ASTC_5x5_UNORM_BLOCK),
-        ADD_VK_COLOR_COMPRESSED_FORMAT(VK_FORMAT_ASTC_6x5_UNORM_BLOCK),
-        ADD_VK_COLOR_COMPRESSED_FORMAT(VK_FORMAT_ASTC_6x6_UNORM_BLOCK),
-        ADD_VK_COLOR_COMPRESSED_FORMAT(VK_FORMAT_ASTC_8x5_UNORM_BLOCK),
-        ADD_VK_COLOR_COMPRESSED_FORMAT(VK_FORMAT_ASTC_8x6_UNORM_BLOCK),
-        ADD_VK_COLOR_COMPRESSED_FORMAT(VK_FORMAT_ASTC_8x8_UNORM_BLOCK),
-        ADD_VK_COLOR_COMPRESSED_FORMAT(VK_FORMAT_ASTC_10x5_UNORM_BLOCK),
-        ADD_VK_COLOR_COMPRESSED_FORMAT(VK_FORMAT_ASTC_10x6_UNORM_BLOCK),
-        ADD_VK_COLOR_COMPRESSED_FORMAT(VK_FORMAT_ASTC_10x8_UNORM_BLOCK),
-        ADD_VK_COLOR_COMPRESSED_FORMAT(VK_FORMAT_ASTC_10x10_UNORM_BLOCK),
-        ADD_VK_COLOR_COMPRESSED_FORMAT(VK_FORMAT_ASTC_12x10_UNORM_BLOCK),
-        ADD_VK_COLOR_COMPRESSED_FORMAT(VK_FORMAT_ASTC_12x12_UNORM_BLOCK),
+        ADD_VK_COLOR_COMPRESSED_UNRENDERABLE_FORMAT(VK_FORMAT_ASTC_4x4_UNORM_BLOCK),
+        ADD_VK_COLOR_COMPRESSED_UNRENDERABLE_FORMAT(VK_FORMAT_ASTC_5x4_UNORM_BLOCK),
+        ADD_VK_COLOR_COMPRESSED_UNRENDERABLE_FORMAT(VK_FORMAT_ASTC_5x5_UNORM_BLOCK),
+        ADD_VK_COLOR_COMPRESSED_UNRENDERABLE_FORMAT(VK_FORMAT_ASTC_6x5_UNORM_BLOCK),
+        ADD_VK_COLOR_COMPRESSED_UNRENDERABLE_FORMAT(VK_FORMAT_ASTC_6x6_UNORM_BLOCK),
+        ADD_VK_COLOR_COMPRESSED_UNRENDERABLE_FORMAT(VK_FORMAT_ASTC_8x5_UNORM_BLOCK),
+        ADD_VK_COLOR_COMPRESSED_UNRENDERABLE_FORMAT(VK_FORMAT_ASTC_8x6_UNORM_BLOCK),
+        ADD_VK_COLOR_COMPRESSED_UNRENDERABLE_FORMAT(VK_FORMAT_ASTC_8x8_UNORM_BLOCK),
+        ADD_VK_COLOR_COMPRESSED_UNRENDERABLE_FORMAT(VK_FORMAT_ASTC_10x5_UNORM_BLOCK),
+        ADD_VK_COLOR_COMPRESSED_UNRENDERABLE_FORMAT(VK_FORMAT_ASTC_10x6_UNORM_BLOCK),
+        ADD_VK_COLOR_COMPRESSED_UNRENDERABLE_FORMAT(VK_FORMAT_ASTC_10x8_UNORM_BLOCK),
+        ADD_VK_COLOR_COMPRESSED_UNRENDERABLE_FORMAT(VK_FORMAT_ASTC_10x10_UNORM_BLOCK),
+        ADD_VK_COLOR_COMPRESSED_UNRENDERABLE_FORMAT(VK_FORMAT_ASTC_12x10_UNORM_BLOCK),
+        ADD_VK_COLOR_COMPRESSED_UNRENDERABLE_FORMAT(VK_FORMAT_ASTC_12x12_UNORM_BLOCK),
 
-        ADD_VK_COLOR_COMPRESSED_FORMAT(VK_FORMAT_ASTC_4x4_SRGB_BLOCK),
-        ADD_VK_COLOR_COMPRESSED_FORMAT(VK_FORMAT_ASTC_5x4_SRGB_BLOCK),
-        ADD_VK_COLOR_COMPRESSED_FORMAT(VK_FORMAT_ASTC_5x5_SRGB_BLOCK),
-        ADD_VK_COLOR_COMPRESSED_FORMAT(VK_FORMAT_ASTC_6x5_SRGB_BLOCK),
-        ADD_VK_COLOR_COMPRESSED_FORMAT(VK_FORMAT_ASTC_6x6_SRGB_BLOCK),
-        ADD_VK_COLOR_COMPRESSED_FORMAT(VK_FORMAT_ASTC_8x5_SRGB_BLOCK),
-        ADD_VK_COLOR_COMPRESSED_FORMAT(VK_FORMAT_ASTC_8x6_SRGB_BLOCK),
-        ADD_VK_COLOR_COMPRESSED_FORMAT(VK_FORMAT_ASTC_8x8_SRGB_BLOCK),
-        ADD_VK_COLOR_COMPRESSED_FORMAT(VK_FORMAT_ASTC_10x5_SRGB_BLOCK),
-        ADD_VK_COLOR_COMPRESSED_FORMAT(VK_FORMAT_ASTC_10x6_SRGB_BLOCK),
-        ADD_VK_COLOR_COMPRESSED_FORMAT(VK_FORMAT_ASTC_10x8_SRGB_BLOCK),
-        ADD_VK_COLOR_COMPRESSED_FORMAT(VK_FORMAT_ASTC_10x10_SRGB_BLOCK),
-        ADD_VK_COLOR_COMPRESSED_FORMAT(VK_FORMAT_ASTC_12x10_SRGB_BLOCK),
-        ADD_VK_COLOR_COMPRESSED_FORMAT(VK_FORMAT_ASTC_12x12_SRGB_BLOCK),
+        ADD_VK_COLOR_COMPRESSED_UNRENDERABLE_FORMAT(VK_FORMAT_ASTC_4x4_SRGB_BLOCK),
+        ADD_VK_COLOR_COMPRESSED_UNRENDERABLE_FORMAT(VK_FORMAT_ASTC_5x4_SRGB_BLOCK),
+        ADD_VK_COLOR_COMPRESSED_UNRENDERABLE_FORMAT(VK_FORMAT_ASTC_5x5_SRGB_BLOCK),
+        ADD_VK_COLOR_COMPRESSED_UNRENDERABLE_FORMAT(VK_FORMAT_ASTC_6x5_SRGB_BLOCK),
+        ADD_VK_COLOR_COMPRESSED_UNRENDERABLE_FORMAT(VK_FORMAT_ASTC_6x6_SRGB_BLOCK),
+        ADD_VK_COLOR_COMPRESSED_UNRENDERABLE_FORMAT(VK_FORMAT_ASTC_8x5_SRGB_BLOCK),
+        ADD_VK_COLOR_COMPRESSED_UNRENDERABLE_FORMAT(VK_FORMAT_ASTC_8x6_SRGB_BLOCK),
+        ADD_VK_COLOR_COMPRESSED_UNRENDERABLE_FORMAT(VK_FORMAT_ASTC_8x8_SRGB_BLOCK),
+        ADD_VK_COLOR_COMPRESSED_UNRENDERABLE_FORMAT(VK_FORMAT_ASTC_10x5_SRGB_BLOCK),
+        ADD_VK_COLOR_COMPRESSED_UNRENDERABLE_FORMAT(VK_FORMAT_ASTC_10x6_SRGB_BLOCK),
+        ADD_VK_COLOR_COMPRESSED_UNRENDERABLE_FORMAT(VK_FORMAT_ASTC_10x8_SRGB_BLOCK),
+        ADD_VK_COLOR_COMPRESSED_UNRENDERABLE_FORMAT(VK_FORMAT_ASTC_10x10_SRGB_BLOCK),
+        ADD_VK_COLOR_COMPRESSED_UNRENDERABLE_FORMAT(VK_FORMAT_ASTC_12x10_SRGB_BLOCK),
+        ADD_VK_COLOR_COMPRESSED_UNRENDERABLE_FORMAT(VK_FORMAT_ASTC_12x12_SRGB_BLOCK),
 
-        ADD_VK_COLOR_COMPRESSED_FORMAT(VK_FORMAT_BC1_RGBA_UNORM_BLOCK),
-        ADD_VK_COLOR_COMPRESSED_FORMAT(VK_FORMAT_BC1_RGBA_SRGB_BLOCK),
+        ADD_VK_COLOR_COMPRESSED_UNRENDERABLE_FORMAT(VK_FORMAT_BC1_RGBA_UNORM_BLOCK),
+        ADD_VK_COLOR_COMPRESSED_UNRENDERABLE_FORMAT(VK_FORMAT_BC1_RGBA_SRGB_BLOCK),
 
-        ADD_VK_COLOR_COMPRESSED_FORMAT(VK_FORMAT_BC2_UNORM_BLOCK),
-        ADD_VK_COLOR_COMPRESSED_FORMAT(VK_FORMAT_BC2_SRGB_BLOCK),
+        ADD_VK_COLOR_COMPRESSED_UNRENDERABLE_FORMAT(VK_FORMAT_BC2_UNORM_BLOCK),
+        ADD_VK_COLOR_COMPRESSED_UNRENDERABLE_FORMAT(VK_FORMAT_BC2_SRGB_BLOCK),
 
-        ADD_VK_COLOR_COMPRESSED_FORMAT(VK_FORMAT_BC3_UNORM_BLOCK),
-        ADD_VK_COLOR_COMPRESSED_FORMAT(VK_FORMAT_BC3_SRGB_BLOCK),
+        ADD_VK_COLOR_COMPRESSED_UNRENDERABLE_FORMAT(VK_FORMAT_BC3_UNORM_BLOCK),
+        ADD_VK_COLOR_COMPRESSED_UNRENDERABLE_FORMAT(VK_FORMAT_BC3_SRGB_BLOCK),
 
-        ADD_VK_COLOR_COMPRESSED_FORMAT(VK_FORMAT_BC6H_UFLOAT_BLOCK),
-        ADD_VK_COLOR_COMPRESSED_FORMAT(VK_FORMAT_BC6H_SFLOAT_BLOCK),
+        ADD_VK_COLOR_COMPRESSED_UNRENDERABLE_FORMAT(VK_FORMAT_BC6H_UFLOAT_BLOCK),
+        ADD_VK_COLOR_COMPRESSED_UNRENDERABLE_FORMAT(VK_FORMAT_BC6H_SFLOAT_BLOCK),
 
-        ADD_VK_COLOR_COMPRESSED_FORMAT(VK_FORMAT_BC7_UNORM_BLOCK),
-        ADD_VK_COLOR_COMPRESSED_FORMAT(VK_FORMAT_BC7_SRGB_BLOCK),
+        ADD_VK_COLOR_COMPRESSED_UNRENDERABLE_FORMAT(VK_FORMAT_BC7_UNORM_BLOCK),
+        ADD_VK_COLOR_COMPRESSED_UNRENDERABLE_FORMAT(VK_FORMAT_BC7_SRGB_BLOCK),
     };
     // clang-format on
 
@@ -2698,47 +1711,46 @@ namespace Conformance
         return VK_FORMAT_R8G8B8A8_SRGB;
     }
 
-    std::shared_ptr<IGraphicsPlugin::SwapchainImageStructs>
-    VulkanGraphicsPlugin::AllocateSwapchainImageStructs(size_t size, const XrSwapchainCreateInfo& swapchainCreateInfo)
+    ISwapchainImageData* VulkanGraphicsPlugin::AllocateSwapchainImageData(size_t size, const XrSwapchainCreateInfo& swapchainCreateInfo)
     {
-        // What we are doing below is allocating a subclass of the SwapchainImageStructs struct and
-        // using shared_ptr to manage it in a way that the caller doesn't need to know about the
-        // graphics implementation behind it.
-
-        auto derivedResult = std::make_shared<SwapchainImageContext>();
-
-        // Allocate and initialize the buffer of image structs (must be sequential in memory for xrEnumerateSwapchainImages).
-        // Return back an array of pointers to each swapchain image struct so the consumer doesn't need to know the type/size.
-        // Keep the buffer alive by adding it into the list of buffers.
-
-        // xxx: can we remove the vertex buffer here, maybe replace it with something shared?
-        std::vector<XrSwapchainImageBaseHeader*> bases =
-            derivedResult->Create(m_vkDevice, &m_memAllocator, uint32_t(size), swapchainCreateInfo, m_pipelineLayout, m_shaderProgram,
-                                  VulkanMesh::c_bindingDesc, VulkanMesh::c_attrDesc);
-
-        for (auto& base : bases) {
-            // Set the generic vector of base pointers
-            derivedResult->imagePtrVector.push_back(base);
-            // Map every swapchainImage base pointer to this context
-            m_swapchainImageContextMap[base] = derivedResult;
-        }
-
-#if defined(USE_MIRROR_WINDOW)
-        // Keep these around for mirror rendering
-        m_swapchainImageContexts.push_back(derivedResult);
-#endif
+        auto typedResult = std::make_unique<VulkanSwapchainImageData>(m_namer, uint32_t(size), swapchainCreateInfo, m_vkDevice,
+                                                                      &m_memAllocator, m_pipelineLayout, m_shaderProgram,
+                                                                      VulkanMesh::c_bindingDesc, VulkanMesh::c_attrDesc);
 
         // Cast our derived type to the caller-expected type.
-        std::shared_ptr<SwapchainImageStructs> result =
-            std::static_pointer_cast<SwapchainImageStructs, SwapchainImageContext>(derivedResult);
+        auto ret = static_cast<ISwapchainImageData*>(typedResult.get());
 
-        return result;
+        m_swapchainImageDataMap.Adopt(std::move(typedResult));
+
+        return ret;
     }
 
-    void VulkanGraphicsPlugin::CopyRGBAImage(const XrSwapchainImageBaseHeader* swapchainImageBase, int64_t imageFormat, uint32_t arraySlice,
+    inline ISwapchainImageData* VulkanGraphicsPlugin::AllocateSwapchainImageDataWithDepthSwapchain(
+        size_t size, const XrSwapchainCreateInfo& colorSwapchainCreateInfo, XrSwapchain depthSwapchain,
+        const XrSwapchainCreateInfo& depthSwapchainCreateInfo)
+    {
+
+        auto typedResult = std::make_unique<VulkanSwapchainImageData>(
+            m_namer, uint32_t(size), colorSwapchainCreateInfo, depthSwapchain, depthSwapchainCreateInfo, m_vkDevice, &m_memAllocator,
+            m_pipelineLayout, m_shaderProgram, VulkanMesh::c_bindingDesc, VulkanMesh::c_attrDesc);
+
+        // Cast our derived type to the caller-expected type.
+        auto ret = static_cast<ISwapchainImageData*>(typedResult.get());
+
+        m_swapchainImageDataMap.Adopt(std::move(typedResult));
+
+        return ret;
+    }
+
+    void VulkanGraphicsPlugin::CopyRGBAImage(const XrSwapchainImageBaseHeader* swapchainImageBase, uint32_t arraySlice,
                                              const RGBAImage& image)
     {
         const XrSwapchainImageVulkanKHR* swapchainImageVk = reinterpret_cast<const XrSwapchainImageVulkanKHR*>(swapchainImageBase);
+
+        VulkanSwapchainImageData* swapchainData;
+        uint32_t imageIndex;
+
+        std::tie(swapchainData, imageIndex) = m_swapchainImageDataMap.GetDataAndIndexFromBasePointer(swapchainImageBase);
 
         uint32_t w = image.width;
         uint32_t h = image.height;
@@ -2746,6 +1758,10 @@ namespace Conformance
         // Create a linear staging buffer
         VkImageCreateInfo imgInfo{VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO};
         imgInfo.imageType = VK_IMAGE_TYPE_2D;
+
+        int64_t imageFormat = swapchainData->GetCreateInfo().format;
+        XRC_CHECK_THROW(imageFormat == GetSRGBA8Format());
+
         imgInfo.format = static_cast<VkFormat>(imageFormat);
         imgInfo.extent = {w, h, 1};
         imgInfo.mipLevels = 1;
@@ -2862,28 +1878,31 @@ namespace Conformance
     }
 
     void VulkanGraphicsPlugin::ClearImageSlice(const XrSwapchainImageBaseHeader* colorSwapchainImage, uint32_t imageArrayIndex,
-                                               int64_t /*colorSwapchainFormat*/, XrColor4f bgColor)
+                                               XrColor4f bgColor)
     {
-        auto swapchainContext = m_swapchainImageContextMap[colorSwapchainImage];
-        uint32_t imageIndex = swapchainContext->ImageIndex(colorSwapchainImage);
+        VulkanSwapchainImageData* swapchainData;
+        uint32_t imageIndex;
+
+        std::tie(swapchainData, imageIndex) = m_swapchainImageDataMap.GetDataAndIndexFromBasePointer(colorSwapchainImage);
 
         m_cmdBuffer.Clear();
         m_cmdBuffer.Begin();
 
-        VkRect2D renderArea = {{0, 0}, {swapchainContext->size.width, swapchainContext->size.height}};
+        VkRect2D renderArea = {{0, 0}, {swapchainData->Width(), swapchainData->Height()}};
         SetViewportAndScissor(renderArea);
-
-        // Ensure depth is in the right layout
-        DepthBuffer& depthBuffer = swapchainContext->slice[imageArrayIndex].depthBuffer;
-        depthBuffer.TransitionLayout(&m_cmdBuffer, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
 
         // Bind eye render target
         VkRenderPassBeginInfo renderPassBeginInfo{VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO};
-        swapchainContext->BindRenderTarget(imageIndex, imageArrayIndex, renderArea, &renderPassBeginInfo);
+        swapchainData->BindRenderTarget(imageIndex, imageArrayIndex, renderArea, &renderPassBeginInfo);
+
+        if (!swapchainData->DepthSwapchainEnabled()) {
+            // Ensure depth is in the right layout
+            swapchainData->TransitionLayout(imageIndex, &m_cmdBuffer, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
+        }
 
         vkCmdBeginRenderPass(m_cmdBuffer.buf, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 
-        swapchainContext->BindPipeline(m_cmdBuffer.buf, imageArrayIndex);
+        swapchainData->BindPipeline(m_cmdBuffer.buf, imageArrayIndex);
 
         // Clear the buffers
         static std::array<VkClearValue, 2> clearValues;
@@ -2918,11 +1937,12 @@ namespace Conformance
     }
 
     void VulkanGraphicsPlugin::RenderView(const XrCompositionLayerProjectionView& layerView,
-                                          const XrSwapchainImageBaseHeader* colorSwapchainImage, int64_t /*colorSwapchainFormat*/,
-                                          const RenderParams& params)
+                                          const XrSwapchainImageBaseHeader* colorSwapchainImage, const RenderParams& params)
     {
-        auto swapchainContext = m_swapchainImageContextMap[colorSwapchainImage];
-        uint32_t imageIndex = swapchainContext->ImageIndex(colorSwapchainImage);
+        VulkanSwapchainImageData* swapchainData;
+        uint32_t imageIndex;
+
+        std::tie(swapchainData, imageIndex) = m_swapchainImageDataMap.GetDataAndIndexFromBasePointer(colorSwapchainImage);
 
         m_cmdBuffer.Clear();
         m_cmdBuffer.Begin();
@@ -2936,13 +1956,16 @@ namespace Conformance
         // Just bind the eye render target, ClearImageSlice will have cleared it.
         VkRenderPassBeginInfo renderPassBeginInfo{VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO};
 
-        swapchainContext->BindRenderTarget(imageIndex, layerView.subImage.imageArrayIndex, renderArea, &renderPassBeginInfo);
+        // aka slice
+        auto imageArrayIndex = layerView.subImage.imageArrayIndex;
+
+        swapchainData->BindRenderTarget(imageIndex, imageArrayIndex, renderArea, &renderPassBeginInfo);
 
         vkCmdBeginRenderPass(m_cmdBuffer.buf, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 
         CHECKPOINT();
 
-        swapchainContext->BindPipeline(m_cmdBuffer.buf, layerView.subImage.imageArrayIndex);
+        swapchainData->BindPipeline(m_cmdBuffer.buf, imageArrayIndex);
 
         CHECKPOINT();
 
@@ -2952,8 +1975,7 @@ namespace Conformance
         XrMatrix4x4f proj;
         XrMatrix4x4f_CreateProjectionFov(&proj, GRAPHICS_VULKAN, layerView.fov, 0.05f, 100.0f);
         XrMatrix4x4f toView;
-        XrVector3f scale{1.f, 1.f, 1.f};
-        XrMatrix4x4f_CreateTranslationRotationScale(&toView, &pose.position, &pose.orientation, &scale);
+        XrMatrix4x4f_CreateFromRigidTransform(&toView, &pose);
         XrMatrix4x4f view;
         XrMatrix4x4f_InvertRigidBody(&view, &toView);
         XrMatrix4x4f vp;
@@ -3014,7 +2036,7 @@ namespace Conformance
 
 #if defined(USE_MIRROR_WINDOW)
         // Cycle the window's swapchain on the last view rendered
-        if (swapchainContext == &m_swapchainImageContexts.back()) {
+        if (swapchainData == &m_swapchainImageData.back()) {
             m_swapchain.Acquire();
             m_swapchain.Present(m_vkQueue);
         }

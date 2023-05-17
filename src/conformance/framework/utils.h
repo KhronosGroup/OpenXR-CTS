@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2022, The Khronos Group Inc.
+// Copyright (c) 2019-2023, The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -38,21 +38,21 @@
 /// Example usage:
 ///     XRC_DISABLE_GCC_WARNING(-Wmissing-braces)  // Only one warning per usage.
 ///     XRC_DISABLE_GCC_WARNING(-Wunused-variable)
-///     <code>
+///     /* code */
 ///     XRC_RESTORE_GCC_WARNINGS()
 ///     XRC_RESTORE_GCC_WARNINGS()                 // Must match each disable with a restore.
 ///
 #if !defined(XRC_DISABLE_GCC_WARNING)
 #if defined(__GNUC__)
-#define ODGW1(x) #x
-#define ODGW2(x) ODGW1(GCC diagnostic ignored x)
-#define ODGW3(x) ODGW2(#x)
+#define XDGW1(x) #x
+#define XDGW2(x) XDGW1(GCC diagnostic ignored x)
+#define XDGW3(x) XDGW2(#x)
 #endif
 
 #if defined(__GNUC__) && (__GNUC_VERSION__ >= 406)
-#define XRC_DISABLE_GCC_WARNING(w) _Pragma("GCC diagnostic push") _Pragma(ODGW3(w))
+#define XRC_DISABLE_GCC_WARNING(w) _Pragma("GCC diagnostic push") _Pragma(XDGW3(w))
 #elif defined(__GNUC__) && (__GNUC_VERSION__ >= 404)  // GCC 4.4 doesn't support diagnostic push, but supports disabling warnings.
-#define XRC_DISABLE_GCC_WARNING(w) _Pragma(ODGW3(w))
+#define XRC_DISABLE_GCC_WARNING(w) _Pragma(XDGW3(w))
 #else
 #define XRC_DISABLE_GCC_WARNING(w)
 #endif
@@ -73,18 +73,18 @@
 /// Example usage:
 ///     XRC_DISABLE_CLANG_WARNING(-Wmissing-braces)  // Only one warning per usage.
 ///     XRC_DISABLE_CLANG_WARNING(-Wunused-variable)
-///     <code>
+///     /* code */
 ///     XRC_RESTORE_CLANG_WARNINGS()
 ///     XRC_RESTORE_CLANG_WARNINGS()                 // Must match each disable with a restore.
 ///
 ///
 #if !defined(XRC_DISABLE_CLANG_WARNING)
 #if defined(__clang__)
-#define ODCW1(x) #x
-#define ODCW2(x) ODCW1(clang diagnostic ignored x)
-#define ODCW3(x) ODCW2(#x)
+#define XDCW1(x) #x
+#define XDCW2(x) XDCW1(clang diagnostic ignored x)
+#define XDCW3(x) XDCW2(#x)
 
-#define XRC_DISABLE_CLANG_WARNING(w) _Pragma("clang diagnostic push") _Pragma(ODCW3(w))
+#define XRC_DISABLE_CLANG_WARNING(w) _Pragma("clang diagnostic push") _Pragma(XDCW3(w))
 #else
 #define XRC_DISABLE_CLANG_WARNING(w)
 #endif
@@ -104,7 +104,7 @@
 ///
 /// Example usage:
 ///     XRC_DISABLE_MSVC_WARNING(4556 4782 4422)
-///     <code>
+///     /* code */
 ///     XRC_RESTORE_MSVC_WARNING()
 ///
 #if !defined(XRC_DISABLE_MSVC_WARNING)
@@ -130,7 +130,7 @@
 ///
 /// Example usage:
 ///     XRC_SUPPRESS_MSVC_WARNING(4556)
-///     <code>
+///     /* code */
 ///
 #if !defined(XRC_SUPPRESS_MSVC_WARNING)
 #if defined(_MSC_VER)
@@ -149,7 +149,7 @@
 ///
 /// Example usage:
 ///     XRC_DISABLE_ALL_MSVC_WARNINGS()
-///     <code>
+///     /* code */
 ///     XRC_RESTORE_ALL_MSVC_WARNINGS()
 
 #if !defined(XRC_DISABLE_ALL_MSVC_WARNINGS)

@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2022, The Khronos Group Inc.
+// Copyright (c) 2019-2023, The Khronos Group Inc.
 // Copyright (c) Meta Platforms, LLC and its affiliates. All rights reserved.
 //
 // SPDX-License-Identifier: Apache-2.0
@@ -24,7 +24,7 @@
 #include <set>
 #include <string>
 #include <cstring>
-#include <catch2/catch.hpp>
+#include <catch2/catch_test_macros.hpp>
 #include <openxr/openxr.h>
 
 namespace Conformance
@@ -33,11 +33,11 @@ namespace Conformance
     {
         GlobalData& globalData = GetGlobalData();
 
-        if (!globalData.IsInstanceExtensionSupported("XR_META_performance_metrics")) {
-            return;
+        if (!globalData.IsInstanceExtensionSupported(XR_META_PERFORMANCE_METRICS_EXTENSION_NAME)) {
+            SKIP(XR_META_PERFORMANCE_METRICS_EXTENSION_NAME " not supported");
         }
 
-        AutoBasicInstance instance({"XR_META_performance_metrics"});
+        AutoBasicInstance instance({XR_META_PERFORMANCE_METRICS_EXTENSION_NAME});
 
         auto xrEnumeratePerformanceMetricsCounterPathsMETA_ =
             GetInstanceExtensionFunction<PFN_xrEnumeratePerformanceMetricsCounterPathsMETA>(

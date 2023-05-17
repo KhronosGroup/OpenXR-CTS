@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2022, The Khronos Group Inc.
+// Copyright (c) 2019-2023, The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -14,6 +14,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <algorithm>
+#include <mutex>
 #include <thread>
 #include <condition_variable>
 #include <queue>
@@ -25,7 +27,7 @@
 #include "report.h"
 #include <openxr/openxr.h>
 #include <openxr/openxr_reflection.h>
-#include <catch2/catch.hpp>
+#include <catch2/catch_test_macros.hpp>
 
 #define ENUM_LIST(name, val) name,
 constexpr XrEnvironmentBlendMode SupportedBlendModes[] = {XR_LIST_ENUM_XrEnvironmentBlendMode(ENUM_LIST)};
@@ -33,7 +35,7 @@ constexpr XrEnvironmentBlendMode SupportedBlendModes[] = {XR_LIST_ENUM_XrEnviron
 namespace Conformance
 {
     // Tests for xrBeginFrame, xrWaitFrame, xrEndFrame without testing specific composition layer types.
-    TEST_CASE("Frame Submission", "")
+    TEST_CASE("FrameSubmission", "")
     {
         GlobalData& globalData = GetGlobalData();
         if (!globalData.IsUsingGraphicsPlugin()) {
@@ -41,7 +43,7 @@ namespace Conformance
             return;
         }
 
-        SECTION("Before xrBeginSession")
+        SECTION("Before_xrBeginSession")
         {
             AutoBasicSession session(AutoBasicSession::createSession);
 
@@ -50,7 +52,7 @@ namespace Conformance
             CHECK(XR_ERROR_SESSION_NOT_RUNNING == xrBeginFrame(session, nullptr));
         }
 
-        SECTION("Call order")
+        SECTION("CallOrder")
         {
             AutoBasicSession session(AutoBasicSession::beginSession);
 
@@ -112,7 +114,7 @@ namespace Conformance
             }
         }
 
-        SECTION("EndFrameInfo Tests")
+        SECTION("EndFrameInfo")
         {
             AutoBasicSession session(AutoBasicSession::beginSession | AutoBasicSession::createSpaces);
 
@@ -196,7 +198,7 @@ namespace Conformance
             }
         }
 
-        SECTION("After xrEndSession")
+        SECTION("After_xrEndSession")
         {
             AutoBasicSession session(AutoBasicSession::beginSession | AutoBasicSession::createSpaces | AutoBasicSession::createSwapchains);
 
@@ -214,7 +216,7 @@ namespace Conformance
 
     // Test uses spends 90% of a predictedDisplayPeriod on both the rendering thread and primary thread. Although the total time
     // spent is over 100% of allowable time, the OpenXR frame API calls should be made concurrently allowing full frame rate.
-    TEST_CASE("Timed Pipelined Frame Submission", "")
+    TEST_CASE("Timed_Pipelined_Frame_Submission", "")
     {
         using ns = std::chrono::nanoseconds;
         using ms = std::chrono::duration<float, std::milli>;
@@ -363,19 +365,24 @@ namespace Conformance
         const ns averageBeginTime = totalBeginTime / testFrameCount;
         ReportF("Average xrBeginFrame wait time   : %.3fms", std::chrono::duration_cast<ms>(averageBeginTime).count());
 
+        auto timingResults = TimedSubmissionResults{averageWaitTime, averageAppFrameTime, averageDisplayPeriod, averageBeginTime};
+        {
+            std::unique_lock<std::recursive_mutex> lock(GetGlobalData().dataMutex);
+            GetGlobalData().conformanceReport.timedSubmission = timingResults;
+        }
+
         // Higher is worse. An overhead of 50% means a 16.66ms display period ran with an average of 25ms per frame.
         // Since frames should be discrete multiples of the display period 50% implies that half of the frames
         // took two display periods to complete, 100% implies every frame took two periods.
-        const double overheadFactor = (averageAppFrameTime.count() / (double)averageDisplayPeriod.count()) - 1.0;
-        ReportF("Overhead score                   : %.1f%%", overheadFactor * 100);
+        ReportF("Overhead score                   : %.1f%%", timingResults.GetOverheadFactor() * 100);
 
         // Allow up to 50% of frames to miss timing. This is number is arbitrary and open to debate.
         // The point of this test is to fail runtimes that get 1.0 (100% overhead) because they are
         // probably serializing the frame calls.
-        REQUIRE_MSG(overheadFactor < 0.5, "Frame timing overhead in pipelined frame submission is too high");
+        REQUIRE_MSG(timingResults.GetOverheadFactor() < 0.5, "Frame timing overhead in pipelined frame submission is too high");
 
         // If the frame loop runs FASTER then the predictedDisplayPeriod is wrong or xrWaitFrame is not throttling correctly.
-        REQUIRE_MSG(overheadFactor > -0.1, "Frame timing overhead in pipelined frame submission is too low");
+        REQUIRE_MSG(timingResults.GetOverheadFactor() > -0.1, "Frame timing overhead in pipelined frame submission is too low");
 
         // Allow up to 10% of the display period to be spent in xrBeginFrame.  This number is arbitrary and open to debate.
         // The point of this test is to fail runtimes that attempt to use xrBeginFrame as a blocking function

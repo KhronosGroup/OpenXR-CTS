@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2022, The Khronos Group Inc.
+// Copyright (c) 2019-2023, The Khronos Group Inc.
 // Copyright (c) 2019 Collabora, Ltd.
 //
 // SPDX-License-Identifier: Apache-2.0
@@ -17,7 +17,7 @@
 
 #pragma once
 
-#include <catch2/catch.hpp>
+#include <catch2/matchers/catch_matchers.hpp>
 
 #include <algorithm>
 #include <functional>
@@ -38,7 +38,7 @@ namespace Conformance
     /// Custom matcher for use with ???_THAT() assertions, which takes a user-provided predicate and checks for at least one
     /// element in the collection for which this is true.
     template <typename T, typename ValType = typename T::value_type>
-    class ContainsPredicate : public Catch::MatcherBase<T>
+    class ContainsPredicate : public Catch::Matchers::MatcherBase<T>
     {
     public:
         using ValueType = ValType;
@@ -70,7 +70,7 @@ namespace Conformance
     /// Custom matcher for use with ???_THAT() assertions, which takes an initializer_list of permitted values and ensures
     /// the checked value is one of those.
     template <typename T>
-    class In : public Catch::MatcherBase<T>
+    class In : public Catch::Matchers::MatcherBase<T>
     {
     public:
         In(std::initializer_list<T> permittedValues) : permittedValues_(permittedValues)
@@ -107,7 +107,7 @@ namespace Conformance
     /// Custom matcher for use with ???_THAT() assertions, which ensures that the checked value (a fixed-length C string) is
     /// null terminated.
     template <size_t StringLength>
-    class NullTerminated : public Catch::MatcherBase<char const (&)[StringLength]>
+    class NullTerminated : public Catch::Matchers::MatcherBase<char const (&)[StringLength]>
     {
     public:
         NullTerminated() = default;
@@ -135,7 +135,7 @@ namespace Conformance
 
     /// Custom matcher for vectors of values, to identify if there are any duplicates.
     template <typename ValueType>
-    class VectorHasOnlyUniqueElements : public Catch::MatcherBase<std::vector<ValueType>>
+    class VectorHasOnlyUniqueElements : public Catch::Matchers::MatcherBase<std::vector<ValueType>>
     {
     public:
         VectorHasOnlyUniqueElements() = default;

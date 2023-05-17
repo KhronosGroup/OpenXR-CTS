@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2022, The Khronos Group Inc.
+// Copyright (c) 2019-2023, The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -14,7 +14,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include <catch2/catch.hpp>
+#include <catch2/catch_test_macros.hpp>
 
 #include "utils.h"
 #include "report.h"
@@ -198,6 +198,14 @@ namespace Conformance
                 REQUIRE(result == XR_SUCCESS);
             }
         }
+
+        void SwapchainDelete::operator()(XrSwapchain s) const
+        {
+
+            if (s != XR_NULL_HANDLE) {
+                xrDestroySwapchain(s);
+            }
+        }
     }  // namespace deleters
 
     static XrBaseInStructure unrecognizedExtension{XRC_UNRECOGNIZABLE_STRUCTURE_TYPE, nullptr};
@@ -293,8 +301,8 @@ namespace Conformance
         createInfo.enabledExtensionCount = (uint32_t)extensions.size();
         createInfo.enabledExtensionNames = extensions.data();
 
-        if (globalData.requiredPlaformInstanceCreateStruct != nullptr) {
-            createInfo.next = globalData.requiredPlaformInstanceCreateStruct;
+        if (globalData.requiredPlatformInstanceCreateStruct != nullptr) {
+            createInfo.next = globalData.requiredPlatformInstanceCreateStruct;
         }
         if (permitDebugMessenger) {
             debugInfo.next = createInfo.next;
@@ -347,15 +355,14 @@ namespace Conformance
             }
         }
         if ((optionFlags & createSystemId) != 0) {
-            XrSystemGetInfo systemGetInfo{XR_TYPE_SYSTEM_GET_INFO, nullptr, GetGlobalData().options.formFactorValue};
-            XrResult getSystemResult = xrGetSystem(instance, &systemGetInfo, &systemId);
+            XrResult getSystemResult = FindBasicSystem(instance, &systemId);
 
             if (XR_FAILED(getSystemResult)) {
                 xrDestroyInstance(instance);
                 instance = XR_NULL_HANDLE;
                 systemId = XR_NULL_SYSTEM_ID;
 
-                XRC_CHECK_THROW(getSystemResult == XR_SUCCESS);
+                XRC_CHECK_THROW_XRRESULT(getSystemResult, "xrGetSystem");
             }
         }
     }
@@ -385,14 +392,18 @@ namespace Conformance
         return IsValidHandle();
     }
 
+    XrResult FindBasicSystem(XrInstance instance, XrSystemId* systemId)
+    {
+        XrSystemGetInfo systemGetInfo{XR_TYPE_SYSTEM_GET_INFO};
+        systemGetInfo.formFactor = GetGlobalData().options.formFactorValue;
+        return xrGetSystem(instance, &systemGetInfo, systemId);
+    }
+
     XrResult CreateBasicSession(XrInstance instance, XrSystemId* systemId, XrSession* session, bool enableGraphicsSystem)
     {
         GlobalData& globalData = GetGlobalData();
 
-        XrResult result;
-
-        XrSystemGetInfo systemGetInfo{XR_TYPE_SYSTEM_GET_INFO, nullptr, globalData.options.formFactorValue};
-        result = xrGetSystem(instance, &systemGetInfo, systemId);
+        XrResult result = FindBasicSystem(instance, systemId);
 
         if (XR_SUCCEEDED(result)) {
             auto graphicsPlugin = globalData.GetGraphicsPlugin();
@@ -457,110 +468,112 @@ namespace Conformance
             instance = instance_;
             optionFlags = optionFlags_;
 
-            if (optionFlags & createInstance) {
-                if (instance_ == XR_NULL_HANDLE) {
-                    XRC_CHECK_THROW_XRCMD(CreateBasicInstance(&instance));
-                    instanceOwned = true;
+            if ((optionFlags & createInstance) == 0) {
+                // cannot proceed further without an instance
+                return;
+            }
+            if (instance_ == XR_NULL_HANDLE) {
+                XRC_CHECK_THROW_XRCMD(CreateBasicInstance(&instance));
+                instanceOwned = true;
+            }
+
+            assert(instance != XR_NULL_HANDLE);
+
+            if ((optionFlags & createSession) == 0) {
+                // cannot proceed further without a session
+                return;
+            }
+            bool enableGraphics = ((optionFlags & skipGraphics) == 0);
+
+            XRC_CHECK_THROW_XRCMD(CreateBasicSession(instance, &systemId, &session, enableGraphics));
+
+            assert(systemId != XR_NULL_SYSTEM_ID);
+            assert(session != XR_NULL_HANDLE);
+
+            if (optionFlags & beginSession) {
+                // The session starts in (or gets directly transitioned to) the
+                // XR_SESSION_STATE_IDLE state and will get transitioned to
+                // XR_SESSION_STATE_READY by the runtime. But before that has not happened,
+                // xrBeginSession() below can return XR_ERROR_SESSION_NOT_READY.
+                // So just calling xrBeginSession might fail without it being a conformance
+                // failure. The correct way is to wait until the runtime tells us via an event
+                // that the session is ready.
+
+                // timeout in case the runtime will never transition to READY: 10s in release, no practical limit in debug
+                std::chrono::nanoseconds timeout = (GetGlobalData().options.debugMode ? 3600s : 10s);
+                CountdownTimer countdownTimer(timeout);
+
+                while ((sessionState != XR_SESSION_STATE_READY) && (!countdownTimer.IsTimeUp())) {
+                    XrEventDataBuffer eventData{XR_TYPE_EVENT_DATA_BUFFER};
+                    XrResult result = xrPollEvent(instance, &eventData);
+                    XRC_CHECK_THROW_XRCMD(result);
+
+                    if (XR_UNQUALIFIED_SUCCESS(result)) {
+                        switch (eventData.type) {
+                        case XR_TYPE_EVENT_DATA_SESSION_STATE_CHANGED:
+                            XrEventDataSessionStateChanged sessionStateChanged;
+                            memcpy(&sessionStateChanged, &eventData, sizeof(sessionStateChanged));
+                            sessionState = sessionStateChanged.state;
+                            break;
+                        default:
+                            break;  // Ignored event type.
+                        }
+                    }
                 }
 
-                assert(instance != XR_NULL_HANDLE);
+                if (sessionState != XR_SESSION_STATE_READY) {
+                    XRC_THROW("Time out waiting for XR_SESSION_STATE_READY session state change");
+                }
 
-                if (optionFlags & createSession) {
-                    bool enableGraphics = ((optionFlags & skipGraphics) == 0);
+                XrSessionBeginInfo sessionBeginInfo{XR_TYPE_SESSION_BEGIN_INFO,
+                                                    globalData.GetPlatformPlugin()->PopulateNextFieldForStruct(XR_TYPE_SESSION_BEGIN_INFO),
+                                                    globalData.options.viewConfigurationValue};
+                XRC_CHECK_THROW_XRCMD(xrBeginSession(session, &sessionBeginInfo));
+            }
 
-                    XRC_CHECK_THROW_XRCMD(CreateBasicSession(instance, &systemId, &session, enableGraphics));
+            // Set up the enumerated types
+            XRC_CHECK_THROW_XRCMD(doTwoCallInPlace(swapchainFormatVector, xrEnumerateSwapchainFormats, session));
+            XRC_CHECK_THROW_XRCMD(doTwoCallInPlace(spaceTypeVector, xrEnumerateReferenceSpaces, session));
+            XRC_CHECK_THROW_XRCMD(xrStringToPath(instance, "/user/hand/left", &handSubactionArray[0]));
+            XRC_CHECK_THROW_XRCMD(xrStringToPath(instance, "/user/hand/right", &handSubactionArray[1]));
 
-                    assert(systemId != XR_NULL_SYSTEM_ID);
-                    assert(session != XR_NULL_HANDLE);
+            // Note that while we are enumerating this, normally our testing is done via a pre-chosen one (globalData.options.viewConfigurationValue).
+            XRC_CHECK_THROW_XRCMD(doTwoCallInPlace(viewConfigurationTypeVector, xrEnumerateViewConfigurations, instance, systemId));
 
-                    if (optionFlags & beginSession) {
-                        // The session starts in (or gets directly transitioned to) the
-                        // XR_SESSION_STATE_IDLE state and will get transitioned to
-                        // XR_SESSION_STATE_READY by the runtime. But before that has not happened,
-                        // xrBeginSession() below can return XR_ERROR_SESSION_NOT_READY.
-                        // So just calling xrBeginSession might fail without it being a conformance
-                        // failure. The correct way is to wait until the runtime tells us via an event
-                        // that the session is ready.
+            // We use globalData.options.viewConfigurationValue as the type we enumerate with, despite that the runtime may support others.
+            XRC_CHECK_THROW_XRCMD(doTwoCallInPlaceWithEmptyElement(
+                viewConfigurationViewVector, {XR_TYPE_VIEW_CONFIGURATION_VIEW, nullptr, 0, 0, 0, 0, 0, 0},
+                xrEnumerateViewConfigurationViews, instance, systemId, globalData.options.viewConfigurationValue));
 
-                        // timeout in case the runtime will never transition to READY: 10s in release, no practical limit in debug
-                        std::chrono::nanoseconds timeout = (GetGlobalData().options.debugMode ? 3600s : 10s);
-                        CountdownTimer countdownTimer(timeout);
+            XRC_CHECK_THROW_XRCMD(doTwoCallInPlace(environmentBlendModeVector, xrEnumerateEnvironmentBlendModes, instance, systemId,
+                                                   globalData.options.viewConfigurationValue));
 
-                        while ((sessionState != XR_SESSION_STATE_READY) && (!countdownTimer.IsTimeUp())) {
-                            XrEventDataBuffer eventData{XR_TYPE_EVENT_DATA_BUFFER};
-                            XrResult result = xrPollEvent(instance, &eventData);
-                            XRC_CHECK_THROW_XRCMD(result);
+            if ((optionFlags & createSwapchains) && globalData.IsUsingGraphicsPlugin()) {
+                auto graphicsPlugin = globalData.GetGraphicsPlugin();
+                if (graphicsPlugin != nullptr) {
+                    XrSwapchain swapchain;
+                    swapchainExtent = {(int32_t)viewConfigurationViewVector[0].recommendedImageRectWidth,
+                                       (int32_t)viewConfigurationViewVector[0].recommendedImageRectHeight};
+                    XRC_CHECK_THROW_XRCMD(CreateColorSwapchain(session, graphicsPlugin.get(), &swapchain, &swapchainExtent));
+                    // Maybe create as many of them as there are views.
+                    swapchainVector.push_back(swapchain);
+                }
+            }
 
-                            if (XR_UNQUALIFIED_SUCCESS(result)) {
-                                switch (eventData.type) {
-                                case XR_TYPE_EVENT_DATA_SESSION_STATE_CHANGED:
-                                    XrEventDataSessionStateChanged sessionStateChanged;
-                                    memcpy(&sessionStateChanged, &eventData, sizeof(sessionStateChanged));
-                                    sessionState = sessionStateChanged.state;
-                                    break;
-                                default:
-                                    break;  // Ignored event type.
-                                }
-                            }
-                        }
+            if (optionFlags & createActions) {
+                XRC_CHECK_THROW_XRCMD(
+                    CreateActionSet(instance, &actionSet, &actionVector, handSubactionArray.data(), handSubactionArray.size()));
+            }
 
-                        if (sessionState != XR_SESSION_STATE_READY) {
-                            XRC_THROW("Time out waiting for XR_SESSION_STATE_READY session state change");
-                        }
+            if (optionFlags & createSpaces) {
+                std::vector<XrReferenceSpaceType> referenceSpaceTypes;
+                XRC_CHECK_THROW_XRCMD(doTwoCallInPlace(referenceSpaceTypes, xrEnumerateReferenceSpaces, session));
 
-                        XrSessionBeginInfo sessionBeginInfo{
-                            XR_TYPE_SESSION_BEGIN_INFO,
-                            globalData.GetPlatformPlugin()->PopulateNextFieldForStruct(XR_TYPE_SESSION_BEGIN_INFO),
-                            globalData.options.viewConfigurationValue};
-                        XRC_CHECK_THROW_XRCMD(xrBeginSession(session, &sessionBeginInfo));
-                    }
-
-                    // Set up the enumerated types
-                    XRC_CHECK_THROW_XRCMD(doTwoCallInPlace(swapchainFormatVector, xrEnumerateSwapchainFormats, session));
-                    XRC_CHECK_THROW_XRCMD(doTwoCallInPlace(spaceTypeVector, xrEnumerateReferenceSpaces, session));
-                    XRC_CHECK_THROW_XRCMD(xrStringToPath(instance, "/user/hand/left", &handSubactionArray[0]));
-                    XRC_CHECK_THROW_XRCMD(xrStringToPath(instance, "/user/hand/right", &handSubactionArray[1]));
-
-                    // Note that while we are enumerating this, normally our testing is done via a pre-chosen one (globalData.options.viewConfigurationValue).
-                    XRC_CHECK_THROW_XRCMD(doTwoCallInPlace(viewConfigurationTypeVector, xrEnumerateViewConfigurations, instance, systemId));
-
-                    // We use globalData.options.viewConfigurationValue as the type we enumerate with, despite that the runtime may support others.
-                    XRC_CHECK_THROW_XRCMD(doTwoCallInPlaceWithEmptyElement(
-                        viewConfigurationViewVector, {XR_TYPE_VIEW_CONFIGURATION_VIEW, nullptr, 0, 0, 0, 0, 0, 0},
-                        xrEnumerateViewConfigurationViews, instance, systemId, globalData.options.viewConfigurationValue));
-
-                    XRC_CHECK_THROW_XRCMD(doTwoCallInPlace(environmentBlendModeVector, xrEnumerateEnvironmentBlendModes, instance, systemId,
-                                                           globalData.options.viewConfigurationValue));
-
-                    if ((optionFlags & createSwapchains) && globalData.IsUsingGraphicsPlugin()) {
-                        auto graphicsPlugin = globalData.GetGraphicsPlugin();
-                        if (graphicsPlugin != nullptr) {
-                            XrSwapchain swapchain;
-                            swapchainExtent = {(int32_t)viewConfigurationViewVector[0].recommendedImageRectWidth,
-                                               (int32_t)viewConfigurationViewVector[0].recommendedImageRectHeight};
-                            XRC_CHECK_THROW_XRCMD(CreateColorSwapchain(session, graphicsPlugin.get(), &swapchain, &swapchainExtent));
-                            // Maybe create as many of them as there are views.
-                            swapchainVector.push_back(swapchain);
-                        }
-                    }
-
-                    if (optionFlags & createActions) {
-                        XRC_CHECK_THROW_XRCMD(
-                            CreateActionSet(instance, &actionSet, &actionVector, handSubactionArray.data(), handSubactionArray.size()));
-                    }
-
-                    if (optionFlags & createSpaces) {
-                        std::vector<XrReferenceSpaceType> referenceSpaceTypes;
-                        XRC_CHECK_THROW_XRCMD(doTwoCallInPlace(referenceSpaceTypes, xrEnumerateReferenceSpaces, session));
-
-                        for (XrReferenceSpaceType referenceSpace : referenceSpaceTypes) {
-                            XrReferenceSpaceCreateInfo createInfo{XR_TYPE_REFERENCE_SPACE_CREATE_INFO, nullptr, referenceSpace,
-                                                                  XrPosefCPP()};
-                            XrSpace space;
-                            XRC_CHECK_THROW_XRCMD(xrCreateReferenceSpace(session, &createInfo, &space));
-                            spaceVector.push_back(space);
-                        }
-                    }
+                for (XrReferenceSpaceType referenceSpace : referenceSpaceTypes) {
+                    XrReferenceSpaceCreateInfo createInfo{XR_TYPE_REFERENCE_SPACE_CREATE_INFO, nullptr, referenceSpace, XrPosefCPP()};
+                    XrSpace space;
+                    XRC_CHECK_THROW_XRCMD(xrCreateReferenceSpace(session, &createInfo, &space));
+                    spaceVector.push_back(space);
                 }
             }
         }
