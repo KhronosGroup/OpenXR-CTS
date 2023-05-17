@@ -62,3 +62,6 @@ install(
 if(MSVC)
     install(FILES $<TARGET_PDB_FILE:conformance_cli> DESTINATION conformance OPTIONAL)
 endif()
+
+# Install the README
+install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/../conformance_test/readme.md DESTINATION conformance)
