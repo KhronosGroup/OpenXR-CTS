@@ -272,9 +272,10 @@ namespace Conformance
             REQUIRE(GetGlobalData().graphicsPlugin->GetSwapchainCreateTestParameters(instance, session, systemId, imageFormat, &tp));
             if (tp.colorFormat) {
                 XrSwapchainCreateInfo swapchainCreateInfo = MakeDefaultSwapchainCreateInfo(imageFormat, tp);
-                SwapchainScoped swapchain;
-                XrResult result = xrCreateSwapchain(session, &swapchainCreateInfo, swapchain.resetAndGetAddress());
+                XrSwapchain swapchainRaw{XR_NULL_HANDLE_CPP};
+                XrResult result = xrCreateSwapchain(session, &swapchainCreateInfo, &swapchainRaw);
                 if (result == XR_SUCCESS) {
+                    SwapchainScoped swapchain{swapchainRaw};
                     defaultColorCreateInfo = swapchainCreateInfo;
                     foundColorCreateInfo = true;
                     break;
@@ -461,20 +462,26 @@ namespace Conformance
                         REQUIRE(globalData.graphicsPlugin->GetSwapchainCreateTestParameters(session.instance, session, session.systemId,
                                                                                             imageFormat, &tp));
 
-                        ReportF("Testing format %s", tp.imageFormatName.c_str());
-                        CAPTURE(tp.imageFormatName);
-                        SwapchainTestData data;
-
-                        for (const auto& nameAndCreateInfo : MakeSwapchainCreateInfoCases(session, imageFormat, tp)) {
-
-                            INFO("XrSwapchainCreateInfo case: " << nameAndCreateInfo.first);
-                            auto createInfo = nameAndCreateInfo.second;
-                            testSwapchainCreation(session, data, createInfo, tp);
+                        // TODO remove this when we can mark it as a stencil-only format.
+                        if (tp.imageFormatName == "VK_FORMAT_S8_UINT") {
+                            // Skip for now since we would use the wrong image aspects
+                            continue;
                         }
 
-                        ReportF("    %d cases tested (%d unsupported)", data.swapchainCreateCount, data.unsupportedCount);
-                        CAPTURE(data.swapchainCreateCount);
-                        CAPTURE(data.unsupportedCount);
+                        DYNAMIC_SECTION(tp.imageFormatName)
+                        {
+                            GetGlobalData().PushSwapchainFormat(imageFormat, tp.imageFormatName);
+
+                            SwapchainTestData data;
+                            for (const auto& nameAndCreateInfo : MakeSwapchainCreateInfoCases(session, imageFormat, tp)) {
+                                INFO("XrSwapchainCreateInfo case: " << nameAndCreateInfo.first);
+                                auto createInfo = nameAndCreateInfo.second;
+                                testSwapchainCreation(session, data, createInfo, tp);
+                            }
+                            ReportF("    %d cases tested (%d unsupported)", data.swapchainCreateCount, data.unsupportedCount);
+                            CAPTURE(data.swapchainCreateCount);
+                            CAPTURE(data.unsupportedCount);
+                        }
                     }
                 }
             }
@@ -506,6 +513,12 @@ namespace Conformance
         const XrSwapchainCreateInfo defaultColorCreateInfo =
             FindDefaultColorSwapchainCreateInfo(imageFormatArray, session.instance, session.systemId, session);
 
+        // In the past, bugs in the CTS have made this fail when called back to back (or called right before graphics shutdown)
+        // Because it can be hard to debug failures in these tests, try to provoke this particular issue early,
+        // before the bulk of the test, to verify this is no longer a problem.
+        GetGlobalData().graphicsPlugin->ClearSwapchainCache();
+        GetGlobalData().graphicsPlugin->ClearSwapchainCache();
+
         for (int64_t imageFormat : imageFormatArray) {
 
             SwapchainCreateTestParameters tp;
@@ -516,81 +529,100 @@ namespace Conformance
                 // skip this format
                 continue;
             }
-            ReportF("Testing format %s", tp.imageFormatName.c_str());
-            CAPTURE(tp.imageFormatName);
 
-            const std::vector<std::pair<std::string, XrSwapchainCreateInfo>> cases = MakeSwapchainCreateInfoCases(session, imageFormat, tp);
-            for (const auto& nameAndCreateInfo : cases) {
+            // TODO remove this when we can mark it as a stencil-only format.
+            if (tp.imageFormatName == "VK_FORMAT_S8_UINT") {
+                // Skip for now since we would use the wrong image aspects
+                continue;
+            }
 
-                INFO("XrSwapchainCreateInfo case: " << nameAndCreateInfo.first);
-                auto createInfo = nameAndCreateInfo.second;
-                if ((createInfo.createFlags & XR_SWAPCHAIN_CREATE_STATIC_IMAGE_BIT) != 0) {
-                    // Do not try rendering to static swapchains for now, complicated
-                    continue;
-                }
+            DYNAMIC_SECTION(tp.imageFormatName)
+            {
+                CAPTURE(tp.imageFormatName);
 
-                CAPTURE(XrSwapchainCreateFlagsCPP(createInfo.createFlags));
-                CAPTURE(XrSwapchainUsageFlagsCPP(createInfo.usageFlags));
-                CAPTURE(createInfo.format);
-                CAPTURE(createInfo.sampleCount);
-                CAPTURE(createInfo.width);
-                CAPTURE(createInfo.height);
-                CAPTURE(createInfo.faceCount);
-                CAPTURE(createInfo.arraySize);
-                CAPTURE(createInfo.mipCount);
-                SwapchainScoped swapchain;
-                XrResult resultOfXrCreateSwapchain = xrCreateSwapchain(session, &createInfo, swapchain.resetAndGetAddress());
-                REQUIRE_THAT(resultOfXrCreateSwapchain, In<XrResult>({XR_SUCCESS, XR_ERROR_FEATURE_UNSUPPORTED}));
-                if (resultOfXrCreateSwapchain == XR_ERROR_FEATURE_UNSUPPORTED) {
-                    continue;
-                }
-
-                SwapchainScoped colorSwapchain;
-                SwapchainScoped depthSwapchain;
-
-                uint32_t colorImageCount = 0;
-                XrSwapchainCreateInfo colorCreateInfo;
-                if (tp.colorFormat) {
-                    colorSwapchain = std::move(swapchain);
-                    colorCreateInfo = createInfo;
-                }
-                else {
-                    depthSwapchain = std::move(swapchain);
-
-                    colorCreateInfo = defaultColorCreateInfo;
-                    colorCreateInfo.width = createInfo.width;
-                    colorCreateInfo.height = createInfo.height;
-                    colorCreateInfo.sampleCount = createInfo.sampleCount;
-                    colorCreateInfo.arraySize = createInfo.arraySize;
-
-                    REQUIRE_RESULT_UNQUALIFIED_SUCCESS(xrCreateSwapchain(session, &colorCreateInfo, colorSwapchain.resetAndGetAddress()));
-                }
-
-                XRC_CHECK_THROW_XRCMD(xrEnumerateSwapchainImages(colorSwapchain.get(), 0, &colorImageCount, nullptr));
-                ISwapchainImageData* swapchainImages = nullptr;
-
-                if (depthSwapchain) {
-                    uint32_t depthImageCount = 0;
-                    XRC_CHECK_THROW_XRCMD(xrEnumerateSwapchainImages(depthSwapchain.get(), 0, &depthImageCount, nullptr));
-
+                const std::vector<std::pair<std::string, XrSwapchainCreateInfo>> cases =
+                    MakeSwapchainCreateInfoCases(session, imageFormat, tp);
+                for (const auto& nameAndCreateInfo : cases) {
                     {
-                        INFO("Artificial requirement of test right now: depth and color swapchains must be the same size");
+                        INFO("XrSwapchainCreateInfo case: " << nameAndCreateInfo.first);
+                        auto createInfo = nameAndCreateInfo.second;
+                        if ((createInfo.createFlags & XR_SWAPCHAIN_CREATE_STATIC_IMAGE_BIT) != 0) {
+                            // Do not try rendering to static swapchains for now, complicated
+                            continue;
+                        }
 
-                        REQUIRE(colorImageCount >= depthImageCount);
+                        CAPTURE(XrSwapchainCreateFlagsCPP(createInfo.createFlags));
+                        CAPTURE(XrSwapchainUsageFlagsCPP(createInfo.usageFlags));
+                        CAPTURE(createInfo.format);
+                        CAPTURE(createInfo.sampleCount);
+                        CAPTURE(createInfo.width);
+                        CAPTURE(createInfo.height);
+                        CAPTURE(createInfo.faceCount);
+                        CAPTURE(createInfo.arraySize);
+                        CAPTURE(createInfo.mipCount);
+                        XrSwapchain swapchainRaw{XR_NULL_HANDLE_CPP};
+                        XrResult resultOfXrCreateSwapchain = xrCreateSwapchain(session, &createInfo, &swapchainRaw);
+                        REQUIRE_THAT(resultOfXrCreateSwapchain, In<XrResult>({XR_SUCCESS, XR_ERROR_FEATURE_UNSUPPORTED}));
+                        if (resultOfXrCreateSwapchain == XR_ERROR_FEATURE_UNSUPPORTED) {
+                            continue;
+                        }
+                        SwapchainScoped swapchain{swapchainRaw};
+
+                        SwapchainScoped colorSwapchain;
+                        SwapchainScoped depthSwapchain;
+
+                        uint32_t colorImageCount = 0;
+                        XrSwapchainCreateInfo colorCreateInfo;
+                        if (tp.colorFormat) {
+                            colorSwapchain = std::move(swapchain);
+                            colorCreateInfo = createInfo;
+                        }
+                        else {
+                            depthSwapchain = std::move(swapchain);
+
+                            colorCreateInfo = defaultColorCreateInfo;
+                            colorCreateInfo.width = createInfo.width;
+                            colorCreateInfo.height = createInfo.height;
+                            colorCreateInfo.sampleCount = createInfo.sampleCount;
+                            colorCreateInfo.arraySize = createInfo.arraySize;
+
+                            XrSwapchain colorSwapchainRaw{XR_NULL_HANDLE_CPP};
+                            REQUIRE_RESULT_UNQUALIFIED_SUCCESS(xrCreateSwapchain(session, &colorCreateInfo, &colorSwapchainRaw));
+                            colorSwapchain.adopt(colorSwapchainRaw);
+                        }
+
+                        XRC_CHECK_THROW_XRCMD(xrEnumerateSwapchainImages(colorSwapchain.get(), 0, &colorImageCount, nullptr));
+                        ISwapchainImageData* swapchainImages = nullptr;
+
+                        if (depthSwapchain) {
+                            uint32_t depthImageCount = 0;
+                            XRC_CHECK_THROW_XRCMD(xrEnumerateSwapchainImages(depthSwapchain.get(), 0, &depthImageCount, nullptr));
+
+                            {
+                                INFO("Artificial requirement of test right now: depth and color swapchains must be the same size");
+
+                                REQUIRE(colorImageCount >= depthImageCount);
+                            }
+                            swapchainImages = GetGlobalData().graphicsPlugin->AllocateSwapchainImageDataWithDepthSwapchain(
+                                colorImageCount, colorCreateInfo, depthSwapchain.get(), createInfo);
+
+                            XRC_CHECK_THROW_XRCMD(xrEnumerateSwapchainImages(depthSwapchain.get(), depthImageCount, &depthImageCount,
+                                                                             swapchainImages->GetDepthImageArray()));
+                        }
+                        else {
+                            swapchainImages = GetGlobalData().graphicsPlugin->AllocateSwapchainImageData(colorImageCount, colorCreateInfo);
+                        }
+                        XRC_CHECK_THROW_XRCMD(xrEnumerateSwapchainImages(colorSwapchain.get(), colorImageCount, &colorImageCount,
+                                                                         swapchainImages->GetColorImageArray()));
+
+                        DoRenderTest(swapchainImages, colorImageCount, colorCreateInfo, colorSwapchain.get());
                     }
-                    swapchainImages = GetGlobalData().graphicsPlugin->AllocateSwapchainImageDataWithDepthSwapchain(
-                        colorImageCount, colorCreateInfo, depthSwapchain.get(), createInfo);
 
-                    XRC_CHECK_THROW_XRCMD(xrEnumerateSwapchainImages(depthSwapchain.get(), depthImageCount, &depthImageCount,
-                                                                     swapchainImages->GetDepthImageArray()));
+                    // SwapchainScoped will have xrDestroySwapchain
+                    // now we need to flush
+                    GetGlobalData().graphicsPlugin->ClearSwapchainCache();
+                    GetGlobalData().graphicsPlugin->Flush();
                 }
-                else {
-                    swapchainImages = GetGlobalData().graphicsPlugin->AllocateSwapchainImageData(colorImageCount, colorCreateInfo);
-                }
-                XRC_CHECK_THROW_XRCMD(xrEnumerateSwapchainImages(colorSwapchain.get(), colorImageCount, &colorImageCount,
-                                                                 swapchainImages->GetColorImageArray()));
-
-                DoRenderTest(swapchainImages, colorImageCount, colorCreateInfo, colorSwapchain.get());
             }
         }
     }

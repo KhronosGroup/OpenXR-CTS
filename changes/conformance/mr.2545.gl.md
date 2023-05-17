@@ -1,1 +1,0 @@
-- Fix: Make the comment about the optional handle validation accurate.

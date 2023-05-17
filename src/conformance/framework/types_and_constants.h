@@ -22,6 +22,9 @@
 #include <iosfwd>
 #include <stdint.h>
 #include <cassert>
+#include <memory>
+#include <type_traits>
+#include <utility>
 
 namespace Conformance
 {
@@ -133,42 +136,6 @@ namespace Conformance
     template <typename HandleType, typename Destroyer>
     class ScopedHandle;
 
-    /// Used by ScopedHandle to allow it to be set "directly" by functions taking a pointer to a handle.
-    ///
-    /// @ingroup cts_handle_internals
-    template <typename HandleType, typename Destroyer>
-    class ScopedHandleResetProxy
-    {
-    public:
-        explicit ScopedHandleResetProxy(ScopedHandle<HandleType, Destroyer>& parent) : parent_(parent), active_(true)
-        {
-        }
-        ~ScopedHandleResetProxy();
-
-        ScopedHandleResetProxy(ScopedHandleResetProxy const&) = delete;
-        ScopedHandleResetProxy& operator=(ScopedHandleResetProxy const&) = delete;
-        ScopedHandleResetProxy& operator=(ScopedHandleResetProxy&&) = delete;
-        ScopedHandleResetProxy(ScopedHandleResetProxy&& other) noexcept : parent_(other.parent_)
-        {
-            std::swap(active_, other.active_);
-            std::swap(addressGot_, other.addressGot_);
-            std::swap(handle_, other.handle_);
-        }
-
-        operator HandleType*()
-        {
-            assert(!addressGot_);
-            addressGot_ = true;
-            return &handle_;
-        }
-
-    private:
-        ScopedHandle<HandleType, Destroyer>& parent_;
-        bool active_ = false;
-        bool addressGot_ = false;
-        HandleType handle_ = XR_NULL_HANDLE;
-    };
-
     /// A unique-ownership RAII helper for OpenXR handles.
     ///
     /// @tparam HandleType The handle type to wrap
@@ -187,8 +154,8 @@ namespace Conformance
         {
         }
 
-        /// Explicit constructor from handle
-        explicit ScopedHandle(HandleType h) : h_(h)
+        /// Explicit constructor from handle, if we don't need a destroyer instance.
+        explicit ScopedHandle(HandleType h, std::enable_if<std::is_default_constructible<Destroyer>::value>* = nullptr) : h_(h)
         {
         }
         /// Constructor from handle when we need a destroyer instance.
@@ -209,16 +176,20 @@ namespace Conformance
         ScopedHandle& operator=(ScopedHandle const&) = delete;
 
         /// Move-constructible
-        ScopedHandle(ScopedHandle&& other) noexcept
+        ScopedHandle(ScopedHandle&& other) noexcept : h_(std::move(other.h_)), d_(std::move(other.d_))
         {
-            std::swap(h_, other.h_);
+            other.h_ = XR_NULL_HANDLE_CPP;
         }
 
         /// Move-assignable
         ScopedHandle& operator=(ScopedHandle&& other) noexcept
         {
+            if (&other == this) {
+                return *this;
+            }
+            reset();
             std::swap(h_, other.h_);
-            other.reset();
+            std::swap(d_, other.d_);
             return *this;
         }
 
@@ -238,7 +209,7 @@ namespace Conformance
         }
 
         /// Assign a new handle into this object's control, destroying the old one if applicable.
-        void reset(HandleType h)
+        void adopt(HandleType h)
         {
             reset();
             h_ = h;
@@ -256,13 +227,6 @@ namespace Conformance
             HandleType ret = h_;
             h_ = XR_NULL_HANDLE_CPP;
             return ret;
-        }
-
-        /// Call in a parameter that requires a pointer to a handle, to set it "directly" in here.
-        ScopedHandleResetProxy<HandleType, Destroyer> resetAndGetAddress()
-        {
-            reset();
-            return ScopedHandleResetProxy<HandleType, Destroyer>(*this);
         }
 
     private:
@@ -300,15 +264,6 @@ namespace Conformance
     inline bool operator!=(NullHandleType const&, ScopedHandle<HandleType, Destroyer> const& handle)
     {
         return handle.get() != XR_NULL_HANDLE_CPP;
-    }
-
-    template <typename HandleType, typename Destroyer>
-    inline ScopedHandleResetProxy<HandleType, Destroyer>::~ScopedHandleResetProxy()
-    {
-        if (active_) {
-            assert(addressGot_ && "Called resetAndGetAddress() without passing the result to a pointer-taking function.");
-            parent_.reset(handle_);
-        }
     }
 
     struct AutoBasicInstance;

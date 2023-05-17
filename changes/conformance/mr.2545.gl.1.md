@@ -1,4 +1,0 @@
----
-- mr.2606.gl
----
-- Improvement: Teach the CTS how to parse and format bitmasks (if appropriately marked up in source).

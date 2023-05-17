@@ -126,11 +126,14 @@ if(ANDROID)
         conformance_test
         PRIVATE
             "${CMAKE_CURRENT_SOURCE_DIR}/../platform_specific/android_main.cpp"
+            "${CMAKE_CURRENT_SOURCE_DIR}/../platform_specific/android_intent_extras.cpp"
+            "${CMAKE_CURRENT_SOURCE_DIR}/../../external/jnipp/jnipp.cpp"
     )
     target_include_directories(
         conformance_test
         PRIVATE
-        "${CMAKE_CURRENT_SOURCE_DIR}")
+        "${CMAKE_CURRENT_SOURCE_DIR}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/../../external")
     target_link_libraries(
         conformance_test
         PRIVATE

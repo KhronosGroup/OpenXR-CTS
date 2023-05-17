@@ -37,8 +37,8 @@ namespace Conformance
     TEST_CASE("XR_KHR_opengl_enable", "")
     {
         GlobalData& globalData = GetGlobalData();
-        if (!globalData.IsInstanceExtensionEnabled("XR_KHR_opengl_enable")) {
-            return;
+        if (!globalData.IsInstanceExtensionEnabled(XR_KHR_OPENGL_ENABLE_EXTENSION_NAME)) {
+            SKIP(XR_KHR_OPENGL_ENABLE_EXTENSION_NAME " not enabled");
         }
 
         AutoBasicInstance instance{AutoBasicInstance::createSystemId};

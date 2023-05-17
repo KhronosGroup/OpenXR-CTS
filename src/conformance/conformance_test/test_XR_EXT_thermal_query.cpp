@@ -28,7 +28,7 @@ namespace Conformance
     {
         GlobalData& globalData = GetGlobalData();
         if (!globalData.IsInstanceExtensionSupported("XR_EXT_thermal_query")) {
-            return;
+            SKIP(XR_EXT_THERMAL_QUERY_EXTENSION_NAME " not supported");
         }
 
         // Set up the session we will use for the testing

@@ -119,7 +119,7 @@ namespace Conformance
             XrQuaternionf_CreateFromAxisAngle(&instructionsQuad->pose.orientation, &Up, 70 * MATH_PI / 180);
 
             m_layers.push_back({reinterpret_cast<XrCompositionLayerBaseHeader*>(instructionsQuad)});
-            ReportStr(sMessage.c_str());
+            ReportF("%s", sMessage.c_str());
         }
 
     private:
@@ -515,7 +515,7 @@ namespace Conformance
 
                     if (XR_UNQUALIFIED_SUCCESS(res) && actionStateBoolean.changedSinceLastSync) {
                         if (actionStateBoolean.currentState) {
-                            ReportStr("Dpad input detected");
+                            ReportF("Dpad input detected");
                         }
 
                         return actionStateBoolean.changedSinceLastSync && actionStateBoolean.currentState;
@@ -548,7 +548,7 @@ namespace Conformance
 
                     if (XR_UNQUALIFIED_SUCCESS(res) && actionStateBoolean.changedSinceLastSync) {
                         if (actionStateBoolean.currentState) {
-                            ReportStr("Sticky dpad input detected...");
+                            ReportF("Sticky dpad input detected...");
                             isStickyStarted = true;
 
                             // Detect hold
@@ -559,7 +559,7 @@ namespace Conformance
                                 xrGetActionStateBoolean(session, &getInfo, &actionStateBoolean);
 
                                 if (actionStateBoolean.changedSinceLastSync && !actionStateBoolean.currentState) {
-                                    ReportStr("Sticky dpad input prematurely released...");
+                                    ReportF("Sticky dpad input prematurely released...");
                                     isStickyStarted = false;
                                 }
                             }
@@ -830,7 +830,7 @@ namespace Conformance
         GlobalData& globalData = GetGlobalData();
         if (!globalData.IsInstanceExtensionSupported(XR_EXT_DPAD_BINDING_EXTENSION_NAME) ||
             !globalData.IsInstanceExtensionSupported(XR_KHR_BINDING_MODIFICATION_EXTENSION_NAME)) {
-            return;
+            SKIP(XR_EXT_DPAD_BINDING_EXTENSION_NAME " or " XR_KHR_BINDING_MODIFICATION_EXTENSION_NAME " not supported");
         }
 
         AutoBasicInstance instance({XR_KHR_BINDING_MODIFICATION_EXTENSION_NAME, XR_EXT_DPAD_BINDING_EXTENSION_NAME});
@@ -1154,7 +1154,7 @@ namespace Conformance
         GlobalData& globalData = GetGlobalData();
         if (!globalData.IsInstanceExtensionSupported(XR_EXT_DPAD_BINDING_EXTENSION_NAME) ||
             !globalData.IsInstanceExtensionSupported(XR_KHR_BINDING_MODIFICATION_EXTENSION_NAME)) {
-            return;
+            SKIP(XR_EXT_DPAD_BINDING_EXTENSION_NAME " or " XR_KHR_BINDING_MODIFICATION_EXTENSION_NAME " not supported");
         }
 
         // Initialize test
@@ -1235,7 +1235,7 @@ namespace Conformance
         GlobalData& globalData = GetGlobalData();
         if (!globalData.IsInstanceExtensionSupported(XR_EXT_DPAD_BINDING_EXTENSION_NAME) ||
             !globalData.IsInstanceExtensionSupported(XR_KHR_BINDING_MODIFICATION_EXTENSION_NAME)) {
-            return;
+            SKIP(XR_EXT_DPAD_BINDING_EXTENSION_NAME " or " XR_KHR_BINDING_MODIFICATION_EXTENSION_NAME " not supported");
         }
 
         // Initialize test

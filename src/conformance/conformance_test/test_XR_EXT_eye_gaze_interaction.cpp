@@ -52,7 +52,7 @@ namespace Conformance
     {
         GlobalData& globalData = GetGlobalData();
         if (!globalData.IsInstanceExtensionSupported(XR_EXT_EYE_GAZE_INTERACTION_EXTENSION_NAME)) {
-            return;
+            SKIP(XR_EXT_EYE_GAZE_INTERACTION_EXTENSION_NAME " not supported");
         }
 
         SECTION("Extension not enabled")
@@ -62,10 +62,13 @@ namespace Conformance
                 // validate that the extension has not been force enabled...
                 // system should never set `supportsEyeGazeInteraction` to XR_TRUE unless
                 // the extension has been enabled.
-                if (!globalData.enabledInstanceExtensionNames.contains(XR_EXT_EYE_GAZE_INTERACTION_EXTENSION_NAME)) {
+                if (!globalData.IsInstanceExtensionEnabled(XR_EXT_EYE_GAZE_INTERACTION_EXTENSION_NAME)) {
                     AutoBasicInstance instance{AutoBasicInstance::createSystemId};
                     XrSystemId systemId = instance.systemId;
                     REQUIRE(!SystemSupportsEyeGazeInteraction(instance, systemId));
+                }
+                else {
+                    WARN(XR_EXT_EYE_GAZE_INTERACTION_EXTENSION_NAME " force-enabled, cannot test behavior when extension is disabled.");
                 }
             }
         }
@@ -76,8 +79,7 @@ namespace Conformance
             XrSystemId systemId = instance.systemId;
             if (!SystemSupportsEyeGazeInteraction(instance, systemId)) {
                 // This runtime does support eye gaze, but this headset does not which is fine.
-                WARN("Device does not support eye gaze interaction");
-                return;
+                SKIP("System does not support eye gaze interaction");
             }
 
             SECTION("Create and destroy eye gaze actions")
@@ -213,7 +215,7 @@ namespace Conformance
             XrSystemId systemId = instance.systemId;
             if (!SystemSupportsEyeGazeInteraction(instance, systemId)) {
                 // This runtime does support eye gaze, but this headset does not which is fine.
-                WARN("Device does not support eye gaze interaction");
+                WARN("System does not support eye gaze interaction");
                 return;
             }
 
@@ -290,7 +292,7 @@ namespace Conformance
 
             if (!SystemSupportsEyeGazeInteraction(compositionHelper.GetInstance(), compositionHelper.GetSystemId())) {
                 // This runtime does support eye tracking, but this headset does not which is fine.
-                WARN("Device does not support eye gaze interaction");
+                WARN("System does not support eye gaze interaction");
                 return;
             }
 
@@ -381,7 +383,7 @@ namespace Conformance
         GlobalData& globalData = GetGlobalData();
 
         if (!globalData.IsInstanceExtensionSupported(XR_EXT_EYE_GAZE_INTERACTION_EXTENSION_NAME)) {
-            return;
+            SKIP(XR_EXT_EYE_GAZE_INTERACTION_EXTENSION_NAME " not supported");
         }
 
         CompositionHelper compositionHelper("XR_EXT_eye_gaze_interaction interactive gaze only",
@@ -389,8 +391,7 @@ namespace Conformance
 
         if (!SystemSupportsEyeGazeInteraction(compositionHelper.GetInstance(), compositionHelper.GetSystemId())) {
             // This runtime does support eye tracking, but this headset does not which is fine.
-            WARN("Device does not support eye gaze interaction");
-            return;
+            SKIP("System does not support eye gaze interaction");
         }
 
         // Actions

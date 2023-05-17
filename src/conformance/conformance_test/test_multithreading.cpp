@@ -181,6 +181,16 @@ namespace Conformance
         // XR_KHR_vulkan_enable / XR_KHR_vulkan_enable2
         // Access to the VkQueue must be externally synchronized for xrBeginFrame, xrEndFrame, xrAcquireSwapchainImage, xrReleaseSwapchainImage
         std::mutex vulkanQueueMutex;
+
+        std::unique_lock<std::mutex> LockQueueIfVulkan(const GlobalData& globalData)
+        {
+            if (globalData.IsInstanceExtensionEnabled(XR_KHR_VULKAN_ENABLE_EXTENSION_NAME) ||
+                globalData.IsInstanceExtensionEnabled(XR_KHR_VULKAN_ENABLE2_EXTENSION_NAME)) {
+                return std::unique_lock<std::mutex>(vulkanQueueMutex);
+            }
+            return {};
+        }
+
 #endif  // defined(XR_USE_GRAPHICS_API_VULKAN)
 
 #if defined(XR_USE_GRAPHICS_API_OPENGL)
@@ -192,6 +202,15 @@ namespace Conformance
         // xrAcquireSwapchainImage, xrWaitSwapchainImageand xrReleaseSwapchainImage.
         // It may be bound in the thread calling those functions.
         std::mutex openGlContextMutex;
+
+        std::unique_lock<std::mutex> LockContextIfOpenGL(const GlobalData& globalData)
+        {
+            if (globalData.IsInstanceExtensionEnabled(XR_KHR_OPENGL_ENABLE_EXTENSION_NAME)) {
+                return std::unique_lock<std::mutex>(openGlContextMutex);
+            }
+            return {};
+        }
+
 #endif  // defined(XR_USE_GRAPHICS_API_OPENGL)
 
     protected:
@@ -632,9 +651,7 @@ namespace Conformance
         std::shared_ptr<IGraphicsPlugin> graphicsPlugin = globalData.GetGraphicsPlugin();
 
 #if defined(XR_USE_GRAPHICS_API_OPENGL)
-        bool isOpenGL = globalData.IsInstanceExtensionEnabled(XR_KHR_OPENGL_ENABLE_EXTENSION_NAME);
-        std::unique_lock<std::mutex> glLock =
-            isOpenGL ? std::unique_lock<std::mutex>(env.openGlContextMutex) : std::unique_lock<std::mutex>();
+        std::unique_lock<std::mutex> glLock = env.LockContextIfOpenGL(globalData);
 #endif  // defined(XR_USE_GRAPHICS_API_OPENGL)
 
         XrSwapchain swapchain;
@@ -659,9 +676,7 @@ namespace Conformance
         std::shared_ptr<IGraphicsPlugin> graphicsPlugin = globalData.GetGraphicsPlugin();
 
 #if defined(XR_USE_GRAPHICS_API_OPENGL)
-        bool isOpenGL = globalData.IsInstanceExtensionEnabled(XR_KHR_OPENGL_ENABLE_EXTENSION_NAME);
-        std::unique_lock<std::mutex> glLock =
-            isOpenGL ? std::unique_lock<std::mutex>(env.openGlContextMutex) : std::unique_lock<std::mutex>();
+        std::unique_lock<std::mutex> glLock = env.LockContextIfOpenGL(globalData);
 #endif  // defined(XR_USE_GRAPHICS_API_OPENGL)
 
         XrSwapchainCreateInfo createInfo;
@@ -690,16 +705,11 @@ namespace Conformance
         std::shared_ptr<IGraphicsPlugin> graphicsPlugin = globalData.GetGraphicsPlugin();
 
 #if defined(XR_USE_GRAPHICS_API_VULKAN)
-        bool isVulkan = globalData.IsInstanceExtensionEnabled(XR_KHR_VULKAN_ENABLE_EXTENSION_NAME) ||
-                        globalData.IsInstanceExtensionEnabled(XR_KHR_VULKAN_ENABLE2_EXTENSION_NAME);
-        std::unique_lock<std::mutex> vkLock =
-            isVulkan ? std::unique_lock<std::mutex>(env.vulkanQueueMutex) : std::unique_lock<std::mutex>();
+        std::unique_lock<std::mutex> vkLock = env.LockQueueIfVulkan(globalData);
 #endif  // defined(XR_USE_GRAPHICS_API_VULKAN)
 
 #if defined(XR_USE_GRAPHICS_API_OPENGL)
-        bool isOpenGL = globalData.IsInstanceExtensionEnabled(XR_KHR_OPENGL_ENABLE_EXTENSION_NAME);
-        std::unique_lock<std::mutex> glLock =
-            isOpenGL ? std::unique_lock<std::mutex>(env.openGlContextMutex) : std::unique_lock<std::mutex>();
+        std::unique_lock<std::mutex> glLock = env.LockContextIfOpenGL(globalData);
 #endif  // defined(XR_USE_GRAPHICS_API_OPENGL)
 
         XrSwapchain swapchain;

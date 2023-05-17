@@ -18,6 +18,7 @@
 #include "report.h"
 #include "utils.h"
 #include "two_call_util.h"
+#include <mutex>
 #include <stdexcept>
 #include <cstring>
 #include <algorithm>
@@ -28,7 +29,6 @@
 #include <android/log.h>
 #include <android/window.h>             // for AWINDOW_FLAG_KEEP_SCREEN_ON
 #include <android/native_window_jni.h>  // for native window JNI
-#include <android_native_app_glue.h>
 #include <openxr/openxr_platform.h>
 #endif  /// XR_USE_PLATFORM_ANDROID
 
@@ -131,7 +131,7 @@ namespace Conformance
         // Setup the platform-specific plugin first. This is required before creating any instances.
         platformPlugin = Conformance::CreatePlatformPlugin();
         if (!platformPlugin->Initialize()) {
-            ReportStr("GlobalData::Initialize: PlatformPlugin::Initialize: platform plugin initialization failed.");
+            ReportF("GlobalData::Initialize: PlatformPlugin::Initialize: platform plugin initialization failed.");
             return false;
         }
 
@@ -163,7 +163,7 @@ namespace Conformance
             }
 
             if (!graphicsPlugin->Initialize()) {
-                ReportStr("GlobalData::Initialize: GraphicsPlugin::Initialize: graphics plugin initialization failed.");
+                ReportF("GlobalData::Initialize: GraphicsPlugin::Initialize: graphics plugin initialization failed.");
                 return false;
             }
 
@@ -191,8 +191,13 @@ namespace Conformance
             const auto e = availableAPILayerNames.end();
             bool hasConfLayer = (e != std::find(availableAPILayerNames.begin(), e, CONFORMANCE_LAYER_NAME));
             if (hasConfLayer) {
-                enabledAPILayerNames.push_back_unique(CONFORMANCE_LAYER_NAME);
-                useDebugMessenger = true;
+                if (!globalData.options.invalidHandleValidation) {
+                    enabledAPILayerNames.push_back_unique(CONFORMANCE_LAYER_NAME);
+                    useDebugMessenger = true;
+                }
+                else {
+                    ReportF("GlobalData::Initialize: not loading conformance layer due to handle validation mode");
+                }
             }
         }
 
@@ -292,14 +297,14 @@ namespace Conformance
     {
         std::lock_guard<std::recursive_mutex> lock(dataMutex);
 
-        if (IsUsingGraphicsPlugin()) {
+        if (IsUsingGraphicsPlugin() && graphicsPlugin) {
             if (graphicsPlugin->IsInitialized()) {
                 graphicsPlugin->ShutdownDevice();
                 graphicsPlugin->Shutdown();
             }
         }
 
-        if (platformPlugin->IsInitialized()) {
+        if (platformPlugin && platformPlugin->IsInitialized()) {
             platformPlugin->Shutdown();
         }
 
@@ -407,5 +412,11 @@ namespace Conformance
     bool GlobalData::IsUsingGraphicsPlugin() const
     {
         return IsGraphicsPluginRequired() || !options.graphicsPlugin.empty();
+    }
+
+    void GlobalData::PushSwapchainFormat(int64_t format, const std::string& name)
+    {
+        std::unique_lock<std::recursive_mutex> lock(dataMutex);
+        conformanceReport.swapchainFormats.emplace_back(format, name);
     }
 }  // namespace Conformance

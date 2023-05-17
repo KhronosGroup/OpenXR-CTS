@@ -48,14 +48,17 @@ namespace Conformance
             // Runtime does not support extension - it should not be possible to get function pointers.
             AutoBasicInstance instance;
             ValidateInstanceExtensionFunctionNotSupported(instance, "xrCreateHandTrackerEXT");
-            return;
+            SKIP(XR_EXT_HAND_TRACKING_EXTENSION_NAME " not supported");
         }
 
         SECTION("Extension not enabled")
         {
-            if (!globalData.enabledInstanceExtensionNames.contains(XR_EXT_HAND_TRACKING_EXTENSION_NAME)) {
+            if (!globalData.IsInstanceExtensionEnabled(XR_EXT_HAND_TRACKING_EXTENSION_NAME)) {
                 AutoBasicInstance instance;
                 ValidateInstanceExtensionFunctionNotSupported(instance, "xrCreateHandTrackerEXT");
+            }
+            else {
+                WARN(XR_EXT_HAND_TRACKING_EXTENSION_NAME " force-enabled, cannot test behavior when extension is disabled.");
             }
         }
 
@@ -70,7 +73,7 @@ namespace Conformance
             if (!SystemSupportsHandTracking(instance, systemId)) {
                 // This runtime does support hand tracking, but this headset does not
                 // support hand tracking, which is fine.
-                WARN("Device does not support hand tracking");
+                SKIP("System does not support hand tracking");
                 return;
             }
 
@@ -96,7 +99,7 @@ namespace Conformance
 
         GlobalData& globalData = GetGlobalData();
         if (!globalData.IsInstanceExtensionSupported(XR_EXT_HAND_TRACKING_EXTENSION_NAME)) {
-            return;
+            SKIP(XR_EXT_HAND_TRACKING_EXTENSION_NAME " not supported");
         }
 
         CompositionHelper compositionHelper("XR_EXT_hand_tracking", {"XR_EXT_hand_tracking"});
@@ -104,8 +107,7 @@ namespace Conformance
         if (!SystemSupportsHandTracking(compositionHelper.GetInstance(), compositionHelper.GetSystemId())) {
             // This runtime does support hand tracking, but this headset does not
             // support hand tracking, which is fine.
-            WARN("Device does not support hand tracking");
-            return;
+            SKIP("System does not support hand tracking");
         }
 
         XrInstance instance = compositionHelper.GetInstance();

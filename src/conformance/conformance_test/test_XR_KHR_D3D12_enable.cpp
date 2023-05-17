@@ -39,8 +39,8 @@ namespace Conformance
     TEST_CASE("XR_KHR_D3D12_enable", "")
     {
         GlobalData& globalData = GetGlobalData();
-        if (!globalData.IsInstanceExtensionEnabled("XR_KHR_D3D12_enable")) {
-            return;
+        if (!globalData.IsInstanceExtensionEnabled(XR_KHR_D3D12_ENABLE_EXTENSION_NAME)) {
+            SKIP(XR_KHR_D3D12_ENABLE_EXTENSION_NAME " not enabled");
         }
 
         AutoBasicInstance instance{AutoBasicInstance::createSystemId};

@@ -11,6 +11,7 @@ Once you're up and running consider the following reference material.
 * [Logging macros](logging.md#top)
 * [Test cases and sections](test-cases-and-sections.md#top)
 * [Test fixtures](test-fixtures.md#top)
+* [Explicitly skipping, passing, and failing tests at runtime](skipping-passing-failing.md#top)
 * [Reporters (output customization)](reporters.md#top)
 * [Event Listeners](event-listeners.md#top)
 * [Data Generators (value parameterized tests)](generators.md#top)
@@ -29,7 +30,7 @@ Once you're up and running consider the following reference material.
 * [Frequently Asked Questions (FAQ)](faq.md#top)
 * [Best practices and other tips](usage-tips.md#top)
 * [CMake integration](cmake-integration.md#top)
-* [CI and other miscellaneous pieces](ci-and-misc.md#top)
+* [Tooling integration (CI, test runners, other)](ci-and-misc.md#top)
 * [Known limitations](limitations.md#top)
 
 **Other:**

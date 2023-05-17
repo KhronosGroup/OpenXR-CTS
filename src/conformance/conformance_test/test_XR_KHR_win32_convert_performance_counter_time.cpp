@@ -34,11 +34,11 @@ namespace Conformance
     TEST_CASE("XR_KHR_win32_convert_performance_counter_time", "")
     {
         GlobalData& globalData = GetGlobalData();
-        if (!globalData.IsInstanceExtensionSupported("XR_KHR_win32_convert_performance_counter_time")) {
-            return;
+        if (!globalData.IsInstanceExtensionSupported(XR_KHR_WIN32_CONVERT_PERFORMANCE_COUNTER_TIME_EXTENSION_NAME)) {
+            SKIP(XR_KHR_WIN32_CONVERT_PERFORMANCE_COUNTER_TIME_EXTENSION_NAME " not supported");
         }
 
-        AutoBasicInstance instance({"XR_KHR_win32_convert_performance_counter_time"});
+        AutoBasicInstance instance({XR_KHR_WIN32_CONVERT_PERFORMANCE_COUNTER_TIME_EXTENSION_NAME});
 
         auto xrConvertWin32PerformanceCounterToTimeKHR = GetInstanceExtensionFunction<PFN_xrConvertWin32PerformanceCounterToTimeKHR>(
             instance, "xrConvertWin32PerformanceCounterToTimeKHR");

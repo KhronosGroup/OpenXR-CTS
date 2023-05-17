@@ -1,2 +1,0 @@
-- Inclusive language updates.
-- Update URLs with branch names in scripts.

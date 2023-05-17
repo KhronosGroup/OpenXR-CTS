@@ -10,11 +10,10 @@
 #include <unordered_map>
 #include "RGBAImage.h"
 
+#include "conformance_framework.h"
+
 #ifdef XR_USE_PLATFORM_ANDROID
 #include "unique_asset.h"
-
-#include <android_native_app_glue.h>
-extern void* Conformance_Android_Get_Asset_Manager();
 #endif
 
 // Only one compilation unit can have the STB implementations.

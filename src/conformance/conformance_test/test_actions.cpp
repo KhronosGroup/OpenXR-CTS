@@ -14,6 +14,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "catch2/catch_message.hpp"
 #include "utils.h"
 #include "report.h"
 #include "two_call.h"
@@ -1116,7 +1117,7 @@ namespace Conformance
     {
         GlobalData& globalData = GetGlobalData();
         std::vector<const char*> extensions;
-        if (globalData.IsInstanceExtensionSupported("XR_EXT_active_action_set_priority"))
+        if (globalData.IsInstanceExtensionSupported(XR_EXT_ACTIVE_ACTION_SET_PRIORITY_EXTENSION_NAME))
             extensions.push_back(XR_EXT_ACTIVE_ACTION_SET_PRIORITY_EXTENSION_NAME);
         CompositionHelper compositionHelper("xrSyncActions", extensions);
 
@@ -1921,7 +1922,7 @@ namespace Conformance
                         break;
                     case XR_ACTION_TYPE_MAX_ENUM:
                     default:
-                        ReportF("Unexpected action type %d", inputSourceData.Type);
+                        WARN("Unexpected action type " << inputSourceData.Type);
                         break;
                     }
 
@@ -2223,7 +2224,7 @@ namespace Conformance
                                     break;
                                 case XR_ACTION_TYPE_MAX_ENUM:
                                 default:
-                                    ReportF("Unexpected action type %d", actionInfo.Data.Type);
+                                    WARN("Unexpected action type " << actionInfo.Data.Type);
                                     break;
                                 }
                             }

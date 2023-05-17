@@ -35,22 +35,19 @@ namespace Conformance
         return headsetId.id;
     }
 
-    TEST_CASE("XR_META_headset_id", "")
+    TEST_CASE("XR_META_headset_id", "[XR_META_headset_id]")
     {
         GlobalData& globalData = GetGlobalData();
         if (!globalData.IsInstanceExtensionSupported(XR_META_HEADSET_ID_EXTENSION_NAME)) {
-            return;
+            SKIP(XR_META_HEADSET_ID_EXTENSION_NAME " not supported");
         }
 
         SECTION("Extension not enabled")
         {
             // validate that the extension has not been force enabled...
-            if (!globalData.enabledInstanceExtensionNames.contains(XR_META_HEADSET_ID_EXTENSION_NAME)) {
-                AutoBasicInstance instance;
-
-                XrSystemGetInfo systemGetInfo{XR_TYPE_SYSTEM_GET_INFO, nullptr, globalData.options.formFactorValue};
-                XrSystemId systemId = XR_NULL_SYSTEM_ID;
-                REQUIRE(XR_SUCCESS == xrGetSystem(instance, &systemGetInfo, &systemId));
+            if (!globalData.IsInstanceExtensionEnabled(XR_META_HEADSET_ID_EXTENSION_NAME)) {
+                AutoBasicInstance instance(AutoBasicInstance::createSystemId);
+                XrSystemId systemId = instance.systemId;
 
                 XrUuidEXT headsetId = queryHeadsetId(instance, systemId);
 
@@ -58,15 +55,15 @@ namespace Conformance
                 XrUuidEXT empty{};
                 REQUIRE(memcmp(&empty, &headsetId, sizeof(XrUuidEXT)) == 0);
             }
+            else {
+                WARN(XR_META_HEADSET_ID_EXTENSION_NAME " force-enabled, cannot test extension-disabled behavior.");
+            }
         }
 
         SECTION("xrGetSystemProperties", "")
         {
-            AutoBasicInstance instance({XR_META_HEADSET_ID_EXTENSION_NAME});
-
-            XrSystemGetInfo systemGetInfo{XR_TYPE_SYSTEM_GET_INFO, nullptr, globalData.options.formFactorValue};
-            XrSystemId systemId = XR_NULL_SYSTEM_ID;
-            REQUIRE(XR_SUCCESS == xrGetSystem(instance, &systemGetInfo, &systemId));
+            AutoBasicInstance instance({XR_META_HEADSET_ID_EXTENSION_NAME}, AutoBasicInstance::createSystemId);
+            XrSystemId systemId = instance.systemId;
 
             SECTION("Valid UUID returned")
             {

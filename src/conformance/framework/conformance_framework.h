@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <chrono>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -32,6 +33,17 @@
 #ifdef XR_USE_PLATFORM_WIN32
 #include "windows.h"
 #endif
+
+#if defined(XR_USE_PLATFORM_ANDROID)
+// For Android, we require the following functions to be implemented
+// in our library for accessing Android specific information.
+void* Conformance_Android_Get_Application_VM();
+void* Conformance_Android_Get_Application_Context();
+void* Conformance_Android_Get_Application_Activity();
+void* Conformance_Android_Get_Asset_Manager();
+void Conformance_Android_Attach_Current_Thread();
+void Conformance_Android_Detach_Current_Thread();
+#endif  // defined(XR_USE_PLATFORM_ANDROID)
 
 /**
  * @defgroup cts_framework OpenXR CTS framework
@@ -107,8 +119,6 @@
 #define XRC_FILE_AND_LINE __FILE__ ":" XRC_TO_STRING(__LINE__)
 
 #if defined(XR_USE_PLATFORM_ANDROID)
-void Conformance_Android_Attach_Current_Thread();
-void Conformance_Android_Detach_Current_Thread();
 #define ATTACH_THREAD Conformance_Android_Attach_Current_Thread()
 #define DETACH_THREAD Conformance_Android_Detach_Current_Thread()
 #else
@@ -207,10 +217,77 @@ namespace Conformance
         };
     };
 
-    // Records and produces a conformance report.
-    // Conformance isn't a black-and-white result. Conformance is against a given specification version,
-    // against a selected set of extensions, with a subset of graphics systems and image formats.
-    // We want to produce a report of this upon completion of the tests.
+    /// Results of the "test_FrameSubmission" timed pipelined submission test, which verifies correct
+    /// waiting behavior in the frame loop.
+    class TimedSubmissionResults
+    {
+    public:
+        TimedSubmissionResults() = default;
+        TimedSubmissionResults(std::chrono::nanoseconds averageWaitTime_, std::chrono::nanoseconds averageAppFrameTime_,
+                               std::chrono::nanoseconds averageDisplayPeriod_, std::chrono::nanoseconds averageBeginWaitTime_)
+            : valid(true)
+            , averageWaitTime(averageWaitTime_)
+            , averageAppFrameTime(averageAppFrameTime_)
+            , averageDisplayPeriod(averageDisplayPeriod_)
+            , averageBeginWaitTime(averageBeginWaitTime_)
+        {
+        }
+
+        /// Are the values populated?
+        bool IsValid() const noexcept
+        {
+            return valid;
+        }
+
+        /// Average xrWaitFrame wait time
+        std::chrono::nanoseconds GetAverageWaitTime() const noexcept
+        {
+            return averageWaitTime;
+        }
+        /// Average time spent per frame
+        std::chrono::nanoseconds GetAverageAppFrameTime() const noexcept
+        {
+            return averageAppFrameTime;
+        }
+        /// Average predicted display period
+        std::chrono::nanoseconds GetAverageDisplayPeriod() const noexcept
+        {
+            return averageDisplayPeriod;
+        }
+        /// Average xrBeginFrame wait time
+        std::chrono::nanoseconds GetAverageBeginWaitTime() const noexcept
+        {
+            return averageBeginWaitTime;
+        }
+
+        /// Get the frame overhead: A value of 1 means 100%.
+        ///
+        /// An overhead of 50% means a 16.66ms display period ran with an average of 25ms per frame.
+        /// Since frames should be discrete multiples of the display period 50% implies that half of the frames
+        /// took two display periods to complete, 100% implies every frame took two periods.
+        double GetOverheadFactor() const noexcept
+        {
+            return (averageAppFrameTime.count() / (double)averageDisplayPeriod.count()) - 1.0;
+        }
+
+    private:
+        /// Set to true if these fields are populated.
+        bool valid{false};
+
+        /// Average xrWaitFrame wait time
+        std::chrono::nanoseconds averageWaitTime;
+        /// Average time spent per frame
+        std::chrono::nanoseconds averageAppFrameTime;
+        /// Average predicted display period
+        std::chrono::nanoseconds averageDisplayPeriod;
+        /// Average xrBeginFrame wait time
+        std::chrono::nanoseconds averageBeginWaitTime;
+    };
+
+    /// Records and produces a conformance report.
+    /// Conformance isn't a black-and-white result. Conformance is against a given specification version,
+    /// against a selected set of extensions, with a subset of graphics systems and image formats.
+    /// We want to produce a report of this upon completion of the tests.
     class ConformanceReport
     {
     public:
@@ -221,6 +298,8 @@ namespace Conformance
         XrVersion apiVersion{XR_CURRENT_API_VERSION};
         uint64_t testSuccessCount{};
         uint64_t testFailureCount{};
+        TimedSubmissionResults timedSubmission;
+        std::vector<std::pair<int64_t, std::string>> swapchainFormats;
     };
 
     // A single place where all singleton data hangs off of.
@@ -274,6 +353,9 @@ namespace Conformance
 
         /// Returns true if a graphics plugin was supplied, or if IsGraphicsPluginRequired() is true.
         bool IsUsingGraphicsPlugin() const;
+
+        /// Record a swapchain format as being supported and tested.
+        void PushSwapchainFormat(int64_t format, const std::string& name);
 
     public:
         /// Guards all member data.
@@ -511,6 +593,8 @@ MAKE_ENUM_TO_STRING_FUNC(XrResult);
 MAKE_ENUM_TO_STRING_FUNC(XrSessionState);
 MAKE_ENUM_TO_STRING_FUNC(XrViewConfigurationType);
 MAKE_ENUM_TO_STRING_FUNC(XrVisibilityMaskTypeKHR);
+MAKE_ENUM_TO_STRING_FUNC(XrFormFactor);
+MAKE_ENUM_TO_STRING_FUNC(XrEnvironmentBlendMode);
 
 namespace Catch
 {

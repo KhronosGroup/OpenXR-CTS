@@ -251,11 +251,10 @@ namespace Conformance
         constexpr int CellHeight = CellWidth;
 
         // Create an array swapchain
-        auto swapchainCreateInfo =
-            compositionHelper.DefaultColorSwapchainCreateInfo(ImageWidth, ImageHeight, XR_SWAPCHAIN_CREATE_STATIC_IMAGE_BIT);
-        int64_t format = GetGlobalData().graphicsPlugin->GetSRGBA8Format();
-        swapchainCreateInfo.format = format;
+        auto swapchainCreateInfo = compositionHelper.DefaultColorSwapchainCreateInfo(
+            ImageWidth, ImageHeight, XR_SWAPCHAIN_CREATE_STATIC_IMAGE_BIT, GetGlobalData().graphicsPlugin->GetSRGBA8Format());
         swapchainCreateInfo.arraySize = ImageArrayCount;
+        swapchainCreateInfo.usageFlags |= XR_SWAPCHAIN_USAGE_TRANSFER_DST_BIT;
         const XrSwapchain swapchain = compositionHelper.CreateSwapchain(swapchainCreateInfo);
 
         // Render a grid of numbers (1,2,3,4) in slice 0 and (5,6,7,8) in slice 1 of the swapchain

@@ -35,8 +35,8 @@ namespace Conformance
     TEST_CASE("XR_KHR_vulkan_enable2", "")
     {
         GlobalData& globalData = GetGlobalData();
-        if (!globalData.IsInstanceExtensionEnabled("XR_KHR_vulkan_enable2")) {
-            return;
+        if (!globalData.IsInstanceExtensionEnabled(XR_KHR_VULKAN_ENABLE2_EXTENSION_NAME)) {
+            SKIP(XR_KHR_VULKAN_ENABLE2_EXTENSION_NAME " not enabled");
         }
 
         AutoBasicInstance instance{AutoBasicInstance::createSystemId};

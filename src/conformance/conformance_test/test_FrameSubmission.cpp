@@ -15,6 +15,7 @@
 // limitations under the License.
 
 #include <algorithm>
+#include <mutex>
 #include <thread>
 #include <condition_variable>
 #include <queue>
@@ -364,19 +365,24 @@ namespace Conformance
         const ns averageBeginTime = totalBeginTime / testFrameCount;
         ReportF("Average xrBeginFrame wait time   : %.3fms", std::chrono::duration_cast<ms>(averageBeginTime).count());
 
+        auto timingResults = TimedSubmissionResults{averageWaitTime, averageAppFrameTime, averageDisplayPeriod, averageBeginTime};
+        {
+            std::unique_lock<std::recursive_mutex> lock(GetGlobalData().dataMutex);
+            GetGlobalData().conformanceReport.timedSubmission = timingResults;
+        }
+
         // Higher is worse. An overhead of 50% means a 16.66ms display period ran with an average of 25ms per frame.
         // Since frames should be discrete multiples of the display period 50% implies that half of the frames
         // took two display periods to complete, 100% implies every frame took two periods.
-        const double overheadFactor = (averageAppFrameTime.count() / (double)averageDisplayPeriod.count()) - 1.0;
-        ReportF("Overhead score                   : %.1f%%", overheadFactor * 100);
+        ReportF("Overhead score                   : %.1f%%", timingResults.GetOverheadFactor() * 100);
 
         // Allow up to 50% of frames to miss timing. This is number is arbitrary and open to debate.
         // The point of this test is to fail runtimes that get 1.0 (100% overhead) because they are
         // probably serializing the frame calls.
-        REQUIRE_MSG(overheadFactor < 0.5, "Frame timing overhead in pipelined frame submission is too high");
+        REQUIRE_MSG(timingResults.GetOverheadFactor() < 0.5, "Frame timing overhead in pipelined frame submission is too high");
 
         // If the frame loop runs FASTER then the predictedDisplayPeriod is wrong or xrWaitFrame is not throttling correctly.
-        REQUIRE_MSG(overheadFactor > -0.1, "Frame timing overhead in pipelined frame submission is too low");
+        REQUIRE_MSG(timingResults.GetOverheadFactor() > -0.1, "Frame timing overhead in pipelined frame submission is too low");
 
         // Allow up to 10% of the display period to be spent in xrBeginFrame.  This number is arbitrary and open to debate.
         // The point of this test is to fail runtimes that attempt to use xrBeginFrame as a blocking function

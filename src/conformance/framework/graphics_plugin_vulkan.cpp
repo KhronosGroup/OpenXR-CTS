@@ -1095,7 +1095,7 @@ namespace Conformance
             if (validationLayerName)
                 layers.push_back(validationLayerName);
             else
-                ReportF("No validation layers found, running without them");
+                ReportF("No Vulkan validation layers found, running without them");
 #endif
 #if defined(USE_CHECKPOINTS)
             layers.push_back("VK_NV_device_diagnostic_checkpoints");
@@ -1137,11 +1137,10 @@ namespace Conformance
         if (vkCreateDebugUtilsMessengerEXT != nullptr && vkDestroyDebugUtilsMessengerEXT != nullptr) {
             VkDebugUtilsMessengerCreateInfoEXT debugInfo{VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT};
             debugInfo.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT;
+            debugInfo.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
 #if !defined(NDEBUG)
             debugInfo.messageSeverity |= VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT;
 #endif
-            debugInfo.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT |
-                                    VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
             debugInfo.pfnUserCallback = debugMessageThunk;
             debugInfo.pUserData = this;
             XRC_CHECK_THROW_VKCMD(vkCreateDebugUtilsMessengerEXT(m_vkInstance, &debugInfo, nullptr, &m_vkDebugUtilsMessenger));
@@ -1380,18 +1379,6 @@ namespace Conformance
     }
 #define ADD_VK_COLOR_IMMUTABLE_FORMAT(X) ADD_VK_COLOR_IMMUTABLE_FORMAT2(X, #X)
 
-#define ADD_VK_COLOR_COMPRESSED_FORMAT2(X, Y)                                                                         \
-    {                                                                                                                 \
-        {X},                                                                                                          \
-        {                                                                                                             \
-            Y, IMMUTABLE, MUT_SUPPORT, COLOR, COMPRESSED, RENDERING_SUPPORT, X, {XRC_COLOR_TEXTURE_USAGE_COMPRESSED}, \
-                XRC_COLOR_CREATE_FLAGS, {}, {},                                                                       \
-            {                                                                                                         \
-            }                                                                                                         \
-        }                                                                                                             \
-    }
-#define ADD_VK_COLOR_COMPRESSED_FORMAT(X) ADD_VK_COLOR_COMPRESSED_FORMAT2(X, #X)
-
 #define ADD_VK_COLOR_COMPRESSED_UNRENDERABLE_FORMAT2(X, Y)                                                               \
     {                                                                                                                    \
         {X},                                                                                                             \
@@ -1562,17 +1549,17 @@ namespace Conformance
         ADD_VK_COLOR_COMPRESSED_UNRENDERABLE_FORMAT(VK_FORMAT_BC1_RGBA_UNORM_BLOCK),
         ADD_VK_COLOR_COMPRESSED_UNRENDERABLE_FORMAT(VK_FORMAT_BC1_RGBA_SRGB_BLOCK),
 
-        ADD_VK_COLOR_COMPRESSED_FORMAT(VK_FORMAT_BC2_UNORM_BLOCK),
-        ADD_VK_COLOR_COMPRESSED_FORMAT(VK_FORMAT_BC2_SRGB_BLOCK),
+        ADD_VK_COLOR_COMPRESSED_UNRENDERABLE_FORMAT(VK_FORMAT_BC2_UNORM_BLOCK),
+        ADD_VK_COLOR_COMPRESSED_UNRENDERABLE_FORMAT(VK_FORMAT_BC2_SRGB_BLOCK),
 
-        ADD_VK_COLOR_COMPRESSED_FORMAT(VK_FORMAT_BC3_UNORM_BLOCK),
-        ADD_VK_COLOR_COMPRESSED_FORMAT(VK_FORMAT_BC3_SRGB_BLOCK),
+        ADD_VK_COLOR_COMPRESSED_UNRENDERABLE_FORMAT(VK_FORMAT_BC3_UNORM_BLOCK),
+        ADD_VK_COLOR_COMPRESSED_UNRENDERABLE_FORMAT(VK_FORMAT_BC3_SRGB_BLOCK),
 
-        ADD_VK_COLOR_COMPRESSED_FORMAT(VK_FORMAT_BC6H_UFLOAT_BLOCK),
-        ADD_VK_COLOR_COMPRESSED_FORMAT(VK_FORMAT_BC6H_SFLOAT_BLOCK),
+        ADD_VK_COLOR_COMPRESSED_UNRENDERABLE_FORMAT(VK_FORMAT_BC6H_UFLOAT_BLOCK),
+        ADD_VK_COLOR_COMPRESSED_UNRENDERABLE_FORMAT(VK_FORMAT_BC6H_SFLOAT_BLOCK),
 
-        ADD_VK_COLOR_COMPRESSED_FORMAT(VK_FORMAT_BC7_UNORM_BLOCK),
-        ADD_VK_COLOR_COMPRESSED_FORMAT(VK_FORMAT_BC7_SRGB_BLOCK),
+        ADD_VK_COLOR_COMPRESSED_UNRENDERABLE_FORMAT(VK_FORMAT_BC7_UNORM_BLOCK),
+        ADD_VK_COLOR_COMPRESSED_UNRENDERABLE_FORMAT(VK_FORMAT_BC7_SRGB_BLOCK),
     };
     // clang-format on
 

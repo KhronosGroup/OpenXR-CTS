@@ -35,19 +35,19 @@ namespace Conformance
     TEST_CASE("XR_KHR_composition_layer_equirect", "")
     {
         GlobalData& globalData = GetGlobalData();
-        if (!globalData.IsInstanceExtensionSupported("XR_KHR_composition_layer_equirect")) {
-            return;
+        if (!globalData.IsInstanceExtensionSupported(XR_KHR_COMPOSITION_LAYER_EQUIRECT_EXTENSION_NAME)) {
+            SKIP(XR_KHR_COMPOSITION_LAYER_EQUIRECT_EXTENSION_NAME " not supported");
         }
 
         if (!globalData.IsUsingGraphicsPlugin()) {
-            return;
+            SKIP("Test run not using graphics plugin");
         }
 
         auto graphicsPlugin = globalData.GetGraphicsPlugin();
         auto timeout = (GetGlobalData().options.debugMode ? 3600s : 10s);
         CAPTURE(timeout);
 
-        AutoBasicInstance instance({"XR_KHR_composition_layer_equirect"});
+        AutoBasicInstance instance({XR_KHR_COMPOSITION_LAYER_EQUIRECT_EXTENSION_NAME});
         AutoBasicSession session(AutoBasicSession::createSession | AutoBasicSession::beginSession | AutoBasicSession::createSwapchains |
                                      AutoBasicSession::createSpaces,
                                  instance);

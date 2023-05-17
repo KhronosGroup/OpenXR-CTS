@@ -30,7 +30,7 @@ namespace Conformance
 {
     std::function<void(const char*)> g_reportCallback;
 
-    void ReportStr(const char* str)
+    static void ReportStr(const char* str)
     {
 #if defined(_WIN32)
         OutputDebugStringA(str);
@@ -43,7 +43,7 @@ namespace Conformance
         }
     }
 
-    void ReportV(const char* format, va_list args)
+    static void ReportV(const char* format, va_list args)
     {
         // We first try writing into this buffer. If it's not enough then use a string.
         // We have to do an initial vsnprintf in any case, so it's cheap to try into this buffer.
@@ -77,4 +77,11 @@ namespace Conformance
         va_end(args);
     }
 
+    void ReportConsoleOnlyF(const char* format, ...)
+    {
+        va_list args;
+        va_start(args, format);
+        ReportV(format, args);
+        va_end(args);
+    }
 }  // namespace Conformance

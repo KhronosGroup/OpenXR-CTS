@@ -16,6 +16,7 @@
 
 #include "composition_utils.h"
 #include "swapchain_image_data.h"
+#include "types_and_constants.h"
 #include "utils.h"
 #include "report.h"
 #include "conformance_framework.h"
@@ -148,7 +149,9 @@ namespace Conformance
     {
         m_primaryViewType = GetGlobalData().GetOptions().viewConfigurationValue;
 
-        XRC_CHECK_THROW_XRCMD(CreateBasicInstance(m_instance.resetAndGetAddress(), true, additionalEnabledExtensions));
+        XrInstance instanceRaw{XR_NULL_HANDLE_CPP};
+        XRC_CHECK_THROW_XRCMD(CreateBasicInstance(&instanceRaw, true, additionalEnabledExtensions));
+        m_instance.adopt(instanceRaw);
 
         m_eventQueue = std::unique_ptr<EventQueue>(new EventQueue(m_instance.get()));
         m_privateEventReader = std::unique_ptr<EventReader>(new EventReader(*m_eventQueue));
@@ -279,7 +282,7 @@ namespace Conformance
         XRC_CHECK_THROW_XRCMD(xrBeginSession(m_session, &beginInfo));
     }
 
-    std::tuple<XrViewState, std::vector<XrView>> CompositionHelper::LocateViews(XrSpace space, int64_t displayTime)
+    std::tuple<XrViewState, std::vector<XrView>> CompositionHelper::LocateViews(XrSpace space, XrTime displayTime)
     {
         XrViewLocateInfo viewLocateInfo{XR_TYPE_VIEW_LOCATE_INFO};
         viewLocateInfo.displayTime = displayTime;
@@ -443,7 +446,7 @@ namespace Conformance
         const int64_t format = GetGlobalData().graphicsPlugin->GetSRGBA8Format();
         auto swapchainCreateInfo =
             DefaultColorSwapchainCreateInfo(rgbaImage.width, rgbaImage.height, XR_SWAPCHAIN_CREATE_STATIC_IMAGE_BIT, format);
-
+        swapchainCreateInfo.usageFlags |= XR_SWAPCHAIN_USAGE_TRANSFER_DST_BIT;
         const XrSwapchain swapchain = CreateSwapchain(swapchainCreateInfo);
 
         RGBAImage srgbImage = rgbaImage;

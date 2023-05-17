@@ -131,7 +131,7 @@ namespace Conformance
         }
 
         if (!message.empty()) {
-            ReportStr(("Interaction message: " + message).c_str());
+            ReportF("Interaction message: %s", message.c_str());
         }
 
         constexpr int TitleFontHeightPixels = 40;

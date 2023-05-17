@@ -97,7 +97,7 @@ namespace Conformance
             AutoBasicInstance instance;
             ValidateInstanceExtensionFunctionNotSupported(instance, "xrCreateDebugUtilsMessengerEXT");
 
-            return;
+            SKIP(XR_EXT_DEBUG_UTILS_EXTENSION_NAME " not supported");
         }
 
         SECTION("xrSubmitDebugUtilsMessageEXT")

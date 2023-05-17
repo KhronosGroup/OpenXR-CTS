@@ -334,7 +334,6 @@ CGLError CGLUpdateContext(CGLContextObj ctx);
 #include <android/input.h>              // for AKEYCODE_ etc.
 #include <android/window.h>             // for AWINDOW_FLAG_KEEP_SCREEN_ON
 #include <android/native_window_jni.h>  // for native window JNI
-#include <android_native_app_glue.h>
 #include <EGL/egl.h>
 #include <EGL/eglext.h>
 #include <GLES2/gl2.h>
@@ -989,10 +988,7 @@ typedef struct {
     EGLDisplay display;
     EGLint majorVersion;
     EGLint minorVersion;
-    struct android_app *app;
     Java_t java;
-    ANativeWindow *nativeWindow;
-    bool resumed;
 #endif
 } ksGpuWindow;
 

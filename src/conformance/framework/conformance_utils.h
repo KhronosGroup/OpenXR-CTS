@@ -258,17 +258,14 @@ namespace Conformance
 
     /// Defines a type similar to std::unique_ptr for XrInstance which uses CHECK() on destruction to verify that the
     /// destroy function succeeded.
-    /// (Unlike std::unique_ptr, you can call resetAndGetAddress() to assign this directly.)
+    /// (Unlike std::unique_ptr, this copes with 32-bit builds where the handles are not pointers but uint64_t typedefs.)
     /// The primary purpose of this is to auto-destroy the handle upon scope exit.
-    ///
-    /// While this is easier to set than unique_ptr, it's still subject to this is an unsolved C++ problem:
-    ///    http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2019/p1132r3.html
-    ///    https://devblogs.microsoft.com/oldnewthing/20190429-00/?p=102456,
     ///
     /// Example usage:
     /// ```
-    ///     InstanceCHECK instanceCHECK;
-    ///     xrCreateInstance(instanceCHECK.resetAndGetAddress(), ...);
+    ///     XrInstance instanceRaw{XR_NULL_HANDLE_CPP};
+    ///     xrCreateInstance(&instanceRaw, ...);
+    ///     InstanceCHECK instanceCHECK{instanceRaw};
     /// ```
     using InstanceCHECK = ScopedHandle<XrInstance, deleters::InstanceDeleteCHECK>;
 
@@ -278,7 +275,7 @@ namespace Conformance
 
     /// Defines a type similar to std::unique_ptr for XrSession which uses CHECK() on destruction to verify that the
     /// destroy function succeeded.
-    /// (Unlike std::unique_ptr, you can call resetAndGetAddress() to assign this directly.)
+    /// (Unlike std::unique_ptr, this copes with 32-bit builds where the handles are not pointers but uint64_t typedefs.)
     /// The primary purpose of this is to auto-destroy the handle upon scope exit.
     ///
     /// See @ref InstanceCHECK for caveats.
@@ -296,7 +293,7 @@ namespace Conformance
 
     /// Defines a type similar to std::unique_ptr for XrSpace which uses CHECK() on destruction to verify that the
     /// destroy function succeeded.
-    /// (Unlike std::unique_ptr, you can call resetAndGetAddress() to assign this directly.)
+    /// (Unlike std::unique_ptr, this copes with 32-bit builds where the handles are not pointers but uint64_t typedefs.)
     /// The primary purpose of this is to auto-destroy the handle upon scope exit.
     ///
     /// See @ref InstanceCHECK for caveats.
@@ -314,7 +311,7 @@ namespace Conformance
 
     /// Defines a type similar to std::unique_ptr for XrSwapchain which uses CHECK() on destruction to verify that the
     /// destroy function succeeded.
-    /// (Unlike std::unique_ptr, you can call resetAndGetAddress() to assign this directly.)
+    /// (Unlike std::unique_ptr, this copes with 32-bit builds where the handles are not pointers but uint64_t typedefs.)
     /// The primary purpose of this is to auto-destroy the handle upon scope exit.
     ///
     /// See @ref InstanceCHECK for caveats.

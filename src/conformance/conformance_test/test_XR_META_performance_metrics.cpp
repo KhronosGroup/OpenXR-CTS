@@ -33,11 +33,11 @@ namespace Conformance
     {
         GlobalData& globalData = GetGlobalData();
 
-        if (!globalData.IsInstanceExtensionSupported("XR_META_performance_metrics")) {
-            return;
+        if (!globalData.IsInstanceExtensionSupported(XR_META_PERFORMANCE_METRICS_EXTENSION_NAME)) {
+            SKIP(XR_META_PERFORMANCE_METRICS_EXTENSION_NAME " not supported");
         }
 
-        AutoBasicInstance instance({"XR_META_performance_metrics"});
+        AutoBasicInstance instance({XR_META_PERFORMANCE_METRICS_EXTENSION_NAME});
 
         auto xrEnumeratePerformanceMetricsCounterPathsMETA_ =
             GetInstanceExtensionFunction<PFN_xrEnumeratePerformanceMetricsCounterPathsMETA>(

@@ -36,7 +36,7 @@ namespace Conformance
 #ifdef XR_USE_TIMESPEC
         GlobalData& globalData = GetGlobalData();
         if (!globalData.IsInstanceExtensionSupported("XR_KHR_convert_timespec_time")) {
-            return;
+            SKIP(XR_KHR_CONVERT_TIMESPEC_TIME_EXTENSION_NAME " not supported");
         }
 
         // XrResult xrConvertTimespecTimeToTimeKHR(XrInstance xrInstance, const struct timespec* timespecTime, XrTime* time);

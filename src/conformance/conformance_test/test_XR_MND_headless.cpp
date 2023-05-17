@@ -39,8 +39,8 @@ namespace Conformance
         // an empty list of formats. Calls to functions xrCreateSwapchain, xrDestroySwapchain,
         // xrAcquireSwapchainImage are invalid. All other functions, including those related to
         // tracking, input and haptics, are unaffected.
-        if (!globalData.IsInstanceExtensionEnabled("XR_MND_headless")) {
-            return;
+        if (!globalData.IsInstanceExtensionEnabled(XR_MND_HEADLESS_EXTENSION_NAME)) {
+            SKIP(XR_MND_HEADLESS_EXTENSION_NAME " not enabled");
         }
 
         AutoBasicSession session(AutoBasicSession::createSession | AutoBasicSession::skipGraphics);

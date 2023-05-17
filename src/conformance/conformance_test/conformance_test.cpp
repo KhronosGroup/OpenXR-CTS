@@ -14,11 +14,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "openxr/openxr_platform_defines.h"
 #define CATCH_CONFIG_NOSTDOUT
 #ifdef XR_USE_PLATFORM_ANDROID
 #define CATCH_CONFIG_NO_CPP11_TO_STRING
 #define CATCH_CONFIG_FALLBACK_STRINGIFIER
 #endif  // XR_USE_PLATFORM_ANDROID
+
+#include "catch_reporter_cts.h"
 
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/internal/catch_clara.hpp>
@@ -31,6 +34,10 @@
 #include <conformance_framework.h>
 #include <conformance_utils.h>
 #include <openxr/openxr.h>
+
+#include "xr_dependencies.h"
+#include <openxr/openxr_platform.h>
+
 #include <cstddef>
 #include <vector>
 #include <string>
@@ -88,48 +95,49 @@ namespace
 
     void ReportTestHeader()
     {
-        ReportStr("*********************************************");
-        ReportF("OpenXR Conformance Test v%d.%d.%d", XR_VERSION_MAJOR(XR_CURRENT_API_VERSION), XR_VERSION_MINOR(XR_CURRENT_API_VERSION),
-                XR_VERSION_PATCH(XR_CURRENT_API_VERSION));
-        ReportStr("*********************************************\n");
+        ReportConsoleOnlyF("*********************************************");
+        ReportConsoleOnlyF("OpenXR Conformance Test v%d.%d.%d", XR_VERSION_MAJOR(XR_CURRENT_API_VERSION),
+                           XR_VERSION_MINOR(XR_CURRENT_API_VERSION), XR_VERSION_PATCH(XR_CURRENT_API_VERSION));
+        ReportConsoleOnlyF("*********************************************\n");
     }
 
     /// Display test environment info on the console.
+    /// @see WriteTestEnvironment for writing the same information to an XML output file.
     void ReportTestEnvironment()
     {
         GlobalData& globalData = GetGlobalData();
 
         // Report the runtime name and info.
         const XrInstanceProperties& instanceProperties = globalData.GetInstanceProperties();
-        ReportF("Runtime instance properties:\n   Runtime name: %s\n   Runtime version %d.%d.%d", instanceProperties.runtimeName,
-                XR_VERSION_MAJOR(instanceProperties.runtimeVersion), XR_VERSION_MINOR(instanceProperties.runtimeVersion),
-                XR_VERSION_PATCH(instanceProperties.runtimeVersion));
+        ReportConsoleOnlyF("Runtime instance properties:\n   Runtime name: %s\n   Runtime version %d.%d.%d", instanceProperties.runtimeName,
+                           XR_VERSION_MAJOR(instanceProperties.runtimeVersion), XR_VERSION_MINOR(instanceProperties.runtimeVersion),
+                           XR_VERSION_PATCH(instanceProperties.runtimeVersion));
 
         // Report the users-selected options
         std::string optionsDescription = globalData.GetOptions().DescribeOptions();
-        ReportF("Test options:\n%s", optionsDescription.c_str());
+        ReportConsoleOnlyF("Test options:\n%s", optionsDescription.c_str());
 
         // Report the available API layers.
-        ReportF("Available API layers:");
+        ReportConsoleOnlyF("Available API layers:");
         if (globalData.availableAPILayers.empty())
-            ReportStr("    <none>");
+            ReportConsoleOnlyF("    <none>");
         else {
             for (const XrApiLayerProperties& layerProperties : globalData.availableAPILayers) {
-                ReportF("    %s, version %u, spec version %d.%d.%d", layerProperties.layerName, layerProperties.layerVersion,
-                        XR_VERSION_MAJOR(layerProperties.specVersion), XR_VERSION_MINOR(layerProperties.specVersion),
-                        XR_VERSION_PATCH(layerProperties.specVersion));
+                ReportConsoleOnlyF("    %s, version %u, spec version %d.%d.%d", layerProperties.layerName, layerProperties.layerVersion,
+                                   XR_VERSION_MAJOR(layerProperties.specVersion), XR_VERSION_MINOR(layerProperties.specVersion),
+                                   XR_VERSION_PATCH(layerProperties.specVersion));
             }
         }
 
-        ReportF("Available instance extensions:");
+        ReportConsoleOnlyF("Available instance extensions:");
         if (globalData.availableInstanceExtensions.empty())
-            ReportStr("    <none>");
+            ReportConsoleOnlyF("    <none>");
         else {
             for (const XrExtensionProperties& extensionProperties : globalData.availableInstanceExtensions) {
-                ReportF("    %s, extension version %d", extensionProperties.extensionName, extensionProperties.extensionVersion);
+                ReportConsoleOnlyF("    %s, extension version %d", extensionProperties.extensionName, extensionProperties.extensionVersion);
             }
         }
-        ReportF("");
+        ReportConsoleOnlyF("");
     }
 
     TEST_CASE("DescribeGraphicsPlugin", "")
@@ -153,11 +161,17 @@ namespace
     {
         GlobalData& globalData = GetGlobalData();
 
-        REQUIRE_MSG(globalData.IsAPILayerEnabled("XR_APILAYER_KHRONOS_runtime_conformance"),
-                    "Conformance layer required to pass conformance");
+        if (!globalData.options.invalidHandleValidation) {
+            REQUIRE_MSG(globalData.IsAPILayerEnabled("XR_APILAYER_KHRONOS_runtime_conformance"),
+                        "Conformance layer required to pass conformance");
 
-        // Conformance listens for failures from the conformance layer through the debug messenger extension.
-        REQUIRE_MSG(IsInstanceExtensionEnabled(XR_EXT_DEBUG_UTILS_EXTENSION_NAME), "Debug utils extension required by conformance layer");
+            // Conformance listens for failures from the conformance layer through the debug messenger extension.
+            REQUIRE_MSG(IsInstanceExtensionEnabled(XR_EXT_DEBUG_UTILS_EXTENSION_NAME),
+                        "Debug utils extension required by conformance layer");
+        }
+        else {
+            WARN("Conformance API layer not supported due to handle validation tests; do not submit this log for official conformance");
+        }
     }
 
     Catch::Clara::Parser MakeCLIParser(Conformance::GlobalData& globalData)
@@ -171,7 +185,7 @@ namespace
             GlobalData& globalData = GetGlobalData();
             uint64_t seedValue = std::strtoull(arg.c_str(), nullptr, 0);
             if (errno == ERANGE) {
-                ReportF("invalid arg: %s", arg.c_str());
+                ReportConsoleOnlyF("invalid arg: %s", arg.c_str());
                 return ParserResult::runtimeError("invalid uint64_t seed '" + arg + "' passed on command line");
             }
 
@@ -189,7 +203,7 @@ namespace
             else if (striequal(globalData.options.formFactor.c_str(), "handheld"))
                 globalData.options.formFactorValue = XR_FORM_FACTOR_HANDHELD_DISPLAY;
             else {
-                ReportF("invalid arg: %s", globalData.options.formFactor.c_str());
+                ReportConsoleOnlyF("invalid arg: %s", globalData.options.formFactor.c_str());
                 return ParserResult::runtimeError("invalid form factor '" + arg + "' passed on command line");
             }
 
@@ -215,7 +229,7 @@ namespace
                 globalData.options.rightHandEnabled = true;
             }
             else {
-                ReportF("invalid arg: %s", globalData.options.enabledHands.c_str());
+                ReportConsoleOnlyF("invalid arg: %s", globalData.options.enabledHands.c_str());
                 return ParserResult::runtimeError("invalid hands '" + arg + "' passed on command line");
             }
 
@@ -232,7 +246,7 @@ namespace
             else if (striequal(globalData.options.viewConfiguration.c_str(), "mono"))
                 globalData.options.viewConfigurationValue = XR_VIEW_CONFIGURATION_TYPE_PRIMARY_MONO;
             else {
-                ReportF("invalid arg: %s", globalData.options.viewConfiguration.c_str());
+                ReportConsoleOnlyF("invalid arg: %s", globalData.options.viewConfiguration.c_str());
                 return ParserResult::runtimeError("invalid view config '" + arg + "' passed on command line");
             }
             return ParserResult::ok(ParseResultType::Matched);
@@ -250,7 +264,7 @@ namespace
             else if (striequal(globalData.options.environmentBlendMode.c_str(), "alphablend"))
                 globalData.options.environmentBlendModeValue = XR_ENVIRONMENT_BLEND_MODE_ALPHA_BLEND;
             else {
-                ReportF("invalid arg: %s", globalData.options.environmentBlendMode.c_str());
+                ReportConsoleOnlyF("invalid arg: %s", globalData.options.environmentBlendMode.c_str());
 
                 return ParserResult::runtimeError("invalid environment blend mode '" + arg + "' passed on command line");
             }
@@ -322,12 +336,14 @@ namespace
               ("Disables logging file/line data.")
                   .optional()
 
-            | Opt([&](bool enabled) { options.debugMode = enabled; })["-D"]["--debugMode"]("Sets debug mode as enabled or disabled.")
+            | Opt([&](bool enabled) { options.debugMode = enabled; })  //
+                  ["-D"]["--debugMode"]                                //
+              ("Sets debug mode as enabled or disabled.")
                   .optional();
 
         return cli;
     }
-    bool UpdateOptionsFromCommandLine(Catch::Session& catchSession, int argc, const char* argv[])
+    bool UpdateOptionsFromCommandLine(Catch::Session& catchSession, int argc, const char* const* argv)
     {
         using namespace Conformance;
         auto& globalData = GetGlobalData();
@@ -353,7 +369,7 @@ namespace
             // Check for required parameters, if we are actually going to run tests
             if (GetGlobalData().options.graphicsPlugin.empty()) {  // If no graphics system was specified...
                 if (GetGlobalData().IsGraphicsPluginRequired()) {  // and if one is required...
-                    ReportStr("graphicsPlugin parameter is required.");
+                    ReportConsoleOnlyF("graphicsPlugin parameter is required.");
                     return false;
                 }
             }
@@ -405,6 +421,7 @@ namespace
         int m_sectionIndent{0};
     };
     CATCH_REGISTER_LISTENER(ConformanceTestListener)
+    CATCH_REGISTER_REPORTER("ctsxml", Catch::CTSReporter)
 
     // static Catch::Session catchSession;  // Only one Catch Session can ever be created.
     static std::shared_ptr<Catch::Session> catchSession;
@@ -500,8 +517,19 @@ XrcResult XRAPI_CALL xrcRunConformanceTests(const ConformanceLaunchSettings* con
 
         ReportTestHeader();
 
+#if defined(XR_USE_PLATFORM_ANDROID)
+        PFN_xrInitializeLoaderKHR xrInitializeLoaderKHR;
+        if (XR_SUCCEEDED(xrGetInstanceProcAddr(XR_NULL_HANDLE, "xrInitializeLoaderKHR", (PFN_xrVoidFunction*)(&xrInitializeLoaderKHR))) &&
+            xrInitializeLoaderKHR != NULL) {
+            XrLoaderInitInfoAndroidKHR loaderInitializeInfoAndroid = {XR_TYPE_LOADER_INIT_INFO_ANDROID_KHR};
+            loaderInitializeInfoAndroid.applicationVM = Conformance_Android_Get_Application_VM();
+            loaderInitializeInfoAndroid.applicationContext = Conformance_Android_Get_Application_Context();
+            xrInitializeLoaderKHR((XrLoaderInitInfoBaseHeaderKHR*)&loaderInitializeInfoAndroid);
+        }
+#endif  // defined(XR_USE_PLATFORM_ANDROID)
+
         if (!UpdateOptionsFromCommandLine(CreateOrGetCatchSession(), conformanceLaunchSettings->argc, conformanceLaunchSettings->argv)) {
-            ReportStr("Test failure: Command line arguments were invalid or insufficient.");
+            ReportConsoleOnlyF("Test failure: Command line arguments were invalid or insufficient.");
             return XRC_ERROR_COMMAND_LINE_INVALID;
         }
         auto& catchConfigData = CreateOrGetCatchSession().configData();
@@ -518,7 +546,7 @@ XrcResult XRAPI_CALL xrcRunConformanceTests(const ConformanceLaunchSettings* con
         if (CreateOrGetCatchSession().configData().verbosity == Catch::Verbosity::Quiet) {
             // If we only want the test names, "run()" will just print them,
             // then we want to exit without dumping more mess on the screen.
-            ReportStr("\nTest names:");
+            ReportConsoleOnlyF("\nTest names:");
             CreateOrGetCatchSession().run();
         }
 
@@ -527,7 +555,7 @@ XrcResult XRAPI_CALL xrcRunConformanceTests(const ConformanceLaunchSettings* con
             conformanceTestsRun = true;
         }
         else {
-            ReportStr("Test failure: Test data initialization failed.");
+            ReportF("Test failure: Test data initialization failed.");
             result = XRC_ERROR_INITIALIZATION_FAILED;
         }
     }
@@ -536,7 +564,7 @@ XrcResult XRAPI_CALL xrcRunConformanceTests(const ConformanceLaunchSettings* con
         result = XRC_ERROR_INTERNAL_ERROR;
     }
     catch (...) {
-        ReportStr("Test failure: Unknown C++ exception caught.");
+        ReportF("Test failure: Unknown C++ exception caught.");
         result = XRC_ERROR_INTERNAL_ERROR;
     }
 
@@ -551,8 +579,6 @@ XrcResult XRAPI_CALL xrcRunConformanceTests(const ConformanceLaunchSettings* con
             "%s",
             report.c_str());
     }
-
-    xrcCleanup();
 
     g_conformanceLaunchSettings = nullptr;
     return result;

@@ -262,12 +262,14 @@ getConformanceFilenames() {
         .azure-pipelines/openxr-cts.yml \
         .github/dependabot.yml \
         .github/scripts \
+        .github/workflows/android-cts-build.yml \
         .github/workflows/android-cts-pr.yml \
         .github/workflows/android-cts-release.yml \
         .github/workflows/check_clang_format_and_codespell.yml \
         .github/workflows/gradle-wrapper-validation.yml \
         .github/workflows/msvc-build-preset.yml \
-        .github/workflows/windows-matrix.yml \
+        .github/workflows/windows-cts-pr.yml \
+        .github/workflows/windows-cts-release.yml \
         changes/README.md \
         changes/template.md \
         changes/.markdownlint.yaml \

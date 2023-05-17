@@ -40,8 +40,8 @@ namespace Conformance
     TEST_CASE("XR_EXT_palm_pose", "[scenario][interactive][no_auto]")
     {
         GlobalData& globalData = GetGlobalData();
-        if (!globalData.IsInstanceExtensionSupported("XR_EXT_palm_pose")) {
-            return;
+        if (!globalData.IsInstanceExtensionSupported(XR_EXT_PALM_POSE_EXTENSION_NAME)) {
+            SKIP(XR_EXT_PALM_POSE_EXTENSION_NAME " not supported");
         }
 
         const char* exampleImage = "palm_pose.png";
@@ -51,7 +51,7 @@ namespace Conformance
             "A hand in a pointing pose is rendered in the other hand using the palm action space. "
             "Press select to swap hands. Press menu to complete the validation.";
 
-        CompositionHelper compositionHelper("XR_EXT_palm_pose", {"XR_EXT_palm_pose"});
+        CompositionHelper compositionHelper(XR_EXT_PALM_POSE_EXTENSION_NAME, {XR_EXT_PALM_POSE_EXTENSION_NAME});
 
         const XrSpace localSpace = compositionHelper.CreateReferenceSpace(XR_REFERENCE_SPACE_TYPE_LOCAL, XrPosefCPP{});
 

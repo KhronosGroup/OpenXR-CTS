@@ -112,17 +112,21 @@ namespace Conformance
 
             XRC_CHECK_THROW_HRCMD(d3d12Device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, __uuidof(ID3D12CommandAllocator),
                                                                       reinterpret_cast<void**>(commandAllocator.ReleaseAndGetAddressOf())));
+            XRC_CHECK_THROW_HRCMD(commandAllocator->SetName(L"CTS mesh upload command allocator"));
 
             ComPtr<ID3D12GraphicsCommandList> cmdList;
             XRC_CHECK_THROW_HRCMD(d3d12Device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, commandAllocator.Get(), nullptr,
                                                                  __uuidof(ID3D12GraphicsCommandList),
                                                                  reinterpret_cast<void**>(cmdList.ReleaseAndGetAddressOf())));
+            XRC_CHECK_THROW_HRCMD(cmdList->SetName(L"CTS mesh upload command list"));
 
             vertexBufferSizeBytes = (uint32_t)vertices.size_bytes();
             ComPtr<ID3D12Resource> vertexBufferUpload;
             vertexBuffer = CreateBuffer(d3d12Device.Get(), vertexBufferSizeBytes, D3D12_HEAP_TYPE_DEFAULT);
+            XRC_CHECK_THROW_HRCMD(vertexBuffer->SetName(L"CTS mesh vertex buffer"));
             {
                 vertexBufferUpload = CreateBuffer(d3d12Device.Get(), vertexBufferSizeBytes, D3D12_HEAP_TYPE_UPLOAD);
+                XRC_CHECK_THROW_HRCMD(vertexBufferUpload->SetName(L"CTS mesh vertex buffer upload"));
 
                 void* data;
                 const D3D12_RANGE readRange{0, 0};
@@ -136,9 +140,10 @@ namespace Conformance
             indexBufferSizeBytes = (uint32_t)indices.size_bytes();
             ComPtr<ID3D12Resource> indexBufferUpload;
             indexBuffer = CreateBuffer(d3d12Device.Get(), indexBufferSizeBytes, D3D12_HEAP_TYPE_DEFAULT);
+            XRC_CHECK_THROW_HRCMD(indexBuffer->SetName(L"CTS mesh index buffer"));
             {
                 indexBufferUpload = CreateBuffer(d3d12Device.Get(), indexBufferSizeBytes, D3D12_HEAP_TYPE_UPLOAD);
-
+                XRC_CHECK_THROW_HRCMD(indexBufferUpload->SetName(L"CTS mesh index buffer upload"));
                 void* data;
                 const D3D12_RANGE readRange{0, 0};
                 XRC_CHECK_THROW_HRCMD(indexBufferUpload->Map(0, &readRange, &data));
@@ -197,6 +202,7 @@ namespace Conformance
             XRC_CHECK_THROW_HRCMD(d3d12Device->CreateCommittedResource(
                 &heapProp, D3D12_HEAP_FLAG_NONE, &depthDesc, D3D12_RESOURCE_STATE_DEPTH_WRITE, &clearValue, __uuidof(ID3D12Resource),
                 reinterpret_cast<void**>(m_texture.ReleaseAndGetAddressOf())));
+            XRC_CHECK_THROW_HRCMD(m_texture->SetName(L"CTS fallback depth tex"));
             m_xrImage.texture = m_texture.Get();
         }
 
@@ -217,8 +223,10 @@ namespace Conformance
             XRC_CHECK_THROW_HRCMD(
                 m_d3d12Device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, __uuidof(ID3D12CommandAllocator),
                                                       reinterpret_cast<void**>(commandAllocator.ReleaseAndGetAddressOf())));
+            XRC_CHECK_THROW_HRCMD(commandAllocator->SetName(L"CTS swapchain command allocator"));
 
             viewProjectionCBuffer = CreateBuffer(m_d3d12Device.Get(), sizeof(ViewProjectionConstantBuffer), D3D12_HEAP_TYPE_UPLOAD);
+            XRC_CHECK_THROW_HRCMD(viewProjectionCBuffer->SetName(L"CTS view proj cbuffer"));
         }
 
     public:
@@ -282,6 +290,7 @@ namespace Conformance
         {
             if (!modelCBuffer || (requiredSize > modelCBuffer->GetDesc().Width)) {
                 modelCBuffer = CreateBuffer(m_d3d12Device.Get(), requiredSize, D3D12_HEAP_TYPE_UPLOAD);
+                XRC_CHECK_THROW_HRCMD(modelCBuffer->SetName(L"CTS model cbuffer"));
             }
         }
 
@@ -363,6 +372,8 @@ namespace Conformance
 
         void RenderView(const XrCompositionLayerProjectionView& layerView, const XrSwapchainImageBaseHeader* colorSwapchainImage,
                         const RenderParams& params) override;
+
+        void Flush() override;
 
     protected:
         D3D12_CPU_DESCRIPTOR_HANDLE CreateRenderTargetView(ID3D12Resource* colorTexture, uint32_t imageArrayIndex,
@@ -495,12 +506,14 @@ namespace Conformance
 
             XRC_CHECK_THROW_HRCMD(D3D12CreateDevice(adapter.Get(), featureLevels.back(), __uuidof(ID3D12Device),
                                                     reinterpret_cast<void**>(d3d12Device.ReleaseAndGetAddressOf())));
+            XRC_CHECK_THROW_HRCMD(d3d12Device->SetName(L"CTS device"));
 
             D3D12_COMMAND_QUEUE_DESC queueDesc = {};
             queueDesc.Flags = D3D12_COMMAND_QUEUE_FLAG_NONE;
             queueDesc.Type = D3D12_COMMAND_LIST_TYPE_DIRECT;
             XRC_CHECK_THROW_HRCMD(d3d12Device->CreateCommandQueue(&queueDesc, __uuidof(ID3D12CommandQueue),
                                                                   reinterpret_cast<void**>(d3d12CmdQueue.ReleaseAndGetAddressOf())));
+            XRC_CHECK_THROW_HRCMD(d3d12CmdQueue->SetName(L"CTS direct cmd queue"));
 
             {
                 D3D12_DESCRIPTOR_HEAP_DESC heapDesc{};
@@ -509,6 +522,7 @@ namespace Conformance
                 heapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
                 XRC_CHECK_THROW_HRCMD(d3d12Device->CreateDescriptorHeap(&heapDesc, __uuidof(ID3D12DescriptorHeap),
                                                                         reinterpret_cast<void**>(rtvHeap.ReleaseAndGetAddressOf())));
+                XRC_CHECK_THROW_HRCMD(rtvHeap->SetName(L"CTS RTV heap"));
             }
             {
                 D3D12_DESCRIPTOR_HEAP_DESC heapDesc{};
@@ -517,6 +531,7 @@ namespace Conformance
                 heapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
                 XRC_CHECK_THROW_HRCMD(d3d12Device->CreateDescriptorHeap(&heapDesc, __uuidof(ID3D12DescriptorHeap),
                                                                         reinterpret_cast<void**>(dsvHeap.ReleaseAndGetAddressOf())));
+                XRC_CHECK_THROW_HRCMD(dsvHeap->SetName(L"CTS DSV heap"));
             }
 
             D3D12_ROOT_PARAMETER rootParams[2];
@@ -542,6 +557,7 @@ namespace Conformance
             XRC_CHECK_THROW_HRCMD(d3d12Device->CreateRootSignature(0, rootSignatureBlob->GetBufferPointer(),
                                                                    rootSignatureBlob->GetBufferSize(), __uuidof(ID3D12RootSignature),
                                                                    reinterpret_cast<void**>(rootSignature.ReleaseAndGetAddressOf())));
+            XRC_CHECK_THROW_HRCMD(rootSignature->SetName(L"CTS root signature"));
 
             /// @todo not sure why we are doing this.
             XrSwapchainCreateInfo emptyCreateInfo = {XR_TYPE_SWAPCHAIN_CREATE_INFO};
@@ -549,6 +565,8 @@ namespace Conformance
 
             XRC_CHECK_THROW_HRCMD(d3d12Device->CreateFence(fenceValue, D3D12_FENCE_FLAG_NONE, __uuidof(ID3D12Fence),
                                                            reinterpret_cast<void**>(fence.ReleaseAndGetAddressOf())));
+            XRC_CHECK_THROW_HRCMD(fence->SetName(L"CTS fence"));
+
             fenceEvent = ::CreateEvent(nullptr, FALSE, FALSE, nullptr);
             CHECK(fenceEvent != nullptr);
 
@@ -609,6 +627,7 @@ namespace Conformance
         d3d12Device->GetCopyableFootprints(&rgbaImageDesc, 0, 1, 0, &layout, nullptr, &rowSizeInBytes, &requiredSize);
 
         ComPtr<ID3D12Resource> uploadBuffer = CreateBuffer(d3d12Device.Get(), (uint32_t)(requiredSize), D3D12_HEAP_TYPE_UPLOAD);
+        XRC_CHECK_THROW_HRCMD(uploadBuffer->SetName(L"CTS RGBA upload buffer"));
         {
             const uint8_t* src = reinterpret_cast<const uint8_t*>(image.pixels.data());
             const uint32_t imageRowPitch = image.width * sizeof(uint32_t);
@@ -631,6 +650,7 @@ namespace Conformance
         XRC_CHECK_THROW_HRCMD(d3d12Device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, swapchainData->GetCommandAllocator(),
                                                              nullptr, __uuidof(ID3D12GraphicsCommandList),
                                                              reinterpret_cast<void**>(cmdList.ReleaseAndGetAddressOf())));
+        XRC_CHECK_THROW_HRCMD(cmdList->SetName(L"CTS copy rgba command list"));
 
         D3D12_TEXTURE_COPY_LOCATION srcLocation;
         srcLocation.pResource = uploadBuffer.Get();
@@ -745,11 +765,13 @@ namespace Conformance
         ComPtr<ID3D12CommandAllocator> commandAllocator;
         XRC_CHECK_THROW_HRCMD(d3d12Device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, __uuidof(ID3D12CommandAllocator),
                                                                   reinterpret_cast<void**>(commandAllocator.ReleaseAndGetAddressOf())));
+        XRC_CHECK_THROW_HRCMD(commandAllocator->SetName(L"CTS ValidateSwapchainImageState cmd alloc"));
 
         ComPtr<ID3D12GraphicsCommandList> cmdList;
         XRC_CHECK_THROW_HRCMD(d3d12Device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, commandAllocator.Get(), nullptr,
                                                              __uuidof(ID3D12GraphicsCommandList),
                                                              reinterpret_cast<void**>(cmdList.ReleaseAndGetAddressOf())));
+        XRC_CHECK_THROW_HRCMD(commandAllocator->SetName(L"CTS ValidateSwapchainImageState cmd list"));
 
         const XrSwapchainImageD3D12KHR& image = swapchainImageVector[index];
         const bool isColorFormat = GetDxgiSwapchainTestMap()[imageFormat].colorFormat;
@@ -937,6 +959,7 @@ namespace Conformance
         XRC_CHECK_THROW_HRCMD(d3d12Device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, swapchainData->GetCommandAllocator(),
                                                              nullptr, __uuidof(ID3D12GraphicsCommandList),
                                                              reinterpret_cast<void**>(cmdList.ReleaseAndGetAddressOf())));
+        XRC_CHECK_THROW_HRCMD(cmdList->SetName(L"CTS ClearImageSlice cmd list"));
 
         // Clear color buffer.
         D3D12_CPU_DESCRIPTOR_HANDLE renderTargetView =
@@ -986,6 +1009,7 @@ namespace Conformance
         XRC_CHECK_THROW_HRCMD(d3d12Device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, swapchainData->GetCommandAllocator(),
                                                              nullptr, __uuidof(ID3D12GraphicsCommandList),
                                                              reinterpret_cast<void**>(cmdList.ReleaseAndGetAddressOf())));
+        XRC_CHECK_THROW_HRCMD(cmdList->SetName(L"CTS RenderView command list"));
 
         const XrSwapchainCreateInfo* depthCreateInfo = swapchainData->GetDepthCreateInfo();
         DXGI_FORMAT depthSwapchainFormat = GetDepthStencilFormatOrDefault(depthCreateInfo);
@@ -1107,6 +1131,13 @@ namespace Conformance
         WaitForGpu();
     }
 
+    void D3D12GraphicsPlugin::Flush()
+    {
+        if (fence) {
+            WaitForGpu();
+        }
+    }
+
     ID3D12PipelineState* D3D12GraphicsPlugin::GetOrCreatePipelineState(DXGI_FORMAT colorSwapchainFormat, DXGI_FORMAT dsvSwapchainFormat)
     {
         auto iter = pipelineStates.find({colorSwapchainFormat, dsvSwapchainFormat});
@@ -1183,6 +1214,7 @@ namespace Conformance
         ComPtr<ID3D12PipelineState> pipelineState;
         XRC_CHECK_THROW_HRCMD(d3d12Device->CreateGraphicsPipelineState(&pipelineStateDesc, __uuidof(ID3D12PipelineState),
                                                                        reinterpret_cast<void**>(pipelineState.ReleaseAndGetAddressOf())));
+        XRC_CHECK_THROW_HRCMD(pipelineState->SetName(L"CTS pipeline state"));
         ID3D12PipelineState* pipelineStateRaw = pipelineState.Get();
 
         pipelineStates.emplace(std::make_pair(colorSwapchainFormat, dsvSwapchainFormat), std::move(pipelineState));

@@ -256,7 +256,7 @@
 {                                                                              \
     {FORMAT},                                                                  \
     {                                                                          \
-        NAME, IMMUTABLE, MUT_SUPPORT, COLOR, COMPRESSED, RENDERING_SUPPORT, FORMAT, XRC_COMPRESSED_SAMPLED_MUTABLE_USAGE_FLAGS, XRC_ALL_CREATE_FLAGS, {}, {}, \
+        NAME, IMMUTABLE, MUT_SUPPORT, COLOR, COMPRESSED, NO_RENDERING_SUPPORT, FORMAT, XRC_COMPRESSED_SAMPLED_MUTABLE_USAGE_FLAGS, XRC_ALL_CREATE_FLAGS, {}, {}, \
         {                                                                      \
         }                                                                      \
     }                                                                          \
@@ -267,7 +267,7 @@
 {                                                                              \
     {FORMAT},                                                                  \
     {                                                                          \
-        NAME, IMMUTABLE, NO_MUT_SUPPORT, COLOR, COMPRESSED, RENDERING_SUPPORT, FORMAT, XRC_COMPRESSED_SAMPLED_USAGE_FLAGS, XRC_ALL_CREATE_FLAGS, {}, {}, \
+        NAME, IMMUTABLE, NO_MUT_SUPPORT, COLOR, COMPRESSED, NO_RENDERING_SUPPORT, FORMAT, XRC_COMPRESSED_SAMPLED_USAGE_FLAGS, XRC_ALL_CREATE_FLAGS, {}, {}, \
         {                                                                      \
         }                                                                      \
     }                                                                          \

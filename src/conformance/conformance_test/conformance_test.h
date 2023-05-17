@@ -32,7 +32,7 @@ typedef void(XRAPI_PTR* PFN_Message)(MessageType type, const char* message);
 struct ConformanceLaunchSettings
 {
     int argc;
-    const char** argv;
+    const char* const* argv;
 
     PFN_Message message;
 };
@@ -61,7 +61,7 @@ enum XrcResult
 };
 
 /// Clean up after enumerating test cases or running tests. Idempotent: may call more than once.
-extern "C" CONFORMANCE_EXPORT XrcResult XRAPI_CALL XRAPI_CALL xrcCleanup(void);
+extern "C" CONFORMANCE_EXPORT XrcResult XRAPI_CALL xrcCleanup(void);
 
 extern "C" CONFORMANCE_EXPORT XrcResult XRAPI_CALL xrcEnumerateTestCases(uint32_t capacityInput, uint32_t* countOutput,
                                                                          ConformanceTestCase* testCases);

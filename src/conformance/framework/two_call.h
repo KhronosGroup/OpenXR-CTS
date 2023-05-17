@@ -42,7 +42,7 @@ namespace Conformance
         struct Strings
         {
             template <typename... Args>
-            Strings(const char* typeName, const char* emptyInitializer, const char* callName, Args... a)
+            Strings(Catch::StringRef typeName, Catch::StringRef emptyInitializer, Catch::StringRef callName, Args... a)
             {
                 Catch::ReusableStringStream callStartStream;
                 callStartStream << callName << "( ";
@@ -50,7 +50,7 @@ namespace Conformance
                 Catch::ReusableStringStream exprStream;
                 exprStream << typeName << ", " << emptyInitializer << ", " << callName;
 
-                std::initializer_list<const char*> extraArgs{std::forward<Args>(a)...};
+                std::initializer_list<Catch::StringRef> extraArgs{std::forward<Args>(a)...};
                 if (extraArgs.size() != 0) {
                     for (const auto& arg : extraArgs) {
                         callStartStream << arg << ", ";
@@ -120,9 +120,9 @@ namespace Conformance
 // Internal macro
 #define INTERNAL_TWO_CALL_STRINGIFY(...)                      \
     ::Conformance::twocallimpl::Strings                       \
-    {                                                         \
+    (                                                         \
         CATCH_REC_LIST(CATCH_INTERNAL_STRINGIFY, __VA_ARGS__) \
-    }
+    )
 
 // Internal macro providing shared implementation between CHECK_TWO_CALL and REQUIRE_TWO_CALL
 #define INTERNAL_TEST_TWO_CALL(macroName, resultDisposition, STRINGS, TYPE, ...)                                                 \

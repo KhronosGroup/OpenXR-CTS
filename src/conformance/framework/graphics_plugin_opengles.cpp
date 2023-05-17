@@ -603,15 +603,15 @@ namespace Conformance
     }
 #define ADD_GL_COLOR_FORMAT(X) ADD_GL_COLOR_FORMAT2(X, #X)
 
-#define ADD_GL_COLOR_COMPRESSED_FORMAT2(X, Y)                                                                            \
-    {                                                                                                                    \
-        {X},                                                                                                             \
-        {                                                                                                                \
-            Y, IMMUTABLE, NO_MUT_SUPPORT, COLOR, COMPRESSED, RENDERING_SUPPORT, X, {XRC_COLOR_TEXTURE_USAGE_COMPRESSED}, \
-                XRC_COLOR_CREATE_FLAGS, {}, {},                                                                          \
-            {                                                                                                            \
-            }                                                                                                            \
-        }                                                                                                                \
+#define ADD_GL_COLOR_COMPRESSED_FORMAT2(X, Y)                                                                               \
+    {                                                                                                                       \
+        {X},                                                                                                                \
+        {                                                                                                                   \
+            Y, IMMUTABLE, NO_MUT_SUPPORT, COLOR, COMPRESSED, NO_RENDERING_SUPPORT, X, {XRC_COLOR_TEXTURE_USAGE_COMPRESSED}, \
+                XRC_COLOR_CREATE_FLAGS, {}, {},                                                                             \
+            {                                                                                                               \
+            }                                                                                                               \
+        }                                                                                                                   \
     }
 #define ADD_GL_COLOR_COMPRESSED_FORMAT(X) ADD_GL_COLOR_COMPRESSED_FORMAT2(X, #X)
 
