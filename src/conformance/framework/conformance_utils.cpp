@@ -14,29 +14,29 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include <catch2/catch_test_macros.hpp>
-
-#include "utils.h"
-#include "report.h"
-#include "two_call_util.h"
-#include "conformance_utils.h"
 #include "conformance_framework.h"
+#include "conformance_utils.h"
 #include "graphics_plugin.h"
-#include "throw_helpers.h"
+#include "platform_plugin.h"
+#include "two_call_util.h"
+#include "utilities/throw_helpers.h"
+#include "utilities/utils.h"
 
-#include "xr_dependencies.h"
-#include <openxr/openxr_platform.h>
+#include <openxr/openxr.h>
 #include <openxr/openxr_reflection.h>
 
-#include <map>
+#include <catch2/catch_test_macros.hpp>
+#include <catch2/catch_message.hpp>
+
 #include <algorithm>
-#include <iostream>
 #include <assert.h>
+#include <cstdint>
 #include <cstring>
-#include <time.h>
-#include <sstream>
-#include <iomanip>
+#include <map>
+#include <memory>
+#include <ratio>
 #include <thread>
+#include <utility>
 
 #ifdef _WIN32
 #include <windows.h>
@@ -51,31 +51,12 @@
 
 namespace Conformance
 {
-    // We keep our own copy of this as opposed to calling the xrResultToString function, because our
-    // purpose here it to validate the runtime's implementation of xrResultToString.
-
-    const ResultStringMap& GetResultStringMap()
-    {
-        static const ResultStringMap resultStringMap{XR_LIST_ENUM_XrResult(XRC_ENUM_NAME_PAIR)};
-        return resultStringMap;
-    }
 
     const std::map<uint64_t, const char*> GetNumberExtensionMap()
     {
 #define MAKE_EXTENSION_NUMBER_MAP(NAME, NUM) {NUM, #NAME},
         static const std::map<uint64_t, const char*> myMap = {XR_LIST_EXTENSIONS(MAKE_EXTENSION_NUMBER_MAP)};
         return myMap;
-    }
-
-    const char* ResultToString(XrResult result)
-    {
-        auto it = GetResultStringMap().find(result);
-
-        if (it != GetResultStringMap().end()) {
-            return it->second;
-        }
-
-        return "<unknown>";
     }
 
     std::string PathToString(XrInstance instance, XrPath path)
@@ -1214,5 +1195,17 @@ namespace Conformance
         }
 
         return result;
+    }
+
+    std::ostream& operator<<(std::ostream& os, AutoBasicInstance const& inst)
+    {
+        OutputHandle(os, inst.GetInstance());
+        return os;
+    }
+
+    std::ostream& operator<<(std::ostream& os, AutoBasicSession const& sess)
+    {
+        OutputHandle(os, sess.GetSession());
+        return os;
     }
 }  // namespace Conformance

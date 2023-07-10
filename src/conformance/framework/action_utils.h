@@ -16,12 +16,18 @@
 
 #pragma once
 
-#include <chrono>
-#include <mutex>
-
+#include "RGBAImage.h"
 #include "composition_utils.h"
-#include "event_reader.h"
 #include "input_testinputdevice.h"
+#include "utilities/event_reader.h"
+
+#include <openxr/openxr.h>
+
+#include <chrono>
+#include <functional>
+#include <iosfwd>
+#include <memory>
+#include <mutex>
 
 namespace Conformance
 {

@@ -10,7 +10,7 @@ buildscript {
         mavenCentral()
     }
     dependencies {
-        classpath 'com.android.tools.build:gradle:7.0.4'
+        classpath 'com.android.tools.build:gradle:7.4.2'
     }
 }
 
@@ -51,15 +51,14 @@ task copyLayerInfo(type: Copy) {
 }
 
 android {
-    compileSdkVersion 29
-    buildToolsVersion "30.0.3"
+    compileSdk 29
     ndkVersion "21.4.7075529"
+    buildToolsVersion = "30.0.3"
 
     defaultConfig {
         applicationId "org.khronos.openxr.cts"
         // for Vulkan, need at least 24
         minSdkVersion 24
-        compileSdkVersion 26
 
         versionName = project.versionOpenXR.toString() + project.versionQualifier
         versionCode = project.versionOpenXR.getVersionCode()

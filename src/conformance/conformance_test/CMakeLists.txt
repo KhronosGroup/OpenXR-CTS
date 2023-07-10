@@ -15,16 +15,10 @@
 # limitations under the License.
 #
 
-run_xr_xml_generate(conformance_generator.py function_info.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/../../scripts/template_function_info.cpp)
-
 file(GLOB LOCAL_HEADERS "*.h")
 file(GLOB LOCAL_SOURCE "*.cpp")
-file(GLOB FRAMEWORK_HEADERS "../framework/*.h")
-file(GLOB FRAMEWORK_SOURCE "../framework/*.cpp")
 file(GLOB ASSETS "composition_examples/*.png"
                  "SourceCodePro-Regular.otf")
-file(GLOB VULKAN_SHADERS "vulkan_shaders/*.glsl")
 
 # For including compiled shaders
 include_directories(${CMAKE_CURRENT_BINARY_DIR})
@@ -32,9 +26,6 @@ include_directories(${CMAKE_CURRENT_BINARY_DIR})
 add_library(conformance_test SHARED
     ${LOCAL_HEADERS}
     ${LOCAL_SOURCE}
-    ${FRAMEWORK_HEADERS}
-    ${FRAMEWORK_SOURCE}
-    ${CMAKE_CURRENT_BINARY_DIR}/function_info.cpp
     ${VULKAN_SHADERS}
     ${PROJECT_SOURCE_DIR}/src/common/platform_utils.hpp
 )
@@ -42,11 +33,10 @@ if(ANDROID)
     target_sources(conformance_test PRIVATE $<TARGET_OBJECTS:android_native_app_glue>)
 endif()
 
-compile_glsl(run_conformance_test_glsl_compiles ${VULKAN_SHADERS})
+target_link_libraries(conformance_test PRIVATE conformance_utilities conformance_framework)
 
 add_dependencies(conformance_test
     generate_openxr_header
-    run_conformance_test_glsl_compiles
     XrApiLayer_runtime_conformance
 )
 openxr_add_filesystem_utils(conformance_test)
@@ -54,17 +44,11 @@ openxr_add_filesystem_utils(conformance_test)
 target_include_directories(conformance_test
     PRIVATE
     ${CMAKE_CURRENT_LIST_DIR}/../framework
-    ${CMAKE_CURRENT_LIST_DIR}/../../common
+    ${PROJECT_SOURCE_DIR}/src/common
     ${PROJECT_SOURCE_DIR}/src/external
 
-    # Strong types for integers, etc.
-    ${CMAKE_CURRENT_LIST_DIR}/../../external/type-lite/include
-
-    # Backport of std::span functionality to pre-C++17
-    ${CMAKE_CURRENT_LIST_DIR}/../../external/span-lite/include
-
     # Earcut algorithm for simple polygon triangulation
-    ${CMAKE_CURRENT_LIST_DIR}/../../external/earcut/include
+    ${PROJECT_SOURCE_DIR}/src/external/earcut/include
 
     # for openxr.h:
     ${PROJECT_BINARY_DIR}/include
@@ -76,43 +60,15 @@ target_include_directories(conformance_test
     ${PROJECT_SOURCE_DIR}/external/include
 )
 
-if(Vulkan_FOUND)
-    target_include_directories(conformance_test
-        PRIVATE ${Vulkan_INCLUDE_DIRS}
-    )
-endif()
-
 source_group("Header Files" FILES ${LOCAL_HEADERS})
 source_group("Source Files" FILES ${LOCAL_SOURCE})
-source_group("Framework Header Files" FILES ${FRAMEWORK_HEADERS})
-source_group("Framework Source Files" FILES ${FRAMEWORK_SOURCE})
-source_group("Vulkan Shaders" FILES ${VULKAN_SHADERS})
 
-if(Vulkan_LIBRARY)
-    target_link_libraries(conformance_test PRIVATE ${Vulkan_LIBRARY})
-endif()
-
-
-if(TARGET openxr-gfxwrapper)
-    target_link_libraries(conformance_test PRIVATE openxr-gfxwrapper)
-endif()
-
-if(GLSLANG_VALIDATOR AND NOT GLSLC_COMMAND)
-    target_compile_definitions(conformance_test PRIVATE USE_GLSLANGVALIDATOR)
-endif()
-
-target_link_libraries(conformance_test PRIVATE openxr_loader Threads::Threads Catch2)
+target_link_libraries(conformance_test PRIVATE conformance_framework)
 
 if(WIN32)
     target_compile_definitions(conformance_test PRIVATE _CRT_SECURE_NO_WARNINGS)
     if(MSVC)
         target_compile_options(conformance_test PRIVATE /Zc:wchar_t /Zc:forScope /W4 /WX /wd4996)
-    endif()
-    if(MSVC)
-        # Right now can't build this on MinGW because of directxcolors, etc.
-        target_link_libraries(conformance_test PRIVATE d3d11 d3d12 d3dcompiler dxgi)
-    else()
-        target_compile_definitions(conformance_test PRIVATE MISSING_DIRECTX_COLORS)
     endif()
 
 endif()
@@ -159,6 +115,7 @@ if(BUILD_CONFORMANCE_CLI)
     )
 endif()
 
+set_target_properties(conformance_test PROPERTIES FOLDER ${CONFORMANCE_TESTS_FOLDER})
 
 install(
     TARGETS conformance_test

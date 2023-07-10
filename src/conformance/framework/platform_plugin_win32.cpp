@@ -14,9 +14,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "platform_plugin.h"
-
 #ifdef XR_USE_PLATFORM_WIN32
+
+#include "platform_plugin.h"
 
 #include <windows.h>
 

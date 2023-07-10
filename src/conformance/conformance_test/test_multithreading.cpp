@@ -1,4 +1,4 @@
-// Copyright (c) 2017 The Khronos Group Inc.
+// Copyright (c) 2017-2023, The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -14,26 +14,28 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "utils.h"
-#include "conformance_utils.h"
 #include "conformance_framework.h"
+#include "conformance_utils.h"
+#include "graphics_plugin.h"
 #include "swapchain_image_data.h"
-#include "throw_helpers.h"
+#include "utilities/throw_helpers.h"
+#include "utilities/utils.h"
+
+#include <catch2/catch_test_macros.hpp>
+#include <openxr/openxr.h>
 
 #include <algorithm>
 #include <array>
-#include <vector>
-#include <string>
-#include <thread>
+#include <atomic>
+#include <chrono>
 #include <condition_variable>
 #include <cstdint>
 #include <initializer_list>
-#include <atomic>
 #include <mutex>
-#include <chrono>
 #include <random>
-#include <catch2/catch_test_macros.hpp>
-#include <openxr/openxr.h>
+#include <string>
+#include <thread>
+#include <vector>
 
 // Include all dependencies of openxr_platform as configured
 #include "xr_dependencies.h"

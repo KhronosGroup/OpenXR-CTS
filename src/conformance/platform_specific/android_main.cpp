@@ -15,7 +15,7 @@
 // limitations under the License.
 
 #include "conformance/platform_specific/android_intent_extras.h"
-#include "utils.h"
+#include "utilities/utils.h"
 
 #include <stdio.h>
 #include <stdlib.h>

@@ -14,9 +14,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "platform_plugin.h"
-
 #if defined(XR_OS_APPLE) || defined(XR_OS_LINUX)
+
+#include "platform_plugin.h"
 
 namespace Conformance
 {

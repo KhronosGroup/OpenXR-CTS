@@ -54,6 +54,8 @@ endif()
 set_property(TARGET conformance_cli
     PROPERTY INSTALL_RPATH $ORIGIN)
 
+set_target_properties(conformance_cli PROPERTIES FOLDER ${CONFORMANCE_TESTS_FOLDER})
+
 install(
     TARGETS conformance_cli
     RUNTIME DESTINATION conformance

@@ -14,23 +14,22 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "utils.h"
-#include "conformance_utils.h"
+#ifdef XR_USE_GRAPHICS_API_D3D12
 #include "conformance_framework.h"
+#include "conformance_utils.h"
+#include "graphics_plugin.h"
 #include "matchers.h"
-#include <array>
-#include <vector>
-#include <set>
-#include <string>
-#include <cstring>
+#include "utilities/utils.h"
+
 #include <catch2/catch_test_macros.hpp>
 #include <openxr/openxr.h>
-
-#ifdef XR_USE_GRAPHICS_API_D3D12
 #include <openxr/openxr_platform.h>
 
 #include <windows.h>
 #include <wrl/client.h>  // For Microsoft::WRL::ComPtr
+
+#include <string>
+#include <cstring>
 
 using namespace Microsoft::WRL;
 

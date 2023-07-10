@@ -223,11 +223,14 @@ Get proc address / extensions
 #if defined(OS_WINDOWS)
 PROC GetExtension(const char *functionName) { return wglGetProcAddress(functionName); }
 #elif defined(OS_APPLE)
-void (*GetExtension(const char *functionName))() { return NULL; }
+void (*GetExtension(const char *functionName))(void) {
+    (void)functionName;
+    return NULL;
+}
 #elif defined(OS_LINUX_XCB) || defined(OS_LINUX_XLIB) || defined(OS_LINUX_XCB_GLX)
-void (*GetExtension(const char *functionName))() { return glXGetProcAddress((const GLubyte *)functionName); }
+void (*GetExtension(const char *functionName))(void) { return glXGetProcAddress((const GLubyte *)functionName); }
 #elif defined(OS_ANDROID) || defined(OS_LINUX_WAYLAND)
-void (*GetExtension(const char *functionName))() { return eglGetProcAddress(functionName); }
+void (*GetExtension(const char *functionName))(void) { return eglGetProcAddress(functionName); }
 #endif
 
 GLint glGetInteger(GLenum pname) {
@@ -1626,6 +1629,7 @@ void ksGpuContext_UnsetCurrent(ksGpuContext *context) {
 #elif defined(OS_LINUX_XCB)
     xcb_glx_make_current(context->connection, 0, 0, 0);
 #elif defined(OS_APPLE_MACOS)
+    (void)context;
     CGLSetCurrentContext(NULL);
 #elif defined(OS_ANDROID) || defined(OS_LINUX_WAYLAND)
     EGL(eglMakeCurrent(context->display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT));
@@ -2985,6 +2989,7 @@ NSAutoreleasePool *autoReleasePool;
     return YES;
 }
 - (void)keyDown:(NSEvent *)event {
+    (void)event;
 }
 @end
 
@@ -2998,6 +3003,7 @@ NSAutoreleasePool *autoReleasePool;
     return YES;
 }
 - (void)keyDown:(NSEvent *)event {
+    (void)event;
 }
 @end
 
@@ -3083,8 +3089,8 @@ bool ksGpuWindow_Create(ksGpuWindow *window, ksDriverInstance *instance, const k
                 }
             }
         }
-        CGDisplayErr err = CGDisplaySetDisplayMode(window->display, bestDisplayMode, NULL);
-        if (err != CGDisplayNoErr) {
+        CGDisplayErr cgderr = CGDisplaySetDisplayMode(window->display, bestDisplayMode, NULL);
+        if (cgderr != CGDisplayNoErr) {
             CFRelease(displayModes);
             return false;
         }

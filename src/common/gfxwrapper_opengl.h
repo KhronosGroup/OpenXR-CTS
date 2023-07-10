@@ -124,9 +124,9 @@ extern "C" {
 #elif defined(__APPLE__)
 #define OS_APPLE
 #include <Availability.h>
-#if __IPHONE_OS_VERSION_MAX_ALLOWED
+#if defined(__IPHONE_OS_VERSION_MAX_ALLOWED) && __IPHONE_OS_VERSION_MAX_ALLOWED
 #define OS_APPLE_IOS
-#elif __MAC_OS_X_VERSION_MAX_ALLOWED
+#elif defined(__MAC_OS_X_VERSION_MAX_ALLOWED) && __MAC_OS_X_VERSION_MAX_ALLOWED
 #define OS_APPLE_MACOS
 #endif
 #elif defined(__linux__)
@@ -414,7 +414,7 @@ Common defines
 #define ES_HIGHP ""  // GLSL "430" disallows a precision qualifier on a image2D
 #endif
 
-void GlInitExtensions();
+void GlInitExtensions(void);
 
 /*
 ================================================================================================================================

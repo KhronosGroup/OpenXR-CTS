@@ -14,20 +14,28 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include <chrono>
-#include <cmath>
-#include <thread>
-#include <array>
+#include "input_testinputdevice.h"
+
+#include "composition_utils.h"
+#include "conformance_framework.h"
+#include "conformance_utils.h"
+#include "two_call.h"
+#include "utilities/throw_helpers.h"
+#include "utilities/types_and_constants.h"
+
+#include <catch2/catch_test_macros.hpp>
 
 #include <openxr/openxr.h>
 
-#include "input_testinputdevice.h"
-#include "conformance_framework.h"
-#include "conformance_utils.h"
-
-#include "throw_helpers.h"
-#include "two_call.h"
-#include "types_and_constants.h"
+#include <algorithm>
+#include <chrono>
+#include <cmath>
+#include <cstdint>
+#include <cstring>
+#include <functional>
+#include <ratio>
+#include <tuple>
+#include <utility>
 
 using namespace std::chrono_literals;
 

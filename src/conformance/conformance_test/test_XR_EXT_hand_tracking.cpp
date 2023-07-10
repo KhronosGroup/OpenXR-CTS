@@ -15,12 +15,13 @@
 // limitations under the License.
 
 #include "conformance_framework.h"
-#include "utils.h"
-#include "conformance_utils.h"
 #include "composition_utils.h"
+#include "conformance_utils.h"
+#include "utilities/system_properties_helper.h"
+#include "utilities/utils.h"
 #include <catch2/catch_test_macros.hpp>
 #include <openxr/openxr.h>
-#include <xr_linear.h>
+#include "common/xr_linear.h"
 
 using namespace Conformance;
 
@@ -31,15 +32,9 @@ namespace Conformance
     constexpr int RIGHT_HAND = 1;
     constexpr int HAND_COUNT = 2;
 
-    static bool SystemSupportsHandTracking(XrInstance instance, XrSystemId systemId)
-    {
-        XrSystemHandTrackingPropertiesEXT handTrackingSystemProperties{XR_TYPE_SYSTEM_HAND_TRACKING_PROPERTIES_EXT};
-        XrSystemProperties systemProperties{XR_TYPE_SYSTEM_PROPERTIES};
-        systemProperties.next = &handTrackingSystemProperties;
-        REQUIRE(xrGetSystemProperties(instance, systemId, &systemProperties) == XR_SUCCESS);
-
-        return handTrackingSystemProperties.supportsHandTracking == XR_TRUE;
-    }
+    static const auto SystemSupportsHandTracking =
+        MakeSystemPropertiesBoolChecker(XrSystemHandTrackingPropertiesEXT{XR_TYPE_SYSTEM_HAND_TRACKING_PROPERTIES_EXT},
+                                        &XrSystemHandTrackingPropertiesEXT::supportsHandTracking);
 
     TEST_CASE("XR_EXT_hand_tracking", "")
     {
@@ -70,21 +65,214 @@ namespace Conformance
             auto xrDestroyHandTrackerEXT = GetInstanceExtensionFunction<PFN_xrDestroyHandTrackerEXT>(instance, "xrDestroyHandTrackerEXT");
 
             XrSystemId systemId = instance.systemId;
-            if (!SystemSupportsHandTracking(instance, systemId)) {
-                // This runtime does support hand tracking, but this headset does not
-                // support hand tracking, which is fine.
-                SKIP("System does not support hand tracking");
-                return;
-            }
 
             AutoBasicSession session(AutoBasicSession::beginSession, instance);
 
-            XrHandTrackerEXT handTracker[HAND_COUNT];
+            if (!SystemSupportsHandTracking(instance, systemId)) {
+                // https://registry.khronos.org/OpenXR/specs/1.0/html/xrspec.html#_create_a_hand_tracker_handle
+                // If the system does not support hand tracking, runtime must return XR_ERROR_FEATURE_UNSUPPORTED from xrCreateHandTrackerEXT.
+                // In this case, the runtime must return XR_FALSE for supportsHandTracking in XrSystemHandTrackingPropertiesEXT when the
+                // function xrGetSystemProperties is called, so that the application can avoid creating a hand tracker.
+
+                for (size_t i = 0; i < HAND_COUNT; ++i) {
+                    XrHandTrackerEXT tracker{XR_NULL_HANDLE};
+                    XrHandTrackerCreateInfoEXT createInfo{XR_TYPE_HAND_TRACKER_CREATE_INFO_EXT};
+                    createInfo.handJointSet = XR_HAND_JOINT_SET_DEFAULT_EXT;
+                    createInfo.hand = (i == 0 ? XR_HAND_LEFT_EXT : XR_HAND_RIGHT_EXT);
+                    REQUIRE(XR_ERROR_FEATURE_UNSUPPORTED == xrCreateHandTrackerEXT(session, &createInfo, &tracker));
+                }
+
+                // This runtime does support hand tracking, but this headset does not
+                // support hand tracking, which is fine.
+                SKIP("System does not support hand tracking");
+            }
+
+            std::array<XrHandTrackerEXT, HAND_COUNT> handTracker;
             for (size_t i = 0; i < HAND_COUNT; ++i) {
                 XrHandTrackerCreateInfoEXT createInfo{XR_TYPE_HAND_TRACKER_CREATE_INFO_EXT};
                 createInfo.handJointSet = XR_HAND_JOINT_SET_DEFAULT_EXT;
                 createInfo.hand = (i == 0 ? XR_HAND_LEFT_EXT : XR_HAND_RIGHT_EXT);
                 REQUIRE(XR_SUCCESS == xrCreateHandTrackerEXT(session, &createInfo, &handTracker[i]));
+                REQUIRE(XR_SUCCESS == xrDestroyHandTrackerEXT(handTracker[i]));
+            }
+        }
+
+        SECTION("Query joint locations")
+        {
+            AutoBasicInstance instance({XR_EXT_HAND_TRACKING_EXTENSION_NAME}, AutoBasicInstance::createSystemId);
+
+            auto xrCreateHandTrackerEXT = GetInstanceExtensionFunction<PFN_xrCreateHandTrackerEXT>(instance, "xrCreateHandTrackerEXT");
+            auto xrDestroyHandTrackerEXT = GetInstanceExtensionFunction<PFN_xrDestroyHandTrackerEXT>(instance, "xrDestroyHandTrackerEXT");
+            auto xrLocateHandJointsEXT = GetInstanceExtensionFunction<PFN_xrLocateHandJointsEXT>(instance, "xrLocateHandJointsEXT");
+
+            XrSystemId systemId = instance.systemId;
+            if (!SystemSupportsHandTracking(instance, systemId)) {
+                // This runtime does support hand tracking, but this headset does not
+                // support hand tracking, which is fine.
+                SKIP("System does not support hand tracking");
+            }
+
+            AutoBasicSession session(AutoBasicSession::beginSession | AutoBasicSession::createActions | AutoBasicSession::createSpaces |
+                                         AutoBasicSession::createSwapchains,
+                                     instance);
+
+            XrSpace localSpace = XR_NULL_HANDLE;
+
+            XrReferenceSpaceCreateInfo localSpaceCreateInfo{XR_TYPE_REFERENCE_SPACE_CREATE_INFO};
+            localSpaceCreateInfo.poseInReferenceSpace = XrPosefCPP();
+            localSpaceCreateInfo.referenceSpaceType = XR_REFERENCE_SPACE_TYPE_LOCAL;
+            REQUIRE_RESULT(xrCreateReferenceSpace(session, &localSpaceCreateInfo, &localSpace), XR_SUCCESS);
+
+            std::array<XrHandTrackerEXT, HAND_COUNT> handTracker;
+            for (size_t i = 0; i < HAND_COUNT; ++i) {
+                XrHandTrackerCreateInfoEXT createInfo{XR_TYPE_HAND_TRACKER_CREATE_INFO_EXT};
+                createInfo.handJointSet = XR_HAND_JOINT_SET_DEFAULT_EXT;
+                createInfo.hand = (i == 0 ? XR_HAND_LEFT_EXT : XR_HAND_RIGHT_EXT);
+                REQUIRE(XR_SUCCESS == xrCreateHandTrackerEXT(session, &createInfo, &handTracker[i]));
+            }
+
+            // Wait until the runtime is ready for us to begin a session
+            auto timeout = (GetGlobalData().options.debugMode ? 3600s : 10s);
+            FrameIterator frameIterator(&session);
+            FrameIterator::RunResult runResult = frameIterator.RunToSessionState(XR_SESSION_STATE_READY, timeout);
+            REQUIRE(runResult == FrameIterator::RunResult::Success);
+
+            for (auto hand : {LEFT_HAND, RIGHT_HAND}) {
+                std::array<std::array<XrHandJointLocationEXT, XR_HAND_JOINT_COUNT_EXT>, HAND_COUNT> jointLocations;
+                std::array<std::array<XrHandJointVelocityEXT, XR_HAND_JOINT_COUNT_EXT>, HAND_COUNT> jointVelocities;
+
+                XrHandJointVelocitiesEXT velocities{XR_TYPE_HAND_JOINT_VELOCITIES_EXT};
+                velocities.jointCount = XR_HAND_JOINT_COUNT_EXT;
+                velocities.jointVelocities = jointVelocities[hand].data();
+
+                XrHandJointLocationsEXT locations{XR_TYPE_HAND_JOINT_LOCATIONS_EXT};
+                locations.next = &velocities;
+                locations.jointCount = XR_HAND_JOINT_COUNT_EXT;
+                locations.jointLocations = jointLocations[hand].data();
+
+                XrHandJointsLocateInfoEXT locateInfo{XR_TYPE_HAND_JOINTS_LOCATE_INFO_EXT};
+                locateInfo.baseSpace = localSpace;
+                locateInfo.time = frameIterator.frameState.predictedDisplayTime;
+                REQUIRE(XR_SUCCESS == xrLocateHandJointsEXT(handTracker[hand], &locateInfo, &locations));
+
+                // https://registry.khronos.org/OpenXR/specs/1.0/html/xrspec.html#_locate_hand_joints
+                for (size_t i = 0; i < jointLocations[hand].size(); ++i) {
+                    if (locations.isActive == XR_TRUE) {
+                        // If the returned isActive is true, the runtime must return all joint locations with both
+                        // XR_SPACE_LOCATION_POSITION_VALID_BIT and XR_SPACE_LOCATION_ORIENTATION_VALID_BIT set.
+                        REQUIRE((jointLocations[hand][i].locationFlags & XR_SPACE_LOCATION_POSITION_VALID_BIT) != 0);
+                        REQUIRE((jointLocations[hand][i].locationFlags & XR_SPACE_LOCATION_ORIENTATION_VALID_BIT) != 0);
+
+                        // If the returned locationFlags has XR_SPACE_LOCATION_POSITION_VALID_BIT set,
+                        // the returned radius must be a positive value.
+                        REQUIRE(jointLocations[hand][i].radius > 0);
+
+                        // If an XrHandJointVelocitiesEXT structure is chained to XrHandJointLocationsEXT::next,
+                        // the returned XrHandJointLocationsEXT::isActive is true, and the velocity is observed
+                        // or can be calculated by the runtime, the runtime must fill in the linear velocity of
+                        // each hand joint within the reference frame of baseSpace and set the
+                        // XR_SPACE_VELOCITY_LINEAR_VALID_BIT.
+                        // Similarly, if an XrHandJointVelocitiesEXT structure is chained to
+                        // XrHandJointLocationsEXT::next, the returned XrHandJointLocationsEXT::isActive is true,
+                        // and the angular velocity is observed or can be calculated by the runtime, the runtime
+                        // must fill in the angular velocity of each joint within the reference frame of baseSpace
+                        // and set the XR_SPACE_VELOCITY_ANGULAR_VALID_BIT.
+                        REQUIRE((jointVelocities[hand][i].velocityFlags & XR_SPACE_VELOCITY_LINEAR_VALID_BIT) != 0);
+                        REQUIRE((jointVelocities[hand][i].velocityFlags & XR_SPACE_VELOCITY_ANGULAR_VALID_BIT) != 0);
+                    }
+                    else {
+                        // If the returned isActive is false, it indicates the hand tracker did not detect the hand
+                        // input or the application lost input focus. In this case, the runtime must return all
+                        // jointLocations with neither XR_SPACE_LOCATION_POSITION_VALID_BIT nor
+                        // XR_SPACE_LOCATION_ORIENTATION_VALID_BIT set.
+                        REQUIRE((jointLocations[hand][i].locationFlags & XR_SPACE_LOCATION_POSITION_VALID_BIT) == 0);
+                        REQUIRE((jointLocations[hand][i].locationFlags & XR_SPACE_LOCATION_ORIENTATION_VALID_BIT) == 0);
+                    }
+                }
+            }
+
+            for (size_t i = 0; i < HAND_COUNT; ++i) {
+                REQUIRE(XR_SUCCESS == xrDestroyHandTrackerEXT(handTracker[i]));
+            }
+        }
+
+        SECTION("Query invalid joint sets")
+        {
+            AutoBasicInstance instance({XR_EXT_HAND_TRACKING_EXTENSION_NAME}, AutoBasicInstance::createSystemId);
+
+            auto xrCreateHandTrackerEXT = GetInstanceExtensionFunction<PFN_xrCreateHandTrackerEXT>(instance, "xrCreateHandTrackerEXT");
+            auto xrDestroyHandTrackerEXT = GetInstanceExtensionFunction<PFN_xrDestroyHandTrackerEXT>(instance, "xrDestroyHandTrackerEXT");
+            auto xrLocateHandJointsEXT = GetInstanceExtensionFunction<PFN_xrLocateHandJointsEXT>(instance, "xrLocateHandJointsEXT");
+
+            XrSystemId systemId = instance.systemId;
+            if (!SystemSupportsHandTracking(instance, systemId)) {
+                // This runtime does support hand tracking, but this headset does not
+                // support hand tracking, which is fine.
+                SKIP("System does not support hand tracking");
+            }
+
+            AutoBasicSession session(AutoBasicSession::beginSession, instance);
+
+            XrSpace localSpace = XR_NULL_HANDLE;
+
+            XrReferenceSpaceCreateInfo localSpaceCreateInfo{XR_TYPE_REFERENCE_SPACE_CREATE_INFO};
+            localSpaceCreateInfo.poseInReferenceSpace = XrPosefCPP();
+            localSpaceCreateInfo.referenceSpaceType = XR_REFERENCE_SPACE_TYPE_LOCAL;
+            REQUIRE_RESULT(xrCreateReferenceSpace(session, &localSpaceCreateInfo, &localSpace), XR_SUCCESS);
+
+            std::array<XrHandTrackerEXT, HAND_COUNT> handTracker;
+            for (size_t i = 0; i < HAND_COUNT; ++i) {
+                XrHandTrackerCreateInfoEXT createInfo{XR_TYPE_HAND_TRACKER_CREATE_INFO_EXT};
+                createInfo.handJointSet = XR_HAND_JOINT_SET_DEFAULT_EXT;
+                createInfo.hand = (i == 0 ? XR_HAND_LEFT_EXT : XR_HAND_RIGHT_EXT);
+                REQUIRE(XR_SUCCESS == xrCreateHandTrackerEXT(session, &createInfo, &handTracker[i]));
+            }
+
+            // Wait until the runtime is ready for us to begin a session
+            auto timeout = (GetGlobalData().options.debugMode ? 3600s : 10s);
+            FrameIterator frameIterator(&session);
+            FrameIterator::RunResult runResult = frameIterator.RunToSessionState(XR_SESSION_STATE_READY, timeout);
+            REQUIRE(runResult == FrameIterator::RunResult::Success);
+
+            // The application must input jointCount as described by the XrHandJointSetEXT when creating the XrHandTrackerEXT.
+            // Otherwise, the runtime must return XR_ERROR_VALIDATION_FAILURE.
+            static const uint32_t INVALID_JOINT_COUNT = XR_HAND_JOINT_COUNT_EXT - 1;
+
+            // Firstly test without joint velocities.
+            for (auto hand : {LEFT_HAND, RIGHT_HAND}) {
+                std::array<std::array<XrHandJointLocationEXT, XR_HAND_JOINT_COUNT_EXT>, HAND_COUNT> jointLocations;
+
+                XrHandJointLocationsEXT locations{XR_TYPE_HAND_JOINT_LOCATIONS_EXT};
+                locations.jointCount = INVALID_JOINT_COUNT;
+                locations.jointLocations = jointLocations[hand].data();
+
+                XrHandJointsLocateInfoEXT locateInfo{XR_TYPE_HAND_JOINTS_LOCATE_INFO_EXT};
+                locateInfo.baseSpace = localSpace;
+                locateInfo.time = frameIterator.frameState.predictedDisplayTime;
+                REQUIRE(XR_ERROR_VALIDATION_FAILURE == xrLocateHandJointsEXT(handTracker[hand], &locateInfo, &locations));
+            }
+
+            // Same test again but this time with invalid joint velocity count
+            for (auto hand : {LEFT_HAND, RIGHT_HAND}) {
+                std::array<std::array<XrHandJointLocationEXT, XR_HAND_JOINT_COUNT_EXT>, HAND_COUNT> jointLocations;
+                std::array<std::array<XrHandJointVelocityEXT, XR_HAND_JOINT_COUNT_EXT>, HAND_COUNT> jointVelocities;
+
+                XrHandJointVelocitiesEXT velocities{XR_TYPE_HAND_JOINT_VELOCITIES_EXT};
+                velocities.jointCount = INVALID_JOINT_COUNT;
+                velocities.jointVelocities = jointVelocities[hand].data();
+
+                XrHandJointLocationsEXT locations{XR_TYPE_HAND_JOINT_LOCATIONS_EXT};
+                locations.next = &velocities;
+                locations.jointCount = XR_HAND_JOINT_COUNT_EXT;
+                locations.jointLocations = jointLocations[hand].data();
+
+                XrHandJointsLocateInfoEXT locateInfo{XR_TYPE_HAND_JOINTS_LOCATE_INFO_EXT};
+                locateInfo.baseSpace = localSpace;
+                locateInfo.time = frameIterator.frameState.predictedDisplayTime;
+                REQUIRE(XR_ERROR_VALIDATION_FAILURE == xrLocateHandJointsEXT(handTracker[hand], &locateInfo, &locations));
+            }
+
+            for (size_t i = 0; i < HAND_COUNT; ++i) {
                 REQUIRE(XR_SUCCESS == xrDestroyHandTrackerEXT(handTracker[i]));
             }
         }

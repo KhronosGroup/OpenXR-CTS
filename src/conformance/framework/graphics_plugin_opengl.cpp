@@ -14,32 +14,28 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include <memory>
-#include "graphics_plugin.h"
-
 #ifdef XR_USE_GRAPHICS_API_OPENGL
 
+#include "common/xr_linear.h"
+#include "conformance_framework.h"
+#include "graphics_plugin.h"
+#include "graphics_plugin_impl_helpers.h"
 #include "report.h"
 #include "swapchain_image_data.h"
-#include "graphics_plugin_impl_helpers.h"
-#include "swapchain_parameters.h"
-
+#include "utilities/Geometry.h"
+#include "utilities/swapchain_parameters.h"
+#include "utilities/throw_helpers.h"
 #include "xr_dependencies.h"
-
-#include "conformance_framework.h"
-#include "throw_helpers.h"
-#include "Geometry.h"
 
 #include <catch2/catch_test_macros.hpp>
 #include <openxr/openxr_platform.h>
 #include <openxr/openxr.h>
+
 #include <algorithm>
 #include <thread>
+#include <memory>
 
-// Why was this needed? hello_xr doesn't need these #defines
-//#include "graphics_plugin_opengl_loader.h"
 #include "gfxwrapper_opengl.h"
-#include "xr_linear.h"
 
 // clang-format off
 
@@ -605,6 +601,8 @@ namespace Conformance
         XrGraphicsBindingOpenGLXlibKHR graphicsBinding{XR_TYPE_GRAPHICS_BINDING_OPENGL_XLIB_KHR};
 #elif defined(XR_USE_PLATFORM_XCB)
         XrGraphicsBindingOpenGLXcbKHR graphicsBinding{XR_TYPE_GRAPHICS_BINDING_OPENGL_XCB_KHR};
+#elif defined(XR_USE_PLATFORM_MACOS)
+#error OpenGL bindings for Mac have not been implemented
 #else
 #error "Platform not (yet) supported."
 #endif
@@ -691,7 +689,7 @@ namespace Conformance
                 GetInstanceExtensionFunction<PFN_xrGetOpenGLGraphicsRequirementsKHR>(instance, "xrGetOpenGLGraphicsRequirementsKHR");
 
             XrResult result = xrGetOpenGLGraphicsRequirementsKHR(instance, systemId, &graphicsRequirements);
-            CHECK(ValidateResultAllowed("xrGetOpenGLGraphicsRequirementsKHR", result));
+            XRC_CHECK_THROW(ValidateResultAllowed("xrGetOpenGLGraphicsRequirementsKHR", result));
             if (XR_FAILED(result)) {
                 // Log result?
                 return false;
@@ -723,26 +721,28 @@ namespace Conformance
         graphicsBinding.hDC = window.context.hDC;
         graphicsBinding.hGLRC = window.context.hGLRC;
 #elif defined(XR_USE_PLATFORM_XLIB)
-        REQUIRE(window.context.xDisplay != nullptr);
+        XRC_CHECK_THROW(window.context.xDisplay != nullptr);
         graphicsBinding.xDisplay = window.context.xDisplay;
         graphicsBinding.visualid = window.context.visualid;
         graphicsBinding.glxFBConfig = window.context.glxFBConfig;
         graphicsBinding.glxDrawable = window.context.glxDrawable;
         graphicsBinding.glxContext = window.context.glxContext;
 #elif defined(XR_USE_PLATFORM_XCB)
-        REQUIRE(window.context.connection != nullptr);
+        XRC_CHECK_THROW(window.context.connection != nullptr);
         graphicsBinding.connection = window.context.connection;
         graphicsBinding.screenNumber = window.context.screen_number;
         graphicsBinding.fbconfigid = window.context.fbconfigid;
         graphicsBinding.visualid = window.context.visualid;
         graphicsBinding.glxDrawable = window.context.glxDrawable;
         graphicsBinding.glxContext = window.context.glxContext;
+#elif defined(XR_USE_PLATFORM_MACOS)
+#error OpenGL bindings for Mac have not been implemented
 #else
 #error "Platform not (yet) supported."
 #endif
 
         GLenum error = glGetError();
-        CHECK(error == GL_NO_ERROR);
+        XRC_CHECK_THROW(error == GL_NO_ERROR);
 
         GLint major, minor;
         glGetIntegerv(GL_MAJOR_VERSION, &major);
@@ -810,6 +810,7 @@ namespace Conformance
         ReportF("GL %s (0x%x): %s", sev, id, message);
 #else
         (void)severity;
+        (void)message;
 #endif  // !defined(OS_APPLE_MACOS)
     }
 
@@ -1107,6 +1108,7 @@ namespace Conformance
     bool OpenGLGraphicsPlugin::ValidateSwapchainImages(int64_t imageFormat, const SwapchainCreateTestParameters* tp, XrSwapchain swapchain,
                                                        uint32_t* imageCount) const
     {
+        // OK to use CHECK and REQUIRE in here because this is always called from within a test.
         *imageCount = 0;  // Zero until set below upon success.
 
         std::vector<XrSwapchainImageOpenGLKHR> swapchainImageVector;

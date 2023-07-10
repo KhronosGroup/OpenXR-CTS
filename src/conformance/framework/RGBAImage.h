@@ -4,9 +4,9 @@
 
 #pragma once
 
-#include <vector>
 #include <openxr/openxr.h>
-#include <cmath>
+
+#include <vector>
 
 namespace Conformance
 {

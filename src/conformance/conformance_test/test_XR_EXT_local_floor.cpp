@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2022, The Khronos Group Inc.
+// Copyright (c) 2019-2023, The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -14,12 +14,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "utils.h"
+#include "utilities/utils.h"
 #include "conformance_utils.h"
+#include "two_call.h"
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/catch_approx.hpp>
+#include <catch2/matchers/catch_matchers_contains.hpp>
 #include <openxr/openxr.h>
-#include "two_call.h"
+#include <algorithm>
 
 using namespace Conformance;
 
@@ -51,8 +53,7 @@ namespace Conformance
             AutoBasicSession session(AutoBasicSession::OptionFlags::createSession, instance);
 
             std::vector<XrReferenceSpaceType> refSpaceTypes = CHECK_TWO_CALL(XrReferenceSpaceType, {}, xrEnumerateReferenceSpaces, session);
-
-            REQUIRE(std::find(refSpaceTypes.begin(), refSpaceTypes.end(), XR_REFERENCE_SPACE_TYPE_LOCAL_FLOOR_EXT) != refSpaceTypes.end());
+            REQUIRE_THAT(refSpaceTypes, Catch::Matchers::Contains(XR_REFERENCE_SPACE_TYPE_LOCAL_FLOOR_EXT));
 
             XrReferenceSpaceCreateInfo localFloorCreateInfo{XR_TYPE_REFERENCE_SPACE_CREATE_INFO};
             localFloorCreateInfo.referenceSpaceType = XR_REFERENCE_SPACE_TYPE_LOCAL_FLOOR_EXT;

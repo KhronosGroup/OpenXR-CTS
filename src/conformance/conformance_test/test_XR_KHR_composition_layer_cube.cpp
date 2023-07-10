@@ -14,19 +14,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "utils.h"
-#include "conformance_utils.h"
 #include "conformance_framework.h"
-#include "bitmask_generator.h"
-#include "bitmask_to_string.h"
-#include <array>
-#include <vector>
-#include <set>
-#include <string>
-#include <cstring>
-#include <limits>
+#include "conformance_utils.h"
+#include "utilities/generator.h"
+#include "utilities/bitmask_generator.h"
+#include "utilities/bitmask_to_string.h"
+
 #include <catch2/catch_test_macros.hpp>
 #include <openxr/openxr.h>
+
+#include <array>
+#include <chrono>
+#include <memory>
+#include <ostream>
+#include <ratio>
+#include <vector>
 
 namespace Conformance
 {

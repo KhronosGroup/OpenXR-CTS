@@ -17,8 +17,11 @@
 #include "conformance_utils.h"
 #include "conformance_framework.h"
 #include "two_call.h"
+
 #include <catch2/catch_test_macros.hpp>
 #include <openxr/openxr.h>
+
+#include <vector>
 
 namespace Conformance
 {

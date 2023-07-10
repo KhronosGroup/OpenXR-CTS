@@ -14,33 +14,46 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include <cstdint>
-#include <memory>
-#include <tuple>
 #include "graphics_plugin.h"
-#include "openxr/openxr.h"
 
 #ifdef XR_USE_GRAPHICS_API_VULKAN
 
-#include "vulkan_utils.h"
+#include "RGBAImage.h"
+#include "common/hex_and_handles.h"
+#include "common/xr_linear.h"
+#include "graphics_plugin_impl_helpers.h"
+#include "report.h"
+#include "swapchain_image_data.h"
+#include "utilities/Geometry.h"
+#include "utilities/swapchain_parameters.h"
+#include "utilities/throw_helpers.h"
+#include "utilities/vulkan_utils.h"
+#include "xr_dependencies.h"
+
+#include <openxr/openxr.h>
+#include <openxr/openxr_platform.h>
+#include <catch2/catch_message.hpp>
+#include <catch2/catch_test_macros.hpp>
 
 #include <algorithm>
-#include <list>
+#include <array>
+#include <cstdint>
+#include <iterator>
+#include <map>
+#include <memory>
+#include <string>
+#include <tuple>
+#include <type_traits>
+#include <utility>
+#include <vector>
+
+#ifdef USE_CHECKPOINTS
 #include <unordered_set>
-#include "report.h"
-#include "hex_and_handles.h"
-#include "swapchain_image_data.h"
-#include "graphics_plugin_impl_helpers.h"
-#include "throw_helpers.h"
-#include "swapchain_parameters.h"
-#include "conformance_framework.h"
-#include "xr_dependencies.h"
-#include "Geometry.h"
-#include <common/xr_linear.h>
-#include <openxr/openxr_platform.h>
+#endif
 
 namespace Conformance
 {
+    struct IPlatformPlugin;
 
 #ifdef USE_ONLINE_VULKAN_SHADERC
     constexpr char VertexShaderGlsl[] =
@@ -349,7 +362,7 @@ namespace Conformance
                 break;
         }
 
-        CHECK(foundFmt < surfFmtCount);
+        XRC_CHECK_THROW(foundFmt < surfFmtCount);
 
         uint32_t presentModeCount = 0;
         XRC_CHECK_THROW_VKCMD(vkGetPhysicalDeviceSurfacePresentModesKHR(m_vkPhysicalDevice, surface, &presentModeCount, nullptr));
@@ -367,7 +380,7 @@ namespace Conformance
 
         VkBool32 presentable = false;
         XRC_CHECK_THROW_VKCMD(vkGetPhysicalDeviceSurfaceSupportKHR(m_vkPhysicalDevice, m_queueFamilyIndex, surface, &presentable));
-        CHECK(presentable);
+        XRC_CHECK_THROW(presentable);
 
         VkSwapchainCreateInfoKHR swapchainInfo{VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR};
         swapchainInfo.flags = 0;
@@ -1623,6 +1636,7 @@ namespace Conformance
     bool VulkanGraphicsPlugin::ValidateSwapchainImages(int64_t /*imageFormat*/, const SwapchainCreateTestParameters* /*tp*/,
                                                        XrSwapchain swapchain, uint32_t* imageCount) const noexcept(false)
     {
+        // OK to use CHECK and REQUIRE in here because this is always called from within a test.
         *imageCount = 0;  // Zero until set below upon success.
 
         std::vector<XrSwapchainImageVulkanKHR> swapchainImageVector;
@@ -1666,6 +1680,7 @@ namespace Conformance
 
     bool VulkanGraphicsPlugin::ValidateSwapchainImageState(XrSwapchain /*swapchain*/, uint32_t /*index*/, int64_t /*imageFormat*/) const
     {
+        // OK to use CHECK and REQUIRE in here because this is always called from within a test.
         // TODO: check VK_ACCESS_*? Mandate this in the spec?
         return true;
     }

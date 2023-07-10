@@ -16,25 +16,36 @@
 
 #pragma once
 
-#include <list>
-#include <utility>
-#include <vector>
-#include <map>
-#include <string>
-#include <atomic>
-#include <mutex>
-#include <thread>
-#include <memory>
-#include <openxr/openxr.h>
-#include <xr_linear.h>
-#include "graphics_plugin.h"
-#include "event_reader.h"
-#include "conformance_utils.h"
+#include "RGBAImage.h"
+#include "common/xr_linear.h"
 #include "conformance_framework.h"
-#include "throw_helpers.h"
+#include "conformance_utils.h"
+#include "graphics_plugin.h"
+#include "utilities/throw_helpers.h"
+#include "utilities/types_and_constants.h"
+
+#include "catch2/catch_test_macros.hpp"
+#include <openxr/openxr.h>
+
+#include <array>
+#include <atomic>
+#include <cstdint>
+#include <cstring>
+#include <functional>
+#include <list>
+#include <map>
+#include <memory>
+#include <mutex>
+#include <tuple>
+#include <type_traits>
+#include <vector>
 
 namespace Conformance
 {
+    class EventQueue;
+    class EventReader;
+    class ISwapchainImageData;
+
     RGBAImage CreateTextImage(int width, int height, const char* text, int fontHeight);
 
     XrPath StringToPath(XrInstance instance, const char* pathStr);
@@ -409,6 +420,13 @@ namespace Conformance
             }
 
             m_viewSpace = compositionHelper.CreateReferenceSpace(XR_REFERENCE_SPACE_TYPE_VIEW, XrPosef{{0, 0, 0, 1}, {0, 0, 0}});
+            m_localSpace = compositionHelper.CreateReferenceSpace(XR_REFERENCE_SPACE_TYPE_LOCAL, XrPosef{{0, 0, 0, 1}, {0, 0, 0}});
+
+            // description quad to the left, example image quad to the right, counter-rotated 15 degrees towards the viewer
+            m_descriptionQuadSpace = compositionHelper.CreateReferenceSpace(
+                XR_REFERENCE_SPACE_TYPE_VIEW, {Quat::FromAxisAngle(UpVector, 15 * MATH_PI / 180), {-0.5f, 0, -1.5f}});
+            m_exampleQuadSpace = compositionHelper.CreateReferenceSpace(
+                XR_REFERENCE_SPACE_TYPE_VIEW, {Quat::FromAxisAngle(UpVector, -15 * MATH_PI / 180), {0.5f, 0, -1.5f}});
 
             // Load example screenshot if available and set up the quad layer for it.
             {
@@ -423,16 +441,14 @@ namespace Conformance
                 }
 
                 // Create a quad to the right of the help text.
-                m_exampleQuad = compositionHelper.CreateQuadLayer(exampleSwapchain, m_viewSpace, 1.25f, {Quat::Identity, {0.5f, 0, -1.5f}});
-                XrQuaternionf_CreateFromAxisAngle(&m_exampleQuad->pose.orientation, &UpVector, -15 * MATH_PI / 180);
+                m_exampleQuad = compositionHelper.CreateQuadLayer(exampleSwapchain, m_exampleQuadSpace, 1.25f);
             }
 
             // Set up the quad layer for showing the help text to the left of the example image.
             m_descriptionQuad = compositionHelper.CreateQuadLayer(
-                m_compositionHelper.CreateStaticSwapchainImage(CreateTextImage(768, 768, descriptionText, 48)), m_viewSpace, 0.75f,
-                {Quat::Identity, {-0.5f, 0, -1.5f}});
+                compositionHelper.CreateStaticSwapchainImage(CreateTextImage(768, 768, descriptionText, 48)), m_descriptionQuadSpace,
+                0.75f);
             m_descriptionQuad->layerFlags |= XR_COMPOSITION_LAYER_BLEND_TEXTURE_SOURCE_ALPHA_BIT;
-            XrQuaternionf_CreateFromAxisAngle(&m_descriptionQuad->pose.orientation, &UpVector, 15 * MATH_PI / 180);
 
             constexpr uint32_t actionsWidth = 768, actionsHeight = 128;
             m_sceneActionsSwapchain = compositionHelper.CreateStaticSwapchainImage(
@@ -454,17 +470,21 @@ namespace Conformance
 
         bool EndFrame(const XrFrameState& frameState, std::vector<XrCompositionLayerBaseHeader*> layers = {})
         {
-            bool keepRunning = AppendLayers(layers);
+            bool keepRunning = AppendLayers(layers, frameState.predictedDisplayTime);
             keepRunning &= m_compositionHelper.PollEvents();
             m_compositionHelper.EndFrame(frameState.predictedDisplayTime, std::move(layers));
             return keepRunning;
         }
 
     private:
-        bool AppendLayers(std::vector<XrCompositionLayerBaseHeader*>& layers)
+        bool AppendLayers(std::vector<XrCompositionLayerBaseHeader*>& layers, XrTime predictedDisplayTime)
         {
+            LayerMode layerMode = GetLayerMode();
+            LayerMode lastLayerMode = m_lastLayerMode;
+            m_lastLayerMode = layerMode;
+
             // Add layer(s) based on the interaction mode.
-            switch (GetLayerMode()) {
+            switch (layerMode) {
             case LayerMode::Scene:
                 m_actionsQuad->subImage = m_compositionHelper.MakeDefaultSubImage(m_sceneActionsSwapchain);
                 layers.push_back(reinterpret_cast<XrCompositionLayerBaseHeader*>(m_actionsQuad));
@@ -475,6 +495,27 @@ namespace Conformance
                 break;
 
             case LayerMode::Help:
+                if (lastLayerMode != LayerMode::Help) {
+                    // convert a quad's reference space to local space when the help menu is opened
+                    // this avoids view-locking the help, allowing the user to read it more naturally
+                    auto placeQuad = [&](XrCompositionLayerQuad* quad, XrSpace quadSpace) {
+                        XrSpaceLocation quadInLocalSpace{XR_TYPE_SPACE_LOCATION};
+                        XRC_CHECK_THROW_XRCMD(xrLocateSpace(quadSpace, m_localSpace, predictedDisplayTime, &quadInLocalSpace));
+                        if (quadInLocalSpace.locationFlags & XR_SPACE_LOCATION_POSITION_VALID_BIT &&
+                            quadInLocalSpace.locationFlags & XR_SPACE_LOCATION_ORIENTATION_VALID_BIT) {
+                            quad->space = m_localSpace;
+                            quad->pose = quadInLocalSpace.pose;
+                        }
+                        else {
+                            // xrLocateSpace didn't return a valid pose, fall back to view space
+                            quad->space = quadSpace;
+                            quad->pose = XrPosefCPP{};
+                        }
+                    };
+                    placeQuad(m_descriptionQuad, m_descriptionQuadSpace);
+                    placeQuad(m_exampleQuad, m_exampleQuadSpace);
+                }
+
                 layers.push_back(reinterpret_cast<XrCompositionLayerBaseHeader*>(m_descriptionQuad));
                 layers.push_back(reinterpret_cast<XrCompositionLayerBaseHeader*>(m_exampleQuad));
 
@@ -525,11 +566,15 @@ namespace Conformance
         XrAction m_menu{XR_NULL_HANDLE};
 
         XrSpace m_viewSpace;
+        XrSpace m_localSpace;
         XrSwapchain m_sceneActionsSwapchain;
         XrSwapchain m_helpActionsSwapchain;
+        LayerMode m_lastLayerMode{LayerMode::Scene};
         XrCompositionLayerQuad* m_actionsQuad;
         XrCompositionLayerQuad* m_descriptionQuad;
+        XrSpace m_descriptionQuadSpace;
         XrCompositionLayerQuad* m_exampleQuad;
+        XrSpace m_exampleQuadSpace;
         std::vector<XrCompositionLayerBaseHeader*> m_sceneLayers;
     };
 }  // namespace Conformance

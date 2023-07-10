@@ -14,17 +14,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "utils.h"
-#include "conformance_utils.h"
 #include "conformance_framework.h"
+#include "conformance_utils.h"
+#include "graphics_plugin.h"
 #include "matchers.h"
-#include <array>
-#include <vector>
-#include <set>
-#include <string>
-#include <cstring>
+#include "utilities/types_and_constants.h"
+
 #include <catch2/catch_test_macros.hpp>
+#include <catch2/matchers/catch_matchers.hpp>
 #include <openxr/openxr.h>
+
+#include <initializer_list>
+#include <memory>
+#include <string>
 
 namespace Conformance
 {

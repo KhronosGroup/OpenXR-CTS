@@ -14,22 +14,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "utils.h"
-#include "conformance_utils.h"
-#include "conformance_framework.h"
-#include "matchers.h"
-#include <array>
-#include <vector>
-#include <set>
-#include <string>
-#include <cstring>
-#include <catch2/catch_test_macros.hpp>
-#include <openxr/openxr.h>
-
 #ifdef XR_USE_GRAPHICS_API_OPENGL
 
+#include "conformance_framework.h"
+#include "conformance_utils.h"
+#include "graphics_plugin.h"
+#include "matchers.h"
+#include "utilities/utils.h"
+
+#include <catch2/catch_test_macros.hpp>
+#include <openxr/openxr.h>
 #include "xr_dependencies.h"
 #include <openxr/openxr_platform.h>
+
+#include <string>
+#include <cstring>
 
 namespace Conformance
 {

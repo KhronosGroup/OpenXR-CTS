@@ -43,7 +43,7 @@ namespace
 
     void SetupConsole()
     {
-#if _WIN32  // Enable ANSI style color escape codes on Windows. Not enabled by default :-(
+#if defined(_WIN32)  // Enable ANSI style color escape codes on Windows. Not enabled by default :-(
         DWORD consoleMode;
         if (GetConsoleMode(GetStdHandle(STD_OUTPUT_HANDLE), &consoleMode)) {
             consoleMode |= ENABLE_VIRTUAL_TERMINAL_PROCESSING;

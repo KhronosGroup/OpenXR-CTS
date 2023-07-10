@@ -14,25 +14,40 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "catch2/catch_message.hpp"
-#include "utils.h"
+#include "action_utils.h"
+#include "composition_utils.h"
+#include "conformance_framework.h"
+#include "conformance_utils.h"
+#include "input_testinputdevice.h"
 #include "report.h"
 #include "two_call.h"
-#include "report.h"
-#include "conformance_utils.h"
-#include "bitmask_to_string.h"
-#include "conformance_framework.h"
-#include "composition_utils.h"
-#include "input_testinputdevice.h"
-#include "action_utils.h"
+#include "utilities/bitmask_to_string.h"
+#include "utilities/event_reader.h"
+#include "utilities/types_and_constants.h"
+#include "utilities/utils.h"
+
 #include <openxr/openxr.h>
+#include <openxr/openxr_reflection.h>
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/catch_approx.hpp>
+
+#include <algorithm>
 #include <chrono>
-#include <atomic>
-#include <set>
+#include <cstdint>
+#include <functional>
+#include <initializer_list>
+#include <iterator>
+#include <map>
+#include <memory>
+#include <ostream>
+#include <ratio>
 #include <regex>
+#include <set>
 #include <string>
+#include <tuple>
+#include <type_traits>
+#include <utility>
+#include <vector>
 
 using namespace std::chrono_literals;
 using namespace Conformance;

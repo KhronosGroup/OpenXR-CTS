@@ -15,25 +15,23 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "utils.h"
-#include "conformance_utils.h"
 #include "conformance_framework.h"
+#include "conformance_utils.h"
+#include "utilities/utils.h"
+
 #include <catch2/catch_test_macros.hpp>
-#include "throw_helpers.h"
+#include "utilities/throw_helpers.h"
+#include "utilities/system_properties_helper.h"
 
 #include <openxr/openxr.h>
 
+#include <cstring>
+#include <string>
+
 namespace Conformance
 {
-    static inline XrUuidEXT queryHeadsetId(XrInstance instance, XrSystemId systemId)
-    {
-        XrSystemHeadsetIdPropertiesMETA headsetId = {XR_TYPE_SYSTEM_HEADSET_ID_PROPERTIES_META};
-        XrSystemProperties systemProperties{XR_TYPE_SYSTEM_PROPERTIES};
-        systemProperties.next = &headsetId;
-
-        REQUIRE(XR_SUCCESS == xrGetSystemProperties(instance, systemId, &systemProperties));
-        return headsetId.id;
-    }
+    static const auto QueryHeadsetId = MakeSystemPropertiesChecker(
+        XrSystemHeadsetIdPropertiesMETA{XR_TYPE_SYSTEM_HEADSET_ID_PROPERTIES_META}, &XrSystemHeadsetIdPropertiesMETA::id);
 
     TEST_CASE("XR_META_headset_id", "[XR_META_headset_id]")
     {
@@ -49,7 +47,7 @@ namespace Conformance
                 AutoBasicInstance instance(AutoBasicInstance::createSystemId);
                 XrSystemId systemId = instance.systemId;
 
-                XrUuidEXT headsetId = queryHeadsetId(instance, systemId);
+                XrUuidEXT headsetId = QueryHeadsetId(instance, systemId);
 
                 // Validate headsetid has NOT been filled in
                 XrUuidEXT empty{};
@@ -67,7 +65,7 @@ namespace Conformance
 
             SECTION("Valid UUID returned")
             {
-                XrUuidEXT headsetId = queryHeadsetId(instance, systemId);
+                XrUuidEXT headsetId = QueryHeadsetId(instance, systemId);
 
                 // Validate headsetid has been filled in
                 XrUuidEXT empty{};
@@ -76,8 +74,8 @@ namespace Conformance
 
             SECTION("Consistent UUID returned")
             {
-                XrUuidEXT headsetId1 = queryHeadsetId(instance, systemId);
-                XrUuidEXT headsetId2 = queryHeadsetId(instance, systemId);
+                XrUuidEXT headsetId1 = QueryHeadsetId(instance, systemId);
+                XrUuidEXT headsetId2 = QueryHeadsetId(instance, systemId);
 
                 // Validate headsetid is consistent
                 REQUIRE(memcmp(&headsetId1, &headsetId2, sizeof(XrUuidEXT)) == 0);

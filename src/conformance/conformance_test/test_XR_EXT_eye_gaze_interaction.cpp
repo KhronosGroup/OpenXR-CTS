@@ -19,8 +19,9 @@
 #include "conformance_framework.h"
 #include "composition_utils.h"
 #include "two_call.h"
-#include "utils.h"
-#include "xr_linear.h"
+#include "utilities/utils.h"
+#include "utilities/system_properties_helper.h"
+#include "common/xr_linear.h"
 #include <catch2/catch_test_macros.hpp>
 
 using namespace Conformance;
@@ -38,15 +39,9 @@ namespace Conformance
     static constexpr XrVector3f kVectorUp{0, 1, 0};
     static constexpr XrVector3f kVectorForward{0, 0, -1};
 
-    static bool SystemSupportsEyeGazeInteraction(XrInstance instance, XrSystemId systemId)
-    {
-        XrSystemEyeGazeInteractionPropertiesEXT eyeGazeSystemProperties{XR_TYPE_SYSTEM_EYE_GAZE_INTERACTION_PROPERTIES_EXT};
-        XrSystemProperties systemProperties{XR_TYPE_SYSTEM_PROPERTIES, &eyeGazeSystemProperties};
-
-        REQUIRE(xrGetSystemProperties(instance, systemId, &systemProperties) == XR_SUCCESS);
-
-        return eyeGazeSystemProperties.supportsEyeGazeInteraction != XR_FALSE;
-    }
+    static const auto SystemSupportsEyeGazeInteraction =
+        MakeSystemPropertiesBoolChecker(XrSystemEyeGazeInteractionPropertiesEXT{XR_TYPE_SYSTEM_EYE_GAZE_INTERACTION_PROPERTIES_EXT},
+                                        &XrSystemEyeGazeInteractionPropertiesEXT::supportsEyeGazeInteraction);
 
     TEST_CASE("XR_EXT_eye_gaze_interaction", "[XR_EXT_eye_gaze_interaction][interactive][no_auto]")
     {

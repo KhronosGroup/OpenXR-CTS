@@ -14,16 +14,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "bitmask_to_string.h"
 #include "conformance_framework.h"
 #include "conformance_utils.h"
 #include "graphics_plugin.h"
 #include "matchers.h"
 #include "report.h"
 #include "swapchain_image_data.h"
-#include "swapchain_parameters.h"
-#include "types_and_constants.h"
-#include "utils.h"
+#include "utilities/bitmask_to_string.h"
+#include "utilities/swapchain_parameters.h"
+#include "utilities/throw_helpers.h"
+#include "utilities/types_and_constants.h"
+#include "utilities/utils.h"
 
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_vector.hpp>
@@ -73,7 +74,7 @@ namespace Conformance
             }
             {
                 INFO("Rendering to the swapchain(s)");
-                const XrSwapchainImageBaseHeader* image = swapchainImages->GetGenericColorImage(i);
+                const XrSwapchainImageBaseHeader* image = swapchainImages->GetGenericColorImage(colorImageIndex);
                 GetGlobalData().graphicsPlugin->ClearImageSlice(image, 0);
                 GetGlobalData().graphicsPlugin->RenderView(projectionView, image, {});
             }
@@ -205,30 +206,6 @@ namespace Conformance
                 // In this case we can only ever acquire once.
                 INFO("In the case of XR_SWAPCHAIN_CREATE_STATIC_IMAGE_BIT we must only allow a single acquire");
                 CHECK(xrAcquireSwapchainImage(swapchain, &imageAcquireInfo, &index) == XR_ERROR_CALL_ORDER_INVALID);
-            }
-            else {
-                // Real apps will acquire images more than once (though they will probably call xrEndFrame too)
-                // and this tends to trigger annoying-to-fix Vulkan validation errors in the runtime.
-                INFO("Acquire, wait, then release all the images in turn a second time");
-                for (uint32_t i = 0; i < imageCount; ++i) {
-                    CAPTURE(i);
-                    REQUIRE_RESULT_UNQUALIFIED_SUCCESS(xrAcquireSwapchainImage(swapchain, nullptr, &indexVector[i]));
-                }
-                // Wait/release all the images.
-                for (uint32_t i = 0; i < imageCount; ++i) {
-                    REQUIRE(GetGlobalData().graphicsPlugin->ValidateSwapchainImageState(swapchain, indexVector[i], imageFormat));
-                    XrSwapchainImageWaitInfo imageWaitInfo{XR_TYPE_SWAPCHAIN_IMAGE_WAIT_INFO};
-                    imageWaitInfo.timeout = 500_xrMilliseconds;  // Call can block waiting for image to become available for writing.
-                    REQUIRE_RESULT_UNQUALIFIED_SUCCESS(xrWaitSwapchainImage(swapchain, &imageWaitInfo));
-
-                    // Another wait should fail with XR_ERROR_CALL_ORDER_INVALID.
-                    CHECK(xrWaitSwapchainImage(swapchain, &imageWaitInfo) == XR_ERROR_CALL_ORDER_INVALID);
-
-                    // For odd values of i we exercise that runtimes must accept NULL image release info.
-                    XrSwapchainImageReleaseInfo imageReleaseInfo{XR_TYPE_SWAPCHAIN_IMAGE_RELEASE_INFO};
-                    const XrSwapchainImageReleaseInfo* imageReleaseInfoToUse = ((i % 2) ? &imageReleaseInfo : nullptr);
-                    REQUIRE_RESULT_UNQUALIFIED_SUCCESS(xrReleaseSwapchainImage(swapchain, imageReleaseInfoToUse));
-                }
             }
 
             // To do: Is there a way to exercise xrWaitSwapchainImage XR_TIMEOUT_EXPIRED? It seems that the only
@@ -625,5 +602,73 @@ namespace Conformance
                 }
             }
         }
+    }
+
+    TEST_CASE("SwapchainsAcquire", "")
+    {
+        GlobalData& globalData = GetGlobalData();
+        if (!globalData.IsUsingGraphicsPlugin()) {
+            // Nothing to check - no graphics plugin means no swapchain
+            return;
+        }
+
+        // Set up the session we will use for the testing
+        AutoBasicSession session(AutoBasicSession::beginSession | AutoBasicSession::createActions | AutoBasicSession::createSpaces |
+                                 AutoBasicSession::createSwapchains);
+
+        auto graphicsPlugin = globalData.GetGraphicsPlugin();
+
+        // how long the test should wait for the app to get focus: 10 seconds in release, infinite in debug builds.
+        auto timeout = (GetGlobalData().options.debugMode ? 3600s : 10s);
+        CAPTURE(timeout);
+
+        FrameIterator frameIterator(&session);
+        FrameIterator::RunResult runResult = frameIterator.RunToSessionState(XR_SESSION_STATE_FOCUSED, timeout);
+        REQUIRE(runResult == FrameIterator::RunResult::Success);
+
+        XrSwapchain swapchain{XR_NULL_HANDLE};
+        XrExtent2Di widthHeight{0, 0};  // 0,0 means Use defaults.
+        REQUIRE_RESULT_UNQUALIFIED_SUCCESS(CreateColorSwapchain(session, graphicsPlugin.get(), &swapchain, &widthHeight));
+
+        uint32_t imageCount = 0;
+        REQUIRE_RESULT_UNQUALIFIED_SUCCESS(xrEnumerateSwapchainImages(swapchain, 0, &imageCount, nullptr));
+        REQUIRE(imageCount > 0);
+        std::vector<uint32_t> indexVector(imageCount, UINT32_MAX);
+
+        //
+        {
+            for (int j = 0; j < 10; ++j) {
+                {
+                    // Real apps may acquire images more than once (though they will probably call xrEndFrame too)
+                    // and this tends to trigger annoying-to-fix Vulkan validation errors in the runtime.
+                    INFO("Acquire, wait, then release all the images in turn a second time");
+                    for (uint32_t i = 0; i < imageCount; ++i) {
+                        CAPTURE(i);
+                        REQUIRE_RESULT_UNQUALIFIED_SUCCESS(xrAcquireSwapchainImage(swapchain, nullptr, &indexVector[i]));
+                    }
+                    // Wait/release all the images.
+                    for (uint32_t i = 0; i < imageCount; ++i) {
+                        XrSwapchainImageWaitInfo imageWaitInfo{XR_TYPE_SWAPCHAIN_IMAGE_WAIT_INFO};
+                        imageWaitInfo.timeout = 500_xrMilliseconds;  // Call can block waiting for image to become available for writing.
+                        REQUIRE_RESULT_UNQUALIFIED_SUCCESS(xrWaitSwapchainImage(swapchain, &imageWaitInfo));
+
+                        // Another wait should fail with XR_ERROR_CALL_ORDER_INVALID.
+                        CHECK(xrWaitSwapchainImage(swapchain, &imageWaitInfo) == XR_ERROR_CALL_ORDER_INVALID);
+
+                        // For odd values of i we exercise that runtimes must accept NULL image release info.
+                        XrSwapchainImageReleaseInfo imageReleaseInfo{XR_TYPE_SWAPCHAIN_IMAGE_RELEASE_INFO};
+                        const XrSwapchainImageReleaseInfo* imageReleaseInfoToUse = ((i % 2) ? &imageReleaseInfo : nullptr);
+                        REQUIRE_RESULT_UNQUALIFIED_SUCCESS(xrReleaseSwapchainImage(swapchain, imageReleaseInfoToUse));
+                    }
+                }
+
+                if ((j % 2) == 0) {
+                    runResult = frameIterator.SubmitFrame();
+                    REQUIRE(runResult == FrameIterator::RunResult::Success);
+                }
+            }
+        }
+
+        REQUIRE_RESULT_UNQUALIFIED_SUCCESS(xrDestroySwapchain(swapchain));
     }
 }  // namespace Conformance

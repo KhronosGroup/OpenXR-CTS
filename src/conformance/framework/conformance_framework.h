@@ -16,19 +16,26 @@
 
 #pragma once
 
-#include <chrono>
-#include <sstream>
-#include <string>
-#include <vector>
-#include <mutex>
-#include <stdarg.h>
+#include "conformance_utils.h"
+#include "utilities/stringification.h"
+#include "utilities/types_and_constants.h"
+#include "utilities/utils.h"
+
 #include <openxr/openxr.h>
 #include <openxr/openxr_reflection.h>
-#include "utils.h"
-#include "conformance_utils.h"
-#include "platform_plugin.h"
-#include "graphics_plugin.h"
+
 #include <catch2/catch_test_macros.hpp>
+#include <catch2/catch_message.hpp>
+#include <catch2/catch_tostring.hpp>
+
+#include <memory>
+#include <mutex>
+#include <sstream>
+#include <stdexcept>
+#include <string>
+#include <vector>
+#include <chrono>
+#include <cstdint>
 
 #ifdef XR_USE_PLATFORM_WIN32
 #include "windows.h"
@@ -112,12 +119,6 @@ void Conformance_Android_Detach_Current_Thread();
 
 /// @}
 
-#define XRC_CHECK_STRINGIFY(x) #x
-#define XRC_TO_STRING(x) XRC_CHECK_STRINGIFY(x)
-
-/// Represents a compile time file and line location as a single string.
-#define XRC_FILE_AND_LINE __FILE__ ":" XRC_TO_STRING(__LINE__)
-
 #if defined(XR_USE_PLATFORM_ANDROID)
 #define ATTACH_THREAD Conformance_Android_Attach_Current_Thread()
 #define DETACH_THREAD Conformance_Android_Detach_Current_Thread()
@@ -133,6 +134,8 @@ void Conformance_Android_Detach_Current_Thread();
 
 namespace Conformance
 {
+    struct IGraphicsPlugin;
+    struct IPlatformPlugin;
     /// Specifies runtime options for the application.
     /// String options are case-insensitive.
     /// Each of these can be specified from the command line via a command of the same name as
@@ -168,9 +171,9 @@ namespace Conformance
         XrViewConfigurationType viewConfigurationValue{XR_VIEW_CONFIGURATION_TYPE_PRIMARY_STEREO};
 
         /// Options include "opaque" "additive" "alphablend". See enum XrEnvironmentBlendMode.
-        /// Default is opaque.
-        std::string environmentBlendMode{"Opaque"};
-        XrEnvironmentBlendMode environmentBlendModeValue{XR_ENVIRONMENT_BLEND_MODE_OPAQUE};
+        /// Default is the first enumerated value
+        std::string environmentBlendMode{};
+        XrEnvironmentBlendMode environmentBlendModeValue{(XrEnvironmentBlendMode)0};
 
         /// Options can vary depending on their platform availability. If a requested API layer is
         /// not supported then the test fails.
@@ -205,6 +208,10 @@ namespace Conformance
         /// If true then all test diagnostics are reported with the file/line that they occurred on.
         /// Default is true (enabled).
         bool fileLineLoggingEnabled{true};
+
+        /// If true then xrGetSystem will be attempted repeatedly for a limited time at the beginning of a run
+        /// before beginning a test case.
+        bool pollGetSystem{false};
 
         /// Defines if executing in debug mode. By default this follows the build type.
         bool debugMode
@@ -417,6 +424,9 @@ namespace Conformance
 
         /// The interaction profiles that have been requested to be tested.
         StringVec enabledInteractionProfiles;
+
+        /// The environment blend modes available for the view configuration type.
+        std::vector<XrEnvironmentBlendMode> availableBlendModes;
 
         /// Whether each controller is to be used during testing
         bool leftHandUnderTest{false};

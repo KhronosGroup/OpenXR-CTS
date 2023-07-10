@@ -14,18 +14,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include <array>
-#include <thread>
-#include <numeric>
-#include "utils.h"
-#include "report.h"
-#include "conformance_utils.h"
-#include "conformance_framework.h"
-#include "throw_helpers.h"
+#include "common/xr_linear.h"
 #include "composition_utils.h"
+#include "conformance_framework.h"
+#include "utilities/throw_helpers.h"
+#include "utilities/utils.h"
+
 #include <catch2/catch_test_macros.hpp>
 #include <openxr/openxr.h>
-#include <xr_linear.h>
+
+#include <array>
 
 using namespace Conformance;
 

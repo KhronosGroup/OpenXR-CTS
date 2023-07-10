@@ -14,20 +14,23 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "utils.h"
+#include "utilities/utils.h"
 #include "conformance_utils.h"
 #include "conformance_framework.h"
-#include "throw_helpers.h"
+#include "utilities/throw_helpers.h"
 #include "matchers.h"
-#include <array>
-#include <vector>
-#include <set>
-#include <string>
-#include <cstring>
-#include <thread>
+
 #include <catch2/catch_test_macros.hpp>
 #include <openxr/openxr.h>
 #include <openxr/openxr_reflection.h>
+
+#include <algorithm>
+#include <chrono>
+#include <initializer_list>
+#include <ratio>
+#include <string>
+#include <thread>
+#include <vector>
 
 #define AS_LIST(name, val) name,
 constexpr XrViewConfigurationType KnownViewTypes[] = {XR_LIST_ENUM_XrViewConfigurationType(AS_LIST)};

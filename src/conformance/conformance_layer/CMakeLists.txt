@@ -88,6 +88,12 @@ if(ANDROID)
     target_link_libraries(XrApiLayer_runtime_conformance ${ANDROID_LOG_LIBRARY})
 endif()
 
+if(APPLE)
+    set_target_properties(XrApiLayer_runtime_conformance PROPERTIES LINK_FLAGS "-Wl,-exported_symbols_list,${CMAKE_CURRENT_SOURCE_DIR}/XrApiLayer_conformance_layer.expsym")
+elseif(NOT WIN32)
+    set_target_properties(XrApiLayer_runtime_conformance PROPERTIES LINK_FLAGS "-Wl,-Bsymbolic,--exclude-libs,ALL")
+endif()
+
 if(BUILD_CONFORMANCE_CLI)
     # Copy conformance layer files to conformance_cli binary folder
     add_custom_command(TARGET XrApiLayer_runtime_conformance POST_BUILD
@@ -95,6 +101,8 @@ if(BUILD_CONFORMANCE_CLI)
         COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_BINARY_DIR}/XrApiLayer_runtime_conformance.json $<TARGET_PROPERTY:conformance_cli,BINARY_DIR>
     )
 endif()
+
+set_target_properties(XrApiLayer_runtime_conformance PROPERTIES FOLDER ${CONFORMANCE_TESTS_FOLDER})
 
 install(
     FILES ${CMAKE_CURRENT_BINARY_DIR}/XrApiLayer_runtime_conformance.json

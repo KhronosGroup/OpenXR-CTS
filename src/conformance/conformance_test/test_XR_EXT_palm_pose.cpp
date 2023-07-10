@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2021, The Khronos Group Inc.
+// Copyright (c) 2019-2023, The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -14,18 +14,27 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include <array>
-#include <thread>
-#include <numeric>
-#include "utils.h"
-#include "report.h"
-#include "conformance_utils.h"
-#include "conformance_framework.h"
-#include "throw_helpers.h"
+#include "RGBAImage.h"
+#include "common/xr_linear.h"
 #include "composition_utils.h"
+#include "conformance_framework.h"
+#include "graphics_plugin.h"
+#include "utilities/stringification.h"
+#include "utilities/throw_helpers.h"
+#include "utilities/types_and_constants.h"
+#include "utilities/utils.h"
+
 #include <catch2/catch_test_macros.hpp>
 #include <openxr/openxr.h>
-#include <xr_linear.h>
+
+#include <cstdint>
+#include <cstring>
+#include <array>
+#include <functional>
+#include <memory>
+#include <tuple>
+#include <type_traits>
+#include <vector>
 
 using namespace Conformance;
 
@@ -315,7 +324,7 @@ namespace Conformance
         auto update = [&](const XrFrameState& frameState) {
             std::vector<Cube> renderedCubes;
 
-            const std::array<XrActiveActionSet, 1> activeActionSets = {{actionSet, XR_NULL_PATH}};
+            const std::array<XrActiveActionSet, 1> activeActionSets = {{{actionSet, XR_NULL_PATH}}};
             XrActionsSyncInfo syncInfo{XR_TYPE_ACTIONS_SYNC_INFO};
             syncInfo.activeActionSets = activeActionSets.data();
             syncInfo.countActiveActionSets = (uint32_t)activeActionSets.size();

@@ -18,22 +18,32 @@
 
 #ifdef XR_USE_GRAPHICS_API_OPENGL_ES
 
-#include "swapchain_image_data.h"
-#include "swapchain_parameters.h"
-#include "graphics_plugin_impl_helpers.h"
-#include "conformance_framework.h"
-#include "Geometry.h"
 #include "common/gfxwrapper_opengl.h"
-#include <common/xr_linear.h>
+#include "common/xr_linear.h"
+#include "conformance_framework.h"
+#include "graphics_plugin_impl_helpers.h"
+#include "report.h"
+#include "swapchain_image_data.h"
+#include "utilities/Geometry.h"
+#include "utilities/swapchain_parameters.h"
+#include "utilities/throw_helpers.h"
 #include "xr_dependencies.h"
+
+#include <catch2/catch_test_macros.hpp>
 #include <openxr/openxr.h>
 #include <openxr/openxr_platform.h>
-#include <list>
-#include <catch2/catch_test_macros.hpp>
-#include <unordered_map>
-#include <mutex>
-#include <atomic>
-#include "report.h"
+
+#include <algorithm>
+#include <array>
+#include <cstdint>
+#include <map>
+#include <memory>
+#include <stdexcept>
+#include <string>
+#include <tuple>
+#include <type_traits>
+#include <utility>
+#include <vector>
 
 #define GL(glcmd)                                                                         \
     {                                                                                     \
@@ -50,6 +60,7 @@
 
 namespace Conformance
 {
+    struct IPlatformPlugin;
     static const char* VertexShaderGlsl = R"_(
     #version 320 es
 
@@ -370,7 +381,7 @@ namespace Conformance
         std::tie(swapchainData, imageIndex) = m_swapchainImageDataMap.GetDataAndIndexFromBasePointer(swapchainImage);
 
         // auto imageInfoIt = m_imageInfo.find(swapchainImage);
-        // CHECK(imageInfoIt != m_imageInfo.end());
+        // XRC_CHECK_THROW(imageInfoIt != m_imageInfo.end());
 
         // SwapchainInfo& swapchainInfo = m_swapchainInfo[imageInfoIt->second.swapchainIndex];
         // GLuint arraySize = swapchainInfo.createInfo.arraySize;
@@ -414,7 +425,7 @@ namespace Conformance
                 GetInstanceExtensionFunction<PFN_xrGetOpenGLESGraphicsRequirementsKHR>(instance, "xrGetOpenGLESGraphicsRequirementsKHR");
 
             XrResult result = xrGetOpenGLESGraphicsRequirementsKHR(instance, systemId, &graphicsRequirements);
-            CHECK(ValidateResultAllowed("xrGetOpenGLESGraphicsRequirementsKHR", result));
+            XRC_CHECK_THROW(ValidateResultAllowed("xrGetOpenGLESGraphicsRequirementsKHR", result));
             if (XR_FAILED(result)) {
                 // Log result?
                 return false;
@@ -443,8 +454,8 @@ namespace Conformance
 
         // Initialize the binding once we have a context
         {
-            REQUIRE(window.display != EGL_NO_DISPLAY);
-            REQUIRE(window.context.context != EGL_NO_CONTEXT);
+            XRC_CHECK_THROW(window.display != EGL_NO_DISPLAY);
+            XRC_CHECK_THROW(window.context.context != EGL_NO_CONTEXT);
             graphicsBinding = {XR_TYPE_GRAPHICS_BINDING_OPENGL_ES_ANDROID_KHR};
             graphicsBinding.display = window.display;
             graphicsBinding.config = (EGLConfig)0;
@@ -452,7 +463,7 @@ namespace Conformance
         }
 
         GLenum error = glGetError();
-        CHECK(error == GL_NO_ERROR);
+        XRC_CHECK_THROW(error == GL_NO_ERROR);
 
         GLint major, minor;
         GL(glGetIntegerv(GL_MAJOR_VERSION, &major));
@@ -859,6 +870,7 @@ namespace Conformance
     bool OpenGLESGraphicsPlugin::ValidateSwapchainImages(int64_t imageFormat, const SwapchainCreateTestParameters* tp,
                                                          XrSwapchain swapchain, uint32_t* imageCount) const
     {
+        // OK to use CHECK and REQUIRE in here because this is always called from within a test.
         *imageCount = 0;  // Zero until set below upon success.
 
         std::vector<XrSwapchainImageOpenGLESKHR> swapchainImageVector;

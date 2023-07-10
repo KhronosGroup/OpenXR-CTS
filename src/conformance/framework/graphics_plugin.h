@@ -18,7 +18,7 @@
 
 #include "platform_plugin.h"
 #include "conformance_utils.h"
-#include "Geometry.h"
+#include "utilities/Geometry.h"
 #include "RGBAImage.h"
 
 #include <openxr/openxr.h>

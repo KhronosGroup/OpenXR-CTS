@@ -17,23 +17,20 @@
 
 #pragma once
 
+#include "utilities/types_and_constants.h"
+#include "utilities/xrduration_literals.h"
+
 #include <openxr/openxr.h>
-#include <utility>
-#include <vector>
+
 #include <array>
-#include <map>
-#include <unordered_map>
-#include <string>
-#include <memory>
 #include <chrono>
+#include <cstdint>
+#include <cstring>
 #include <functional>
-
-#include <assert.h>
-#include <stdint.h>
-
-#include "utils.h"
-#include "types_and_constants.h"
-#include "event_reader.h"
+#include <string>
+#include <type_traits>
+#include <unordered_map>
+#include <vector>
 
 namespace Conformance
 {
@@ -41,25 +38,6 @@ namespace Conformance
 
     // Forward declarations
     struct IGraphicsPlugin;
-
-    /// We keep a private auto-generated map of all results and their string versions.
-    typedef std::map<XrResult, const char*> ResultStringMap;
-
-    const ResultStringMap& GetResultStringMap();
-
-    /// @addtogroup cts_framework
-    /// @{
-
-    /// Returns a string for a given XrResult, based on our accounting of the result strings, and not
-    /// based on the xrResultToString function.
-    /// Returns "<unknown>" if the result is not recognized.
-    ///
-    /// Example usage:
-    /// ```
-    /// XrResult result = xrPollEvent(instance, &eventData);
-    /// printf("%d: %s, resut, ResultToString(result));
-    /// ```
-    const char* ResultToString(XrResult result);
 
     /// PathToString
     ///
@@ -389,42 +367,6 @@ namespace Conformance
         }
     }
 
-    /// Example usage:
-    /// ```
-    /// XrDuration timeout = 10_xrSeconds;
-    /// ```
-    inline constexpr XrDuration operator"" _xrSeconds(unsigned long long value)
-    {
-        return (static_cast<int64_t>(value) * 1000 * 1000 * 1000);  // Convert seconds to XrDuration nanoseconds.
-    }
-
-    /// Example usage:
-    /// ```
-    /// XrDuration timeout = 10_xrMilliseconds;
-    /// ```
-    inline constexpr XrDuration operator"" _xrMilliseconds(unsigned long long value)
-    {
-        return (static_cast<int64_t>(value) * 1000 * 1000);  // Convert milliseconds to XrDuration nanoseconds.
-    }
-
-    /// Example usage:
-    /// ```
-    /// XrDuration timeout = 10_xrMicroseconds;
-    /// ```
-    inline constexpr XrDuration operator"" _xrMicroseconds(unsigned long long value)
-    {
-        return (static_cast<int64_t>(value) * 1000);  // Convert microseconds to XrDuration nanoseconds.
-    }
-
-    /// Example usage:
-    /// ```
-    /// XrDuration timeout = 10_xrNanoseconds;
-    /// ```
-    inline constexpr XrDuration operator"" _xrNanoseconds(unsigned long long value)
-    {
-        return static_cast<int64_t>(value);  // XrDuration is already in nanoseconds
-    }
-
     /// Implements a single-run stopwatch using std::chrono.
     class Stopwatch
     {
@@ -565,6 +507,10 @@ namespace Conformance
         XrSystemId systemId{XR_NULL_SYSTEM_ID};
     };
 
+    /// Output operator for the `XrInstance` handle in a @ref AutoBasicInstance
+    /// @relates AutoBasicInstance
+    std::ostream& operator<<(std::ostream& os, AutoBasicInstance const& inst);
+
     /// Finds an XrSystemId suitable for testing of additional functionality.
     XrResult FindBasicSystem(XrInstance instance, XrSystemId* systemId);
 
@@ -695,6 +641,10 @@ namespace Conformance
         std::vector<XrViewConfigurationView> viewConfigurationViewVector;
         std::vector<XrEnvironmentBlendMode> environmentBlendModeVector;
     };
+
+    /// Output operator for the `XrSession` handle in a @ref AutoBasicSession
+    /// @relates AutoBasicSession
+    std::ostream& operator<<(std::ostream& os, AutoBasicSession const& sess);
 
     bool WaitUntilPredicateWithTimeout(const std::function<bool()>& predicate, const std::chrono::nanoseconds timeout,
                                        const std::chrono::nanoseconds delay);

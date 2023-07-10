@@ -14,49 +14,39 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "graphics_plugin.h"
-
 #if defined(XR_USE_GRAPHICS_API_D3D12) && !defined(MISSING_DIRECTX_COLORS)
 
-#include "swapchain_image_data.h"
-#include "swapchain_parameters.h"
+#include "graphics_plugin.h"
+#include "common/xr_linear.h"
 #include "conformance_framework.h"
 #include "graphics_plugin_impl_helpers.h"
-#include "Geometry.h"
-#include "throw_helpers.h"
+#include "swapchain_image_data.h"
+#include "utilities/Geometry.h"
+#include "utilities/align_to.h"
+#include "utilities/array_size.h"
+#include "utilities/d3d_common.h"
+#include "utilities/swapchain_parameters.h"
+#include "utilities/throw_helpers.h"
+
+#include <catch2/catch_test_macros.hpp>
+
+#include <D3Dcompiler.h>
+#include <DirectXColors.h>
+#include <dxgiformat.h>
 #include <windows.h>
 #include <wrl/client.h>  // For Microsoft::WRL::ComPtr
-#include <common/xr_linear.h>
-#include <DirectXColors.h>
-#include <D3Dcompiler.h>
+
 #include <openxr/openxr_platform.h>
+
 #include <algorithm>
 #include <array>
 #include <functional>
-#include <catch2/catch_test_macros.hpp>
-
-#include <dxgiformat.h>
-#include "d3d_common.h"
 
 using namespace Microsoft::WRL;
 using namespace DirectX;
 
 namespace Conformance
 {
-    // The equivalent of C++17 std::size. A helper to get the dimension for an array.
-    template <typename T, size_t Size>
-    constexpr size_t ArraySize(const T (&/*unused*/)[Size]) noexcept
-    {
-        return Size;
-    }
-
-    template <uint32_t alignment>
-    constexpr uint32_t AlignTo(uint32_t n)
-    {
-        static_assert((alignment & (alignment - 1)) == 0, "The alignment must be power-of-two");
-        return (n + alignment - 1) & ~(alignment - 1);
-    }
-
     ComPtr<ID3D12Resource> CreateBuffer(ID3D12Device* d3d12Device, uint32_t size, D3D12_HEAP_TYPE heapType)
     {
         D3D12_RESOURCE_STATES d3d12ResourceState;
@@ -154,7 +144,7 @@ namespace Conformance
             }
 
             XRC_CHECK_THROW_HRCMD(cmdList->Close());
-            CHECK(ExecuteCommandList(cmdList.Get()));
+            XRC_CHECK_THROW(ExecuteCommandList(cmdList.Get()));
         }
     };
 
@@ -476,7 +466,7 @@ namespace Conformance
                     GetInstanceExtensionFunction<PFN_xrGetD3D12GraphicsRequirementsKHR>(instance, "xrGetD3D12GraphicsRequirementsKHR");
 
                 XrResult result = xrGetD3D12GraphicsRequirementsKHR(instance, systemId, &graphicsRequirements);
-                CHECK(ValidateResultAllowed("xrGetD3D12GraphicsRequirementsKHR", result));
+                XRC_CHECK_THROW(ValidateResultAllowed("xrGetD3D12GraphicsRequirementsKHR", result));
                 if (FAILED(result)) {
                     // Log result?
                     return false;
@@ -568,7 +558,7 @@ namespace Conformance
             XRC_CHECK_THROW_HRCMD(fence->SetName(L"CTS fence"));
 
             fenceEvent = ::CreateEvent(nullptr, FALSE, FALSE, nullptr);
-            CHECK(fenceEvent != nullptr);
+            XRC_CHECK_THROW(fenceEvent != nullptr);
 
             m_cubeMesh = MakeCubeMesh();
 
@@ -665,7 +655,7 @@ namespace Conformance
         cmdList->CopyTextureRegion(&dstLocation, 0 /* X */, 0 /* Y */, 0 /* Z */, &srcLocation, nullptr);
 
         XRC_CHECK_THROW_HRCMD(cmdList->Close());
-        CHECK(ExecuteCommandList(cmdList.Get()));
+        XRC_CHECK_THROW(ExecuteCommandList(cmdList.Get()));
 
         WaitForGpu();
     }
@@ -689,6 +679,7 @@ namespace Conformance
     bool D3D12GraphicsPlugin::ValidateSwapchainImages(int64_t /*imageFormat*/, const SwapchainCreateTestParameters* tp,
                                                       XrSwapchain swapchain, uint32_t* imageCount) const noexcept(false)
     {
+        // OK to use CHECK and REQUIRE in here because this is always called from within a test.
         *imageCount = 0;  // Zero until set below upon success.
 
         std::vector<XrSwapchainImageD3D12KHR> swapchainImageVector;
@@ -754,6 +745,7 @@ namespace Conformance
 
     bool D3D12GraphicsPlugin::ValidateSwapchainImageState(XrSwapchain swapchain, uint32_t index, int64_t imageFormat) const
     {
+        // OK to use CHECK and REQUIRE in here because this is always called from within a test.
         std::vector<XrSwapchainImageD3D12KHR> swapchainImageVector;
         uint32_t countOutput;
 
@@ -978,7 +970,7 @@ namespace Conformance
         cmdList->ClearDepthStencilView(depthStencilView, D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, nullptr);
 
         XRC_CHECK_THROW_HRCMD(cmdList->Close());
-        CHECK(ExecuteCommandList(cmdList.Get()));
+        XRC_CHECK_THROW(ExecuteCommandList(cmdList.Get()));
     }
 
     inline MeshHandle D3D12GraphicsPlugin::MakeSimpleMesh(span<const uint16_t> idx, span<const Geometry::Vertex> vtx)
@@ -1122,7 +1114,7 @@ namespace Conformance
         }
 
         XRC_CHECK_THROW_HRCMD(cmdList->Close());
-        CHECK(ExecuteCommandList(cmdList.Get()));
+        XRC_CHECK_THROW(ExecuteCommandList(cmdList.Get()));
 
         // TODO: Track down exactly why this wait is needed.
         // On some drivers and/or hardware the test is generating the same image for the left and right eye,

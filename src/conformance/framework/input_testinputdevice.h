@@ -16,11 +16,17 @@
 
 #pragma once
 
+#include <openxr/openxr.h>
+
 #include <initializer_list>
-#include "composition_utils.h"
+#include <map>
+#include <memory>
+#include <string>
+#include <vector>
 
 namespace Conformance
 {
+    struct InteractionManager;
     struct InputSourcePathData
     {
         const char* Path;

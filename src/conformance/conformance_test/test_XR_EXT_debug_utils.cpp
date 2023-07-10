@@ -14,19 +14,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "utils.h"
+#include "utilities/utils.h"
 #include "conformance_utils.h"
 #include "conformance_framework.h"
-#include "throw_helpers.h"
-#include <algorithm>
-#include <array>
-#include <utility>
-#include <vector>
-#include <set>
-#include <string>
-#include <cstring>
+#include "utilities/throw_helpers.h"
+
 #include <catch2/catch_test_macros.hpp>
 #include <openxr/openxr.h>
+
+#include <algorithm>
+#include <utility>
+#include <vector>
+#include <string>
+#include <cstring>
 
 namespace Conformance
 {
@@ -147,9 +147,9 @@ namespace Conformance
 
         SECTION("xrCreateInstance debug utils not enabled")
         {
-            StringVec enabledApiLayers = globalData.enabledAPILayerNames;
+            auto enabledApiLayers = StringVec(globalData.enabledAPILayerNames);
             // Enable only the required platform extensions by default
-            StringVec enabledExtensions = globalData.requiredPlatformInstanceExtensions;
+            auto enabledExtensions = StringVec(globalData.requiredPlatformInstanceExtensions);
 
             XrInstance instance{XR_NULL_HANDLE};
             CleanupInstanceOnScopeExit cleanup(instance);
@@ -181,9 +181,9 @@ namespace Conformance
             // Note that this behavior will be implicitly validated by AutoBasicInstance when skipDebugMessenger
             // is not passed as an option, but we have an explicit test for this behavior too.
 
-            StringVec enabledApiLayers = globalData.enabledAPILayerNames;
+            auto enabledApiLayers = StringVec(globalData.enabledAPILayerNames);
             // Enable only the required platform extensions by default
-            StringVec enabledExtensions = globalData.requiredPlatformInstanceExtensions;
+            auto enabledExtensions = StringVec(globalData.requiredPlatformInstanceExtensions);
 
             XrDebugUtilsMessengerCreateInfoEXT debugInfo{XR_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT};
             debugInfo.messageSeverities = XR_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT | XR_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT |
