@@ -1,0 +1,4 @@
+---
+- issue.2053.gl
+---
+- Fix: Fix `<queries>` element contents in Android manifest.
