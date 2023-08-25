@@ -31,6 +31,7 @@
 
 #include <openxr/openxr.h>
 
+#include <cstdint>
 #include <vector>
 
 XRC_DISABLE_MSVC_WARNING(4505)  // unreferenced local function has been removed
@@ -310,35 +311,34 @@ namespace Conformance
     {
         std::vector<std::pair<std::string, XrSwapchainCreateInfo>> ret;
         const auto defaultCreateInfo = MakeDefaultSwapchainCreateInfo(imageFormat, tp);
-        {
+
+        auto emplaceCaseWithDimensions = [&](uint32_t width, uint32_t height, const char* message) {
             auto createInfo = defaultCreateInfo;
-            // Smallest compressed texture size is 4x4, use 8x8 to allow for future formats
-            createInfo.width = 8;
-            createInfo.height = 8;
-            ret.emplace_back("Very small texture, but larger than minimum compressed texture size", createInfo);
-        }
+            if (width != createInfo.width || height != createInfo.height) {
+
+                createInfo.width = width;
+                createInfo.height = height;
+                ret.emplace_back(message, createInfo);
+            }
+        };
+
+        // Smallest compressed texture size is 4x4, use 8x8 to allow for future formats
+        emplaceCaseWithDimensions(8, 8, "Very small texture, but larger than minimum compressed texture size");
 
         for (const auto& viewConfigView : session.viewConfigurationViewVector) {
-            {
-                auto createInfo = defaultCreateInfo;
-                createInfo.width = viewConfigView.recommendedImageRectWidth;
-                createInfo.height = viewConfigView.recommendedImageRectHeight;
-                ret.emplace_back("Recommended image size for view", createInfo);
-            }
-            {
-                auto createInfo = defaultCreateInfo;
-                createInfo.width = viewConfigView.maxImageRectWidth;
-                createInfo.height = viewConfigView.maxImageRectHeight;
-                ret.emplace_back("Max image size for view", createInfo);
-            }
+            emplaceCaseWithDimensions(viewConfigView.recommendedImageRectWidth, viewConfigView.recommendedImageRectHeight,
+                                      "Recommended image size for view");
+            emplaceCaseWithDimensions(viewConfigView.maxImageRectWidth, viewConfigView.maxImageRectHeight, "Max image size for view");
 
             if (!tp.compressedFormat) {
-                auto createInfo = defaultCreateInfo;
-                {
+                if (viewConfigView.recommendedSwapchainSampleCount != defaultCreateInfo.sampleCount) {
+                    auto createInfo = defaultCreateInfo;
                     createInfo.sampleCount = viewConfigView.recommendedSwapchainSampleCount;
                     ret.emplace_back("Recommended sample count", createInfo);
                 }
-                {
+
+                if (viewConfigView.maxSwapchainSampleCount != defaultCreateInfo.sampleCount) {
+                    auto createInfo = defaultCreateInfo;
                     createInfo.sampleCount = viewConfigView.maxSwapchainSampleCount;
                     ret.emplace_back("Max sample count", createInfo);
                 }
@@ -347,32 +347,42 @@ namespace Conformance
 
         for (const auto& cf : tp.createFlagsVector) {
             auto createInfo = defaultCreateInfo;
-            createInfo.createFlags = cf;
-            ret.emplace_back("Non-default create flags", createInfo);
+            if (cf != createInfo.createFlags) {
+                createInfo.createFlags = cf;
+                ret.emplace_back("Non-default create flags", createInfo);
+            }
         }
 
         for (const auto& sc : tp.sampleCountVector) {
             auto createInfo = defaultCreateInfo;
-            createInfo.sampleCount = sc;
-            ret.emplace_back("Non-default sample count", createInfo);
+            if (sc != createInfo.sampleCount) {
+                createInfo.sampleCount = sc;
+                ret.emplace_back("Non-default sample count", createInfo);
+            }
         }
 
         for (const auto& uf : tp.usageFlagsVector) {
             auto createInfo = defaultCreateInfo;
-            createInfo.usageFlags = (XrSwapchainUsageFlags)uf;
-            ret.emplace_back("Non-default usage flags", createInfo);
+            if (uf != createInfo.usageFlags) {
+                createInfo.usageFlags = (XrSwapchainUsageFlags)uf;
+                ret.emplace_back("Non-default usage flags", createInfo);
+            }
         }
 
         for (const auto& ac : tp.arrayCountVector) {
             auto createInfo = defaultCreateInfo;
-            createInfo.arraySize = ac;
-            ret.emplace_back("Non-default array size", createInfo);
+            if (ac != createInfo.arraySize) {
+                createInfo.arraySize = ac;
+                ret.emplace_back("Non-default array size", createInfo);
+            }
         }
 
         for (const auto& mc : tp.mipCountVector) {
             auto createInfo = defaultCreateInfo;
-            createInfo.mipCount = mc;
-            ret.emplace_back("Non-default mip count", createInfo);
+            if (mc != createInfo.mipCount) {
+                createInfo.mipCount = mc;
+                ret.emplace_back("Non-default mip count", createInfo);
+            }
         }
 
         return ret;

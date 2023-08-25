@@ -82,7 +82,6 @@ namespace Conformance
         const std::string message = "Waiting for " + hand + " controller to " + (expectLocatability ? "gain" : "lose") + " tracking...";
 
         bool success = WaitWithMessage(message.c_str(), [&]() {
-            GetRenderLoop().IterateFrame();
             REQUIRE_RESULT(xrLocateSpace(space, localSpace, GetRenderLoop().GetLastPredictedDisplayTime(), location), XR_SUCCESS);
 
             constexpr XrSpaceLocationFlags LocatableFlags = XR_SPACE_LOCATION_ORIENTATION_VALID_BIT | XR_SPACE_LOCATION_POSITION_VALID_BIT;

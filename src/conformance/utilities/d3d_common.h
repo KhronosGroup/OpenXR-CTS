@@ -3,11 +3,14 @@
 // SPDX-License-Identifier: Apache-2.0
 #pragma once
 
-#if (defined(XR_USE_GRAPHICS_API_D3D11) || defined(XR_USE_GRAPHICS_API_D3D12)) && !defined(MISSING_DIRECTX_COLORS)
+#if defined(XR_USE_GRAPHICS_API_D3D11) || defined(XR_USE_GRAPHICS_API_D3D12)
 #include <openxr/openxr.h>
 
 #include "common/xr_linear.h"
 #include "swapchain_parameters.h"
+
+#include <DirectXColors.h>
+#include <D3Dcompiler.h>
 
 #include <dxgi.h>
 #include <d3dcommon.h>

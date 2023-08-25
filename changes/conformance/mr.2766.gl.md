@@ -1,1 +1,1 @@
-Fix spelling.
+Fix: spelling.

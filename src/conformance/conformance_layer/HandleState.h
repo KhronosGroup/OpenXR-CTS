@@ -23,6 +23,7 @@
 
 #include <memory>
 #include <mutex>
+#include <stdexcept>
 #include <vector>
 
 struct ICustomHandleState

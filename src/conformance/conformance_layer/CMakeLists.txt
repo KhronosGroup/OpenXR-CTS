@@ -25,7 +25,6 @@ run_xr_xml_generate(conformance_layer_generator.py gen_dispatch.cpp
 run_xr_xml_generate(conformance_layer_generator.py gen_dispatch.h
     ${CMAKE_CURRENT_SOURCE_DIR}/../../scripts/template_gen_dispatch.h)
 
-
 add_library(XrApiLayer_runtime_conformance MODULE
     ${LOCAL_SOURCE}
     ${LOCAL_HEADERS}
@@ -43,7 +42,7 @@ source_group("Headers" FILES ${LOCAL_HEADERS})
 
 add_dependencies(XrApiLayer_runtime_conformance
     generate_openxr_header
-    xr_global_generated_files
+    xr_common_generated_files
 )
 
 target_include_directories(XrApiLayer_runtime_conformance
@@ -55,15 +54,15 @@ target_include_directories(XrApiLayer_runtime_conformance
     PRIVATE ${PROJECT_BINARY_DIR}/include
 #for common_config.h:
     PRIVATE ${PROJECT_BINARY_DIR}/src
+#for xr_generated_dispatch_table_all.h:
+    PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/../../api_layers
 )
 
 target_link_libraries(XrApiLayer_runtime_conformance Threads::Threads)
 
 if(MSVC)
-    # Right now can't build this on MinGW because of directxcolors, etc.
+    # Right now can't build this on MinGW because of directxcolors, directxmath, etc.
     target_link_libraries(XrApiLayer_runtime_conformance d3d11 d3d12 d3dcompiler dxgi)
-else()
-    target_compile_definitions(XrApiLayer_runtime_conformance PRIVATE MISSING_DIRECTX_COLORS)
 endif()
 
 # Flag generated files

@@ -753,13 +753,13 @@ namespace Conformance
             swap(m_vkDevice, other.m_vkDevice);
             return *this;
         }
-        void Create(const VulkanDebugObjectNamer& namer, VkDevice device, VkImage aColorImage, VkImage aDepthImage, uint32_t baseArrayLayer,
-                    VkExtent2D size, RenderPass& renderPass)
+        void Create(const VulkanDebugObjectNamer& namer, VkDevice device, VkImage aColorImage, VkImage aDepthOrStencilImage,
+                    VkImageAspectFlags depthOrStencilImageAspect, uint32_t baseArrayLayer, VkExtent2D size, RenderPass& renderPass)
         {
             m_vkDevice = device;
 
             colorImage = aColorImage;
-            depthImage = aDepthImage;
+            depthImage = aDepthOrStencilImage;
 
             std::array<VkImageView, 2> attachments{};
             uint32_t attachmentCount = 0;
@@ -794,13 +794,25 @@ namespace Conformance
                 depthViewInfo.components.g = VK_COMPONENT_SWIZZLE_G;
                 depthViewInfo.components.b = VK_COMPONENT_SWIZZLE_B;
                 depthViewInfo.components.a = VK_COMPONENT_SWIZZLE_A;
-                depthViewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+                depthViewInfo.subresourceRange.aspectMask = depthOrStencilImageAspect;
                 depthViewInfo.subresourceRange.baseMipLevel = 0;
                 depthViewInfo.subresourceRange.levelCount = 1;
                 depthViewInfo.subresourceRange.baseArrayLayer = baseArrayLayer;
                 depthViewInfo.subresourceRange.layerCount = 1;
                 XRC_CHECK_THROW_VKCMD(vkCreateImageView(m_vkDevice, &depthViewInfo, nullptr, &depthView));
-                XRC_CHECK_THROW_VKCMD(namer.SetName(VK_OBJECT_TYPE_IMAGE_VIEW, (uint64_t)depthView, "CTS depth image view"));
+
+                const bool isDepth = depthOrStencilImageAspect & VK_IMAGE_ASPECT_DEPTH_BIT;
+                const bool isStencil = depthOrStencilImageAspect & VK_IMAGE_ASPECT_STENCIL_BIT;
+                if (isDepth && isStencil) {
+                    XRC_CHECK_THROW_VKCMD(namer.SetName(VK_OBJECT_TYPE_IMAGE_VIEW, (uint64_t)depthView, "CTS depth/stencil image view"));
+                }
+                else if (isDepth) {
+                    XRC_CHECK_THROW_VKCMD(namer.SetName(VK_OBJECT_TYPE_IMAGE_VIEW, (uint64_t)depthView, "CTS depth image view"));
+                }
+                else if (isStencil) {
+                    XRC_CHECK_THROW_VKCMD(namer.SetName(VK_OBJECT_TYPE_IMAGE_VIEW, (uint64_t)depthView, "CTS stencil image view"));
+                }
+
                 attachments[attachmentCount++] = depthView;
             }
 

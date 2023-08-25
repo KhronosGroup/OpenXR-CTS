@@ -36,7 +36,7 @@ namespace Conformance
         MakeSystemPropertiesBoolChecker(XrSystemHandTrackingPropertiesEXT{XR_TYPE_SYSTEM_HAND_TRACKING_PROPERTIES_EXT},
                                         &XrSystemHandTrackingPropertiesEXT::supportsHandTracking);
 
-    TEST_CASE("XR_EXT_hand_tracking", "")
+    TEST_CASE("XR_EXT_hand_tracking-create-destroy", "")
     {
         GlobalData& globalData = GetGlobalData();
         if (!globalData.IsInstanceExtensionSupported(XR_EXT_HAND_TRACKING_EXTENSION_NAME)) {
@@ -81,55 +81,60 @@ namespace Conformance
                     createInfo.hand = (i == 0 ? XR_HAND_LEFT_EXT : XR_HAND_RIGHT_EXT);
                     REQUIRE(XR_ERROR_FEATURE_UNSUPPORTED == xrCreateHandTrackerEXT(session, &createInfo, &tracker));
                 }
-
-                // This runtime does support hand tracking, but this headset does not
-                // support hand tracking, which is fine.
-                SKIP("System does not support hand tracking");
             }
-
-            std::array<XrHandTrackerEXT, HAND_COUNT> handTracker;
-            for (size_t i = 0; i < HAND_COUNT; ++i) {
-                XrHandTrackerCreateInfoEXT createInfo{XR_TYPE_HAND_TRACKER_CREATE_INFO_EXT};
-                createInfo.handJointSet = XR_HAND_JOINT_SET_DEFAULT_EXT;
-                createInfo.hand = (i == 0 ? XR_HAND_LEFT_EXT : XR_HAND_RIGHT_EXT);
-                REQUIRE(XR_SUCCESS == xrCreateHandTrackerEXT(session, &createInfo, &handTracker[i]));
-                REQUIRE(XR_SUCCESS == xrDestroyHandTrackerEXT(handTracker[i]));
+            else {
+                std::array<XrHandTrackerEXT, HAND_COUNT> handTracker;
+                for (size_t i = 0; i < HAND_COUNT; ++i) {
+                    XrHandTrackerCreateInfoEXT createInfo{XR_TYPE_HAND_TRACKER_CREATE_INFO_EXT};
+                    createInfo.handJointSet = XR_HAND_JOINT_SET_DEFAULT_EXT;
+                    createInfo.hand = (i == 0 ? XR_HAND_LEFT_EXT : XR_HAND_RIGHT_EXT);
+                    REQUIRE(XR_SUCCESS == xrCreateHandTrackerEXT(session, &createInfo, &handTracker[i]));
+                    REQUIRE(XR_SUCCESS == xrDestroyHandTrackerEXT(handTracker[i]));
+                }
             }
+        }
+    }
+
+    TEST_CASE("XR_EXT_hand_tracking-simple-queries")
+    {
+        GlobalData& globalData = GetGlobalData();
+        if (!globalData.IsInstanceExtensionSupported(XR_EXT_HAND_TRACKING_EXTENSION_NAME)) {
+            SKIP(XR_EXT_HAND_TRACKING_EXTENSION_NAME " not supported");
+        }
+
+        AutoBasicInstance instance({XR_EXT_HAND_TRACKING_EXTENSION_NAME}, AutoBasicInstance::createSystemId);
+
+        auto xrCreateHandTrackerEXT = GetInstanceExtensionFunction<PFN_xrCreateHandTrackerEXT>(instance, "xrCreateHandTrackerEXT");
+        auto xrDestroyHandTrackerEXT = GetInstanceExtensionFunction<PFN_xrDestroyHandTrackerEXT>(instance, "xrDestroyHandTrackerEXT");
+        auto xrLocateHandJointsEXT = GetInstanceExtensionFunction<PFN_xrLocateHandJointsEXT>(instance, "xrLocateHandJointsEXT");
+
+        XrSystemId systemId = instance.systemId;
+        if (!SystemSupportsHandTracking(instance, systemId)) {
+            // This runtime does support hand tracking, but this headset does not
+            // support hand tracking, which is fine.
+            SKIP("System does not support hand tracking");
+        }
+
+        AutoBasicSession session(AutoBasicSession::beginSession | AutoBasicSession::createActions | AutoBasicSession::createSpaces |
+                                     AutoBasicSession::createSwapchains,
+                                 instance);
+
+        std::array<XrHandTrackerEXT, HAND_COUNT> handTracker;
+        for (size_t i = 0; i < HAND_COUNT; ++i) {
+            XrHandTrackerCreateInfoEXT createInfo{XR_TYPE_HAND_TRACKER_CREATE_INFO_EXT};
+            createInfo.handJointSet = XR_HAND_JOINT_SET_DEFAULT_EXT;
+            createInfo.hand = (i == 0 ? XR_HAND_LEFT_EXT : XR_HAND_RIGHT_EXT);
+            REQUIRE(XR_SUCCESS == xrCreateHandTrackerEXT(session, &createInfo, &handTracker[i]));
         }
 
         SECTION("Query joint locations")
         {
-            AutoBasicInstance instance({XR_EXT_HAND_TRACKING_EXTENSION_NAME}, AutoBasicInstance::createSystemId);
-
-            auto xrCreateHandTrackerEXT = GetInstanceExtensionFunction<PFN_xrCreateHandTrackerEXT>(instance, "xrCreateHandTrackerEXT");
-            auto xrDestroyHandTrackerEXT = GetInstanceExtensionFunction<PFN_xrDestroyHandTrackerEXT>(instance, "xrDestroyHandTrackerEXT");
-            auto xrLocateHandJointsEXT = GetInstanceExtensionFunction<PFN_xrLocateHandJointsEXT>(instance, "xrLocateHandJointsEXT");
-
-            XrSystemId systemId = instance.systemId;
-            if (!SystemSupportsHandTracking(instance, systemId)) {
-                // This runtime does support hand tracking, but this headset does not
-                // support hand tracking, which is fine.
-                SKIP("System does not support hand tracking");
-            }
-
-            AutoBasicSession session(AutoBasicSession::beginSession | AutoBasicSession::createActions | AutoBasicSession::createSpaces |
-                                         AutoBasicSession::createSwapchains,
-                                     instance);
-
             XrSpace localSpace = XR_NULL_HANDLE;
 
             XrReferenceSpaceCreateInfo localSpaceCreateInfo{XR_TYPE_REFERENCE_SPACE_CREATE_INFO};
             localSpaceCreateInfo.poseInReferenceSpace = XrPosefCPP();
             localSpaceCreateInfo.referenceSpaceType = XR_REFERENCE_SPACE_TYPE_LOCAL;
             REQUIRE_RESULT(xrCreateReferenceSpace(session, &localSpaceCreateInfo, &localSpace), XR_SUCCESS);
-
-            std::array<XrHandTrackerEXT, HAND_COUNT> handTracker;
-            for (size_t i = 0; i < HAND_COUNT; ++i) {
-                XrHandTrackerCreateInfoEXT createInfo{XR_TYPE_HAND_TRACKER_CREATE_INFO_EXT};
-                createInfo.handJointSet = XR_HAND_JOINT_SET_DEFAULT_EXT;
-                createInfo.hand = (i == 0 ? XR_HAND_LEFT_EXT : XR_HAND_RIGHT_EXT);
-                REQUIRE(XR_SUCCESS == xrCreateHandTrackerEXT(session, &createInfo, &handTracker[i]));
-            }
 
             // Wait until the runtime is ready for us to begin a session
             auto timeout = (GetGlobalData().options.debugMode ? 3600s : 10s);
@@ -190,43 +195,16 @@ namespace Conformance
                     }
                 }
             }
-
-            for (size_t i = 0; i < HAND_COUNT; ++i) {
-                REQUIRE(XR_SUCCESS == xrDestroyHandTrackerEXT(handTracker[i]));
-            }
         }
 
         SECTION("Query invalid joint sets")
         {
-            AutoBasicInstance instance({XR_EXT_HAND_TRACKING_EXTENSION_NAME}, AutoBasicInstance::createSystemId);
-
-            auto xrCreateHandTrackerEXT = GetInstanceExtensionFunction<PFN_xrCreateHandTrackerEXT>(instance, "xrCreateHandTrackerEXT");
-            auto xrDestroyHandTrackerEXT = GetInstanceExtensionFunction<PFN_xrDestroyHandTrackerEXT>(instance, "xrDestroyHandTrackerEXT");
-            auto xrLocateHandJointsEXT = GetInstanceExtensionFunction<PFN_xrLocateHandJointsEXT>(instance, "xrLocateHandJointsEXT");
-
-            XrSystemId systemId = instance.systemId;
-            if (!SystemSupportsHandTracking(instance, systemId)) {
-                // This runtime does support hand tracking, but this headset does not
-                // support hand tracking, which is fine.
-                SKIP("System does not support hand tracking");
-            }
-
-            AutoBasicSession session(AutoBasicSession::beginSession, instance);
-
             XrSpace localSpace = XR_NULL_HANDLE;
 
             XrReferenceSpaceCreateInfo localSpaceCreateInfo{XR_TYPE_REFERENCE_SPACE_CREATE_INFO};
             localSpaceCreateInfo.poseInReferenceSpace = XrPosefCPP();
             localSpaceCreateInfo.referenceSpaceType = XR_REFERENCE_SPACE_TYPE_LOCAL;
             REQUIRE_RESULT(xrCreateReferenceSpace(session, &localSpaceCreateInfo, &localSpace), XR_SUCCESS);
-
-            std::array<XrHandTrackerEXT, HAND_COUNT> handTracker;
-            for (size_t i = 0; i < HAND_COUNT; ++i) {
-                XrHandTrackerCreateInfoEXT createInfo{XR_TYPE_HAND_TRACKER_CREATE_INFO_EXT};
-                createInfo.handJointSet = XR_HAND_JOINT_SET_DEFAULT_EXT;
-                createInfo.hand = (i == 0 ? XR_HAND_LEFT_EXT : XR_HAND_RIGHT_EXT);
-                REQUIRE(XR_SUCCESS == xrCreateHandTrackerEXT(session, &createInfo, &handTracker[i]));
-            }
 
             // Wait until the runtime is ready for us to begin a session
             auto timeout = (GetGlobalData().options.debugMode ? 3600s : 10s);
@@ -271,10 +249,10 @@ namespace Conformance
                 locateInfo.time = frameIterator.frameState.predictedDisplayTime;
                 REQUIRE(XR_ERROR_VALIDATION_FAILURE == xrLocateHandJointsEXT(handTracker[hand], &locateInfo, &locations));
             }
+        }
 
-            for (size_t i = 0; i < HAND_COUNT; ++i) {
-                REQUIRE(XR_SUCCESS == xrDestroyHandTrackerEXT(handTracker[i]));
-            }
+        for (size_t i = 0; i < HAND_COUNT; ++i) {
+            REQUIRE(XR_SUCCESS == xrDestroyHandTrackerEXT(handTracker[i]));
         }
     }
 

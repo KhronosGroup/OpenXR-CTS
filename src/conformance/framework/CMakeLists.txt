@@ -81,11 +81,8 @@ if(WIN32)
     target_compile_options(conformance_framework
                            PUBLIC /Zc:wchar_t /Zc:forScope /W4 /WX /wd4996)
 
-    # Right now can't build this on MinGW because of directxcolors, etc.
+    # Right now can't build this on MinGW because of directxcolors, directxmath, etc.
     target_link_libraries(conformance_framework PUBLIC d3d11 d3d12 d3dcompiler
                                                        dxgi)
-  else()
-    target_compile_definitions(conformance_framework
-                               PUBLIC MISSING_DIRECTX_COLORS)
   endif()
 endif()

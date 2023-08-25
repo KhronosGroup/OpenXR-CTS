@@ -10,6 +10,7 @@ add_library(
   event_reader.cpp
   Geometry.cpp
   stringification.cpp
+  swapchain_format_data.cpp
   types_and_constants.cpp
   utils.cpp)
 

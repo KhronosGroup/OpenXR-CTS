@@ -89,6 +89,12 @@ namespace Conformance
 
         /// Used only by color buffers.
         std::vector<uint32_t> mipCountVector;
+
+        /// Is this format usable as a depth buffer?
+        bool useAsDepth = false;
+
+        /// Is this format usable as a stencil buffer?
+        bool useAsStencil = false;
     };
 
 }  // namespace Conformance
