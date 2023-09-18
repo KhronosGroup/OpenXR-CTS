@@ -15,25 +15,36 @@
 // limitations under the License.
 
 #include "conformance_framework.h"
+
+#include "composition_utils.h"  // for Colors
+#include "graphics_plugin.h"
+#include "platform_plugin.h"
 #include "report.h"
-#include "utils.h"
 #include "two_call_util.h"
-#include <mutex>
-#include <stdexcept>
-#include <cstring>
-#include <algorithm>
+#include "utilities/throw_helpers.h"
+#include "utilities/utils.h"
 
 #include <openxr/openxr.h>
 
-#ifdef XR_USE_PLATFORM_ANDROID
-#include <android/log.h>
-#include <android/window.h>             // for AWINDOW_FLAG_KEEP_SCREEN_ON
-#include <android/native_window_jni.h>  // for native window JNI
-#include <openxr/openxr_platform.h>
-#endif  /// XR_USE_PLATFORM_ANDROID
+#include <algorithm>
+#include <exception>
+#include <mutex>
+#include <thread>
+#include <unordered_map>
+#include <utility>
 
 namespace Conformance
 {
+
+    /// This list of instance extensions is safe to always enable if available.
+    static constexpr std::initializer_list<const char*> kEnableIfAvailableInstanceExtensionNames = {
+        XR_KHR_COMPOSITION_LAYER_CUBE_EXTENSION_NAME, XR_KHR_COMPOSITION_LAYER_CYLINDER_EXTENSION_NAME};
+
+    /// The name of the required conformance layer
+    static constexpr auto kConformanceLayerName = "XR_APILAYER_KHRONOS_runtime_conformance";
+
+    static constexpr auto kGetSystemPollingTimeout = std::chrono::seconds(10);
+
     static std::unique_ptr<GlobalData> globalDataInstance;
 
     void ResetGlobalData()
@@ -77,6 +88,8 @@ namespace Conformance
 
         AppendSprintf(result, "   fileLineLoggingEnabled: %s\n", fileLineLoggingEnabled ? "yes" : "no");
 
+        AppendSprintf(result, "   pollGetSystem: %s\n", pollGetSystem ? "yes" : "no");
+
         AppendSprintf(result, "   debugMode: %s", debugMode ? "yes" : "no");
 
         return result;
@@ -92,15 +105,15 @@ namespace Conformance
                       XR_VERSION_PATCH(apiVersion));
         AppendSprintf(reportString, "Graphics system: %s\n", globalData.options.graphicsPlugin.c_str());
         AppendSprintf(reportString, "Present API layers:\n");
-        for (const std::string& apiLayerName : globalData.enabledAPILayerNames) {
-            AppendSprintf(reportString, "    %s\n", apiLayerName.c_str());
+        for (const char* const& apiLayerName : globalData.enabledAPILayerNames) {
+            AppendSprintf(reportString, "    %s\n", apiLayerName);
         }
         if (globalData.enabledAPILayerNames.empty()) {
             AppendSprintf(reportString, "    <none>\n");
         }
         AppendSprintf(reportString, "Tested instance extensions:\n");
-        for (const std::string& extensionName : globalData.enabledInstanceExtensionNames) {
-            AppendSprintf(reportString, "    %s\n", extensionName.c_str());
+        for (const char* const& extensionName : globalData.enabledInstanceExtensionNames) {
+            AppendSprintf(reportString, "    %s\n", extensionName);
         }
         if (globalData.enabledInstanceExtensionNames.empty()) {
             AppendSprintf(reportString, "    <none>\n");
@@ -187,12 +200,11 @@ namespace Conformance
                 availableAPILayerNames.emplace_back(value.layerName);
             }
 
-            static const auto CONFORMANCE_LAYER_NAME = "XR_APILAYER_KHRONOS_runtime_conformance";
             const auto e = availableAPILayerNames.end();
-            bool hasConfLayer = (e != std::find(availableAPILayerNames.begin(), e, CONFORMANCE_LAYER_NAME));
+            bool hasConfLayer = (e != std::find(availableAPILayerNames.begin(), e, kConformanceLayerName));
             if (hasConfLayer) {
                 if (!globalData.options.invalidHandleValidation) {
-                    enabledAPILayerNames.push_back_unique(CONFORMANCE_LAYER_NAME);
+                    enabledAPILayerNames.push_back_unique(kConformanceLayerName);
                     useDebugMessenger = true;
                 }
                 else {
@@ -223,12 +235,8 @@ namespace Conformance
             availableInstanceExtensionNames.emplace_back(value.extensionName);
         }
 
-        // This list of instance extensions is safe to always enable if available.
-        std::vector<std::string> enableIfAvailableInstanceExtensionNames = {XR_KHR_COMPOSITION_LAYER_CUBE_EXTENSION_NAME,
-                                                                            XR_KHR_COMPOSITION_LAYER_CYLINDER_EXTENSION_NAME};
-
-        for (auto& value : enableIfAvailableInstanceExtensionNames) {
-            auto& avail = availableInstanceExtensionNames;
+        for (auto& value : kEnableIfAvailableInstanceExtensionNames) {
+            const auto& avail = availableInstanceExtensionNames;
             if (std::find(avail.begin(), avail.end(), value) != avail.end()) {
                 enabledInstanceExtensionNames.push_back_unique(value);
             }
@@ -280,6 +288,77 @@ namespace Conformance
         if (!functionMapInitialized) {
             ReportF("GlobalData::Initialize: xrGetInstanceProcAddr failed for one or more functions.");
             return false;
+        }
+
+        // Find XrSystemId (for later use and to ensure device is connected/available for whatever that means in a given runtime)
+        XrSystemId systemId = XR_NULL_SYSTEM_ID;
+        const XrSystemGetInfo systemGetInfo = {XR_TYPE_SYSTEM_GET_INFO, nullptr, options.formFactorValue};
+
+        auto tryGetSystem = [&] {
+            XrResult result = xrGetSystem(autoInstance, &systemGetInfo, &systemId);
+            if (result != XR_SUCCESS && result != XR_ERROR_FORM_FACTOR_UNAVAILABLE) {
+                // Anything else is a real error
+                ReportF("GlobalData::Initialize: xrGetSystem failed with result: %s.", ResultToString(result));
+                return false;
+            }
+            return true;
+        };
+
+        if (options.pollGetSystem) {
+            ReportF(
+                "GlobalData::Initialize: xrGetSystem will be polled until success or timeout, as requested. This behavior may be less compatible with applications.");
+
+            const auto timeout = std::chrono::steady_clock::now() + kGetSystemPollingTimeout;
+            while (systemId == XR_NULL_SYSTEM_ID && std::chrono::steady_clock::now() < timeout) {
+                if (!tryGetSystem()) {
+                    return false;
+                }
+                // pause briefly before trying again
+                std::this_thread::sleep_for(std::chrono::milliseconds{50});
+            }
+
+            if (systemId == XR_NULL_SYSTEM_ID) {
+                ReportF("GlobalData::Initialize: xrGetSystem polling timed out without success after %f",
+                        std::chrono::duration_cast<std::chrono::duration<float>>(kGetSystemPollingTimeout).count());
+                return false;
+            }
+        }
+        else {
+            // just try once
+            if (!tryGetSystem()) {
+                return false;
+            }
+            if (systemId == XR_NULL_SYSTEM_ID) {
+                ReportF("GlobalData::Initialize: xrGetSystem did not return a system ID on the first call, not proceeding with tests.");
+                return false;
+            }
+        }
+
+        // Find available blend modes
+        result = doTwoCallInPlace(availableBlendModes, xrEnumerateEnvironmentBlendModes, autoInstance.GetInstance(), systemId,
+                                  options.viewConfigurationValue);
+        if (XR_FAILED(result)) {
+            ReportF("GlobalData::Initialize: xrEnumerateEnvironmentBlendModes failed with result: %s", ResultToString(result));
+            return false;
+        }
+        if (options.environmentBlendMode.empty()) {
+            // Default to the first enumerated blend mode
+            options.environmentBlendModeValue = availableBlendModes.front();
+            // convert to string, indicating auto selection
+            switch (options.environmentBlendModeValue) {
+            case XR_ENVIRONMENT_BLEND_MODE_OPAQUE:
+                options.environmentBlendMode = "opaque (auto-selected)";
+                break;
+            case XR_ENVIRONMENT_BLEND_MODE_ADDITIVE:
+                options.environmentBlendMode = "additive (auto-selected)";
+                break;
+            case XR_ENVIRONMENT_BLEND_MODE_ALPHA_BLEND:
+                options.environmentBlendMode = "alphablend (auto-selected)";
+                break;
+            default:
+                XRC_THROW("Got unrecognized environment blend mode value as the front of the enumerated list.");
+                break;
+            }
         }
 
         isInitialized = true;
@@ -401,11 +480,6 @@ namespace Conformance
         if (IsInstanceExtensionEnabled(XR_MND_HEADLESS_EXTENSION_NAME)) {
             return false;
         }
-#ifdef XR_KHR_headless
-        if (IsInstanceExtensionEnabled(XR_KHR_HEADLESS_EXTENSION_NAME)) {
-            return false;
-        }
-#endif
         return true;
     }
 
@@ -418,5 +492,19 @@ namespace Conformance
     {
         std::unique_lock<std::recursive_mutex> lock(dataMutex);
         conformanceReport.swapchainFormats.emplace_back(format, name);
+    }
+
+    XrColor4f GlobalData::GetClearColorForBackground() const
+    {
+        switch (options.environmentBlendModeValue) {
+        case XR_ENVIRONMENT_BLEND_MODE_OPAQUE:
+            return DarkSlateGrey;
+        case XR_ENVIRONMENT_BLEND_MODE_ADDITIVE:
+            return Colors::Black;
+        case XR_ENVIRONMENT_BLEND_MODE_ALPHA_BLEND:
+            return Colors::Transparent;
+        default:
+            XRC_THROW("Encountered unrecognized environment blend mode value while determining background color.");
+        }
     }
 }  // namespace Conformance

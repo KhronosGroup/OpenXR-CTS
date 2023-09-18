@@ -14,23 +14,34 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "matchers.h"
-#include "utils.h"
-#include "conformance_utils.h"
+#include "composition_utils.h"
 #include "conformance_framework.h"
+#include "conformance_utils.h"
+#include "graphics_plugin.h"
+#include "mesh_projection_layer.h"
 #include "two_call_struct_metadata.h"
 #include "two_call_struct_tests.h"
-#include "composition_utils.h"
-#include "mesh_projection_layer.h"
-#include "earcut.hpp"
-#include <array>
-#include <vector>
-#include <set>
-#include <string>
-#include <cstring>
+#include "type_utils.h"
+#include "matchers.h"
+#include "utilities/Geometry.h"
+#include "utilities/types_and_constants.h"
+
+#include "nonstd/type.hpp"
+
+#include <earcut.hpp>
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/generators/catch_generators.hpp>
+#include <catch2/matchers/catch_matchers.hpp>
 #include <openxr/openxr.h>
+
+#include <array>
+#include <cstdint>
+#include <functional>
+#include <memory>
+#include <string>
+#include <tuple>
+#include <type_traits>
+#include <vector>
 
 namespace Conformance
 {
@@ -267,8 +278,11 @@ namespace Conformance
     {
         MeshHandle mesh;
         bool meshCoversHiddenArea = maskType == XR_VISIBILITY_MASK_TYPE_HIDDEN_TRIANGLE_MESH_KHR;
-        XrColor4f color = meshCoversHiddenArea ? BrightRed : DarkSlateGrey;
-        XrColor4f bgColor = meshCoversHiddenArea ? DarkSlateGrey : BrightRed;
+
+        XrColor4f normalBgColor = GetGlobalData().GetClearColorForBackground();
+
+        XrColor4f color = meshCoversHiddenArea ? BrightRed : normalBgColor;
+        XrColor4f bgColor = meshCoversHiddenArea ? normalBgColor : BrightRed;
 
         XrVisibilityMaskKHR visibilityMask{XR_TYPE_VISIBILITY_MASK_KHR};
 
@@ -316,7 +330,7 @@ namespace Conformance
         return {mesh, bgColor};
     }
 
-    TEST_CASE("XR_KHR_visibility_mask-interactive", "[XR_KHR_visibility_mask][interactive][no_auto]")
+    TEST_CASE("XR_KHR_visibility_mask-interactive", "[scenario][interactive][no_auto][XR_KHR_visibility_mask]")
     {
         // successcodes="XR_SUCCESS,XR_SESSION_LOSS_PENDING"
         // errorcodes="XR_ERROR_HANDLE_INVALID,XR_ERROR_INSTANCE_LOST,XR_ERROR_RUNTIME_FAILURE,XR_ERROR_VALIDATION_FAILURE,
@@ -368,7 +382,7 @@ namespace Conformance
             SKIP("No vertices returned, so no visibility mask available in this system.");
         }
 
-        std::vector<XrColor4f> bgColors{meshProjectionLayerHelper.GetViewCount(), DarkSlateGrey};
+        std::vector<XrColor4f> bgColors{meshProjectionLayerHelper.GetViewCount(), Colors::Green};  // should be overwritten before render
 
         // const auto maskTypes = {XR_VISIBILITY_MASK_TYPE_HIDDEN_TRIANGLE_MESH_KHR, XR_VISIBILITY_MASK_TYPE_VISIBLE_TRIANGLE_MESH_KHR,
         // XR_VISIBILITY_MASK_TYPE_LINE_LOOP_KHR};

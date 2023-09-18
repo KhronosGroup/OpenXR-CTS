@@ -1,4 +1,4 @@
-// Copyright (c) 2017 The Khronos Group Inc.
+// Copyright (c) 2017-2023, The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -14,26 +14,28 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "utils.h"
-#include "conformance_utils.h"
 #include "conformance_framework.h"
+#include "conformance_utils.h"
+#include "graphics_plugin.h"
 #include "swapchain_image_data.h"
-#include "throw_helpers.h"
+#include "utilities/throw_helpers.h"
+#include "utilities/utils.h"
+
+#include <catch2/catch_test_macros.hpp>
+#include <openxr/openxr.h>
 
 #include <algorithm>
 #include <array>
-#include <vector>
-#include <string>
-#include <thread>
+#include <atomic>
+#include <chrono>
 #include <condition_variable>
 #include <cstdint>
 #include <initializer_list>
-#include <atomic>
 #include <mutex>
-#include <chrono>
 #include <random>
-#include <catch2/catch_test_macros.hpp>
-#include <openxr/openxr.h>
+#include <string>
+#include <thread>
+#include <vector>
 
 // Include all dependencies of openxr_platform as configured
 #include "xr_dependencies.h"
@@ -326,10 +328,6 @@ namespace Conformance
 
         // Exercise session multithreading.
         {
-            // how long the test should wait for the app to get focus: 10 seconds in release, infinite in debug builds.
-            auto timeout = (GetGlobalData().options.debugMode ? 3600s : 10s);
-            CAPTURE(timeout);
-
             ThreadTestEnvironment env(invocationCount);
             env.GetAutoBasicSession().Init(AutoBasicSession::beginSession | AutoBasicSession::createActions |
                                            AutoBasicSession::createSpaces | AutoBasicSession::createSwapchains);
@@ -384,8 +382,7 @@ namespace Conformance
 
             // Get frames iterating to the point of app focused state. This will draw frames along the way.
             FrameIterator frameIterator(&env.GetAutoBasicSession());
-            FrameIterator::RunResult runResult = frameIterator.RunToSessionState(XR_SESSION_STATE_FOCUSED, timeout);
-            REQUIRE(runResult == FrameIterator::RunResult::Success);
+            frameIterator.RunToSessionState(XR_SESSION_STATE_FOCUSED);
 
             env.lastFrameTime = frameIterator.frameState.predictedDisplayTime;
 

@@ -18,7 +18,7 @@
 #pragma once
 
 #include "type_utils.h"
-#include "throw_helpers.h"
+#include "utilities/throw_helpers.h"
 #include "hex_and_handles.h"
 
 #include <openxr/openxr.h>

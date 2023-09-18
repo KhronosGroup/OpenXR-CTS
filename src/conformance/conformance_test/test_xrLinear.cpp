@@ -14,9 +14,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "common/xr_linear.h"
+
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/catch_approx.hpp>
-#include <xr_linear.h>
+
+#include <openxr/openxr.h>
 
 namespace Conformance
 {

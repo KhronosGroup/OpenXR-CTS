@@ -15,7 +15,7 @@
 // limitations under the License.
 
 #include "graphics_plugin.h"
-#include "utils.h"
+#include "utilities/utils.h"
 #include <map>
 
 namespace Conformance

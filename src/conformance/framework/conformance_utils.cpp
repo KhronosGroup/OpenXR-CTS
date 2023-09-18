@@ -14,29 +14,29 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include <catch2/catch_test_macros.hpp>
-
-#include "utils.h"
-#include "report.h"
-#include "two_call_util.h"
-#include "conformance_utils.h"
 #include "conformance_framework.h"
+#include "conformance_utils.h"
 #include "graphics_plugin.h"
-#include "throw_helpers.h"
+#include "platform_plugin.h"
+#include "two_call_util.h"
+#include "utilities/throw_helpers.h"
+#include "utilities/utils.h"
 
-#include "xr_dependencies.h"
-#include <openxr/openxr_platform.h>
+#include <openxr/openxr.h>
 #include <openxr/openxr_reflection.h>
 
-#include <map>
+#include <catch2/catch_test_macros.hpp>
+#include <catch2/catch_message.hpp>
+
 #include <algorithm>
-#include <iostream>
 #include <assert.h>
+#include <cstdint>
 #include <cstring>
-#include <time.h>
-#include <sstream>
-#include <iomanip>
+#include <map>
+#include <memory>
+#include <ratio>
 #include <thread>
+#include <utility>
 
 #ifdef _WIN32
 #include <windows.h>
@@ -51,31 +51,12 @@
 
 namespace Conformance
 {
-    // We keep our own copy of this as opposed to calling the xrResultToString function, because our
-    // purpose here it to validate the runtime's implementation of xrResultToString.
-
-    const ResultStringMap& GetResultStringMap()
-    {
-        static const ResultStringMap resultStringMap{XR_LIST_ENUM_XrResult(XRC_ENUM_NAME_PAIR)};
-        return resultStringMap;
-    }
 
     const std::map<uint64_t, const char*> GetNumberExtensionMap()
     {
 #define MAKE_EXTENSION_NUMBER_MAP(NAME, NUM) {NUM, #NAME},
         static const std::map<uint64_t, const char*> myMap = {XR_LIST_EXTENSIONS(MAKE_EXTENSION_NUMBER_MAP)};
         return myMap;
-    }
-
-    const char* ResultToString(XrResult result)
-    {
-        auto it = GetResultStringMap().find(result);
-
-        if (it != GetResultStringMap().end()) {
-            return it->second;
-        }
-
-        return "<unknown>";
     }
 
     std::string PathToString(XrInstance instance, XrPath path)
@@ -411,7 +392,7 @@ namespace Conformance
 
             // Normally the testing requires a graphics plugin. However, there's currently one case in
             // which that's not true: when a headless extension is enabled. In that case the
-            // runtime supports creating a session without a graphics system. See XR_MND_headless and/or XR_KHR_headless doc.
+            // runtime supports creating a session without a graphics system. See XR_MND_headless doc.
             if (graphicsPlugin && enableGraphicsSystem) {
                 // If the following fails then this app has a bug, not the runtime.
                 assert(graphicsPlugin->IsInitialized());
@@ -500,8 +481,8 @@ namespace Conformance
                 // that the session is ready.
 
                 // timeout in case the runtime will never transition to READY: 10s in release, no practical limit in debug
-                std::chrono::nanoseconds timeout = (GetGlobalData().options.debugMode ? 3600s : 10s);
-                CountdownTimer countdownTimer(timeout);
+                auto timeoutToTransitionToSessionState = (GetGlobalData().options.debugMode ? 3600s : 10s);
+                CountdownTimer countdownTimer(timeoutToTransitionToSessionState);
 
                 while ((sessionState != XR_SESSION_STATE_READY) && (!countdownTimer.IsTimeUp())) {
                     XrEventDataBuffer eventData{XR_TYPE_EVENT_DATA_BUFFER};
@@ -522,7 +503,24 @@ namespace Conformance
                 }
 
                 if (sessionState != XR_SESSION_STATE_READY) {
-                    XRC_THROW("Time out waiting for XR_SESSION_STATE_READY session state change");
+                    // We have failed this check with the timeout. This is a pretty common place to fail
+                    // so we will offer helpful hints for the most common errors - as well as a generic
+                    // message.
+
+                    // https://registry.khronos.org/OpenXR/specs/1.0/html/xrspec.html#sessionstatechanged-description
+                    // If the system supports a user engagement sensor and runtime is in XR_SESSION_STATE_IDLE state,
+                    // the runtime should not transition to the XR_SESSION_STATE_READY state until the user starts
+                    // engaging with the device.
+
+                    std::string extraInfo;
+                    if (sessionState == XR_SESSION_STATE_IDLE) {
+                        extraInfo =
+                            " If this system supports a user engagement sensor, the runtime may not transition to XR_SESSION_STATE_READY state until the user starts engaging with the device.";
+                    }
+
+                    CAPTURE(timeoutToTransitionToSessionState);
+                    CAPTURE(sessionState);
+                    FAIL("Time out waiting for XR_SESSION_STATE_READY session state change after creating a new session." << extraInfo);
                 }
 
                 XrSessionBeginInfo sessionBeginInfo{XR_TYPE_SESSION_BEGIN_INFO,
@@ -646,17 +644,13 @@ namespace Conformance
     ////////////////////////////////////////////////////////////////////////////////////////////////
 
     FrameIterator::FrameIterator(AutoBasicSession* autoBasicSession_)
-        : autoBasicSession(autoBasicSession_)
-        , sessionState(autoBasicSession->GetSessionState())
-        , countdownTimer()
-        , frameState()
-        , viewVector()
+        : autoBasicSession(autoBasicSession_), sessionState(autoBasicSession->GetSessionState()), frameState(), viewVector()
     {
-    }
-
-    void FrameIterator::SetAutoBasicSession(AutoBasicSession* autoBasicSession_)
-    {
-        autoBasicSession = autoBasicSession_;
+        XRC_CHECK_THROW(autoBasicSession);
+        XRC_CHECK_THROW(autoBasicSession->instance);
+        XRC_CHECK_THROW(autoBasicSession->session);
+        XRC_CHECK_THROW(!autoBasicSession->viewConfigurationTypeVector.empty());
+        XRC_CHECK_THROW(!autoBasicSession->environmentBlendModeVector.empty());
     }
 
     XrSessionState FrameIterator::GetCurrentSessionState() const
@@ -666,12 +660,6 @@ namespace Conformance
 
     FrameIterator::TickResult FrameIterator::PollEvent()
     {
-        // App must have called SetAutoBasicSession and set flags enabling these.
-        if (!autoBasicSession)
-            return TickResult::Error;
-        if (!autoBasicSession->instance)
-            return TickResult::Error;
-
         XrEventDataBuffer eventData{XR_TYPE_EVENT_DATA_BUFFER};
         XrResult result = xrPollEvent(autoBasicSession->instance, &eventData);
 
@@ -712,11 +700,10 @@ namespace Conformance
         if (!GetGlobalData().IsUsingGraphicsPlugin())
             return RunResult::Success;
 
-        // App must have called SetAutoBasicSession and set flags enabling these.
-        if (!autoBasicSession)
+        if (autoBasicSession->swapchainVector.empty()) {
+            // AutoBasicSession must be created with flags including AutoBasicSession::createSwapchains
             return RunResult::Error;
-        if (autoBasicSession->swapchainVector.empty())
-            return RunResult::Error;
+        }
 
         // Call the helper function for this.
         const XrDuration twoSeconds = 2_xrSeconds;
@@ -734,15 +721,10 @@ namespace Conformance
 
     FrameIterator::RunResult FrameIterator::WaitAndBeginFrame()
     {
-        // App must have called SetAutoBasicSession and set flags enabling these.
-        if (!autoBasicSession)
+        if (autoBasicSession->spaceVector.empty()) {
+            // AutoBasicSession must be created with flags including AutoBasicSession::createSpaces
             return RunResult::Error;
-        if (!autoBasicSession->session)
-            return RunResult::Error;
-        if (autoBasicSession->spaceVector.empty())
-            return RunResult::Error;
-        if (autoBasicSession->viewConfigurationTypeVector.empty())
-            return RunResult::Error;
+        }
 
         XrResult result;
 
@@ -775,13 +757,10 @@ namespace Conformance
 
     FrameIterator::RunResult FrameIterator::PrepareFrameEndInfo()
     {
-        // App must have called SetAutoBasicSession and set flags enabling these.
-        if (!autoBasicSession)
+        if (autoBasicSession->spaceVector.empty()) {
+            // AutoBasicSession must be created with flags including AutoBasicSession::createSpaces
             return RunResult::Error;
-        if (autoBasicSession->spaceVector.empty())
-            return RunResult::Error;
-        if (autoBasicSession->environmentBlendModeVector.empty())
-            return RunResult::Error;
+        }
 
         if (GetGlobalData().IsUsingGraphicsPlugin() && autoBasicSession->swapchainVector.empty())
             return RunResult::Error;
@@ -858,26 +837,27 @@ namespace Conformance
     // Runs until the given XrSessionState is achieved or timesout before so.
     // targetSessionState may be any XrSessionState, but some session states may require
     // special handling in order to get to, such as XR_SESSION_STATE_LOSS_PENDING.
-    FrameIterator::RunResult FrameIterator::RunToSessionState(XrSessionState targetSessionState, std::chrono::nanoseconds timeout)
+    void FrameIterator::RunToSessionState(XrSessionState targetSessionState)
     {
-        if (!autoBasicSession)  // App must have called SetAutoBasicSession.
-            return RunResult::Error;
+        auto initialSessionState = sessionState;
 
-        countdownTimer.Restart(timeout);
+        auto timeoutToTransitionToSessionState = (GetGlobalData().options.debugMode ? 3600s : 10s);
+        CAPTURE(timeoutToTransitionToSessionState);
+        CountdownTimer countdownTimer(timeoutToTransitionToSessionState);
 
         while (!countdownTimer.IsTimeUp()) {
             TickResult tickResult = PollEvent();
+            REQUIRE(tickResult != TickResult::Error);
 
-            if (tickResult == TickResult::Error)
-                return RunResult::Error;
-
-            if (sessionState == targetSessionState)
-                return RunResult::Success;
-
-            if ((sessionState == XR_SESSION_STATE_LOSS_PENDING) || (sessionState == XR_SESSION_STATE_EXITING) ||
-                (sessionState == XR_SESSION_STATE_STOPPING)) {
-                return RunResult::Timeout;
+            if (sessionState == targetSessionState) {
+                // calling SUCCEED here to flush the CAPTURE / INFO messages from this function
+                SUCCEED();
+                return;
             }
+
+            REQUIRE(sessionState != XR_SESSION_STATE_LOSS_PENDING);
+            REQUIRE(sessionState != XR_SESSION_STATE_EXITING);
+            REQUIRE(sessionState != XR_SESSION_STATE_STOPPING);
 
             // At this point sessionState is one of XR_SESSION_STATE_UNKNOWN,
             // XR_SESSION_STATE_IDLE, XR_SESSION_STATE_READY, XR_SESSION_STATE_SYNCHRONIZED,
@@ -901,9 +881,7 @@ namespace Conformance
                     XrSessionBeginInfo sessionBeginInfo{
                         XR_TYPE_SESSION_BEGIN_INFO, globalData.GetPlatformPlugin()->PopulateNextFieldForStruct(XR_TYPE_SESSION_BEGIN_INFO),
                         globalData.options.viewConfigurationValue};
-                    XrResult result = xrBeginSession(autoBasicSession->session, &sessionBeginInfo);
-                    if (XR_FAILED(result))
-                        return RunResult::Error;
+                    REQUIRE(xrBeginSession(autoBasicSession->session, &sessionBeginInfo) == XR_SUCCESS);
                 }
 
                 // Fall-through because frames must be submitted to get promoted from READY to SYNCHRONIZED.
@@ -913,10 +891,8 @@ namespace Conformance
             case XR_SESSION_STATE_FOCUSED: {
                 // In these states we need to submit frames. Otherwise the runtime won't
                 // necessarily move us from synchronized to visible or focused.
-                RunResult runResult = SubmitFrame();
+                REQUIRE(SubmitFrame() == RunResult::Success);
 
-                if (runResult == RunResult::Error)
-                    return RunResult::Error;
                 // Just keep going. We haven't reached the target state yet.
                 break;
             }
@@ -929,7 +905,17 @@ namespace Conformance
             }
         }
 
-        return RunResult::Timeout;
+        // We have failed this check with the timeout. This is a pretty common place to fail
+        // so we will offer helpful hints for the most common errors - as well as a generic
+        // message.
+
+        std::string extraInfo;
+        if (targetSessionState == XR_SESSION_STATE_FOCUSED && initialSessionState == XR_SESSION_STATE_READY &&
+            sessionState == XR_SESSION_STATE_VISIBLE) {
+            extraInfo = " This might indicate that some other (maybe system) application still has focus for the user.";
+        }
+        FAIL("Timeout while waiting for session state transition to: " << enum_to_string(targetSessionState) << " from initial state: "
+                                                                       << enum_to_string(initialSessionState) << "." << extraInfo);
     }
 
     bool WaitUntilPredicateWithTimeout(const std::function<bool()>& predicate, const std::chrono::nanoseconds timeout,
@@ -1214,5 +1200,17 @@ namespace Conformance
         }
 
         return result;
+    }
+
+    std::ostream& operator<<(std::ostream& os, AutoBasicInstance const& inst)
+    {
+        OutputHandle(os, inst.GetInstance());
+        return os;
+    }
+
+    std::ostream& operator<<(std::ostream& os, AutoBasicSession const& sess)
+    {
+        OutputHandle(os, sess.GetSession());
+        return os;
     }
 }  // namespace Conformance

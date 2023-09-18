@@ -30,21 +30,16 @@ namespace Conformance
     {
         GlobalData& globalData = GetGlobalData();
 
-        // how long the test should wait for the app to get focus: 10 seconds in release, 1hr in debug builds.
-        auto timeout = (globalData.options.debugMode ? 3600s : 10s);
-        CAPTURE(timeout);
-
         // Get a session started.
         AutoBasicSession session(AutoBasicSession::createInstance | AutoBasicSession::createSession | AutoBasicSession::beginSession |
                                  AutoBasicSession::createSwapchains | AutoBasicSession::createSpaces);
 
         // Get frames iterating to the point of app focused state. This will draw frames along the way.
         FrameIterator frameIterator(&session);
-        FrameIterator::RunResult runResult = frameIterator.RunToSessionState(XR_SESSION_STATE_FOCUSED, timeout);
-        REQUIRE(runResult == FrameIterator::RunResult::Success);
+        frameIterator.RunToSessionState(XR_SESSION_STATE_FOCUSED);
 
         // Render one frame to get a predicted display time for the xrLocateViews calls.
-        runResult = frameIterator.SubmitFrame();
+        FrameIterator::RunResult runResult = frameIterator.SubmitFrame();
         REQUIRE(runResult == FrameIterator::RunResult::Success);
 
         XrResult result;
@@ -170,7 +165,6 @@ namespace Conformance
         result = xrRequestExitSession(session);
         CHECK(result == XR_SUCCESS);
 
-        runResult = frameIterator.RunToSessionState(XR_SESSION_STATE_STOPPING, timeout);
-        CHECK(runResult == FrameIterator::RunResult::Success);
+        frameIterator.RunToSessionState(XR_SESSION_STATE_STOPPING);
     }
 }  // namespace Conformance

@@ -14,23 +14,22 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "utils.h"
-#include "conformance_utils.h"
+#ifdef XR_USE_GRAPHICS_API_D3D12
 #include "conformance_framework.h"
+#include "conformance_utils.h"
+#include "graphics_plugin.h"
 #include "matchers.h"
-#include <array>
-#include <vector>
-#include <set>
-#include <string>
-#include <cstring>
+#include "utilities/utils.h"
+
 #include <catch2/catch_test_macros.hpp>
 #include <openxr/openxr.h>
-
-#ifdef XR_USE_GRAPHICS_API_D3D12
 #include <openxr/openxr_platform.h>
 
 #include <windows.h>
 #include <wrl/client.h>  // For Microsoft::WRL::ComPtr
+
+#include <string>
+#include <cstring>
 
 using namespace Microsoft::WRL;
 
@@ -43,8 +42,10 @@ namespace Conformance
             SKIP(XR_KHR_D3D12_ENABLE_EXTENSION_NAME " not enabled");
         }
 
-        AutoBasicInstance instance{AutoBasicInstance::createSystemId};
-        XrSystemId systemId = instance.systemId;
+        AutoBasicInstance instance;
+
+        XrSystemId systemId{XR_NULL_SYSTEM_ID};
+        REQUIRE(XR_SUCCESS == FindBasicSystem(instance.GetInstance(), &systemId));
 
         // Create the graphics plugin we'll need to exercise session create functionality below.
         std::shared_ptr<IGraphicsPlugin> graphicsPlugin;
@@ -57,12 +58,15 @@ namespace Conformance
 
         // We'll use this XrSession and XrSessionCreateInfo for testing below.
         XrSession session = XR_NULL_HANDLE_CPP;
-        XrSessionCreateInfo sessionCreateInfo{XR_TYPE_SESSION_CREATE_INFO, nullptr, 0, systemId};
+
+        XrSessionCreateInfo sessionCreateInfo{XR_TYPE_SESSION_CREATE_INFO};
+        sessionCreateInfo.systemId = systemId;
+
         CleanupSessionOnScopeExit cleanup(session);
 
         SECTION("No graphics binding")
         {
-            graphicsPlugin->InitializeDevice(instance, systemId, true);
+            REQUIRE(graphicsPlugin->InitializeDevice(instance, systemId, true));
             sessionCreateInfo.next = nullptr;
             CHECK(xrCreateSession(instance, &sessionCreateInfo, &session) == XR_ERROR_GRAPHICS_DEVICE_INVALID);
             cleanup.Destroy();
@@ -71,8 +75,9 @@ namespace Conformance
 
         SECTION("NULL D3D12 device")
         {
-            graphicsPlugin->InitializeDevice(instance, systemId, true);
-            XrGraphicsBindingD3D12KHR graphicsBinding = {XR_TYPE_GRAPHICS_BINDING_D3D12_KHR, nullptr};
+            REQUIRE(graphicsPlugin->InitializeDevice(instance, systemId, true));
+            XrGraphicsBindingD3D12KHR graphicsBinding =
+                *reinterpret_cast<const XrGraphicsBindingD3D12KHR*>(graphicsPlugin->GetGraphicsBinding());
 
             graphicsBinding.device = nullptr;
             sessionCreateInfo.next = reinterpret_cast<const void*>(&graphicsBinding);
@@ -80,6 +85,35 @@ namespace Conformance
             CHECK(xrCreateSession(instance, &sessionCreateInfo, &session) == XR_ERROR_GRAPHICS_DEVICE_INVALID);
             cleanup.Destroy();
             graphicsPlugin->ShutdownDevice();
+        }
+
+        SECTION("Valid session after bad session")
+        {
+            // Pass invalid binding the first time
+            {
+                REQUIRE(graphicsPlugin->InitializeDevice(instance, systemId, true));
+                XrGraphicsBindingD3D12KHR graphicsBinding =
+                    *reinterpret_cast<const XrGraphicsBindingD3D12KHR*>(graphicsPlugin->GetGraphicsBinding());
+                graphicsBinding.device = nullptr;
+                sessionCreateInfo.next = reinterpret_cast<const void*>(&graphicsBinding);
+                CHECK(xrCreateSession(instance, &sessionCreateInfo, &session) == XR_ERROR_GRAPHICS_DEVICE_INVALID);
+                cleanup.Destroy();
+                graphicsPlugin->ShutdownDevice();
+            }
+
+            // Using the same instance pass valid binding the second time
+            {
+                REQUIRE(XR_SUCCESS == FindBasicSystem(instance.GetInstance(), &systemId));
+                sessionCreateInfo.systemId = systemId;
+
+                REQUIRE(graphicsPlugin->InitializeDevice(instance, systemId, true));
+                XrGraphicsBindingD3D12KHR graphicsBinding =
+                    *reinterpret_cast<const XrGraphicsBindingD3D12KHR*>(graphicsPlugin->GetGraphicsBinding());
+                sessionCreateInfo.next = reinterpret_cast<const void*>(&graphicsBinding);
+                CHECK(xrCreateSession(instance, &sessionCreateInfo, &session) == XR_SUCCESS);
+                cleanup.Destroy();
+                graphicsPlugin->ShutdownDevice();
+            }
         }
 
         SECTION("Multiple session with same device")
@@ -97,11 +131,28 @@ namespace Conformance
                 }
             };
 
-            graphicsPlugin->InitializeDevice(instance, systemId, true);
+            auto xrGetD3D12GraphicsRequirementsKHR =
+                GetInstanceExtensionFunction<PFN_xrGetD3D12GraphicsRequirementsKHR>(instance, "xrGetD3D12GraphicsRequirementsKHR");
+
+            XrGraphicsRequirementsD3D12KHR referenceGraphicsRequirements{XR_TYPE_GRAPHICS_REQUIREMENTS_D3D12_KHR};
+            REQUIRE(xrGetD3D12GraphicsRequirementsKHR(instance, systemId, &referenceGraphicsRequirements) == XR_SUCCESS);
+
+            REQUIRE(graphicsPlugin->InitializeDevice(instance, systemId, true));
             XrGraphicsBindingD3D12KHR graphicsBinding =
                 *reinterpret_cast<const XrGraphicsBindingD3D12KHR*>(graphicsPlugin->GetGraphicsBinding());
             sessionCreateInfo.next = reinterpret_cast<const void*>(&graphicsBinding);
             for (int i = 0; i < 3; ++i) {
+                REQUIRE(XR_SUCCESS == FindBasicSystem(instance.GetInstance(), &systemId));
+                sessionCreateInfo.systemId = systemId;
+
+                XrGraphicsRequirementsD3D12KHR graphicsRequirements{XR_TYPE_GRAPHICS_REQUIREMENTS_D3D12_KHR};
+                REQUIRE(xrGetD3D12GraphicsRequirementsKHR(instance, systemId, &graphicsRequirements) == XR_SUCCESS);
+
+                // We expect that the graphics requirements don't change...
+                REQUIRE(referenceGraphicsRequirements.adapterLuid.HighPart == graphicsRequirements.adapterLuid.HighPart);
+                REQUIRE(referenceGraphicsRequirements.adapterLuid.LowPart == graphicsRequirements.adapterLuid.LowPart);
+                REQUIRE(referenceGraphicsRequirements.minFeatureLevel == graphicsRequirements.minFeatureLevel);
+
                 CHECK(xrCreateSession(instance, &sessionCreateInfo, &session) == XR_SUCCESS);
                 createSwapchains(graphicsPlugin, session);
                 CHECK(xrDestroySession(session) == XR_SUCCESS);

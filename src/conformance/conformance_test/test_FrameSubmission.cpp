@@ -14,23 +14,24 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include <algorithm>
-#include <mutex>
-#include <thread>
-#include <condition_variable>
-#include <queue>
-#include "utils.h"
-#include "conformance_utils.h"
-#include "conformance_framework.h"
-#include "throw_helpers.h"
 #include "composition_utils.h"
+#include "conformance_framework.h"
+#include "conformance_utils.h"
 #include "report.h"
+#include "utilities/throw_helpers.h"
+
+#include <catch2/catch_test_macros.hpp>
 #include <openxr/openxr.h>
 #include <openxr/openxr_reflection.h>
-#include <catch2/catch_test_macros.hpp>
+
+#include <algorithm>
+#include <condition_variable>
+#include <queue>
+#include <thread>
 
 #define ENUM_LIST(name, val) name,
 constexpr XrEnvironmentBlendMode SupportedBlendModes[] = {XR_LIST_ENUM_XrEnvironmentBlendMode(ENUM_LIST)};
+#undef ENUM_LIST
 
 namespace Conformance
 {
@@ -204,7 +205,8 @@ namespace Conformance
 
             CHECK(XR_SUCCESS == xrRequestExitSession(session));
 
-            REQUIRE(FrameIterator::RunResult::Success == FrameIterator(&session).RunToSessionState(XR_SESSION_STATE_STOPPING, 5s));
+            FrameIterator frameIterator(&session);
+            frameIterator.RunToSessionState(XR_SESSION_STATE_STOPPING);
 
             CHECK(XR_SUCCESS == xrEndSession(session));
 

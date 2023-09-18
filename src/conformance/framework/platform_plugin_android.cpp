@@ -18,27 +18,15 @@
 
 #ifdef XR_USE_PLATFORM_ANDROID
 
-#include <cstdlib>
-#include <android/log.h>
-#include <android/window.h>             // for AWINDOW_FLAG_KEEP_SCREEN_ON
-#include <android/native_window_jni.h>  // for native window JNI
-
 #include "conformance_framework.h"
-
-#ifdef XR_USE_GRAPHICS_API_VULKAN
-#define VK_USE_PLATFORM_ANDROID_KHR
-#include <vulkan/vulkan.h>
-#endif  /// XR_USE_GRAPHICS_API_VULKAN
-
-#ifdef XR_USE_GRAPHICS_API_OPENGL_ES
-#include <EGL/egl.h>
-#include <EGL/eglext.h>
-#include <GLES3/gl3.h>
-#include <GLES3/gl3ext.h>
-#endif  /// XR_USE_GRAPHICS_API_OPENGL_ES
+#include "xr_dependencies.h"
 
 #include <openxr/openxr.h>
 #include <openxr/openxr_platform.h>
+
+#include <string>
+#include <memory>
+#include <vector>
 
 namespace Conformance
 {

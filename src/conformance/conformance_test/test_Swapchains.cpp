@@ -14,22 +14,24 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "bitmask_to_string.h"
 #include "conformance_framework.h"
 #include "conformance_utils.h"
 #include "graphics_plugin.h"
 #include "matchers.h"
 #include "report.h"
 #include "swapchain_image_data.h"
-#include "swapchain_parameters.h"
-#include "types_and_constants.h"
-#include "utils.h"
+#include "utilities/bitmask_to_string.h"
+#include "utilities/swapchain_parameters.h"
+#include "utilities/throw_helpers.h"
+#include "utilities/types_and_constants.h"
+#include "utilities/utils.h"
 
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_vector.hpp>
 
 #include <openxr/openxr.h>
 
+#include <cstdint>
 #include <vector>
 
 XRC_DISABLE_MSVC_WARNING(4505)  // unreferenced local function has been removed
@@ -73,7 +75,7 @@ namespace Conformance
             }
             {
                 INFO("Rendering to the swapchain(s)");
-                const XrSwapchainImageBaseHeader* image = swapchainImages->GetGenericColorImage(i);
+                const XrSwapchainImageBaseHeader* image = swapchainImages->GetGenericColorImage(colorImageIndex);
                 GetGlobalData().graphicsPlugin->ClearImageSlice(image, 0);
                 GetGlobalData().graphicsPlugin->RenderView(projectionView, image, {});
             }
@@ -206,30 +208,6 @@ namespace Conformance
                 INFO("In the case of XR_SWAPCHAIN_CREATE_STATIC_IMAGE_BIT we must only allow a single acquire");
                 CHECK(xrAcquireSwapchainImage(swapchain, &imageAcquireInfo, &index) == XR_ERROR_CALL_ORDER_INVALID);
             }
-            else {
-                // Real apps will acquire images more than once (though they will probably call xrEndFrame too)
-                // and this tends to trigger annoying-to-fix Vulkan validation errors in the runtime.
-                INFO("Acquire, wait, then release all the images in turn a second time");
-                for (uint32_t i = 0; i < imageCount; ++i) {
-                    CAPTURE(i);
-                    REQUIRE_RESULT_UNQUALIFIED_SUCCESS(xrAcquireSwapchainImage(swapchain, nullptr, &indexVector[i]));
-                }
-                // Wait/release all the images.
-                for (uint32_t i = 0; i < imageCount; ++i) {
-                    REQUIRE(GetGlobalData().graphicsPlugin->ValidateSwapchainImageState(swapchain, indexVector[i], imageFormat));
-                    XrSwapchainImageWaitInfo imageWaitInfo{XR_TYPE_SWAPCHAIN_IMAGE_WAIT_INFO};
-                    imageWaitInfo.timeout = 500_xrMilliseconds;  // Call can block waiting for image to become available for writing.
-                    REQUIRE_RESULT_UNQUALIFIED_SUCCESS(xrWaitSwapchainImage(swapchain, &imageWaitInfo));
-
-                    // Another wait should fail with XR_ERROR_CALL_ORDER_INVALID.
-                    CHECK(xrWaitSwapchainImage(swapchain, &imageWaitInfo) == XR_ERROR_CALL_ORDER_INVALID);
-
-                    // For odd values of i we exercise that runtimes must accept NULL image release info.
-                    XrSwapchainImageReleaseInfo imageReleaseInfo{XR_TYPE_SWAPCHAIN_IMAGE_RELEASE_INFO};
-                    const XrSwapchainImageReleaseInfo* imageReleaseInfoToUse = ((i % 2) ? &imageReleaseInfo : nullptr);
-                    REQUIRE_RESULT_UNQUALIFIED_SUCCESS(xrReleaseSwapchainImage(swapchain, imageReleaseInfoToUse));
-                }
-            }
 
             // To do: Is there a way to exercise xrWaitSwapchainImage XR_TIMEOUT_EXPIRED? It seems that the only
             // way this can happen is if the runtime is busy with an image despite successfully acquiring it.
@@ -333,35 +311,34 @@ namespace Conformance
     {
         std::vector<std::pair<std::string, XrSwapchainCreateInfo>> ret;
         const auto defaultCreateInfo = MakeDefaultSwapchainCreateInfo(imageFormat, tp);
-        {
+
+        auto emplaceCaseWithDimensions = [&](uint32_t width, uint32_t height, const char* message) {
             auto createInfo = defaultCreateInfo;
-            // Smallest compressed texture size is 4x4, use 8x8 to allow for future formats
-            createInfo.width = 8;
-            createInfo.height = 8;
-            ret.emplace_back("Very small texture, but larger than minimum compressed texture size", createInfo);
-        }
+            if (width != createInfo.width || height != createInfo.height) {
+
+                createInfo.width = width;
+                createInfo.height = height;
+                ret.emplace_back(message, createInfo);
+            }
+        };
+
+        // Smallest compressed texture size is 4x4, use 8x8 to allow for future formats
+        emplaceCaseWithDimensions(8, 8, "Very small texture, but larger than minimum compressed texture size");
 
         for (const auto& viewConfigView : session.viewConfigurationViewVector) {
-            {
-                auto createInfo = defaultCreateInfo;
-                createInfo.width = viewConfigView.recommendedImageRectWidth;
-                createInfo.height = viewConfigView.recommendedImageRectHeight;
-                ret.emplace_back("Recommended image size for view", createInfo);
-            }
-            {
-                auto createInfo = defaultCreateInfo;
-                createInfo.width = viewConfigView.maxImageRectWidth;
-                createInfo.height = viewConfigView.maxImageRectHeight;
-                ret.emplace_back("Max image size for view", createInfo);
-            }
+            emplaceCaseWithDimensions(viewConfigView.recommendedImageRectWidth, viewConfigView.recommendedImageRectHeight,
+                                      "Recommended image size for view");
+            emplaceCaseWithDimensions(viewConfigView.maxImageRectWidth, viewConfigView.maxImageRectHeight, "Max image size for view");
 
             if (!tp.compressedFormat) {
-                auto createInfo = defaultCreateInfo;
-                {
+                if (viewConfigView.recommendedSwapchainSampleCount != defaultCreateInfo.sampleCount) {
+                    auto createInfo = defaultCreateInfo;
                     createInfo.sampleCount = viewConfigView.recommendedSwapchainSampleCount;
                     ret.emplace_back("Recommended sample count", createInfo);
                 }
-                {
+
+                if (viewConfigView.maxSwapchainSampleCount != defaultCreateInfo.sampleCount) {
+                    auto createInfo = defaultCreateInfo;
                     createInfo.sampleCount = viewConfigView.maxSwapchainSampleCount;
                     ret.emplace_back("Max sample count", createInfo);
                 }
@@ -370,32 +347,42 @@ namespace Conformance
 
         for (const auto& cf : tp.createFlagsVector) {
             auto createInfo = defaultCreateInfo;
-            createInfo.createFlags = cf;
-            ret.emplace_back("Non-default create flags", createInfo);
+            if (cf != createInfo.createFlags) {
+                createInfo.createFlags = cf;
+                ret.emplace_back("Non-default create flags", createInfo);
+            }
         }
 
         for (const auto& sc : tp.sampleCountVector) {
             auto createInfo = defaultCreateInfo;
-            createInfo.sampleCount = sc;
-            ret.emplace_back("Non-default sample count", createInfo);
+            if (sc != createInfo.sampleCount) {
+                createInfo.sampleCount = sc;
+                ret.emplace_back("Non-default sample count", createInfo);
+            }
         }
 
         for (const auto& uf : tp.usageFlagsVector) {
             auto createInfo = defaultCreateInfo;
-            createInfo.usageFlags = (XrSwapchainUsageFlags)uf;
-            ret.emplace_back("Non-default usage flags", createInfo);
+            if (uf != createInfo.usageFlags) {
+                createInfo.usageFlags = (XrSwapchainUsageFlags)uf;
+                ret.emplace_back("Non-default usage flags", createInfo);
+            }
         }
 
         for (const auto& ac : tp.arrayCountVector) {
             auto createInfo = defaultCreateInfo;
-            createInfo.arraySize = ac;
-            ret.emplace_back("Non-default array size", createInfo);
+            if (ac != createInfo.arraySize) {
+                createInfo.arraySize = ac;
+                ret.emplace_back("Non-default array size", createInfo);
+            }
         }
 
         for (const auto& mc : tp.mipCountVector) {
             auto createInfo = defaultCreateInfo;
-            createInfo.mipCount = mc;
-            ret.emplace_back("Non-default mip count", createInfo);
+            if (mc != createInfo.mipCount) {
+                createInfo.mipCount = mc;
+                ret.emplace_back("Non-default mip count", createInfo);
+            }
         }
 
         return ret;
@@ -625,5 +612,68 @@ namespace Conformance
                 }
             }
         }
+    }
+
+    TEST_CASE("SwapchainsAcquire", "")
+    {
+        GlobalData& globalData = GetGlobalData();
+        if (!globalData.IsUsingGraphicsPlugin()) {
+            // Nothing to check - no graphics plugin means no swapchain
+            return;
+        }
+
+        // Set up the session we will use for the testing
+        AutoBasicSession session(AutoBasicSession::beginSession | AutoBasicSession::createActions | AutoBasicSession::createSpaces |
+                                 AutoBasicSession::createSwapchains);
+
+        auto graphicsPlugin = globalData.GetGraphicsPlugin();
+
+        FrameIterator frameIterator(&session);
+        frameIterator.RunToSessionState(XR_SESSION_STATE_FOCUSED);
+
+        XrSwapchain swapchain{XR_NULL_HANDLE};
+        XrExtent2Di widthHeight{0, 0};  // 0,0 means Use defaults.
+        REQUIRE_RESULT_UNQUALIFIED_SUCCESS(CreateColorSwapchain(session, graphicsPlugin.get(), &swapchain, &widthHeight));
+
+        uint32_t imageCount = 0;
+        REQUIRE_RESULT_UNQUALIFIED_SUCCESS(xrEnumerateSwapchainImages(swapchain, 0, &imageCount, nullptr));
+        REQUIRE(imageCount > 0);
+        std::vector<uint32_t> indexVector(imageCount, UINT32_MAX);
+
+        //
+        {
+            for (int j = 0; j < 10; ++j) {
+                {
+                    // Real apps may acquire images more than once (though they will probably call xrEndFrame too)
+                    // and this tends to trigger annoying-to-fix Vulkan validation errors in the runtime.
+                    INFO("Acquire, wait, then release all the images in turn a second time");
+                    for (uint32_t i = 0; i < imageCount; ++i) {
+                        CAPTURE(i);
+                        REQUIRE_RESULT_UNQUALIFIED_SUCCESS(xrAcquireSwapchainImage(swapchain, nullptr, &indexVector[i]));
+                    }
+                    // Wait/release all the images.
+                    for (uint32_t i = 0; i < imageCount; ++i) {
+                        XrSwapchainImageWaitInfo imageWaitInfo{XR_TYPE_SWAPCHAIN_IMAGE_WAIT_INFO};
+                        imageWaitInfo.timeout = 500_xrMilliseconds;  // Call can block waiting for image to become available for writing.
+                        REQUIRE_RESULT_UNQUALIFIED_SUCCESS(xrWaitSwapchainImage(swapchain, &imageWaitInfo));
+
+                        // Another wait should fail with XR_ERROR_CALL_ORDER_INVALID.
+                        CHECK(xrWaitSwapchainImage(swapchain, &imageWaitInfo) == XR_ERROR_CALL_ORDER_INVALID);
+
+                        // For odd values of i we exercise that runtimes must accept NULL image release info.
+                        XrSwapchainImageReleaseInfo imageReleaseInfo{XR_TYPE_SWAPCHAIN_IMAGE_RELEASE_INFO};
+                        const XrSwapchainImageReleaseInfo* imageReleaseInfoToUse = ((i % 2) ? &imageReleaseInfo : nullptr);
+                        REQUIRE_RESULT_UNQUALIFIED_SUCCESS(xrReleaseSwapchainImage(swapchain, imageReleaseInfoToUse));
+                    }
+                }
+
+                if ((j % 2) == 0) {
+                    FrameIterator::RunResult runResult = frameIterator.SubmitFrame();
+                    REQUIRE(runResult == FrameIterator::RunResult::Success);
+                }
+            }
+        }
+
+        REQUIRE_RESULT_UNQUALIFIED_SUCCESS(xrDestroySwapchain(swapchain));
     }
 }  // namespace Conformance

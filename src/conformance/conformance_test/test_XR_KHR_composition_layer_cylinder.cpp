@@ -14,19 +14,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "utils.h"
-#include "conformance_utils.h"
 #include "conformance_framework.h"
-#include "bitmask_generator.h"
-#include "bitmask_to_string.h"
-#include <array>
-#include <vector>
-#include <set>
-#include <string>
-#include <cstring>
-#include <limits>
+#include "conformance_utils.h"
+#include "utilities/bitmask_generator.h"
+#include "utilities/bitmask_to_string.h"
+
 #include <catch2/catch_test_macros.hpp>
 #include <openxr/openxr.h>
+
+#include <array>
+#include <cmath>
+#include <ostream>
+#include <ratio>
+#include <vector>
 
 namespace Conformance
 {
@@ -43,17 +43,13 @@ namespace Conformance
             SKIP("Test run not using graphics plugin");
         }
 
-        auto timeout = (GetGlobalData().options.debugMode ? 3600s : 10s);
-        CAPTURE(timeout);
-
         AutoBasicInstance instance({XR_KHR_COMPOSITION_LAYER_CYLINDER_EXTENSION_NAME});
         AutoBasicSession session(AutoBasicSession::createSession | AutoBasicSession::beginSession | AutoBasicSession::createSwapchains |
                                      AutoBasicSession::createSpaces,
                                  instance);
 
         FrameIterator frameIterator(&session);
-        FrameIterator::RunResult runResult = frameIterator.RunToSessionState(XR_SESSION_STATE_FOCUSED, timeout);
-        REQUIRE(runResult == FrameIterator::RunResult::Success);
+        frameIterator.RunToSessionState(XR_SESSION_STATE_FOCUSED);
 
         // At this point we have a session ready for us to generate custom frames for.
         // The current XrSessionState is XR_SESSION_STATE_FOCUSED.
@@ -71,7 +67,7 @@ namespace Conformance
                     std::array<float, 3> radiusTestArray{0, 1.f, INFINITY};  // Spec explicitly supports radius 0 and +infinity
 
                     for (float radius : radiusTestArray) {
-                        runResult = frameIterator.PrepareSubmitFrame();
+                        FrameIterator::RunResult runResult = frameIterator.PrepareSubmitFrame();
                         REQUIRE(runResult == FrameIterator::RunResult::Success);
 
                         // Set up our cylinder layer. We always make two, and some of the time we
@@ -119,7 +115,6 @@ namespace Conformance
         result = xrRequestExitSession(session.GetSession());
         CHECK(result == XR_SUCCESS);
 
-        runResult = frameIterator.RunToSessionState(XR_SESSION_STATE_STOPPING, timeout);
-        CHECK(runResult == FrameIterator::RunResult::Success);
+        frameIterator.RunToSessionState(XR_SESSION_STATE_STOPPING);
     }
 }  // namespace Conformance

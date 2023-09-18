@@ -14,34 +14,29 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include <memory>
-#include "graphics_plugin.h"
-
 #ifdef XR_USE_GRAPHICS_API_OPENGL
 
+#include "common/xr_linear.h"
+#include "conformance_framework.h"
+#include "graphics_plugin.h"
+#include "graphics_plugin_impl_helpers.h"
 #include "report.h"
 #include "swapchain_image_data.h"
-#include "graphics_plugin_impl_helpers.h"
-#include "swapchain_parameters.h"
-
+#include "utilities/Geometry.h"
+#include "utilities/swapchain_format_data.h"
+#include "utilities/swapchain_parameters.h"
+#include "utilities/throw_helpers.h"
 #include "xr_dependencies.h"
-
-#include "conformance_framework.h"
-#include "throw_helpers.h"
-#include "Geometry.h"
 
 #include <catch2/catch_test_macros.hpp>
 #include <openxr/openxr_platform.h>
 #include <openxr/openxr.h>
+
 #include <algorithm>
 #include <thread>
+#include <memory>
 
-// Why was this needed? hello_xr doesn't need these #defines
-//#include "graphics_plugin_opengl_loader.h"
 #include "gfxwrapper_opengl.h"
-#include "xr_linear.h"
-
-// clang-format off
 
 // Note: mapping of OpenXR usage flags to OpenGL
 //
@@ -57,227 +52,94 @@
 //   Note: no GL formats are "mutableFormats" in the sense of SwapchainCreateTestParameters as this is intended for TYPELESS,
 //   however, some are "supportsMutableFormat"
 
-// For now don't test XR_SWAPCHAIN_USAGE_MUTABLE_FORMAT_BIT on GL since the semantics are unclear and some runtimes don't support this flag.
-#define XR_SWAPCHAIN_USAGE_MUTABLE_FORMAT_BIT 0
-
-#define XRC_ALL_CREATE_FLAGS \
-{ \
-    0, XR_SWAPCHAIN_CREATE_PROTECTED_CONTENT_BIT, XR_SWAPCHAIN_CREATE_STATIC_IMAGE_BIT, XR_SWAPCHAIN_CREATE_PROTECTED_CONTENT_BIT | XR_SWAPCHAIN_CREATE_STATIC_IMAGE_BIT \
-}
-
-// the app might request any combination of flags
-#define XRC_COLOR_UA_COPY_SAMPLED_MUTABLE_USAGE_FLAGS \
-{                     \
-    XR_SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT, \
-    XR_SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT | XR_SWAPCHAIN_USAGE_MUTABLE_FORMAT_BIT, \
-    XR_SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT | XR_SWAPCHAIN_USAGE_SAMPLED_BIT, \
-    XR_SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT | XR_SWAPCHAIN_USAGE_SAMPLED_BIT | XR_SWAPCHAIN_USAGE_MUTABLE_FORMAT_BIT, \
-    XR_SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT | XR_SWAPCHAIN_USAGE_TRANSFER_DST_BIT, \
-    XR_SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT | XR_SWAPCHAIN_USAGE_TRANSFER_DST_BIT | XR_SWAPCHAIN_USAGE_MUTABLE_FORMAT_BIT, \
-    XR_SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT | XR_SWAPCHAIN_USAGE_TRANSFER_DST_BIT | XR_SWAPCHAIN_USAGE_SAMPLED_BIT, \
-    XR_SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT | XR_SWAPCHAIN_USAGE_TRANSFER_DST_BIT | XR_SWAPCHAIN_USAGE_SAMPLED_BIT | XR_SWAPCHAIN_USAGE_MUTABLE_FORMAT_BIT, \
-    XR_SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT | XR_SWAPCHAIN_USAGE_TRANSFER_SRC_BIT, \
-    XR_SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT | XR_SWAPCHAIN_USAGE_TRANSFER_SRC_BIT | XR_SWAPCHAIN_USAGE_MUTABLE_FORMAT_BIT, \
-    XR_SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT | XR_SWAPCHAIN_USAGE_TRANSFER_SRC_BIT | XR_SWAPCHAIN_USAGE_SAMPLED_BIT, \
-    XR_SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT | XR_SWAPCHAIN_USAGE_TRANSFER_SRC_BIT | XR_SWAPCHAIN_USAGE_SAMPLED_BIT | XR_SWAPCHAIN_USAGE_MUTABLE_FORMAT_BIT, \
-    XR_SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT | XR_SWAPCHAIN_USAGE_TRANSFER_SRC_BIT | XR_SWAPCHAIN_USAGE_TRANSFER_DST_BIT, \
-    XR_SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT | XR_SWAPCHAIN_USAGE_TRANSFER_SRC_BIT | XR_SWAPCHAIN_USAGE_TRANSFER_DST_BIT | XR_SWAPCHAIN_USAGE_MUTABLE_FORMAT_BIT, \
-    XR_SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT | XR_SWAPCHAIN_USAGE_TRANSFER_SRC_BIT | XR_SWAPCHAIN_USAGE_TRANSFER_DST_BIT | XR_SWAPCHAIN_USAGE_SAMPLED_BIT, \
-    XR_SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT | XR_SWAPCHAIN_USAGE_TRANSFER_SRC_BIT | XR_SWAPCHAIN_USAGE_TRANSFER_DST_BIT | XR_SWAPCHAIN_USAGE_SAMPLED_BIT | XR_SWAPCHAIN_USAGE_MUTABLE_FORMAT_BIT, \
-    XR_SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT | XR_SWAPCHAIN_USAGE_UNORDERED_ACCESS_BIT, \
-    XR_SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT | XR_SWAPCHAIN_USAGE_UNORDERED_ACCESS_BIT | XR_SWAPCHAIN_USAGE_MUTABLE_FORMAT_BIT, \
-    XR_SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT | XR_SWAPCHAIN_USAGE_UNORDERED_ACCESS_BIT | XR_SWAPCHAIN_USAGE_SAMPLED_BIT, \
-    XR_SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT | XR_SWAPCHAIN_USAGE_UNORDERED_ACCESS_BIT | XR_SWAPCHAIN_USAGE_SAMPLED_BIT | XR_SWAPCHAIN_USAGE_MUTABLE_FORMAT_BIT, \
-    XR_SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT | XR_SWAPCHAIN_USAGE_UNORDERED_ACCESS_BIT | XR_SWAPCHAIN_USAGE_TRANSFER_DST_BIT, \
-    XR_SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT | XR_SWAPCHAIN_USAGE_UNORDERED_ACCESS_BIT | XR_SWAPCHAIN_USAGE_TRANSFER_DST_BIT | XR_SWAPCHAIN_USAGE_MUTABLE_FORMAT_BIT, \
-    XR_SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT | XR_SWAPCHAIN_USAGE_UNORDERED_ACCESS_BIT | XR_SWAPCHAIN_USAGE_TRANSFER_DST_BIT | XR_SWAPCHAIN_USAGE_SAMPLED_BIT, \
-    XR_SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT | XR_SWAPCHAIN_USAGE_UNORDERED_ACCESS_BIT | XR_SWAPCHAIN_USAGE_TRANSFER_DST_BIT | XR_SWAPCHAIN_USAGE_SAMPLED_BIT | XR_SWAPCHAIN_USAGE_MUTABLE_FORMAT_BIT, \
-    XR_SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT | XR_SWAPCHAIN_USAGE_UNORDERED_ACCESS_BIT | XR_SWAPCHAIN_USAGE_TRANSFER_SRC_BIT, \
-    XR_SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT | XR_SWAPCHAIN_USAGE_UNORDERED_ACCESS_BIT | XR_SWAPCHAIN_USAGE_TRANSFER_SRC_BIT | XR_SWAPCHAIN_USAGE_MUTABLE_FORMAT_BIT, \
-    XR_SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT | XR_SWAPCHAIN_USAGE_UNORDERED_ACCESS_BIT | XR_SWAPCHAIN_USAGE_TRANSFER_SRC_BIT | XR_SWAPCHAIN_USAGE_SAMPLED_BIT, \
-    XR_SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT | XR_SWAPCHAIN_USAGE_UNORDERED_ACCESS_BIT | XR_SWAPCHAIN_USAGE_TRANSFER_SRC_BIT | XR_SWAPCHAIN_USAGE_SAMPLED_BIT | XR_SWAPCHAIN_USAGE_MUTABLE_FORMAT_BIT, \
-    XR_SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT | XR_SWAPCHAIN_USAGE_UNORDERED_ACCESS_BIT | XR_SWAPCHAIN_USAGE_TRANSFER_SRC_BIT | XR_SWAPCHAIN_USAGE_TRANSFER_DST_BIT, \
-    XR_SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT | XR_SWAPCHAIN_USAGE_UNORDERED_ACCESS_BIT | XR_SWAPCHAIN_USAGE_TRANSFER_SRC_BIT | XR_SWAPCHAIN_USAGE_TRANSFER_DST_BIT | XR_SWAPCHAIN_USAGE_MUTABLE_FORMAT_BIT, \
-    XR_SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT | XR_SWAPCHAIN_USAGE_UNORDERED_ACCESS_BIT | XR_SWAPCHAIN_USAGE_TRANSFER_SRC_BIT | XR_SWAPCHAIN_USAGE_TRANSFER_DST_BIT | XR_SWAPCHAIN_USAGE_SAMPLED_BIT, \
-    XR_SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT | XR_SWAPCHAIN_USAGE_UNORDERED_ACCESS_BIT | XR_SWAPCHAIN_USAGE_TRANSFER_SRC_BIT | XR_SWAPCHAIN_USAGE_TRANSFER_DST_BIT | XR_SWAPCHAIN_USAGE_SAMPLED_BIT | XR_SWAPCHAIN_USAGE_MUTABLE_FORMAT_BIT, \
-}
-#define XRC_COLOR_UA_SAMPLED_MUTABLE_USAGE_FLAGS \
-{                     \
-    XR_SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT, \
-    XR_SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT | XR_SWAPCHAIN_USAGE_MUTABLE_FORMAT_BIT, \
-    XR_SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT | XR_SWAPCHAIN_USAGE_SAMPLED_BIT, \
-    XR_SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT | XR_SWAPCHAIN_USAGE_SAMPLED_BIT | XR_SWAPCHAIN_USAGE_MUTABLE_FORMAT_BIT, \
-    XR_SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT | XR_SWAPCHAIN_USAGE_UNORDERED_ACCESS_BIT, \
-    XR_SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT | XR_SWAPCHAIN_USAGE_UNORDERED_ACCESS_BIT | XR_SWAPCHAIN_USAGE_MUTABLE_FORMAT_BIT, \
-    XR_SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT | XR_SWAPCHAIN_USAGE_UNORDERED_ACCESS_BIT | XR_SWAPCHAIN_USAGE_SAMPLED_BIT, \
-    XR_SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT | XR_SWAPCHAIN_USAGE_UNORDERED_ACCESS_BIT | XR_SWAPCHAIN_USAGE_SAMPLED_BIT | XR_SWAPCHAIN_USAGE_MUTABLE_FORMAT_BIT, \
-}
-#define XRC_COLOR_COPY_SAMPLED_USAGE_FLAGS \
-{                     \
-    XR_SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT, \
-    XR_SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT | XR_SWAPCHAIN_USAGE_SAMPLED_BIT, \
-    XR_SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT | XR_SWAPCHAIN_USAGE_TRANSFER_DST_BIT, \
-    XR_SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT | XR_SWAPCHAIN_USAGE_TRANSFER_DST_BIT | XR_SWAPCHAIN_USAGE_SAMPLED_BIT, \
-    XR_SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT | XR_SWAPCHAIN_USAGE_TRANSFER_SRC_BIT, \
-    XR_SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT | XR_SWAPCHAIN_USAGE_TRANSFER_SRC_BIT | XR_SWAPCHAIN_USAGE_SAMPLED_BIT, \
-    XR_SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT | XR_SWAPCHAIN_USAGE_TRANSFER_SRC_BIT | XR_SWAPCHAIN_USAGE_TRANSFER_DST_BIT, \
-    XR_SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT | XR_SWAPCHAIN_USAGE_TRANSFER_SRC_BIT | XR_SWAPCHAIN_USAGE_TRANSFER_DST_BIT | XR_SWAPCHAIN_USAGE_SAMPLED_BIT, \
-}
-#define XRC_COLOR_COPY_SAMPLED_MUTABLE_USAGE_FLAGS \
-{                     \
-    XR_SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT, \
-    XR_SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT | XR_SWAPCHAIN_USAGE_MUTABLE_FORMAT_BIT, \
-    XR_SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT | XR_SWAPCHAIN_USAGE_SAMPLED_BIT, \
-    XR_SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT | XR_SWAPCHAIN_USAGE_SAMPLED_BIT | XR_SWAPCHAIN_USAGE_MUTABLE_FORMAT_BIT, \
-    XR_SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT | XR_SWAPCHAIN_USAGE_TRANSFER_DST_BIT, \
-    XR_SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT | XR_SWAPCHAIN_USAGE_TRANSFER_DST_BIT | XR_SWAPCHAIN_USAGE_MUTABLE_FORMAT_BIT, \
-    XR_SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT | XR_SWAPCHAIN_USAGE_TRANSFER_DST_BIT | XR_SWAPCHAIN_USAGE_SAMPLED_BIT, \
-    XR_SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT | XR_SWAPCHAIN_USAGE_TRANSFER_DST_BIT | XR_SWAPCHAIN_USAGE_SAMPLED_BIT | XR_SWAPCHAIN_USAGE_MUTABLE_FORMAT_BIT, \
-    XR_SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT | XR_SWAPCHAIN_USAGE_TRANSFER_SRC_BIT, \
-    XR_SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT | XR_SWAPCHAIN_USAGE_TRANSFER_SRC_BIT | XR_SWAPCHAIN_USAGE_MUTABLE_FORMAT_BIT, \
-    XR_SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT | XR_SWAPCHAIN_USAGE_TRANSFER_SRC_BIT | XR_SWAPCHAIN_USAGE_SAMPLED_BIT, \
-    XR_SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT | XR_SWAPCHAIN_USAGE_TRANSFER_SRC_BIT | XR_SWAPCHAIN_USAGE_SAMPLED_BIT | XR_SWAPCHAIN_USAGE_MUTABLE_FORMAT_BIT, \
-    XR_SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT | XR_SWAPCHAIN_USAGE_TRANSFER_SRC_BIT | XR_SWAPCHAIN_USAGE_TRANSFER_DST_BIT, \
-    XR_SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT | XR_SWAPCHAIN_USAGE_TRANSFER_SRC_BIT | XR_SWAPCHAIN_USAGE_TRANSFER_DST_BIT | XR_SWAPCHAIN_USAGE_MUTABLE_FORMAT_BIT, \
-    XR_SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT | XR_SWAPCHAIN_USAGE_TRANSFER_SRC_BIT | XR_SWAPCHAIN_USAGE_TRANSFER_DST_BIT | XR_SWAPCHAIN_USAGE_SAMPLED_BIT, \
-    XR_SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT | XR_SWAPCHAIN_USAGE_TRANSFER_SRC_BIT | XR_SWAPCHAIN_USAGE_TRANSFER_DST_BIT | XR_SWAPCHAIN_USAGE_SAMPLED_BIT | XR_SWAPCHAIN_USAGE_MUTABLE_FORMAT_BIT, \
-}
-#define XRC_COLOR_SAMPLED_USAGE_FLAGS \
-{                     \
-    XR_SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT, \
-    XR_SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT | XR_SWAPCHAIN_USAGE_SAMPLED_BIT, \
-}
-#define XRC_DEPTH_COPY_SAMPLED_USAGE_FLAGS \
-{                     \
-    XR_SWAPCHAIN_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, \
-    XR_SWAPCHAIN_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | XR_SWAPCHAIN_USAGE_SAMPLED_BIT, \
-    XR_SWAPCHAIN_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | XR_SWAPCHAIN_USAGE_TRANSFER_DST_BIT, \
-    XR_SWAPCHAIN_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | XR_SWAPCHAIN_USAGE_TRANSFER_DST_BIT | XR_SWAPCHAIN_USAGE_SAMPLED_BIT, \
-    XR_SWAPCHAIN_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | XR_SWAPCHAIN_USAGE_TRANSFER_SRC_BIT, \
-    XR_SWAPCHAIN_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | XR_SWAPCHAIN_USAGE_TRANSFER_SRC_BIT | XR_SWAPCHAIN_USAGE_SAMPLED_BIT, \
-    XR_SWAPCHAIN_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | XR_SWAPCHAIN_USAGE_TRANSFER_SRC_BIT | XR_SWAPCHAIN_USAGE_TRANSFER_DST_BIT, \
-    XR_SWAPCHAIN_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | XR_SWAPCHAIN_USAGE_TRANSFER_SRC_BIT | XR_SWAPCHAIN_USAGE_TRANSFER_DST_BIT | XR_SWAPCHAIN_USAGE_SAMPLED_BIT, \
-}
-#define XRC_DEPTH_SAMPLED_USAGE_FLAGS \
-{                     \
-    XR_SWAPCHAIN_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, \
-    XR_SWAPCHAIN_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | XR_SWAPCHAIN_USAGE_SAMPLED_BIT, \
-}
-
-#define XRC_COMPRESSED_SAMPLED_MUTABLE_USAGE_FLAGS \
-{                     \
-    XR_SWAPCHAIN_USAGE_MUTABLE_FORMAT_BIT, \
-    XR_SWAPCHAIN_USAGE_SAMPLED_BIT, \
-    XR_SWAPCHAIN_USAGE_SAMPLED_BIT | XR_SWAPCHAIN_USAGE_MUTABLE_FORMAT_BIT, \
-}
-#define XRC_COMPRESSED_SAMPLED_USAGE_FLAGS \
-{                     \
-    XR_SWAPCHAIN_USAGE_SAMPLED_BIT, \
-}
-
-#define ADD_GL_COLOR_UA_COPY_SAMPLED_MUTABLE_FORMAT2(FORMAT, NAME)                                     \
-{                                                                              \
-    {FORMAT},                                                                  \
-    {                                                                          \
-        NAME, IMMUTABLE, MUT_SUPPORT, COLOR, UNCOMPRESSED, RENDERING_SUPPORT, FORMAT, XRC_COLOR_UA_COPY_SAMPLED_MUTABLE_USAGE_FLAGS, XRC_ALL_CREATE_FLAGS, {}, {}, \
-        {                                                                      \
-        }                                                                      \
-    }                                                                          \
-}
-#define ADD_GL_COLOR_UA_COPY_SAMPLED_MUTABLE_FORMAT(X) ADD_GL_COLOR_UA_COPY_SAMPLED_MUTABLE_FORMAT2(X, #X)
-
-#define ADD_GL_COLOR_UA_SAMPLED_MUTABLE_FORMAT2(FORMAT, NAME)                                     \
-{                                                                              \
-    {FORMAT},                                                                  \
-    {                                                                          \
-        NAME, IMMUTABLE, MUT_SUPPORT, COLOR, UNCOMPRESSED, RENDERING_SUPPORT, FORMAT, XRC_COLOR_UA_SAMPLED_MUTABLE_USAGE_FLAGS, XRC_ALL_CREATE_FLAGS, {}, {}, \
-        {                                                                      \
-        }                                                                      \
-    }                                                                          \
-}
-#define ADD_GL_COLOR_UA_SAMPLED_MUTABLE_FORMAT(X) ADD_GL_COLOR_UA_COPY_SAMPLED_MUTABLE_FORMAT2(X, #X)
-
-#define ADD_GL_COLOR_COPY_SAMPLED_FORMAT2(FORMAT, NAME)                                     \
-{                                                                              \
-    {FORMAT},                                                                  \
-    {                                                                          \
-        NAME, IMMUTABLE, NO_MUT_SUPPORT, COLOR, UNCOMPRESSED, RENDERING_SUPPORT, FORMAT, XRC_COLOR_COPY_SAMPLED_USAGE_FLAGS, XRC_ALL_CREATE_FLAGS, {}, {}, \
-        {                                                                      \
-        }                                                                      \
-    }                                                                          \
-}
-#define ADD_GL_COLOR_COPY_SAMPLED_FORMAT(X) ADD_GL_COLOR_COPY_SAMPLED_FORMAT2(X, #X)
-
-#define ADD_GL_COLOR_COPY_SAMPLED_MUTABLE_FORMAT2(FORMAT, NAME)                                     \
-{                                                                              \
-    {FORMAT},                                                                  \
-    {                                                                          \
-        NAME, IMMUTABLE, MUT_SUPPORT, COLOR, UNCOMPRESSED, RENDERING_SUPPORT, FORMAT, XRC_COLOR_COPY_SAMPLED_MUTABLE_USAGE_FLAGS, XRC_ALL_CREATE_FLAGS, {}, {}, \
-        {                                                                      \
-        }                                                                      \
-    }                                                                          \
-}
-#define ADD_GL_COLOR_COPY_SAMPLED_MUTABLE_FORMAT(X) ADD_GL_COLOR_COPY_SAMPLED_MUTABLE_FORMAT2(X, #X)
-
-#define ADD_GL_COLOR_SAMPLED_FORMAT2(FORMAT, NAME)                                     \
-{                                                                              \
-    {FORMAT},                                                                  \
-    {                                                                          \
-        NAME, IMMUTABLE, NO_MUT_SUPPORT, COLOR, UNCOMPRESSED, RENDERING_SUPPORT, FORMAT, XRC_COLOR_SAMPLED_USAGE_FLAGS, XRC_ALL_CREATE_FLAGS, {}, {}, \
-        {                                                                      \
-        }                                                                      \
-    }                                                                          \
-}
-#define ADD_GL_COLOR_SAMPLED_FORMAT(X) ADD_GL_COLOR_SAMPLED_FORMAT2(X, #X)
-
-#define ADD_GL_DEPTH_COPY_SAMPLED_FORMAT2(FORMAT, NAME)                                     \
-{                                                                              \
-    {FORMAT},                                                                  \
-    {                                                                          \
-        NAME, IMMUTABLE, NO_MUT_SUPPORT, NON_COLOR, UNCOMPRESSED, RENDERING_SUPPORT, FORMAT, XRC_DEPTH_COPY_SAMPLED_USAGE_FLAGS, XRC_ALL_CREATE_FLAGS, {}, {}, \
-        {                                                                      \
-        }                                                                      \
-    }                                                                          \
-}
-#define ADD_GL_DEPTH_COPY_SAMPLED_FORMAT(X) ADD_GL_DEPTH_COPY_SAMPLED_FORMAT2(X, #X)
-
-#define ADD_GL_DEPTH_SAMPLED_FORMAT2(FORMAT, NAME)                                     \
-{                                                                              \
-    {FORMAT},                                                                  \
-    {                                                                          \
-        NAME, IMMUTABLE, NO_MUT_SUPPORT, NON_COLOR, UNCOMPRESSED, RENDERING_SUPPORT, FORMAT, XRC_DEPTH_SAMPLED_USAGE_FLAGS, XRC_ALL_CREATE_FLAGS, {}, {}, \
-        {                                                                      \
-        }                                                                      \
-    }                                                                          \
-}
-#define ADD_GL_DEPTH_SAMPLED_FORMAT(X) ADD_GL_DEPTH_SAMPLED_FORMAT2(X, #X)
-
-#define ADD_GL_COMPRESSED_SAMPLED_MUTABLE_FORMAT2(FORMAT, NAME)                                     \
-{                                                                              \
-    {FORMAT},                                                                  \
-    {                                                                          \
-        NAME, IMMUTABLE, MUT_SUPPORT, COLOR, COMPRESSED, NO_RENDERING_SUPPORT, FORMAT, XRC_COMPRESSED_SAMPLED_MUTABLE_USAGE_FLAGS, XRC_ALL_CREATE_FLAGS, {}, {}, \
-        {                                                                      \
-        }                                                                      \
-    }                                                                          \
-}
-#define ADD_GL_COMPRESSED_SAMPLED_MUTABLE_FORMAT(X) ADD_GL_COMPRESSED_SAMPLED_MUTABLE_FORMAT2(X, #X)
-
-#define ADD_GL_COMPRESSED_SAMPLED_FORMAT2(FORMAT, NAME)                                     \
-{                                                                              \
-    {FORMAT},                                                                  \
-    {                                                                          \
-        NAME, IMMUTABLE, NO_MUT_SUPPORT, COLOR, COMPRESSED, NO_RENDERING_SUPPORT, FORMAT, XRC_COMPRESSED_SAMPLED_USAGE_FLAGS, XRC_ALL_CREATE_FLAGS, {}, {}, \
-        {                                                                      \
-        }                                                                      \
-    }                                                                          \
-}
-#define ADD_GL_COMPRESSED_SAMPLED_FORMAT(X) ADD_GL_COMPRESSED_SAMPLED_FORMAT2(X, #X)
-
-// clang-format on
-
 namespace Conformance
 {
+
+    // Only texture formats which are in OpenGL core and which are either color or depth renderable or
+    // of a specific compressed format are listed below. Runtimes can support additional formats, but those
+    // will not get tested.
+    //
+    // For now don't test XR_SWAPCHAIN_USAGE_MUTABLE_FORMAT_BIT on GL since the semantics are unclear and some runtimes don't support this flag.
+    // TODO in the future remove this workaround?
+#define WORKAROUND NotMutable()
+    static const SwapchainFormatDataMap& GetSwapchainFormatData()
+    {
+        static SwapchainFormatDataMap map{
+            XRC_SWAPCHAIN_FORMAT(GL_RGBA8).WORKAROUND.ToPair(),
+            XRC_SWAPCHAIN_FORMAT(GL_RGBA16).WORKAROUND.ToPair(),
+            XRC_SWAPCHAIN_FORMAT(GL_RGB10_A2).WORKAROUND.ToPair(),
+
+            XRC_SWAPCHAIN_FORMAT(GL_R8).WORKAROUND.ToPair(),
+            XRC_SWAPCHAIN_FORMAT(GL_R16).WORKAROUND.ToPair(),
+            XRC_SWAPCHAIN_FORMAT(GL_RG8).WORKAROUND.ToPair(),
+            XRC_SWAPCHAIN_FORMAT(GL_RG16).WORKAROUND.ToPair(),
+            XRC_SWAPCHAIN_FORMAT(GL_RGB10_A2UI).WORKAROUND.ToPair(),
+            XRC_SWAPCHAIN_FORMAT(GL_R16F).WORKAROUND.ToPair(),
+            XRC_SWAPCHAIN_FORMAT(GL_RG16F).WORKAROUND.ToPair(),
+            XRC_SWAPCHAIN_FORMAT(GL_RGB16F).WORKAROUND.ToPair(),
+            XRC_SWAPCHAIN_FORMAT(GL_RGBA16F).WORKAROUND.ToPair(),
+            XRC_SWAPCHAIN_FORMAT(GL_R32F).WORKAROUND.ToPair(),
+            XRC_SWAPCHAIN_FORMAT(GL_RG32F).WORKAROUND.ToPair(),
+            XRC_SWAPCHAIN_FORMAT(GL_RGBA32F).WORKAROUND.ToPair(),
+            XRC_SWAPCHAIN_FORMAT(GL_R11F_G11F_B10F).WORKAROUND.ToPair(),
+            XRC_SWAPCHAIN_FORMAT(GL_R8I).WORKAROUND.ToPair(),
+            XRC_SWAPCHAIN_FORMAT(GL_R8UI).WORKAROUND.ToPair(),
+            XRC_SWAPCHAIN_FORMAT(GL_R16I).WORKAROUND.ToPair(),
+            XRC_SWAPCHAIN_FORMAT(GL_R16UI).WORKAROUND.ToPair(),
+            XRC_SWAPCHAIN_FORMAT(GL_R32I).WORKAROUND.ToPair(),
+            XRC_SWAPCHAIN_FORMAT(GL_R32UI).WORKAROUND.ToPair(),
+            XRC_SWAPCHAIN_FORMAT(GL_RG8I).WORKAROUND.ToPair(),
+            XRC_SWAPCHAIN_FORMAT(GL_RG8UI).WORKAROUND.ToPair(),
+            XRC_SWAPCHAIN_FORMAT(GL_RG16I).WORKAROUND.ToPair(),
+            XRC_SWAPCHAIN_FORMAT(GL_RG16UI).WORKAROUND.ToPair(),
+            XRC_SWAPCHAIN_FORMAT(GL_RG32I).WORKAROUND.ToPair(),
+            XRC_SWAPCHAIN_FORMAT(GL_RG32UI).WORKAROUND.ToPair(),
+            XRC_SWAPCHAIN_FORMAT(GL_RGBA8I).WORKAROUND.ToPair(),
+            XRC_SWAPCHAIN_FORMAT(GL_RGBA8UI).WORKAROUND.ToPair(),
+            XRC_SWAPCHAIN_FORMAT(GL_RGBA16I).WORKAROUND.ToPair(),
+            XRC_SWAPCHAIN_FORMAT(GL_RGBA16UI).WORKAROUND.ToPair(),
+            XRC_SWAPCHAIN_FORMAT(GL_RGBA32I).WORKAROUND.ToPair(),
+            XRC_SWAPCHAIN_FORMAT(GL_RGBA32UI).WORKAROUND.ToPair(),
+
+            XRC_SWAPCHAIN_FORMAT(GL_RGBA4).WORKAROUND.NotMutable().NoUnorderedAccess().ToPair(),
+            XRC_SWAPCHAIN_FORMAT(GL_RGB5_A1).WORKAROUND.NotMutable().NoUnorderedAccess().ToPair(),
+
+            XRC_SWAPCHAIN_FORMAT(GL_SRGB8).WORKAROUND.NoUnorderedAccess().ToPair(),
+            XRC_SWAPCHAIN_FORMAT(GL_SRGB8_ALPHA8).WORKAROUND.NoUnorderedAccess().ToPair(),
+
+            XRC_SWAPCHAIN_FORMAT(GL_RGB565).WORKAROUND.NotMutable().NoUnorderedAccess().ToPair(),
+
+            XRC_SWAPCHAIN_FORMAT(GL_DEPTH_COMPONENT16).WORKAROUND.Depth().ToPair(),
+            XRC_SWAPCHAIN_FORMAT(GL_DEPTH_COMPONENT24).WORKAROUND.Depth().ToPair(),
+
+            XRC_SWAPCHAIN_FORMAT(GL_DEPTH_COMPONENT32F).WORKAROUND.Depth().ToPair(),
+            XRC_SWAPCHAIN_FORMAT(GL_DEPTH24_STENCIL8).WORKAROUND.DepthStencil().ToPair(),
+            XRC_SWAPCHAIN_FORMAT(GL_DEPTH32F_STENCIL8).WORKAROUND.DepthStencil().ToPair(),
+            XRC_SWAPCHAIN_FORMAT(GL_STENCIL_INDEX8).WORKAROUND.Stencil().ToPair(),
+
+            XRC_SWAPCHAIN_FORMAT(GL_COMPRESSED_RED_RGTC1).WORKAROUND.Compressed().ToPair(),
+            XRC_SWAPCHAIN_FORMAT(GL_COMPRESSED_SIGNED_RED_RGTC1).WORKAROUND.Compressed().ToPair(),
+            XRC_SWAPCHAIN_FORMAT(GL_COMPRESSED_RG_RGTC2).WORKAROUND.Compressed().ToPair(),
+            XRC_SWAPCHAIN_FORMAT(GL_COMPRESSED_SIGNED_RG_RGTC2).WORKAROUND.Compressed().ToPair(),
+            XRC_SWAPCHAIN_FORMAT(GL_COMPRESSED_RGBA_BPTC_UNORM).WORKAROUND.Compressed().ToPair(),
+            XRC_SWAPCHAIN_FORMAT(GL_COMPRESSED_SRGB_ALPHA_BPTC_UNORM).WORKAROUND.Compressed().ToPair(),
+            XRC_SWAPCHAIN_FORMAT(GL_COMPRESSED_RGB_BPTC_SIGNED_FLOAT).WORKAROUND.Compressed().ToPair(),
+            XRC_SWAPCHAIN_FORMAT(GL_COMPRESSED_RGB_BPTC_UNSIGNED_FLOAT).WORKAROUND.Compressed().ToPair(),
+
+            XRC_SWAPCHAIN_FORMAT(GL_COMPRESSED_RGB8_ETC2).WORKAROUND.Compressed().NotMutable().ToPair(),
+            XRC_SWAPCHAIN_FORMAT(GL_COMPRESSED_SRGB8_ETC2).WORKAROUND.Compressed().NotMutable().ToPair(),
+            XRC_SWAPCHAIN_FORMAT(GL_COMPRESSED_RGB8_PUNCHTHROUGH_ALPHA1_ETC2).WORKAROUND.Compressed().NotMutable().ToPair(),
+            XRC_SWAPCHAIN_FORMAT(GL_COMPRESSED_SRGB8_PUNCHTHROUGH_ALPHA1_ETC2).WORKAROUND.Compressed().NotMutable().ToPair(),
+            XRC_SWAPCHAIN_FORMAT(GL_COMPRESSED_RGBA8_ETC2_EAC).WORKAROUND.Compressed().NotMutable().ToPair(),
+            XRC_SWAPCHAIN_FORMAT(GL_COMPRESSED_SRGB8_ALPHA8_ETC2_EAC).WORKAROUND.Compressed().NotMutable().ToPair(),
+            XRC_SWAPCHAIN_FORMAT(GL_COMPRESSED_R11_EAC).WORKAROUND.Compressed().NotMutable().ToPair(),
+            XRC_SWAPCHAIN_FORMAT(GL_COMPRESSED_SIGNED_R11_EAC).WORKAROUND.Compressed().NotMutable().ToPair(),
+            XRC_SWAPCHAIN_FORMAT(GL_COMPRESSED_RG11_EAC).WORKAROUND.Compressed().NotMutable().ToPair(),
+            XRC_SWAPCHAIN_FORMAT(GL_COMPRESSED_SIGNED_RG11_EAC).WORKAROUND.Compressed().NotMutable().ToPair(),
+        };
+        return map;
+    }
+
     std::string glResultString(GLenum err)
     {
         switch (err) {
@@ -581,8 +443,7 @@ namespace Conformance
                                                                           XrSwapchain depthSwapchain,
                                                                           const XrSwapchainCreateInfo& depthSwapchainCreateInfo) override;
 
-        void ClearImageSlice(const XrSwapchainImageBaseHeader* colorSwapchainImage, uint32_t imageArrayIndex,
-                             XrColor4f bgColor = DarkSlateGrey) override;
+        void ClearImageSlice(const XrSwapchainImageBaseHeader* colorSwapchainImage, uint32_t imageArrayIndex, XrColor4f color) override;
 
         MeshHandle MakeSimpleMesh(span<const uint16_t> idx, span<const Geometry::Vertex> vtx) override;
 
@@ -605,6 +466,8 @@ namespace Conformance
         XrGraphicsBindingOpenGLXlibKHR graphicsBinding{XR_TYPE_GRAPHICS_BINDING_OPENGL_XLIB_KHR};
 #elif defined(XR_USE_PLATFORM_XCB)
         XrGraphicsBindingOpenGLXcbKHR graphicsBinding{XR_TYPE_GRAPHICS_BINDING_OPENGL_XCB_KHR};
+#elif defined(XR_USE_PLATFORM_MACOS)
+#error OpenGL bindings for Mac have not been implemented
 #else
 #error "Platform not (yet) supported."
 #endif
@@ -691,7 +554,7 @@ namespace Conformance
                 GetInstanceExtensionFunction<PFN_xrGetOpenGLGraphicsRequirementsKHR>(instance, "xrGetOpenGLGraphicsRequirementsKHR");
 
             XrResult result = xrGetOpenGLGraphicsRequirementsKHR(instance, systemId, &graphicsRequirements);
-            CHECK(ValidateResultAllowed("xrGetOpenGLGraphicsRequirementsKHR", result));
+            XRC_CHECK_THROW(ValidateResultAllowed("xrGetOpenGLGraphicsRequirementsKHR", result));
             if (XR_FAILED(result)) {
                 // Log result?
                 return false;
@@ -723,26 +586,28 @@ namespace Conformance
         graphicsBinding.hDC = window.context.hDC;
         graphicsBinding.hGLRC = window.context.hGLRC;
 #elif defined(XR_USE_PLATFORM_XLIB)
-        REQUIRE(window.context.xDisplay != nullptr);
+        XRC_CHECK_THROW(window.context.xDisplay != nullptr);
         graphicsBinding.xDisplay = window.context.xDisplay;
         graphicsBinding.visualid = window.context.visualid;
         graphicsBinding.glxFBConfig = window.context.glxFBConfig;
         graphicsBinding.glxDrawable = window.context.glxDrawable;
         graphicsBinding.glxContext = window.context.glxContext;
 #elif defined(XR_USE_PLATFORM_XCB)
-        REQUIRE(window.context.connection != nullptr);
+        XRC_CHECK_THROW(window.context.connection != nullptr);
         graphicsBinding.connection = window.context.connection;
         graphicsBinding.screenNumber = window.context.screen_number;
         graphicsBinding.fbconfigid = window.context.fbconfigid;
         graphicsBinding.visualid = window.context.visualid;
         graphicsBinding.glxDrawable = window.context.glxDrawable;
         graphicsBinding.glxContext = window.context.glxContext;
+#elif defined(XR_USE_PLATFORM_MACOS)
+#error OpenGL bindings for Mac have not been implemented
 #else
 #error "Platform not (yet) supported."
 #endif
 
         GLenum error = glGetError();
-        CHECK(error == GL_NO_ERROR);
+        XRC_CHECK_THROW(error == GL_NO_ERROR);
 
         GLint major, minor;
         glGetIntegerv(GL_MAJOR_VERSION, &major);
@@ -810,6 +675,7 @@ namespace Conformance
         ReportF("GL %s (0x%x): %s", sev, id, message);
 #else
         (void)severity;
+        (void)message;
 #endif  // !defined(OS_APPLE_MACOS)
     }
 
@@ -978,135 +844,27 @@ namespace Conformance
         deleteGLContext();
     }
 
-    // Only texture formats which are in OpenGL core and which are either color or depth renderable or
-    // of a specific compressed format are listed below. Runtimes can support additional formats, but those
-    // will not get tested.
-    typedef std::map<int64_t, SwapchainCreateTestParameters> SwapchainTestMap;
-    SwapchainTestMap openGLSwapchainTestMap{
-        ADD_GL_COLOR_UA_COPY_SAMPLED_MUTABLE_FORMAT(GL_RGBA8),
-        ADD_GL_COLOR_UA_COPY_SAMPLED_MUTABLE_FORMAT(GL_RGBA16),
-        ADD_GL_COLOR_UA_COPY_SAMPLED_MUTABLE_FORMAT(GL_RGB10_A2),
-
-        ADD_GL_COLOR_UA_SAMPLED_MUTABLE_FORMAT(GL_R8),
-        ADD_GL_COLOR_UA_SAMPLED_MUTABLE_FORMAT(GL_R16),
-        ADD_GL_COLOR_UA_SAMPLED_MUTABLE_FORMAT(GL_RG8),
-        ADD_GL_COLOR_UA_SAMPLED_MUTABLE_FORMAT(GL_RG16),
-        ADD_GL_COLOR_UA_SAMPLED_MUTABLE_FORMAT(GL_RGB10_A2UI),
-        ADD_GL_COLOR_UA_SAMPLED_MUTABLE_FORMAT(GL_R16F),
-        ADD_GL_COLOR_UA_SAMPLED_MUTABLE_FORMAT(GL_RG16F),
-        ADD_GL_COLOR_UA_SAMPLED_MUTABLE_FORMAT(GL_RGB16F),
-        ADD_GL_COLOR_UA_SAMPLED_MUTABLE_FORMAT(GL_RGBA16F),
-        ADD_GL_COLOR_UA_SAMPLED_MUTABLE_FORMAT(GL_R32F),
-        ADD_GL_COLOR_UA_SAMPLED_MUTABLE_FORMAT(GL_RG32F),
-        ADD_GL_COLOR_UA_SAMPLED_MUTABLE_FORMAT(GL_RGBA32F),
-        ADD_GL_COLOR_UA_SAMPLED_MUTABLE_FORMAT(GL_R11F_G11F_B10F),
-        ADD_GL_COLOR_UA_SAMPLED_MUTABLE_FORMAT(GL_R8I),
-        ADD_GL_COLOR_UA_SAMPLED_MUTABLE_FORMAT(GL_R8UI),
-        ADD_GL_COLOR_UA_SAMPLED_MUTABLE_FORMAT(GL_R16I),
-        ADD_GL_COLOR_UA_SAMPLED_MUTABLE_FORMAT(GL_R16UI),
-        ADD_GL_COLOR_UA_SAMPLED_MUTABLE_FORMAT(GL_R32I),
-        ADD_GL_COLOR_UA_SAMPLED_MUTABLE_FORMAT(GL_R32UI),
-        ADD_GL_COLOR_UA_SAMPLED_MUTABLE_FORMAT(GL_RG8I),
-        ADD_GL_COLOR_UA_SAMPLED_MUTABLE_FORMAT(GL_RG8UI),
-        ADD_GL_COLOR_UA_SAMPLED_MUTABLE_FORMAT(GL_RG16I),
-        ADD_GL_COLOR_UA_SAMPLED_MUTABLE_FORMAT(GL_RG16UI),
-        ADD_GL_COLOR_UA_SAMPLED_MUTABLE_FORMAT(GL_RG32I),
-        ADD_GL_COLOR_UA_SAMPLED_MUTABLE_FORMAT(GL_RG32UI),
-        ADD_GL_COLOR_UA_SAMPLED_MUTABLE_FORMAT(GL_RGBA8I),
-        ADD_GL_COLOR_UA_SAMPLED_MUTABLE_FORMAT(GL_RGBA8UI),
-        ADD_GL_COLOR_UA_SAMPLED_MUTABLE_FORMAT(GL_RGBA16I),
-        ADD_GL_COLOR_UA_SAMPLED_MUTABLE_FORMAT(GL_RGBA16UI),
-        ADD_GL_COLOR_UA_SAMPLED_MUTABLE_FORMAT(GL_RGBA32I),
-        ADD_GL_COLOR_UA_SAMPLED_MUTABLE_FORMAT(GL_RGBA32UI),
-
-        ADD_GL_COLOR_COPY_SAMPLED_FORMAT(GL_RGBA4),
-        ADD_GL_COLOR_COPY_SAMPLED_FORMAT(GL_RGB5_A1),
-
-        ADD_GL_COLOR_COPY_SAMPLED_MUTABLE_FORMAT(GL_SRGB8),
-        ADD_GL_COLOR_COPY_SAMPLED_MUTABLE_FORMAT(GL_SRGB8_ALPHA8),
-
-        ADD_GL_COLOR_SAMPLED_FORMAT(GL_RGB565),
-
-        ADD_GL_DEPTH_COPY_SAMPLED_FORMAT(GL_DEPTH_COMPONENT16),
-        ADD_GL_DEPTH_COPY_SAMPLED_FORMAT(GL_DEPTH_COMPONENT24),
-
-        ADD_GL_DEPTH_SAMPLED_FORMAT(GL_DEPTH_COMPONENT32F),
-        ADD_GL_DEPTH_SAMPLED_FORMAT(GL_DEPTH24_STENCIL8),
-        ADD_GL_DEPTH_SAMPLED_FORMAT(GL_DEPTH32F_STENCIL8),
-        ADD_GL_DEPTH_SAMPLED_FORMAT(GL_STENCIL_INDEX8),
-
-        ADD_GL_COMPRESSED_SAMPLED_MUTABLE_FORMAT(GL_COMPRESSED_RED_RGTC1),
-        ADD_GL_COMPRESSED_SAMPLED_MUTABLE_FORMAT(GL_COMPRESSED_SIGNED_RED_RGTC1),
-        ADD_GL_COMPRESSED_SAMPLED_MUTABLE_FORMAT(GL_COMPRESSED_RG_RGTC2),
-        ADD_GL_COMPRESSED_SAMPLED_MUTABLE_FORMAT(GL_COMPRESSED_SIGNED_RG_RGTC2),
-        ADD_GL_COMPRESSED_SAMPLED_MUTABLE_FORMAT(GL_COMPRESSED_RGBA_BPTC_UNORM),
-        ADD_GL_COMPRESSED_SAMPLED_MUTABLE_FORMAT(GL_COMPRESSED_SRGB_ALPHA_BPTC_UNORM),
-        ADD_GL_COMPRESSED_SAMPLED_MUTABLE_FORMAT(GL_COMPRESSED_RGB_BPTC_SIGNED_FLOAT),
-        ADD_GL_COMPRESSED_SAMPLED_MUTABLE_FORMAT(GL_COMPRESSED_RGB_BPTC_UNSIGNED_FLOAT),
-
-        ADD_GL_COMPRESSED_SAMPLED_FORMAT(GL_COMPRESSED_RGB8_ETC2),
-        ADD_GL_COMPRESSED_SAMPLED_FORMAT(GL_COMPRESSED_SRGB8_ETC2),
-        ADD_GL_COMPRESSED_SAMPLED_FORMAT(GL_COMPRESSED_RGB8_PUNCHTHROUGH_ALPHA1_ETC2),
-        ADD_GL_COMPRESSED_SAMPLED_FORMAT(GL_COMPRESSED_SRGB8_PUNCHTHROUGH_ALPHA1_ETC2),
-        ADD_GL_COMPRESSED_SAMPLED_FORMAT(GL_COMPRESSED_RGBA8_ETC2_EAC),
-        ADD_GL_COMPRESSED_SAMPLED_FORMAT(GL_COMPRESSED_SRGB8_ALPHA8_ETC2_EAC),
-        ADD_GL_COMPRESSED_SAMPLED_FORMAT(GL_COMPRESSED_R11_EAC),
-        ADD_GL_COMPRESSED_SAMPLED_FORMAT(GL_COMPRESSED_SIGNED_R11_EAC),
-        ADD_GL_COMPRESSED_SAMPLED_FORMAT(GL_COMPRESSED_RG11_EAC),
-        ADD_GL_COMPRESSED_SAMPLED_FORMAT(GL_COMPRESSED_SIGNED_RG11_EAC),
-    };
-
     std::string OpenGLGraphicsPlugin::GetImageFormatName(int64_t imageFormat) const
     {
-        SwapchainTestMap::const_iterator it = openGLSwapchainTestMap.find(imageFormat);
-
-        if (it != openGLSwapchainTestMap.end()) {
-            return it->second.imageFormatName;
-        }
-
-        return std::string("unknown");
+        return ::Conformance::GetImageFormatName(GetSwapchainFormatData(), imageFormat);
     }
 
     bool OpenGLGraphicsPlugin::IsImageFormatKnown(int64_t imageFormat) const
     {
-        SwapchainTestMap::const_iterator it = openGLSwapchainTestMap.find(imageFormat);
-
-        return (it != openGLSwapchainTestMap.end());
+        return ::Conformance::IsImageFormatKnown(GetSwapchainFormatData(), imageFormat);
     }
 
     bool OpenGLGraphicsPlugin::GetSwapchainCreateTestParameters(XrInstance /*instance*/, XrSession /*session*/, XrSystemId /*systemId*/,
                                                                 int64_t imageFormat, SwapchainCreateTestParameters* swapchainTestParameters)
     {
-        // Swapchain image format support by the runtime is specified by the xrEnumerateSwapchainFormats function.
-        // Runtimes should support R8G8B8A8 and R8G8B8A8 sRGB formats if possible.
-
-        SwapchainTestMap::iterator it = openGLSwapchainTestMap.find(imageFormat);
-
-        // Verify that the image format is known. If it's not known then this test needs to be
-        // updated to recognize new OpenGL formats.
-        CAPTURE(imageFormat);
-        CHECK_MSG(it != openGLSwapchainTestMap.end(), "Unknown OpenGL image format.");
-        if (it == openGLSwapchainTestMap.end()) {
-            return false;
-        }
-
-        // We may now proceed with creating swapchains with the format.
-        SwapchainCreateTestParameters& tp = it->second;
-        tp.arrayCountVector = {1, 2};
-        if (!tp.compressedFormat) {
-            tp.mipCountVector = {1, 2};
-        }
-        else {
-            tp.mipCountVector = {1};
-        }
-
-        *swapchainTestParameters = tp;
+        *swapchainTestParameters = ::Conformance::GetSwapchainCreateTestParameters(GetSwapchainFormatData(), imageFormat);
         return true;
     }
 
     bool OpenGLGraphicsPlugin::ValidateSwapchainImages(int64_t imageFormat, const SwapchainCreateTestParameters* tp, XrSwapchain swapchain,
                                                        uint32_t* imageCount) const
     {
+        // OK to use CHECK and REQUIRE in here because this is always called from within a test.
         *imageCount = 0;  // Zero until set below upon success.
 
         std::vector<XrSwapchainImageOpenGLKHR> swapchainImageVector;
@@ -1187,8 +945,9 @@ namespace Conformance
     int64_t OpenGLGraphicsPlugin::SelectDepthSwapchainFormat(const int64_t* imageFormatArray, size_t count) const
     {
         // List of supported depth swapchain formats.
-        const std::array<GLenum, 5> f{GL_DEPTH24_STENCIL8, GL_DEPTH32F_STENCIL8, GL_DEPTH_COMPONENT24, GL_DEPTH_COMPONENT32F,
-                                      GL_DEPTH_COMPONENT16};
+        const std::array<GLenum, 5> f{
+            GL_DEPTH24_STENCIL8, GL_DEPTH32F_STENCIL8, GL_DEPTH_COMPONENT24, GL_DEPTH_COMPONENT32F, GL_DEPTH_COMPONENT16,
+        };
 
         const int64_t* formatArrayEnd = imageFormatArray + count;
         auto it = std::find_first_of(imageFormatArray, formatArrayEnd, f.begin(), f.end());
@@ -1264,7 +1023,7 @@ namespace Conformance
     }
 
     void OpenGLGraphicsPlugin::ClearImageSlice(const XrSwapchainImageBaseHeader* colorSwapchainImage, uint32_t imageArrayIndex,
-                                               XrColor4f bgColor)
+                                               XrColor4f color)
     {
         OpenGLSwapchainImageData* swapchainData;
         uint32_t imageIndex;
@@ -1298,7 +1057,7 @@ namespace Conformance
         XRC_CHECK_THROW_GLCMD(glEnable(GL_SCISSOR_TEST));
 
         // Clear swapchain and depth buffer.
-        XRC_CHECK_THROW_GLCMD(glClearColor(bgColor.r, bgColor.g, bgColor.b, bgColor.a));
+        XRC_CHECK_THROW_GLCMD(glClearColor(color.r, color.g, color.b, color.a));
         XRC_CHECK_THROW_GLCMD(glClearDepth(1.0f));
         XRC_CHECK_THROW_GLCMD(glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT));
 

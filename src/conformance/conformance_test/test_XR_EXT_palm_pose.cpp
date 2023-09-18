@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2021, The Khronos Group Inc.
+// Copyright (c) 2019-2023, The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -14,18 +14,27 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include <array>
-#include <thread>
-#include <numeric>
-#include "utils.h"
-#include "report.h"
-#include "conformance_utils.h"
-#include "conformance_framework.h"
-#include "throw_helpers.h"
+#include "RGBAImage.h"
+#include "common/xr_linear.h"
 #include "composition_utils.h"
+#include "conformance_framework.h"
+#include "graphics_plugin.h"
+#include "utilities/stringification.h"
+#include "utilities/throw_helpers.h"
+#include "utilities/types_and_constants.h"
+#include "utilities/utils.h"
+
 #include <catch2/catch_test_macros.hpp>
 #include <openxr/openxr.h>
-#include <xr_linear.h>
+
+#include <cstdint>
+#include <cstring>
+#include <array>
+#include <functional>
+#include <memory>
+#include <tuple>
+#include <type_traits>
+#include <vector>
 
 using namespace Conformance;
 
@@ -37,7 +46,7 @@ namespace Conformance
     constexpr XrVector3f Up{0, 1, 0};
 
     // Purpose: Ensure that the action space for palm can be used for placing a hand representation.
-    TEST_CASE("XR_EXT_palm_pose", "[scenario][interactive][no_auto]")
+    TEST_CASE("XR_EXT_palm_pose", "[XR_EXT_palm_pose][scenario][interactive][no_auto]")
     {
         GlobalData& globalData = GetGlobalData();
         if (!globalData.IsInstanceExtensionSupported(XR_EXT_PALM_POSE_EXTENSION_NAME)) {
@@ -315,7 +324,7 @@ namespace Conformance
         auto update = [&](const XrFrameState& frameState) {
             std::vector<Cube> renderedCubes;
 
-            const std::array<XrActiveActionSet, 1> activeActionSets = {{actionSet, XR_NULL_PATH}};
+            const std::array<XrActiveActionSet, 1> activeActionSets = {{{actionSet, XR_NULL_PATH}}};
             XrActionsSyncInfo syncInfo{XR_TYPE_ACTIONS_SYNC_INFO};
             syncInfo.activeActionSets = activeActionSets.data();
             syncInfo.countActiveActionSets = (uint32_t)activeActionSets.size();
@@ -399,4 +408,152 @@ namespace Conformance
 
         RenderLoop(compositionHelper.GetSession(), update).Loop();
     }
+
+    TEST_CASE("XR_EXT_palm_pose-noninteractive", "[XR_EXT_palm_pose]")
+    {
+        GlobalData& globalData = GetGlobalData();
+        if (!globalData.IsInstanceExtensionSupported(XR_EXT_PALM_POSE_EXTENSION_NAME)) {
+            SKIP();
+        }
+
+        AutoBasicInstance instance({XR_EXT_PALM_POSE_EXTENSION_NAME});
+
+        // Set up the actions.
+        const std::array<XrPath, 2> subactionPaths{StringToPath(instance, "/user/hand/left"), StringToPath(instance, "/user/hand/right")};
+
+        XrActionSet actionSet;
+        XrAction gripPoseAction, aimPoseAction, handModelPoseAction;
+        {
+            XrActionSetCreateInfo actionSetInfo{XR_TYPE_ACTION_SET_CREATE_INFO};
+            strcpy(actionSetInfo.actionSetName, "conformance_test");
+            strcpy(actionSetInfo.localizedActionSetName, "Conformance Test");
+            XRC_CHECK_THROW_XRCMD(xrCreateActionSet(instance, &actionSetInfo, &actionSet));
+
+            XrActionCreateInfo actionInfo{XR_TYPE_ACTION_CREATE_INFO};
+            actionInfo.actionType = XR_ACTION_TYPE_POSE_INPUT;
+            actionInfo.subactionPaths = subactionPaths.data();
+            actionInfo.countSubactionPaths = (uint32_t)subactionPaths.size();
+
+            strcpy(actionInfo.actionName, "grip_pose");
+            strcpy(actionInfo.localizedActionName, "grip pose");
+            actionInfo.subactionPaths = subactionPaths.data();
+            actionInfo.countSubactionPaths = (uint32_t)subactionPaths.size();
+            XRC_CHECK_THROW_XRCMD(xrCreateAction(actionSet, &actionInfo, &gripPoseAction));
+
+            strcpy(actionInfo.actionName, "aim_pose");
+            strcpy(actionInfo.localizedActionName, "aim pose");
+            actionInfo.subactionPaths = subactionPaths.data();
+            actionInfo.countSubactionPaths = (uint32_t)subactionPaths.size();
+            XRC_CHECK_THROW_XRCMD(xrCreateAction(actionSet, &actionInfo, &aimPoseAction));
+
+            strcpy(actionInfo.actionName, "palm_pose");
+            strcpy(actionInfo.localizedActionName, "palm pose");
+            actionInfo.subactionPaths = subactionPaths.data();
+            actionInfo.countSubactionPaths = (uint32_t)subactionPaths.size();
+            XRC_CHECK_THROW_XRCMD(xrCreateAction(actionSet, &actionInfo, &handModelPoseAction));
+        }
+
+        const std::vector<XrActionSuggestedBinding> bindings = {
+            {gripPoseAction, StringToPath(instance, "/user/hand/left/input/grip/pose")},
+            {gripPoseAction, StringToPath(instance, "/user/hand/right/input/grip/pose")},
+            {aimPoseAction, StringToPath(instance, "/user/hand/left/input/aim/pose")},
+            {aimPoseAction, StringToPath(instance, "/user/hand/right/input/aim/pose")},
+            {handModelPoseAction, StringToPath(instance, "/user/hand/left/input/palm_ext/pose")},
+            {handModelPoseAction, StringToPath(instance, "/user/hand/right/input/palm_ext/pose")},
+        };
+
+        XrInteractionProfileSuggestedBinding suggestedBindings{XR_TYPE_INTERACTION_PROFILE_SUGGESTED_BINDING};
+        suggestedBindings.interactionProfile = StringToPath(instance, "/interaction_profiles/khr/simple_controller");
+        suggestedBindings.suggestedBindings = bindings.data();
+        suggestedBindings.countSuggestedBindings = (uint32_t)bindings.size();
+        XRC_CHECK_THROW_XRCMD(xrSuggestInteractionProfileBindings(instance, &suggestedBindings));
+
+        AutoBasicSession session(AutoBasicSession::beginSession | AutoBasicSession::createActions | AutoBasicSession::createSpaces |
+                                     AutoBasicSession::createSwapchains,
+                                 instance);
+
+        // Get frames iterating to the point of app focused state. This will draw frames along the way.
+        FrameIterator frameIterator(&session);
+        frameIterator.RunToSessionState(XR_SESSION_STATE_FOCUSED);
+
+        XrSessionActionSetsAttachInfo attachInfo{XR_TYPE_SESSION_ACTION_SETS_ATTACH_INFO};
+        attachInfo.actionSets = &actionSet;
+        attachInfo.countActionSets = 1;
+        XRC_CHECK_THROW_XRCMD(xrAttachSessionActionSets(session, &attachInfo));
+
+        XrActionsSyncInfo syncInfo{XR_TYPE_ACTIONS_SYNC_INFO};
+        XrActiveActionSet activeActionSet{actionSet};
+        syncInfo.activeActionSets = &activeActionSet;
+        syncInfo.countActiveActionSets = 1;
+
+        REQUIRE_RESULT(xrSyncActions(session, &syncInfo), XR_SUCCESS);
+
+        // Set up the spaces.
+        std::array<XrSpace, 2> oculusBaseControllerSpaces;
+
+        std::array<XrSpace, 2> gripSpaces;
+        std::array<XrSpace, 2> aimSpaces;
+        std::array<XrSpace, 2> handSpaces;
+
+        XrSpace localSpace{XR_NULL_HANDLE};
+        XrReferenceSpaceCreateInfo createSpaceInfo{XR_TYPE_REFERENCE_SPACE_CREATE_INFO};
+        createSpaceInfo.referenceSpaceType = XR_REFERENCE_SPACE_TYPE_LOCAL;
+        createSpaceInfo.poseInReferenceSpace = XrPosefCPP();
+        REQUIRE_RESULT(xrCreateReferenceSpace(session, &createSpaceInfo, &localSpace), XR_SUCCESS);
+
+        for (int i = 0; i < 2; ++i) {
+            XrActionSpaceCreateInfo spaceCreateInfo{XR_TYPE_ACTION_SPACE_CREATE_INFO};
+            spaceCreateInfo.subactionPath = subactionPaths[i];
+            spaceCreateInfo.action = aimPoseAction;
+            spaceCreateInfo.poseInActionSpace = {{0.f, 0.f, 0.f, 1.f}, {0.f, 0.f, 0.55f}};
+            XRC_CHECK_THROW_XRCMD(xrCreateActionSpace(session, &spaceCreateInfo, &oculusBaseControllerSpaces[i]));
+        }
+
+        for (int i = 0; i < 2; ++i) {
+            XrActionSpaceCreateInfo spaceCreateInfo{XR_TYPE_ACTION_SPACE_CREATE_INFO};
+            spaceCreateInfo.subactionPath = subactionPaths[i];
+            spaceCreateInfo.action = gripPoseAction;
+            spaceCreateInfo.poseInActionSpace = XrPosefCPP();
+            XRC_CHECK_THROW_XRCMD(xrCreateActionSpace(session, &spaceCreateInfo, &gripSpaces[i]));
+        }
+
+        for (int i = 0; i < 2; ++i) {
+            XrActionSpaceCreateInfo spaceCreateInfo{XR_TYPE_ACTION_SPACE_CREATE_INFO};
+            spaceCreateInfo.subactionPath = subactionPaths[i];
+            spaceCreateInfo.action = aimPoseAction;
+            spaceCreateInfo.poseInActionSpace = XrPosefCPP();
+            XRC_CHECK_THROW_XRCMD(xrCreateActionSpace(session, &spaceCreateInfo, &aimSpaces[i]));
+        }
+
+        for (int i = 0; i < 2; ++i) {
+            XrActionSpaceCreateInfo spaceCreateInfo{XR_TYPE_ACTION_SPACE_CREATE_INFO};
+            spaceCreateInfo.subactionPath = subactionPaths[i];
+            spaceCreateInfo.action = handModelPoseAction;
+            spaceCreateInfo.poseInActionSpace = XrPosefCPP();
+            XRC_CHECK_THROW_XRCMD(xrCreateActionSpace(session, &spaceCreateInfo, &handSpaces[i]));
+        }
+
+        for (int i = 0; i < 2; ++i) {
+            CAPTURE(i == 0 ? "Left hand" : "Right hand");
+            {
+                XrSpaceLocation gripSpaceLocation{XR_TYPE_SPACE_LOCATION};
+                XRC_CHECK_THROW_XRCMD(xrLocateSpace(gripSpaces[i], oculusBaseControllerSpaces[i],
+                                                    frameIterator.frameState.predictedDisplayTime, &gripSpaceLocation));
+                // Not going to check the result here - controller might not even be active...
+            }
+            {
+                XrSpaceLocation aimSpaceLocation{XR_TYPE_SPACE_LOCATION};
+                XRC_CHECK_THROW_XRCMD(xrLocateSpace(aimSpaces[i], oculusBaseControllerSpaces[i],
+                                                    frameIterator.frameState.predictedDisplayTime, &aimSpaceLocation));
+                // Not going to check the result here - controller might not even be active...
+            }
+            {
+                XrSpaceLocation palmSpaceLocation{XR_TYPE_SPACE_LOCATION};
+                XRC_CHECK_THROW_XRCMD(xrLocateSpace(handSpaces[i], oculusBaseControllerSpaces[i],
+                                                    frameIterator.frameState.predictedDisplayTime, &palmSpaceLocation));
+                // Not going to check the result here - controller might not even be active...
+            }
+        }
+    }
+
 }  // namespace Conformance

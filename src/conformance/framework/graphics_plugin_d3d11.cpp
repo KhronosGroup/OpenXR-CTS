@@ -14,28 +14,30 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#if defined(XR_USE_GRAPHICS_API_D3D11)
+
 #include "graphics_plugin.h"
-
-#if defined(XR_USE_GRAPHICS_API_D3D11) && !defined(MISSING_DIRECTX_COLORS)
-
-#include "swapchain_image_data.h"
-#include "swapchain_parameters.h"
-#include "graphics_plugin_impl_helpers.h"
+#include "common/xr_linear.h"
 #include "conformance_framework.h"
-#include "throw_helpers.h"
-#include "Geometry.h"
-#include <windows.h>
-#include <wrl/client.h>  // For Microsoft::WRL::ComPtr
-#include <common/xr_linear.h>
-#include <d3d11.h>
-#include <DirectXColors.h>
-#include <D3Dcompiler.h>
+#include "graphics_plugin_impl_helpers.h"
+#include "swapchain_image_data.h"
+#include "utilities/Geometry.h"
+#include "utilities/d3d_common.h"
+#include "utilities/swapchain_parameters.h"
+#include "utilities/throw_helpers.h"
+
 #include <openxr/openxr_platform.h>
-#include <algorithm>
-#include <array>
+
 #include <catch2/catch_test_macros.hpp>
 
-#include "d3d_common.h"
+#include <D3Dcompiler.h>
+#include <DirectXColors.h>
+#include <d3d11.h>
+#include <windows.h>
+#include <wrl/client.h>  // For Microsoft::WRL::ComPtr
+
+#include <algorithm>
+#include <array>
 
 using namespace Microsoft::WRL;
 using namespace DirectX;
@@ -198,8 +200,7 @@ namespace Conformance
                                                                           XrSwapchain depthSwapchain,
                                                                           const XrSwapchainCreateInfo& depthSwapchainCreateInfo) override;
 
-        void ClearImageSlice(const XrSwapchainImageBaseHeader* colorSwapchainImage, uint32_t imageArrayIndex,
-                             XrColor4f bgColor = DarkSlateGrey) override;
+        void ClearImageSlice(const XrSwapchainImageBaseHeader* colorSwapchainImage, uint32_t imageArrayIndex, XrColor4f color) override;
 
         MeshHandle MakeSimpleMesh(span<const uint16_t> idx, span<const Geometry::Vertex> vtx) override;
 
@@ -288,7 +289,7 @@ namespace Conformance
                     GetInstanceExtensionFunction<PFN_xrGetD3D11GraphicsRequirementsKHR>(instance, "xrGetD3D11GraphicsRequirementsKHR");
 
                 XrResult result = xrGetD3D11GraphicsRequirementsKHR(instance, systemId, &graphicsRequirements);
-                CHECK(ValidateResultAllowed("xrGetD3D11GraphicsRequirementsKHR", result));
+                XRC_CHECK_THROW(ValidateResultAllowed("xrGetD3D11GraphicsRequirementsKHR", result));
                 if (XR_FAILED(result)) {
                     // Log result?
                     return false;
@@ -480,6 +481,7 @@ namespace Conformance
     bool D3D11GraphicsPlugin::ValidateSwapchainImages(int64_t /*imageFormat*/, const SwapchainCreateTestParameters* tp,
                                                       XrSwapchain swapchain, uint32_t* imageCount) const noexcept(false)
     {
+        // OK to use CHECK and REQUIRE in here because this is always called from within a test.
         *imageCount = 0;  // Zero until set below upon success.
 
         std::vector<XrSwapchainImageD3D11KHR> swapchainImageVector;
@@ -640,7 +642,7 @@ namespace Conformance
     }
 
     void D3D11GraphicsPlugin::ClearImageSlice(const XrSwapchainImageBaseHeader* colorSwapchainImage, uint32_t imageArrayIndex,
-                                              XrColor4f bgColor)
+                                              XrColor4f color)
     {
 
         D3D11SwapchainImageData* swapchainData;
@@ -652,7 +654,7 @@ namespace Conformance
         // Create RenderTargetView with original swapchain format (swapchain is typeless).
         ComPtr<ID3D11RenderTargetView> renderTargetView = CreateRenderTargetView(*swapchainData, imageIndex, imageArrayIndex);
         // TODO: Do not clear to a color when using a pass-through view configuration.
-        FLOAT bg[] = {bgColor.r, bgColor.g, bgColor.b, bgColor.a};
+        FLOAT bg[] = {color.r, color.g, color.b, color.a};
         d3d11DeviceContext->ClearRenderTargetView(renderTargetView.Get(), bg);
 
         // Clear depth buffer.

@@ -19,11 +19,11 @@
 //
 #pragma once
 
-#include "xr_dependencies.h"
 #include <openxr/openxr.h>
 
 #include <memory>
 #include <mutex>
+#include <stdexcept>
 #include <vector>
 
 struct ICustomHandleState

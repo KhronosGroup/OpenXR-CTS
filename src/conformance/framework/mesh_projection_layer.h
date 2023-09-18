@@ -16,16 +16,12 @@
 
 #pragma once
 
-#include <array>
-#include <thread>
-#include <numeric>
-#include "utils.h"
-#include "report.h"
-#include "conformance_utils.h"
-#include "conformance_framework.h"
 #include "composition_utils.h"
+#include "graphics_plugin.h"
+
 #include <openxr/openxr.h>
-#include <xr_linear.h>
+
+#include <vector>
 
 namespace Conformance
 {

@@ -14,33 +14,47 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include <cstdint>
-#include <memory>
-#include <tuple>
-#include "graphics_plugin.h"
-#include "openxr/openxr.h"
-
 #ifdef XR_USE_GRAPHICS_API_VULKAN
 
-#include "vulkan_utils.h"
+#include "RGBAImage.h"
+#include "common/hex_and_handles.h"
+#include "common/xr_linear.h"
+#include "graphics_plugin.h"
+#include "graphics_plugin_impl_helpers.h"
+#include "report.h"
+#include "swapchain_image_data.h"
+#include "utilities/Geometry.h"
+#include "utilities/swapchain_format_data.h"
+#include "utilities/swapchain_parameters.h"
+#include "utilities/throw_helpers.h"
+#include "utilities/vulkan_utils.h"
+#include "xr_dependencies.h"
+
+#include <openxr/openxr.h>
+#include <openxr/openxr_platform.h>
+#include <catch2/catch_message.hpp>
+#include <catch2/catch_test_macros.hpp>
 
 #include <algorithm>
-#include <list>
+#include <array>
+#include <cstdint>
+#include <iterator>
+#include <map>
+#include <memory>
+#include <stdexcept>
+#include <string>
+#include <tuple>
+#include <type_traits>
+#include <utility>
+#include <vector>
+
+#ifdef USE_CHECKPOINTS
 #include <unordered_set>
-#include "report.h"
-#include "hex_and_handles.h"
-#include "swapchain_image_data.h"
-#include "graphics_plugin_impl_helpers.h"
-#include "throw_helpers.h"
-#include "swapchain_parameters.h"
-#include "conformance_framework.h"
-#include "xr_dependencies.h"
-#include "Geometry.h"
-#include <common/xr_linear.h>
-#include <openxr/openxr_platform.h>
+#endif
 
 namespace Conformance
 {
+    struct IPlatformPlugin;
 
 #ifdef USE_ONLINE_VULKAN_SHADERC
     constexpr char VertexShaderGlsl[] =
@@ -162,12 +176,14 @@ namespace Conformance
             VulkanSwapchainImageData::Reset();
         }
 
-        void BindRenderTarget(uint32_t index, uint32_t arraySlice, const VkRect2D& renderArea, VkRenderPassBeginInfo* renderPassBeginInfo)
+        void BindRenderTarget(uint32_t index, uint32_t arraySlice, const VkRect2D& renderArea, VkImageAspectFlags secondAttachmentAspect,
+                              VkRenderPassBeginInfo* renderPassBeginInfo)
         {
             RenderTarget& rt = m_slices[arraySlice].m_renderTarget[index];
             RenderPass& rp = m_slices[arraySlice].m_rp;
             if (rt.fb == VK_NULL_HANDLE) {
-                rt.Create(m_namer, m_vkDevice, GetTypedImage(index).image, GetDepthImageForColorIndex(index).image, arraySlice, m_size, rp);
+                rt.Create(m_namer, m_vkDevice, GetTypedImage(index).image, GetDepthImageForColorIndex(index).image, secondAttachmentAspect,
+                          arraySlice, m_size, rp);
             }
             renderPassBeginInfo->renderPass = rp.pass;
             renderPassBeginInfo->framebuffer = rt.fb;
@@ -191,6 +207,11 @@ namespace Conformance
             }
             m_depthBuffer.clear();
             SwapchainImageDataBase::Reset();
+        }
+
+        int64_t GetDepthFormat() const
+        {
+            return m_depthFormat;
         }
 
     protected:
@@ -272,6 +293,10 @@ namespace Conformance
                 hWnd = nullptr;
                 UnregisterClassW(L"conformance_test", hInst);
             }
+            if (hUser32Dll) {
+                ::FreeLibrary(hUser32Dll);
+                hUser32Dll = nullptr;
+            }
 #endif
 
             m_vkDevice = nullptr;
@@ -286,6 +311,7 @@ namespace Conformance
 #if defined(VK_USE_PLATFORM_WIN32_KHR)
         HINSTANCE hInst{NULL};
         HWND hWnd{NULL};
+        HINSTANCE hUser32Dll{NULL};
 #endif
         const VkExtent2D size{640, 480};
         VkInstance m_vkInstance{VK_NULL_HANDLE};
@@ -315,8 +341,13 @@ namespace Conformance
 
 // adjust the window size and show at InitDevice time
 #if defined(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2)
-        // Make sure we're 1:1 for HMD pixels
-        SetThreadDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
+        typedef DPI_AWARENESS_CONTEXT(WINAPI * PFN_SetThreadDpiAwarenessContext)(DPI_AWARENESS_CONTEXT);
+        hUser32Dll = ::LoadLibraryA("user32.dll");
+        if (PFN_SetThreadDpiAwarenessContext SetThreadDpiAwarenessContextFn =
+                reinterpret_cast<PFN_SetThreadDpiAwarenessContext>(::GetProcAddress(hUser32Dll, "SetThreadDpiAwarenessContext"))) {
+            // Make sure we're 1:1 for HMD pixels
+            SetThreadDpiAwarenessContextFn(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
+        }
 #endif
         RECT rect{0, 0, (LONG)size.width, (LONG)size.height};
         AdjustWindowRect(&rect, WS_OVERLAPPEDWINDOW, false);
@@ -349,7 +380,7 @@ namespace Conformance
                 break;
         }
 
-        CHECK(foundFmt < surfFmtCount);
+        XRC_CHECK_THROW(foundFmt < surfFmtCount);
 
         uint32_t presentModeCount = 0;
         XRC_CHECK_THROW_VKCMD(vkGetPhysicalDeviceSurfacePresentModesKHR(m_vkPhysicalDevice, surface, &presentModeCount, nullptr));
@@ -367,7 +398,7 @@ namespace Conformance
 
         VkBool32 presentable = false;
         XRC_CHECK_THROW_VKCMD(vkGetPhysicalDeviceSurfaceSupportKHR(m_vkPhysicalDevice, m_queueFamilyIndex, surface, &presentable));
-        CHECK(presentable);
+        XRC_CHECK_THROW(presentable);
 
         VkSwapchainCreateInfoKHR swapchainInfo{VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR};
         swapchainInfo.flags = 0;
@@ -598,13 +629,15 @@ namespace Conformance
 
         void SetViewportAndScissor(const VkRect2D& rect);
 
-        void ClearImageSlice(const XrSwapchainImageBaseHeader* colorSwapchainImage, uint32_t imageArrayIndex,
-                             XrColor4f bgColor = DarkSlateGrey) override;
+        void ClearImageSlice(const XrSwapchainImageBaseHeader* colorSwapchainImage, uint32_t imageArrayIndex, XrColor4f color) override;
 
         MeshHandle MakeSimpleMesh(span<const uint16_t> idx, span<const Geometry::Vertex> vtx) override;
 
         void RenderView(const XrCompositionLayerProjectionView& layerView, const XrSwapchainImageBaseHeader* colorSwapchainImage,
                         const RenderParams& params) override;
+
+        /// Get data on a known swapchain format
+        const SwapchainFormatData& FindFormatData(int64_t format) const;
 
 #if defined(USE_CHECKPOINTS)
         void Checkpoint(std::string msg)
@@ -1335,294 +1368,189 @@ namespace Conformance
         return nullptr;
     }
 
-    // Shorthand constants for usage below.
-    static const uint64_t XRC_COLOR_TEXTURE_USAGE = (XR_SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT | XR_SWAPCHAIN_USAGE_SAMPLED_BIT);
+    static const SwapchainFormatDataMap& GetSwapchainFormatData()
+    {
 
-    static const uint64_t XRC_COLOR_TEXTURE_USAGE_MUTABLE = (XRC_COLOR_TEXTURE_USAGE | XR_SWAPCHAIN_USAGE_MUTABLE_FORMAT_BIT);
+        // Add SwapchainCreateTestParameters for other Vulkan formats if they are supported by a runtime
+        static SwapchainFormatDataMap map{{
 
-    static const uint64_t XRC_COLOR_TEXTURE_USAGE_COMPRESSED =
-        (XR_SWAPCHAIN_USAGE_SAMPLED_BIT);  // Compressed textures can't be rendered to, so no XR_SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT.
+            XRC_SWAPCHAIN_FORMAT(VK_FORMAT_R8G8B8A8_UNORM).ToPair(),
+            XRC_SWAPCHAIN_FORMAT(VK_FORMAT_R8G8B8A8_SRGB).ToPair(),
+            XRC_SWAPCHAIN_FORMAT(VK_FORMAT_B8G8R8A8_UNORM).ToPair(),
+            XRC_SWAPCHAIN_FORMAT(VK_FORMAT_B8G8R8A8_SRGB).ToPair(),
 
-    static const uint64_t XRC_DEPTH_TEXTURE_USAGE = (XR_SWAPCHAIN_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | XR_SWAPCHAIN_USAGE_SAMPLED_BIT);
+            XRC_SWAPCHAIN_FORMAT(VK_FORMAT_R8G8B8_UNORM).ToPair(),
+            XRC_SWAPCHAIN_FORMAT(VK_FORMAT_R8G8B8_SRGB).ToPair(),
+            XRC_SWAPCHAIN_FORMAT(VK_FORMAT_B8G8R8_UNORM).ToPair(),
+            XRC_SWAPCHAIN_FORMAT(VK_FORMAT_B8G8R8_SRGB).ToPair(),
 
-#define XRC_COLOR_CREATE_FLAGS                                                             \
-    {                                                                                      \
-        0, XR_SWAPCHAIN_CREATE_PROTECTED_CONTENT_BIT, XR_SWAPCHAIN_CREATE_STATIC_IMAGE_BIT \
+            XRC_SWAPCHAIN_FORMAT(VK_FORMAT_R8G8_UNORM).ToPair(),
+
+            XRC_SWAPCHAIN_FORMAT(VK_FORMAT_R8_UNORM).ToPair(),
+
+            XRC_SWAPCHAIN_FORMAT(VK_FORMAT_R8_SNORM).ToPair(),
+            XRC_SWAPCHAIN_FORMAT(VK_FORMAT_R8G8_SNORM).ToPair(),
+            XRC_SWAPCHAIN_FORMAT(VK_FORMAT_R8G8B8_SNORM).ToPair(),
+            XRC_SWAPCHAIN_FORMAT(VK_FORMAT_R8G8B8A8_SNORM).ToPair(),
+
+            XRC_SWAPCHAIN_FORMAT(VK_FORMAT_R8_UINT).ToPair(),
+            XRC_SWAPCHAIN_FORMAT(VK_FORMAT_R8G8_UINT).ToPair(),
+            XRC_SWAPCHAIN_FORMAT(VK_FORMAT_R8G8B8_UINT).ToPair(),
+            XRC_SWAPCHAIN_FORMAT(VK_FORMAT_R8G8B8A8_UINT).ToPair(),
+            XRC_SWAPCHAIN_FORMAT(VK_FORMAT_R8_SINT).ToPair(),
+            XRC_SWAPCHAIN_FORMAT(VK_FORMAT_R8G8_SINT).ToPair(),
+            XRC_SWAPCHAIN_FORMAT(VK_FORMAT_R8G8B8_SINT).ToPair(),
+            XRC_SWAPCHAIN_FORMAT(VK_FORMAT_R8_UNORM).ToPair(),
+            XRC_SWAPCHAIN_FORMAT(VK_FORMAT_R8G8B8A8_SINT).ToPair(),
+            XRC_SWAPCHAIN_FORMAT(VK_FORMAT_R8_SRGB).ToPair(),
+
+            XRC_SWAPCHAIN_FORMAT(VK_FORMAT_R16_UNORM).ToPair(),
+            XRC_SWAPCHAIN_FORMAT(VK_FORMAT_R16G16_UNORM).ToPair(),
+            XRC_SWAPCHAIN_FORMAT(VK_FORMAT_R16G16B16_UNORM).ToPair(),
+            XRC_SWAPCHAIN_FORMAT(VK_FORMAT_R16G16B16A16_UNORM).ToPair(),
+
+            XRC_SWAPCHAIN_FORMAT(VK_FORMAT_R16_SNORM).ToPair(),
+            XRC_SWAPCHAIN_FORMAT(VK_FORMAT_R16G16_SNORM).ToPair(),
+            XRC_SWAPCHAIN_FORMAT(VK_FORMAT_R16G16B16_SNORM).ToPair(),
+            XRC_SWAPCHAIN_FORMAT(VK_FORMAT_R16G16B16A16_SNORM).ToPair(),
+
+            XRC_SWAPCHAIN_FORMAT(VK_FORMAT_R16_UINT).ToPair(),
+            XRC_SWAPCHAIN_FORMAT(VK_FORMAT_R16G16_UINT).ToPair(),
+            XRC_SWAPCHAIN_FORMAT(VK_FORMAT_R16G16B16_UINT).ToPair(),
+            XRC_SWAPCHAIN_FORMAT(VK_FORMAT_R16G16B16A16_UINT).ToPair(),
+
+            XRC_SWAPCHAIN_FORMAT(VK_FORMAT_R16_SINT).ToPair(),
+            XRC_SWAPCHAIN_FORMAT(VK_FORMAT_R16G16_SINT).ToPair(),
+            XRC_SWAPCHAIN_FORMAT(VK_FORMAT_R16G16B16_SINT).ToPair(),
+            XRC_SWAPCHAIN_FORMAT(VK_FORMAT_R16G16B16A16_SINT).ToPair(),
+
+            XRC_SWAPCHAIN_FORMAT(VK_FORMAT_R16_SFLOAT).ToPair(),
+            XRC_SWAPCHAIN_FORMAT(VK_FORMAT_R16G16_SFLOAT).ToPair(),
+            XRC_SWAPCHAIN_FORMAT(VK_FORMAT_R16G16B16_SFLOAT).ToPair(),
+            XRC_SWAPCHAIN_FORMAT(VK_FORMAT_R16G16B16A16_SFLOAT).ToPair(),
+
+            XRC_SWAPCHAIN_FORMAT(VK_FORMAT_R32_SINT).ToPair(),
+            XRC_SWAPCHAIN_FORMAT(VK_FORMAT_R32G32_SINT).ToPair(),
+            XRC_SWAPCHAIN_FORMAT(VK_FORMAT_R32G32B32_SINT).ToPair(),
+            XRC_SWAPCHAIN_FORMAT(VK_FORMAT_R32G32B32A32_SINT).ToPair(),
+
+            XRC_SWAPCHAIN_FORMAT(VK_FORMAT_R32_UINT).ToPair(),
+            XRC_SWAPCHAIN_FORMAT(VK_FORMAT_R32G32_UINT).ToPair(),
+            XRC_SWAPCHAIN_FORMAT(VK_FORMAT_R32G32B32_UINT).ToPair(),
+            XRC_SWAPCHAIN_FORMAT(VK_FORMAT_R32G32B32A32_UINT).ToPair(),
+
+            XRC_SWAPCHAIN_FORMAT(VK_FORMAT_R32_SFLOAT).ToPair(),
+            XRC_SWAPCHAIN_FORMAT(VK_FORMAT_R32G32_SFLOAT).ToPair(),
+            XRC_SWAPCHAIN_FORMAT(VK_FORMAT_R32G32B32_SFLOAT).ToPair(),
+            XRC_SWAPCHAIN_FORMAT(VK_FORMAT_R32G32B32A32_SFLOAT).ToPair(),
+
+            XRC_SWAPCHAIN_FORMAT(VK_FORMAT_R5G5B5A1_UNORM_PACK16).ToPair(),
+            XRC_SWAPCHAIN_FORMAT(VK_FORMAT_R5G6B5_UNORM_PACK16).ToPair(),
+            XRC_SWAPCHAIN_FORMAT(VK_FORMAT_A2B10G10R10_UNORM_PACK32).ToPair(),
+
+            XRC_SWAPCHAIN_FORMAT(VK_FORMAT_R4G4B4A4_UNORM_PACK16).ToPair(),
+            XRC_SWAPCHAIN_FORMAT(VK_FORMAT_A1R5G5B5_UNORM_PACK16).ToPair(),
+            XRC_SWAPCHAIN_FORMAT(VK_FORMAT_A2R10G10B10_UNORM_PACK32).ToPair(),
+            XRC_SWAPCHAIN_FORMAT(VK_FORMAT_A2R10G10B10_UINT_PACK32).ToPair(),
+            XRC_SWAPCHAIN_FORMAT(VK_FORMAT_A2B10G10R10_UNORM_PACK32).ToPair(),
+
+            XRC_SWAPCHAIN_FORMAT(VK_FORMAT_A2B10G10R10_UINT_PACK32).ToPair(),
+            // Runtimes with D3D11 back-ends map VK_FORMAT_B10G11R11_UFLOAT_PACK32 to DXGI_FORMAT_R11G11B10_FLOAT and that format doesn't have a TYPELESS equivalent.
+            XRC_SWAPCHAIN_FORMAT(VK_FORMAT_B10G11R11_UFLOAT_PACK32).NotMutable().ToPair(),
+            XRC_SWAPCHAIN_FORMAT(VK_FORMAT_E5B9G9R9_UFLOAT_PACK32).ToPair(),
+
+            XRC_SWAPCHAIN_FORMAT(VK_FORMAT_R16G16B16A16_SFLOAT).ToPair(),
+
+            XRC_SWAPCHAIN_FORMAT(VK_FORMAT_D16_UNORM).Depth().ToPair(),
+            XRC_SWAPCHAIN_FORMAT(VK_FORMAT_D24_UNORM_S8_UINT).DepthStencil().ToPair(),
+
+            XRC_SWAPCHAIN_FORMAT(VK_FORMAT_X8_D24_UNORM_PACK32).Depth().ToPair(),
+            XRC_SWAPCHAIN_FORMAT(VK_FORMAT_S8_UINT).Stencil().ToPair(),
+
+            XRC_SWAPCHAIN_FORMAT(VK_FORMAT_D32_SFLOAT).Depth().ToPair(),
+            XRC_SWAPCHAIN_FORMAT(VK_FORMAT_D32_SFLOAT_S8_UINT).DepthStencil().ToPair(),
+
+            XRC_SWAPCHAIN_FORMAT(VK_FORMAT_ETC2_R8G8B8_UNORM_BLOCK).Compressed().ToPair(),
+            XRC_SWAPCHAIN_FORMAT(VK_FORMAT_ETC2_R8G8B8A1_UNORM_BLOCK).Compressed().ToPair(),
+            XRC_SWAPCHAIN_FORMAT(VK_FORMAT_ETC2_R8G8B8A8_UNORM_BLOCK).Compressed().ToPair(),
+            XRC_SWAPCHAIN_FORMAT(VK_FORMAT_ETC2_R8G8B8_SRGB_BLOCK).Compressed().ToPair(),
+            XRC_SWAPCHAIN_FORMAT(VK_FORMAT_ETC2_R8G8B8A1_SRGB_BLOCK).Compressed().ToPair(),
+            XRC_SWAPCHAIN_FORMAT(VK_FORMAT_ETC2_R8G8B8A8_SRGB_BLOCK).Compressed().ToPair(),
+
+            XRC_SWAPCHAIN_FORMAT(VK_FORMAT_EAC_R11_UNORM_BLOCK).Compressed().ToPair(),
+            XRC_SWAPCHAIN_FORMAT(VK_FORMAT_EAC_R11G11_UNORM_BLOCK).Compressed().ToPair(),
+            XRC_SWAPCHAIN_FORMAT(VK_FORMAT_EAC_R11_SNORM_BLOCK).Compressed().ToPair(),
+            XRC_SWAPCHAIN_FORMAT(VK_FORMAT_EAC_R11G11_SNORM_BLOCK).Compressed().ToPair(),
+
+            XRC_SWAPCHAIN_FORMAT(VK_FORMAT_ASTC_4x4_UNORM_BLOCK).Compressed().ToPair(),
+            XRC_SWAPCHAIN_FORMAT(VK_FORMAT_ASTC_5x4_UNORM_BLOCK).Compressed().ToPair(),
+            XRC_SWAPCHAIN_FORMAT(VK_FORMAT_ASTC_5x5_UNORM_BLOCK).Compressed().ToPair(),
+            XRC_SWAPCHAIN_FORMAT(VK_FORMAT_ASTC_6x5_UNORM_BLOCK).Compressed().ToPair(),
+            XRC_SWAPCHAIN_FORMAT(VK_FORMAT_ASTC_6x6_UNORM_BLOCK).Compressed().ToPair(),
+            XRC_SWAPCHAIN_FORMAT(VK_FORMAT_ASTC_8x5_UNORM_BLOCK).Compressed().ToPair(),
+            XRC_SWAPCHAIN_FORMAT(VK_FORMAT_ASTC_8x6_UNORM_BLOCK).Compressed().ToPair(),
+            XRC_SWAPCHAIN_FORMAT(VK_FORMAT_ASTC_8x8_UNORM_BLOCK).Compressed().ToPair(),
+            XRC_SWAPCHAIN_FORMAT(VK_FORMAT_ASTC_10x5_UNORM_BLOCK).Compressed().ToPair(),
+            XRC_SWAPCHAIN_FORMAT(VK_FORMAT_ASTC_10x6_UNORM_BLOCK).Compressed().ToPair(),
+            XRC_SWAPCHAIN_FORMAT(VK_FORMAT_ASTC_10x8_UNORM_BLOCK).Compressed().ToPair(),
+            XRC_SWAPCHAIN_FORMAT(VK_FORMAT_ASTC_10x10_UNORM_BLOCK).Compressed().ToPair(),
+            XRC_SWAPCHAIN_FORMAT(VK_FORMAT_ASTC_12x10_UNORM_BLOCK).Compressed().ToPair(),
+            XRC_SWAPCHAIN_FORMAT(VK_FORMAT_ASTC_12x12_UNORM_BLOCK).Compressed().ToPair(),
+
+            XRC_SWAPCHAIN_FORMAT(VK_FORMAT_ASTC_4x4_SRGB_BLOCK).Compressed().ToPair(),
+            XRC_SWAPCHAIN_FORMAT(VK_FORMAT_ASTC_5x4_SRGB_BLOCK).Compressed().ToPair(),
+            XRC_SWAPCHAIN_FORMAT(VK_FORMAT_ASTC_5x5_SRGB_BLOCK).Compressed().ToPair(),
+            XRC_SWAPCHAIN_FORMAT(VK_FORMAT_ASTC_6x5_SRGB_BLOCK).Compressed().ToPair(),
+            XRC_SWAPCHAIN_FORMAT(VK_FORMAT_ASTC_6x6_SRGB_BLOCK).Compressed().ToPair(),
+            XRC_SWAPCHAIN_FORMAT(VK_FORMAT_ASTC_8x5_SRGB_BLOCK).Compressed().ToPair(),
+            XRC_SWAPCHAIN_FORMAT(VK_FORMAT_ASTC_8x6_SRGB_BLOCK).Compressed().ToPair(),
+            XRC_SWAPCHAIN_FORMAT(VK_FORMAT_ASTC_8x8_SRGB_BLOCK).Compressed().ToPair(),
+            XRC_SWAPCHAIN_FORMAT(VK_FORMAT_ASTC_10x5_SRGB_BLOCK).Compressed().ToPair(),
+            XRC_SWAPCHAIN_FORMAT(VK_FORMAT_ASTC_10x6_SRGB_BLOCK).Compressed().ToPair(),
+            XRC_SWAPCHAIN_FORMAT(VK_FORMAT_ASTC_10x8_SRGB_BLOCK).Compressed().ToPair(),
+            XRC_SWAPCHAIN_FORMAT(VK_FORMAT_ASTC_10x10_SRGB_BLOCK).Compressed().ToPair(),
+            XRC_SWAPCHAIN_FORMAT(VK_FORMAT_ASTC_12x10_SRGB_BLOCK).Compressed().ToPair(),
+            XRC_SWAPCHAIN_FORMAT(VK_FORMAT_ASTC_12x12_SRGB_BLOCK).Compressed().ToPair(),
+
+            XRC_SWAPCHAIN_FORMAT(VK_FORMAT_BC1_RGBA_UNORM_BLOCK).Compressed().ToPair(),
+            XRC_SWAPCHAIN_FORMAT(VK_FORMAT_BC1_RGBA_SRGB_BLOCK).Compressed().ToPair(),
+
+            XRC_SWAPCHAIN_FORMAT(VK_FORMAT_BC2_UNORM_BLOCK).Compressed().ToPair(),
+            XRC_SWAPCHAIN_FORMAT(VK_FORMAT_BC2_SRGB_BLOCK).Compressed().ToPair(),
+
+            XRC_SWAPCHAIN_FORMAT(VK_FORMAT_BC3_UNORM_BLOCK).Compressed().ToPair(),
+            XRC_SWAPCHAIN_FORMAT(VK_FORMAT_BC3_SRGB_BLOCK).Compressed().ToPair(),
+
+            XRC_SWAPCHAIN_FORMAT(VK_FORMAT_BC6H_UFLOAT_BLOCK).Compressed().ToPair(),
+            XRC_SWAPCHAIN_FORMAT(VK_FORMAT_BC6H_SFLOAT_BLOCK).Compressed().ToPair(),
+
+            XRC_SWAPCHAIN_FORMAT(VK_FORMAT_BC7_UNORM_BLOCK).Compressed().ToPair(),
+            XRC_SWAPCHAIN_FORMAT(VK_FORMAT_BC7_SRGB_BLOCK).Compressed().ToPair(),
+        }};
+        return map;
     }
-
-#define XRC_DEPTH_CREATE_FLAGS                                                             \
-    {                                                                                      \
-        0, XR_SWAPCHAIN_CREATE_PROTECTED_CONTENT_BIT, XR_SWAPCHAIN_CREATE_STATIC_IMAGE_BIT \
-    }
-
-#define ADD_VK_COLOR_FORMAT2(X, Y)                                                                          \
-    {                                                                                                       \
-        {X},                                                                                                \
-        {                                                                                                   \
-            Y, IMMUTABLE, MUT_SUPPORT, COLOR, UNCOMPRESSED, RENDERING_SUPPORT, X,                           \
-                {XRC_COLOR_TEXTURE_USAGE, XRC_COLOR_TEXTURE_USAGE_MUTABLE}, XRC_COLOR_CREATE_FLAGS, {}, {}, \
-            {                                                                                               \
-            }                                                                                               \
-        }                                                                                                   \
-    }
-#define ADD_VK_COLOR_FORMAT(X) ADD_VK_COLOR_FORMAT2(X, #X)
-
-#define ADD_VK_COLOR_IMMUTABLE_FORMAT2(X, Y)                                                                                            \
-    {                                                                                                                                   \
-        {X},                                                                                                                            \
-        {                                                                                                                               \
-            Y, IMMUTABLE, NO_MUT_SUPPORT, COLOR, UNCOMPRESSED, RENDERING_SUPPORT, X, {XRC_COLOR_TEXTURE_USAGE}, XRC_COLOR_CREATE_FLAGS, \
-                {}, {},                                                                                                                 \
-            {                                                                                                                           \
-            }                                                                                                                           \
-        }                                                                                                                               \
-    }
-#define ADD_VK_COLOR_IMMUTABLE_FORMAT(X) ADD_VK_COLOR_IMMUTABLE_FORMAT2(X, #X)
-
-#define ADD_VK_COLOR_COMPRESSED_UNRENDERABLE_FORMAT2(X, Y)                                                               \
-    {                                                                                                                    \
-        {X},                                                                                                             \
-        {                                                                                                                \
-            Y, IMMUTABLE, MUT_SUPPORT, COLOR, COMPRESSED, NO_RENDERING_SUPPORT, X, {XRC_COLOR_TEXTURE_USAGE_COMPRESSED}, \
-                XRC_COLOR_CREATE_FLAGS, {}, {},                                                                          \
-            {                                                                                                            \
-            }                                                                                                            \
-        }                                                                                                                \
-    }
-#define ADD_VK_COLOR_COMPRESSED_UNRENDERABLE_FORMAT(X) ADD_VK_COLOR_COMPRESSED_UNRENDERABLE_FORMAT2(X, #X)
-
-#define ADD_VK_DEPTH_FORMAT2(X, Y)                                                                                                       \
-    {                                                                                                                                    \
-        {X},                                                                                                                             \
-        {                                                                                                                                \
-            Y, IMMUTABLE, MUT_SUPPORT, NON_COLOR, UNCOMPRESSED, RENDERING_SUPPORT, X, {XRC_DEPTH_TEXTURE_USAGE}, XRC_DEPTH_CREATE_FLAGS, \
-                {}, {},                                                                                                                  \
-            {                                                                                                                            \
-            }                                                                                                                            \
-        }                                                                                                                                \
-    }
-#define ADD_VK_DEPTH_FORMAT(X) ADD_VK_DEPTH_FORMAT2(X, #X)
-
-    // clang-format off
-    // Add SwapchainCreateTestParameters for other Vulkan formats if they are supported by a runtime
-    typedef std::map<int64_t, SwapchainCreateTestParameters> SwapchainTestMap;
-    SwapchainTestMap vkSwapchainTestMap{
-        ADD_VK_COLOR_FORMAT(VK_FORMAT_R8G8B8A8_UNORM),
-        ADD_VK_COLOR_FORMAT(VK_FORMAT_R8G8B8A8_SRGB),
-        ADD_VK_COLOR_FORMAT(VK_FORMAT_B8G8R8A8_UNORM),
-        ADD_VK_COLOR_FORMAT(VK_FORMAT_B8G8R8A8_SRGB),
-
-        ADD_VK_COLOR_FORMAT(VK_FORMAT_R8G8B8_UNORM),
-        ADD_VK_COLOR_FORMAT(VK_FORMAT_R8G8B8_SRGB),
-        ADD_VK_COLOR_FORMAT(VK_FORMAT_B8G8R8_UNORM),
-        ADD_VK_COLOR_FORMAT(VK_FORMAT_B8G8R8_SRGB),
-
-        ADD_VK_COLOR_FORMAT(VK_FORMAT_R8G8_UNORM),
-
-        ADD_VK_COLOR_FORMAT(VK_FORMAT_R8_UNORM),
-
-        ADD_VK_COLOR_FORMAT(VK_FORMAT_R8_SNORM),
-        ADD_VK_COLOR_FORMAT(VK_FORMAT_R8G8_SNORM),
-        ADD_VK_COLOR_FORMAT(VK_FORMAT_R8G8B8_SNORM),
-        ADD_VK_COLOR_FORMAT(VK_FORMAT_R8G8B8A8_SNORM),
-
-        ADD_VK_COLOR_FORMAT(VK_FORMAT_R8_UINT),
-        ADD_VK_COLOR_FORMAT(VK_FORMAT_R8G8_UINT),
-        ADD_VK_COLOR_FORMAT(VK_FORMAT_R8G8B8_UINT),
-        ADD_VK_COLOR_FORMAT(VK_FORMAT_R8G8B8A8_UINT),
-        ADD_VK_COLOR_FORMAT(VK_FORMAT_R8_SINT),
-        ADD_VK_COLOR_FORMAT(VK_FORMAT_R8G8_SINT),
-        ADD_VK_COLOR_FORMAT(VK_FORMAT_R8G8B8_SINT),
-        ADD_VK_COLOR_FORMAT(VK_FORMAT_R8_UNORM),
-        ADD_VK_COLOR_FORMAT(VK_FORMAT_R8G8B8A8_SINT),
-        ADD_VK_COLOR_FORMAT(VK_FORMAT_R8_SRGB),
-
-        ADD_VK_COLOR_FORMAT(VK_FORMAT_R16_UNORM),
-        ADD_VK_COLOR_FORMAT(VK_FORMAT_R16G16_UNORM),
-        ADD_VK_COLOR_FORMAT(VK_FORMAT_R16G16B16_UNORM),
-        ADD_VK_COLOR_FORMAT(VK_FORMAT_R16G16B16A16_UNORM),
-
-        ADD_VK_COLOR_FORMAT(VK_FORMAT_R16_SNORM),
-        ADD_VK_COLOR_FORMAT(VK_FORMAT_R16G16_SNORM),
-        ADD_VK_COLOR_FORMAT(VK_FORMAT_R16G16B16_SNORM),
-        ADD_VK_COLOR_FORMAT(VK_FORMAT_R16G16B16A16_SNORM),
-
-        ADD_VK_COLOR_FORMAT(VK_FORMAT_R16_UINT),
-        ADD_VK_COLOR_FORMAT(VK_FORMAT_R16G16_UINT),
-        ADD_VK_COLOR_FORMAT(VK_FORMAT_R16G16B16_UINT),
-        ADD_VK_COLOR_FORMAT(VK_FORMAT_R16G16B16A16_UINT),
-
-        ADD_VK_COLOR_FORMAT(VK_FORMAT_R16_SINT),
-        ADD_VK_COLOR_FORMAT(VK_FORMAT_R16G16_SINT),
-        ADD_VK_COLOR_FORMAT(VK_FORMAT_R16G16B16_SINT),
-        ADD_VK_COLOR_FORMAT(VK_FORMAT_R16G16B16A16_SINT),
-
-        ADD_VK_COLOR_FORMAT(VK_FORMAT_R16_SFLOAT),
-        ADD_VK_COLOR_FORMAT(VK_FORMAT_R16G16_SFLOAT),
-        ADD_VK_COLOR_FORMAT(VK_FORMAT_R16G16B16_SFLOAT),
-        ADD_VK_COLOR_FORMAT(VK_FORMAT_R16G16B16A16_SFLOAT),
-
-        ADD_VK_COLOR_FORMAT(VK_FORMAT_R32_SINT),
-        ADD_VK_COLOR_FORMAT(VK_FORMAT_R32G32_SINT),
-        ADD_VK_COLOR_FORMAT(VK_FORMAT_R32G32B32_SINT),
-        ADD_VK_COLOR_FORMAT(VK_FORMAT_R32G32B32A32_SINT),
-
-        ADD_VK_COLOR_FORMAT(VK_FORMAT_R32_UINT),
-        ADD_VK_COLOR_FORMAT(VK_FORMAT_R32G32_UINT),
-        ADD_VK_COLOR_FORMAT(VK_FORMAT_R32G32B32_UINT),
-        ADD_VK_COLOR_FORMAT(VK_FORMAT_R32G32B32A32_UINT),
-
-        ADD_VK_COLOR_FORMAT(VK_FORMAT_R32_SFLOAT),
-        ADD_VK_COLOR_FORMAT(VK_FORMAT_R32G32_SFLOAT),
-        ADD_VK_COLOR_FORMAT(VK_FORMAT_R32G32B32_SFLOAT),
-        ADD_VK_COLOR_FORMAT(VK_FORMAT_R32G32B32A32_SFLOAT),
-
-        ADD_VK_COLOR_FORMAT(VK_FORMAT_R5G5B5A1_UNORM_PACK16),
-        ADD_VK_COLOR_FORMAT(VK_FORMAT_R5G6B5_UNORM_PACK16),
-        ADD_VK_COLOR_FORMAT(VK_FORMAT_A2B10G10R10_UNORM_PACK32),
-
-        ADD_VK_COLOR_FORMAT(VK_FORMAT_R4G4B4A4_UNORM_PACK16),
-        ADD_VK_COLOR_FORMAT(VK_FORMAT_A1R5G5B5_UNORM_PACK16),
-        ADD_VK_COLOR_FORMAT(VK_FORMAT_A2R10G10B10_UNORM_PACK32),
-        ADD_VK_COLOR_FORMAT(VK_FORMAT_A2R10G10B10_UINT_PACK32),
-        ADD_VK_COLOR_FORMAT(VK_FORMAT_A2B10G10R10_UNORM_PACK32),
-
-        ADD_VK_COLOR_FORMAT(VK_FORMAT_A2B10G10R10_UINT_PACK32),
-        // Runtimes with D3D11 back-ends map VK_FORMAT_B10G11R11_UFLOAT_PACK32 to DXGI_FORMAT_R11G11B10_FLOAT and that format doesn't have a TYPELESS equivalent.
-        //ADD_VK_COLOR_FORMAT(VK_FORMAT_B10G11R11_UFLOAT_PACK32),
-        ADD_VK_COLOR_IMMUTABLE_FORMAT(VK_FORMAT_B10G11R11_UFLOAT_PACK32),
-        ADD_VK_COLOR_FORMAT(VK_FORMAT_E5B9G9R9_UFLOAT_PACK32),
-
-        ADD_VK_COLOR_FORMAT(VK_FORMAT_R16G16B16A16_SFLOAT),
-
-        ADD_VK_DEPTH_FORMAT(VK_FORMAT_D16_UNORM),
-        ADD_VK_DEPTH_FORMAT(VK_FORMAT_D24_UNORM_S8_UINT),
-
-        ADD_VK_DEPTH_FORMAT(VK_FORMAT_X8_D24_UNORM_PACK32),
-        ADD_VK_DEPTH_FORMAT(VK_FORMAT_S8_UINT),
-
-        ADD_VK_DEPTH_FORMAT(VK_FORMAT_D32_SFLOAT),
-        ADD_VK_DEPTH_FORMAT(VK_FORMAT_D32_SFLOAT_S8_UINT),
-
-        ADD_VK_COLOR_COMPRESSED_UNRENDERABLE_FORMAT(VK_FORMAT_ETC2_R8G8B8_UNORM_BLOCK),
-        ADD_VK_COLOR_COMPRESSED_UNRENDERABLE_FORMAT(VK_FORMAT_ETC2_R8G8B8A1_UNORM_BLOCK),
-        ADD_VK_COLOR_COMPRESSED_UNRENDERABLE_FORMAT(VK_FORMAT_ETC2_R8G8B8A8_UNORM_BLOCK),
-        ADD_VK_COLOR_COMPRESSED_UNRENDERABLE_FORMAT(VK_FORMAT_ETC2_R8G8B8_SRGB_BLOCK),
-        ADD_VK_COLOR_COMPRESSED_UNRENDERABLE_FORMAT(VK_FORMAT_ETC2_R8G8B8A1_SRGB_BLOCK),
-        ADD_VK_COLOR_COMPRESSED_UNRENDERABLE_FORMAT(VK_FORMAT_ETC2_R8G8B8A8_SRGB_BLOCK),
-
-        ADD_VK_COLOR_COMPRESSED_UNRENDERABLE_FORMAT(VK_FORMAT_EAC_R11_UNORM_BLOCK),
-        ADD_VK_COLOR_COMPRESSED_UNRENDERABLE_FORMAT(VK_FORMAT_EAC_R11G11_UNORM_BLOCK),
-        ADD_VK_COLOR_COMPRESSED_UNRENDERABLE_FORMAT(VK_FORMAT_EAC_R11_SNORM_BLOCK),
-        ADD_VK_COLOR_COMPRESSED_UNRENDERABLE_FORMAT(VK_FORMAT_EAC_R11G11_SNORM_BLOCK),
-
-        ADD_VK_COLOR_COMPRESSED_UNRENDERABLE_FORMAT(VK_FORMAT_ASTC_4x4_UNORM_BLOCK),
-        ADD_VK_COLOR_COMPRESSED_UNRENDERABLE_FORMAT(VK_FORMAT_ASTC_5x4_UNORM_BLOCK),
-        ADD_VK_COLOR_COMPRESSED_UNRENDERABLE_FORMAT(VK_FORMAT_ASTC_5x5_UNORM_BLOCK),
-        ADD_VK_COLOR_COMPRESSED_UNRENDERABLE_FORMAT(VK_FORMAT_ASTC_6x5_UNORM_BLOCK),
-        ADD_VK_COLOR_COMPRESSED_UNRENDERABLE_FORMAT(VK_FORMAT_ASTC_6x6_UNORM_BLOCK),
-        ADD_VK_COLOR_COMPRESSED_UNRENDERABLE_FORMAT(VK_FORMAT_ASTC_8x5_UNORM_BLOCK),
-        ADD_VK_COLOR_COMPRESSED_UNRENDERABLE_FORMAT(VK_FORMAT_ASTC_8x6_UNORM_BLOCK),
-        ADD_VK_COLOR_COMPRESSED_UNRENDERABLE_FORMAT(VK_FORMAT_ASTC_8x8_UNORM_BLOCK),
-        ADD_VK_COLOR_COMPRESSED_UNRENDERABLE_FORMAT(VK_FORMAT_ASTC_10x5_UNORM_BLOCK),
-        ADD_VK_COLOR_COMPRESSED_UNRENDERABLE_FORMAT(VK_FORMAT_ASTC_10x6_UNORM_BLOCK),
-        ADD_VK_COLOR_COMPRESSED_UNRENDERABLE_FORMAT(VK_FORMAT_ASTC_10x8_UNORM_BLOCK),
-        ADD_VK_COLOR_COMPRESSED_UNRENDERABLE_FORMAT(VK_FORMAT_ASTC_10x10_UNORM_BLOCK),
-        ADD_VK_COLOR_COMPRESSED_UNRENDERABLE_FORMAT(VK_FORMAT_ASTC_12x10_UNORM_BLOCK),
-        ADD_VK_COLOR_COMPRESSED_UNRENDERABLE_FORMAT(VK_FORMAT_ASTC_12x12_UNORM_BLOCK),
-
-        ADD_VK_COLOR_COMPRESSED_UNRENDERABLE_FORMAT(VK_FORMAT_ASTC_4x4_SRGB_BLOCK),
-        ADD_VK_COLOR_COMPRESSED_UNRENDERABLE_FORMAT(VK_FORMAT_ASTC_5x4_SRGB_BLOCK),
-        ADD_VK_COLOR_COMPRESSED_UNRENDERABLE_FORMAT(VK_FORMAT_ASTC_5x5_SRGB_BLOCK),
-        ADD_VK_COLOR_COMPRESSED_UNRENDERABLE_FORMAT(VK_FORMAT_ASTC_6x5_SRGB_BLOCK),
-        ADD_VK_COLOR_COMPRESSED_UNRENDERABLE_FORMAT(VK_FORMAT_ASTC_6x6_SRGB_BLOCK),
-        ADD_VK_COLOR_COMPRESSED_UNRENDERABLE_FORMAT(VK_FORMAT_ASTC_8x5_SRGB_BLOCK),
-        ADD_VK_COLOR_COMPRESSED_UNRENDERABLE_FORMAT(VK_FORMAT_ASTC_8x6_SRGB_BLOCK),
-        ADD_VK_COLOR_COMPRESSED_UNRENDERABLE_FORMAT(VK_FORMAT_ASTC_8x8_SRGB_BLOCK),
-        ADD_VK_COLOR_COMPRESSED_UNRENDERABLE_FORMAT(VK_FORMAT_ASTC_10x5_SRGB_BLOCK),
-        ADD_VK_COLOR_COMPRESSED_UNRENDERABLE_FORMAT(VK_FORMAT_ASTC_10x6_SRGB_BLOCK),
-        ADD_VK_COLOR_COMPRESSED_UNRENDERABLE_FORMAT(VK_FORMAT_ASTC_10x8_SRGB_BLOCK),
-        ADD_VK_COLOR_COMPRESSED_UNRENDERABLE_FORMAT(VK_FORMAT_ASTC_10x10_SRGB_BLOCK),
-        ADD_VK_COLOR_COMPRESSED_UNRENDERABLE_FORMAT(VK_FORMAT_ASTC_12x10_SRGB_BLOCK),
-        ADD_VK_COLOR_COMPRESSED_UNRENDERABLE_FORMAT(VK_FORMAT_ASTC_12x12_SRGB_BLOCK),
-
-        ADD_VK_COLOR_COMPRESSED_UNRENDERABLE_FORMAT(VK_FORMAT_BC1_RGBA_UNORM_BLOCK),
-        ADD_VK_COLOR_COMPRESSED_UNRENDERABLE_FORMAT(VK_FORMAT_BC1_RGBA_SRGB_BLOCK),
-
-        ADD_VK_COLOR_COMPRESSED_UNRENDERABLE_FORMAT(VK_FORMAT_BC2_UNORM_BLOCK),
-        ADD_VK_COLOR_COMPRESSED_UNRENDERABLE_FORMAT(VK_FORMAT_BC2_SRGB_BLOCK),
-
-        ADD_VK_COLOR_COMPRESSED_UNRENDERABLE_FORMAT(VK_FORMAT_BC3_UNORM_BLOCK),
-        ADD_VK_COLOR_COMPRESSED_UNRENDERABLE_FORMAT(VK_FORMAT_BC3_SRGB_BLOCK),
-
-        ADD_VK_COLOR_COMPRESSED_UNRENDERABLE_FORMAT(VK_FORMAT_BC6H_UFLOAT_BLOCK),
-        ADD_VK_COLOR_COMPRESSED_UNRENDERABLE_FORMAT(VK_FORMAT_BC6H_SFLOAT_BLOCK),
-
-        ADD_VK_COLOR_COMPRESSED_UNRENDERABLE_FORMAT(VK_FORMAT_BC7_UNORM_BLOCK),
-        ADD_VK_COLOR_COMPRESSED_UNRENDERABLE_FORMAT(VK_FORMAT_BC7_SRGB_BLOCK),
-    };
-    // clang-format on
 
     std::string VulkanGraphicsPlugin::GetImageFormatName(int64_t imageFormat) const
     {
-        SwapchainTestMap::const_iterator it = vkSwapchainTestMap.find(imageFormat);
-
-        if (it != vkSwapchainTestMap.end()) {
-            return it->second.imageFormatName;
-        }
-
-        return std::string("unknown");
+        return ::Conformance::GetImageFormatName(GetSwapchainFormatData(), imageFormat);
     }
 
     bool VulkanGraphicsPlugin::IsImageFormatKnown(int64_t imageFormat) const
     {
-        SwapchainTestMap::const_iterator it = vkSwapchainTestMap.find(imageFormat);
-
-        return (it != vkSwapchainTestMap.end());
+        return ::Conformance::IsImageFormatKnown(GetSwapchainFormatData(), imageFormat);
     }
 
     bool VulkanGraphicsPlugin::GetSwapchainCreateTestParameters(XrInstance /*instance*/, XrSession /*session*/, XrSystemId /*systemId*/,
                                                                 int64_t imageFormat, SwapchainCreateTestParameters* swapchainTestParameters)
     {
-        // Swapchain image format support by the runtime is specified by the xrEnumerateSwapchainFormats function.
-        // Runtimes should support R8G8B8A8 and R8G8B8A8 sRGB formats if possible.
-
-        SwapchainTestMap::iterator it = vkSwapchainTestMap.find(imageFormat);
-
-        // Verify that the image format is known. If it's not known then this test needs to be
-        // updated to recognize new DXGI formats.
-        CAPTURE(imageFormat);
-        XRC_CHECK_THROW_MSG(it != vkSwapchainTestMap.end(), "Unknown Vulkan image format.");
-        if (it == vkSwapchainTestMap.end()) {
-            return false;
-        }
-
-        // Verify that imageFormat is not a typeless type. Only regular types are allowed to
-        // be returned by the runtime for enumerated image formats. Note Vulkan doesn't really
-        // have a "typeless" format to worry about so this should never be hit.
-        CAPTURE(it->second.imageFormatName);
-        XRC_CHECK_THROW_MSG(!it->second.mutableFormat, "Typeless Vulkan image formats must not be enumerated by runtimes.");
-        if (it->second.mutableFormat) {
-            return false;
-        }
-
-        // We may now proceed with creating swapchains with the format.
-        SwapchainCreateTestParameters& tp = it->second;
-        tp.arrayCountVector = {1, 2};
-        if (tp.colorFormat && !tp.compressedFormat) {
-            tp.mipCountVector = {1, 2};
-        }
-        else {
-            tp.mipCountVector = {1};
-        }
-
-        *swapchainTestParameters = tp;
+        *swapchainTestParameters = ::Conformance::GetSwapchainCreateTestParameters(GetSwapchainFormatData(), imageFormat);
         return true;
     }
 
     bool VulkanGraphicsPlugin::ValidateSwapchainImages(int64_t /*imageFormat*/, const SwapchainCreateTestParameters* /*tp*/,
                                                        XrSwapchain swapchain, uint32_t* imageCount) const noexcept(false)
     {
+        // OK to use CHECK and REQUIRE in here because this is always called from within a test.
         *imageCount = 0;  // Zero until set below upon success.
 
         std::vector<XrSwapchainImageVulkanKHR> swapchainImageVector;
@@ -1666,6 +1594,7 @@ namespace Conformance
 
     bool VulkanGraphicsPlugin::ValidateSwapchainImageState(XrSwapchain /*swapchain*/, uint32_t /*index*/, int64_t /*imageFormat*/) const
     {
+        // OK to use CHECK and REQUIRE in here because this is always called from within a test.
         // TODO: check VK_ACCESS_*? Mandate this in the spec?
         return true;
     }
@@ -1677,10 +1606,10 @@ namespace Conformance
         const std::array<VkFormat, 4> f{VK_FORMAT_R8G8B8A8_SRGB, VK_FORMAT_B8G8R8A8_SRGB, VK_FORMAT_R8G8B8A8_UNORM,
                                         VK_FORMAT_B8G8R8A8_UNORM};
 
-        const int64_t* formatArrayEnd = formatArray + count;
-        auto it = std::find_first_of(formatArray, formatArrayEnd, f.begin(), f.end());
+        span<const int64_t> formatArraySpan{formatArray, count};
+        auto it = std::find_first_of(formatArraySpan.begin(), formatArraySpan.end(), f.begin(), f.end());
 
-        if (it == formatArrayEnd) {
+        if (it == formatArraySpan.end()) {
             assert(false);  // Assert instead of throw as we need to switch to the big table which can't fail.
             return formatArray[0];
         }
@@ -1695,10 +1624,10 @@ namespace Conformance
         const std::array<VkFormat, 4> f{VK_FORMAT_D32_SFLOAT, VK_FORMAT_D24_UNORM_S8_UINT, VK_FORMAT_D16_UNORM,
                                         VK_FORMAT_D32_SFLOAT_S8_UINT};
 
-        const int64_t* formatArrayEnd = formatArray + count;
-        auto it = std::find_first_of(formatArray, formatArrayEnd, f.begin(), f.end());
+        span<const int64_t> formatArraySpan{formatArray, count};
+        auto it = std::find_first_of(formatArraySpan.begin(), formatArraySpan.end(), f.begin(), f.end());
 
-        if (it == formatArrayEnd) {
+        if (it == formatArraySpan.end()) {
             assert(false);  // Assert instead of throw as we need to switch to the big table which can't fail.
             return formatArray[0];
         }
@@ -1877,8 +1806,47 @@ namespace Conformance
         vkCmdSetScissor(m_cmdBuffer.buf, 0, 1, &rect);
     }
 
+    /// Compute image layout for the "second image" format (depth and/or stencil)
+    static inline VkImageLayout ComputeLayout(const SwapchainFormatData& secondFormatData)
+    {
+        // can't use VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL /
+        //           VK_IMAGE_LAYOUT_STENCIL_ATTACHMENT_OPTIMAL
+        // because they're Vulkan 1.2
+        if (secondFormatData.GetDepthFormat() || secondFormatData.GetStencilFormat()) {
+            return VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+        }
+        if (secondFormatData.GetColorFormat()) {
+            return VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+        }
+        throw std::runtime_error("No idea what layout to use for depth/stencil image");
+    }
+
+    /// Compute image aspect flags for the "second image" format (depth and/or stencil)
+    static inline VkImageAspectFlags ComputeAspectFlags(const SwapchainFormatData& secondFormatData)
+    {
+        VkImageAspectFlags secondAttachmentAspect = 0;
+        if (secondFormatData.GetDepthFormat()) {
+            secondAttachmentAspect |= VK_IMAGE_ASPECT_DEPTH_BIT;
+        }
+        if (secondFormatData.GetStencilFormat()) {
+            secondAttachmentAspect |= VK_IMAGE_ASPECT_STENCIL_BIT;
+        }
+        if (secondFormatData.GetColorFormat()) {
+            throw std::logic_error("this is just for the second image");
+        }
+        return secondAttachmentAspect;
+    }
+
+    const SwapchainFormatData& VulkanGraphicsPlugin::FindFormatData(int64_t format) const
+    {
+        auto& vkFormatMap = GetSwapchainFormatData();
+        auto it = vkFormatMap.find(format);
+        assert(it != vkFormatMap.end());
+        return it->second;
+    }
+
     void VulkanGraphicsPlugin::ClearImageSlice(const XrSwapchainImageBaseHeader* colorSwapchainImage, uint32_t imageArrayIndex,
-                                               XrColor4f bgColor)
+                                               XrColor4f color)
     {
         VulkanSwapchainImageData* swapchainData;
         uint32_t imageIndex;
@@ -1891,13 +1859,20 @@ namespace Conformance
         VkRect2D renderArea = {{0, 0}, {swapchainData->Width(), swapchainData->Height()}};
         SetViewportAndScissor(renderArea);
 
+        // may be depth, stencil, or both
+        int64_t secondImageFormat = swapchainData->GetDepthFormat();
+        const SwapchainFormatData& secondFormatData = FindFormatData(secondImageFormat);
+
+        VkImageAspectFlags secondAttachmentAspect = ComputeAspectFlags(secondFormatData);
+
         // Bind eye render target
         VkRenderPassBeginInfo renderPassBeginInfo{VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO};
-        swapchainData->BindRenderTarget(imageIndex, imageArrayIndex, renderArea, &renderPassBeginInfo);
+        swapchainData->BindRenderTarget(imageIndex, imageArrayIndex, renderArea, secondAttachmentAspect, &renderPassBeginInfo);
 
         if (!swapchainData->DepthSwapchainEnabled()) {
-            // Ensure depth is in the right layout
-            swapchainData->TransitionLayout(imageIndex, &m_cmdBuffer, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
+            // Ensure self-made fallback depth is in the right layout
+            VkImageLayout layout = ComputeLayout(secondFormatData);
+            swapchainData->TransitionLayout(imageIndex, &m_cmdBuffer, layout);
         }
 
         vkCmdBeginRenderPass(m_cmdBuffer.buf, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
@@ -1906,15 +1881,15 @@ namespace Conformance
 
         // Clear the buffers
         static std::array<VkClearValue, 2> clearValues;
-        clearValues[0].color.float32[0] = bgColor.r;
-        clearValues[0].color.float32[1] = bgColor.g;
-        clearValues[0].color.float32[2] = bgColor.b;
-        clearValues[0].color.float32[3] = bgColor.a;
+        clearValues[0].color.float32[0] = color.r;
+        clearValues[0].color.float32[1] = color.g;
+        clearValues[0].color.float32[2] = color.b;
+        clearValues[0].color.float32[3] = color.a;
         clearValues[1].depthStencil.depth = 1.0f;
         clearValues[1].depthStencil.stencil = 0;
         std::array<VkClearAttachment, 2> clearAttachments{{
             {VK_IMAGE_ASPECT_COLOR_BIT, 0, clearValues[0]},
-            {VK_IMAGE_ASPECT_DEPTH_BIT, 0, clearValues[1]},
+            {secondAttachmentAspect, 0, clearValues[1]},
         }};
         // imageArrayIndex already included in the VkImageView
         VkClearRect clearRect{renderArea, 0, 1};
@@ -1953,13 +1928,18 @@ namespace Conformance
         VkRect2D renderArea = {{r.offset.x, r.offset.y}, {uint32_t(r.extent.width), uint32_t(r.extent.height)}};
         SetViewportAndScissor(renderArea);
 
+        // may be depth, stencil, or both
+        int64_t secondImageFormat = swapchainData->GetDepthFormat();
+        const SwapchainFormatData& secondFormatData = FindFormatData(secondImageFormat);
+        VkImageAspectFlags secondAttachmentAspect = ComputeAspectFlags(secondFormatData);
+
         // Just bind the eye render target, ClearImageSlice will have cleared it.
         VkRenderPassBeginInfo renderPassBeginInfo{VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO};
 
         // aka slice
         auto imageArrayIndex = layerView.subImage.imageArrayIndex;
 
-        swapchainData->BindRenderTarget(imageIndex, imageArrayIndex, renderArea, &renderPassBeginInfo);
+        swapchainData->BindRenderTarget(imageIndex, imageArrayIndex, renderArea, secondAttachmentAspect, &renderPassBeginInfo);
 
         vkCmdBeginRenderPass(m_cmdBuffer.buf, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 

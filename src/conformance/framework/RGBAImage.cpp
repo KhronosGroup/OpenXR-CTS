@@ -2,18 +2,14 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include <algorithm>
-#include <stdexcept>
-#include <fstream>
-#include <array>
-#include <memory>
-#include <unordered_map>
 #include "RGBAImage.h"
 
 #include "conformance_framework.h"
 
 #ifdef XR_USE_PLATFORM_ANDROID
 #include "unique_asset.h"
+
+#include <android/asset_manager.h>
 #endif
 
 // Only one compilation unit can have the STB implementations.
@@ -21,6 +17,18 @@
 #define STB_TRUETYPE_IMPLEMENTATION
 #include "stb/stb_image.h"
 #include "stb/stb_truetype.h"
+
+#include <algorithm>
+#include <array>
+#include <cmath>
+#include <cstdint>
+#include <cstring>
+#include <fstream>
+#include <memory>
+#include <stdexcept>
+#include <string>
+#include <unordered_map>
+#include <utility>
 
 namespace
 {

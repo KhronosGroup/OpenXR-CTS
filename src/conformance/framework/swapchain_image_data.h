@@ -4,17 +4,16 @@
 
 #pragma once
 
-#include "throw_helpers.h"
-#include "types_and_constants.h"
-
 #include <openxr/openxr.h>
+
 #include <cstdint>
-#include <memory>
-#include <vector>
-#include <string>
-#include <stdexcept>
-#include <mutex>
 #include <map>
+#include <memory>
+#include <mutex>
+#include <stdexcept>
+#include <type_traits>
+#include <utility>
+#include <vector>
 
 namespace Conformance
 {

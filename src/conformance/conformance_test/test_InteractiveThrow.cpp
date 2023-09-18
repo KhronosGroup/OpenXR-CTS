@@ -14,18 +14,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include <array>
-#include <thread>
-#include <numeric>
-#include "utils.h"
-#include "report.h"
-#include "conformance_utils.h"
-#include "conformance_framework.h"
-#include "throw_helpers.h"
+#include "common/xr_linear.h"
 #include "composition_utils.h"
+#include "conformance_framework.h"
+#include "utilities/throw_helpers.h"
+#include "utilities/utils.h"
+
 #include <catch2/catch_test_macros.hpp>
 #include <openxr/openxr.h>
-#include <xr_linear.h>
+
+#include <array>
 
 using namespace Conformance;
 
@@ -39,7 +37,7 @@ namespace Conformance
     // Purpose: Verify behavior of action timing and action space linear/angular velocity through throwing
     // 1. Use action state changed timestamp to query velocities
     // 2. Use action space velocities at various rigid offsets to verify "lever arm" effect is computed by runtime.
-    TEST_CASE("Interactive Throw", "[scenario][interactive][no_auto]")
+    TEST_CASE("InteractiveThrow", "[scenario][interactive][no_auto]")
     {
         const char* instructions =
             "Press and hold 'select' to spawn three rigidly-attached cubes to that controller. "

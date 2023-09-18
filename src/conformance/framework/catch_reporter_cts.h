@@ -10,7 +10,7 @@
 
 // Based on the upstream JunitReporter
 
-#include "utils.h"
+#include "utilities/utils.h"
 
 XRC_DISABLE_MSVC_WARNING(4324)
 

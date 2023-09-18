@@ -14,14 +14,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "swapchain_parameters.h"
-#include "conformance_utils.h"
 #include "conformance_framework.h"
+#include "conformance_utils.h"
+#include "graphics_plugin.h"
 #include "two_call.h"
-#include "bitmask_generator.h"
-#include <cstdint>
+#include "utilities/swapchain_parameters.h"
+#include "utilities/types_and_constants.h"
+
+#include <catch2/catch_message.hpp>
 #include <catch2/catch_test_macros.hpp>
 #include <openxr/openxr.h>
+
+#include <cstdint>
+#include <memory>
+#include <string>
+#include <vector>
 
 namespace Conformance
 {

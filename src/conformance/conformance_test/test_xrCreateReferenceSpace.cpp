@@ -14,13 +14,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "conformance_utils.h"
 #include "conformance_framework.h"
+#include "conformance_utils.h"
 #include "two_call.h"
-#include <algorithm>
+
 #include <catch2/catch_test_macros.hpp>
 #include <openxr/openxr.h>
 
+#include <algorithm>
+#include <initializer_list>
+#include <string>
+#include <vector>
 namespace Conformance
 {
 

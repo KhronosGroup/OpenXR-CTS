@@ -34,7 +34,7 @@ makeSubset() {
 
 }
 
-COMMON_FILES=".gitignore .gitattributes .git-blame-ignore-revs CODE_OF_CONDUCT.md LICENSES .reuse .editorconfig"
+COMMON_FILES=".gitignore .gitattributes .git-blame-ignore-revs CODE_OF_CONDUCT.md LICENSES .reuse .editorconfig HOTFIX"
 export COMMON_FILES
 COMMON_EXCLUDE_PATTERN="KhronosExperimental"
 export COMMON_EXCLUDE_PATTERN
@@ -193,13 +193,26 @@ getSDKSourceFilenames() {
         specification/Makefile \
         specification/README.md \
         specification/requirements.txt \
-        src/ \
+        src/.clang-format \
+        src/.gitignore \
+        src/CMakeLists.txt \
+        src/api_layers \
+        src/cmake \
+        src/common \
+        src/common_config.h.in \
+        src/external/CMakeLists.txt \
+        src/external/android-jni-wrappers \
+        src/external/jnipp \
+        src/external/jsoncpp \
+        src/loader \
+        src/scripts \
+        src/tests \
+        src/version.cmake \
+        src/version.gradle \
         | grep -v "${COMMON_EXCLUDE_PATTERN}" \
         | grep -v "conformance" \
         | grep -v "template_gen_dispatch" \
-        | grep -v "catch2" \
         | grep -v "function_info" \
-        | grep -v "stb" \
         | grep -v "htmldiff" \
         | grep -v "katex"
 }
@@ -224,17 +237,17 @@ getSDKFilenames() {
         .github/workflows/windows-matrix.yml \
         specification/registry/*.xml \
         include/ \
-        src/CMakeLists.txt \
-        src/version.cmake \
-        src/common_config.h.in \
-        src/common \
-        src/cmake \
-        src/loader \
-        src/external/CMakeLists.txt \
-        src/external/jsoncpp \
-        src/external/jnipp \
-        src/external/android-jni-wrappers \
         src/.clang-format \
+        src/CMakeLists.txt \
+        src/cmake \
+        src/common \
+        src/common_config.h.in \
+        src/external/CMakeLists.txt \
+        src/external/android-jni-wrappers \
+        src/external/jnipp \
+        src/external/jsoncpp \
+        src/loader \
+        src/version.cmake \
         | grep -v "${COMMON_EXCLUDE_PATTERN}" \
         | grep -v "gfxwrapper" \
         | grep -v "include/.gitignore" \
@@ -287,18 +300,18 @@ getConformanceFilenames() {
         specification/Makefile \
         specification/README.md \
         specification/requirements.txt \
-        src/version.gradle \
+        src/.clang-format \
+        src/.gitignore \
+        src/CMakeLists.txt \
         src/cmake \
         src/common \
+        src/common_config.h.in \
         src/conformance \
         src/external \
         src/loader \
         src/scripts \
-        src/.clang-format \
-        src/.gitignore \
-        src/CMakeLists.txt \
-        src/common_config.h.in \
         src/version.cmake \
+        src/version.gradle \
         | grep -v "${COMMON_EXCLUDE_PATTERN}" \
         | grep -v "htmldiff" \
         | grep -v "katex"

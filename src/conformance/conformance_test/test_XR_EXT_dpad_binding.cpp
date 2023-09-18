@@ -14,18 +14,20 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "conformance_framework.h"
-#include "utils.h"
-#include "conformance_utils.h"
+#include "common/xr_linear.h"
 #include "composition_utils.h"
-#include "throw_helpers.h"
+#include "conformance_framework.h"
+#include "conformance_utils.h"
 #include "input_testinputdevice.h"
 #include "report.h"
-#include <chrono>
+#include "utilities/event_reader.h"
+#include "utilities/throw_helpers.h"
+
 #include <catch2/catch_test_macros.hpp>
-#include <string>
 #include <openxr/openxr.h>
-#include <xr_linear.h>
+
+#include <chrono>
+#include <string>
 
 namespace Conformance
 {
@@ -1171,9 +1173,7 @@ namespace Conformance
         InitInteractiveInteractionProfiles(interactionProfiles, eControllerComponent::Thumbstick);
 
         if (interactionProfiles.size() == 0) {
-            //! @todo Change to SKIP once catch2 has been updated https://github.com/KhronosGroup/SYCL-CTS/pull/469
-            ReportF("Enabled interaction profile(s) doesn't have thumbstick skipping test");
-            return;
+            SKIP("Enabled interaction profile(s) has no thumbstick, skipping test");
         }
 
         // Setup ActionSet and Actions.
@@ -1252,9 +1252,7 @@ namespace Conformance
         InitInteractiveInteractionProfiles(interactionProfiles, eControllerComponent::Trackpad);
 
         if (interactionProfiles.size() == 0) {
-            //! @todo Change to SKIP once catch2 has been updated https://github.com/KhronosGroup/SYCL-CTS/pull/469
-            ReportF("Enabled interaction profile(s) doesn't have trackpad skipping test");
-            return;
+            SKIP("Enabled interaction profile(s) has no thumbstick, skipping test");
         }
 
         // Setup ActionSet and Actions.

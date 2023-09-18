@@ -24,7 +24,6 @@
 
 namespace Conformance
 {
-#if !defined(MISSING_DIRECTX_COLORS)
     // Map type to typeless.
     const std::unordered_map<DXGI_FORMAT, DXGI_FORMAT> g_typelessMap{
         {DXGI_FORMAT_R32G32B32A32_FLOAT, DXGI_FORMAT_R32G32B32A32_TYPELESS},
@@ -133,7 +132,6 @@ namespace Conformance
         DXGI_FORMAT_V408 = 132,
         */
     };
-#endif
 
     struct D3D11GraphicsValidator : IGraphicsValidator
     {
@@ -148,12 +146,8 @@ namespace Conformance
         void ValidateSwapchainImageStructs(ConformanceHooksBase* conformanceHooks, uint64_t swapchainFormat, uint32_t count,
                                            XrSwapchainImageBaseHeader* images) const override
         {
-#if !defined(MISSING_DIRECTX_COLORS)
             const auto it = g_typelessMap.find((DXGI_FORMAT)swapchainFormat);
             const DXGI_FORMAT expectedTextureFormat = it == g_typelessMap.end() ? (DXGI_FORMAT)swapchainFormat : it->second;
-#else
-            (void)swapchainFormat;
-#endif
 
             const XrSwapchainImageD3D11KHR* const d3d11Images = reinterpret_cast<const XrSwapchainImageD3D11KHR*>(images);
             for (uint32_t i = 0; i < count; i++) {
@@ -166,16 +160,12 @@ namespace Conformance
                 D3D11_TEXTURE2D_DESC desc;
                 d3d11Images[i].texture->GetDesc(&desc);
 
-#if !defined(MISSING_DIRECTX_COLORS)
                 if (desc.Format != expectedTextureFormat) {
                     conformanceHooks->ConformanceFailure(
                         XR_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT, "xrEnumerateSwapchainImages",
                         "xrEnumerateSwapchainImages failed: ID3D11Texture2D format is not expected format %d: Swapchain : %d",
                         expectedTextureFormat, desc.Format);
                 }
-#else
-                (void)desc;
-#endif
 
                 // TODO: Confirm texture is for same device(context)?
             }

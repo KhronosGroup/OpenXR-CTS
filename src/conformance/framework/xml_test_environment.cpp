@@ -3,11 +3,14 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include "xml_test_environment.h"
-#include <chrono>
+#include "graphics_plugin.h"
 
-#include "catch2/internal/catch_xmlwriter.hpp"
 #include "conformance_framework.h"
-#include "hex_and_handles.h"
+#include "common/hex_and_handles.h"
+
+#include <catch2/internal/catch_xmlwriter.hpp>
+
+#include <chrono>
 
 #define CTS_XML_NS_PREFIX "cts"
 #define CTS_XML_NS_PREFIX_QUALIFIER CTS_XML_NS_PREFIX ":"
@@ -140,6 +143,7 @@ namespace Conformance
         }
 
         xml.scopedElement(CTS_XML_NS_PREFIX_QUALIFIER "fileLineLoggingEnabled").writeAttribute("value", options.fileLineLoggingEnabled);
+        xml.scopedElement(CTS_XML_NS_PREFIX_QUALIFIER "pollGetSystem").writeAttribute("value", options.pollGetSystem);
         xml.scopedElement(CTS_XML_NS_PREFIX_QUALIFIER "debugMode").writeAttribute("value", options.debugMode);
     }
 
@@ -149,14 +153,14 @@ namespace Conformance
         {
             auto e2 = xml.scopedElement(CTS_XML_NS_PREFIX_QUALIFIER "activeAPILayers");
 
-            for (const std::string& apiLayerName : globalData.enabledAPILayerNames) {
-                xml.scopedElement(CTS_XML_NS_PREFIX_QUALIFIER "layer").writeAttribute("name", apiLayerName.c_str());
+            for (const char* const& apiLayerName : globalData.enabledAPILayerNames) {
+                xml.scopedElement(CTS_XML_NS_PREFIX_QUALIFIER "layer").writeAttribute("name", apiLayerName);
             }
         }
         {
             auto e2 = xml.scopedElement(CTS_XML_NS_PREFIX_QUALIFIER "activeInstanceExtensions");
 
-            for (const std::string& extensionName : globalData.enabledInstanceExtensionNames) {
+            for (const char* const& extensionName : globalData.enabledInstanceExtensionNames) {
                 xml.scopedElement(CTS_XML_NS_PREFIX_QUALIFIER "extension").writeAttribute("name", extensionName);
             }
         }
@@ -178,7 +182,6 @@ namespace Conformance
         WriteAvailableInstanceExtensions(xml, globalData.availableInstanceExtensions);
 
         if (globalData.IsGraphicsPluginRequired()) {
-            AutoBasicInstance instance(AutoBasicInstance::createSystemId);
             auto graphicsPlugin = globalData.GetGraphicsPlugin();
             if (graphicsPlugin) {
                 // DescribeGraphics may report only minimal info (name) due to not having a running instance, but this is OK for now.

@@ -4,22 +4,11 @@
 
 // Open this directory in Android Studio, or build with Gradle,
 // to build the conformance suite.
-buildscript {
-    repositories {
-        google()
-        mavenCentral()
-    }
-    dependencies {
-        classpath 'com.android.tools.build:gradle:7.0.4'
-    }
+
+plugins {
+    id 'com.android.application' version '7.4.2'
 }
 
-repositories {
-    google()
-    mavenCentral()
-}
-
-apply plugin: 'com.android.application'
 
 // These next few lines are just to make the version match the OpenXR release.
 project.ext.repoRoot = file('../../')
@@ -27,47 +16,42 @@ apply from: file('../version.gradle')
 
 def assetDest = layout.buildDir.dir('intermediates/assets')
 
-task copyFont(type: Copy) {
+task copyAssets(type: Copy) {
+    // fonts
     from('conformance_test') {
         include '*.otf'
     }
-    into assetDest
-}
 
-task copyAssets(type: Copy) {
+    // sample images
     from('conformance_test/composition_examples') {
         include '*.png'
     }
-    into assetDest
-    dependsOn copyFont
-}
 
-task copyLayerInfo(type: Copy) {
+    // layer manifests
     from('conformance_test/android_assets') {
         include '**/*.json'
     }
+
     into assetDest
-    dependsOn copyFont
 }
 
 android {
-    compileSdkVersion 29
-    buildToolsVersion "30.0.3"
+    compileSdk 29
     ndkVersion "21.4.7075529"
+    buildToolsVersion = "30.0.3"
+    namespace 'org.khronos.openxr.cts'
 
     defaultConfig {
         applicationId "org.khronos.openxr.cts"
         // for Vulkan, need at least 24
         minSdkVersion 24
-        compileSdkVersion 26
 
         versionName = project.versionOpenXR.toString() + project.versionQualifier
         versionCode = project.versionOpenXR.getVersionCode()
 
         externalNativeBuild {
             cmake {
-                arguments '-DANDROID_STL=c++_shared',
-                        '-DBUILD_TESTS=OFF',
+                arguments '-DBUILD_TESTS=OFF',
                         '-DBUILD_LOADER=ON',
                         '-DBUILD_CONFORMANCE_TESTS=ON',
                         '-DBUILD_ALL_EXTENSIONS=ON'
@@ -75,7 +59,6 @@ android {
             }
         }
         preBuild.dependsOn(copyAssets)
-        preBuild.dependsOn(copyLayerInfo)
     }
     sourceSets {
         main {

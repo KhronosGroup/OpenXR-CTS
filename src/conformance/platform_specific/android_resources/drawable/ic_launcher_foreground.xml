@@ -5,10 +5,10 @@
     android:viewportHeight="108"
     android:tint="#FFFFFF">
   <!--
-    Copyright (c) 2020 The Khronos Group Inc.
+    Copyright (c) 2020-2023, The Khronos Group Inc.
     Copyright (c) 2020, Google
     SPDX-License-Identifier: Apache-2.0
-    
+
     Made in Android Studio based on a Material Icons asset.
   -->
   <group android:scaleX="2.61"

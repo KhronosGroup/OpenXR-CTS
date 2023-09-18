@@ -18,22 +18,33 @@
 
 #ifdef XR_USE_GRAPHICS_API_OPENGL_ES
 
-#include "swapchain_image_data.h"
-#include "swapchain_parameters.h"
-#include "graphics_plugin_impl_helpers.h"
-#include "conformance_framework.h"
-#include "Geometry.h"
 #include "common/gfxwrapper_opengl.h"
-#include <common/xr_linear.h>
+#include "common/xr_linear.h"
+#include "conformance_framework.h"
+#include "graphics_plugin_impl_helpers.h"
+#include "report.h"
+#include "swapchain_image_data.h"
+#include "utilities/Geometry.h"
+#include "utilities/swapchain_format_data.h"
+#include "utilities/swapchain_parameters.h"
+#include "utilities/throw_helpers.h"
 #include "xr_dependencies.h"
+
+#include <catch2/catch_test_macros.hpp>
 #include <openxr/openxr.h>
 #include <openxr/openxr_platform.h>
-#include <list>
-#include <catch2/catch_test_macros.hpp>
-#include <unordered_map>
-#include <mutex>
-#include <atomic>
-#include "report.h"
+
+#include <algorithm>
+#include <array>
+#include <cstdint>
+#include <map>
+#include <memory>
+#include <stdexcept>
+#include <string>
+#include <tuple>
+#include <type_traits>
+#include <utility>
+#include <vector>
 
 #define GL(glcmd)                                                                         \
     {                                                                                     \
@@ -50,6 +61,7 @@
 
 namespace Conformance
 {
+    struct IPlatformPlugin;
     static const char* VertexShaderGlsl = R"_(
     #version 320 es
 
@@ -279,8 +291,7 @@ namespace Conformance
                                                                           XrSwapchain depthSwapchain,
                                                                           const XrSwapchainCreateInfo& depthSwapchainCreateInfo) override;
 
-        void ClearImageSlice(const XrSwapchainImageBaseHeader* colorSwapchainImage, uint32_t imageArrayIndex,
-                             XrColor4f bgColor = DarkSlateGrey) override;
+        void ClearImageSlice(const XrSwapchainImageBaseHeader* colorSwapchainImage, uint32_t imageArrayIndex, XrColor4f color) override;
 
         MeshHandle MakeSimpleMesh(span<const uint16_t> idx, span<const Geometry::Vertex> vtx) override;
 
@@ -370,7 +381,7 @@ namespace Conformance
         std::tie(swapchainData, imageIndex) = m_swapchainImageDataMap.GetDataAndIndexFromBasePointer(swapchainImage);
 
         // auto imageInfoIt = m_imageInfo.find(swapchainImage);
-        // CHECK(imageInfoIt != m_imageInfo.end());
+        // XRC_CHECK_THROW(imageInfoIt != m_imageInfo.end());
 
         // SwapchainInfo& swapchainInfo = m_swapchainInfo[imageInfoIt->second.swapchainIndex];
         // GLuint arraySize = swapchainInfo.createInfo.arraySize;
@@ -414,7 +425,7 @@ namespace Conformance
                 GetInstanceExtensionFunction<PFN_xrGetOpenGLESGraphicsRequirementsKHR>(instance, "xrGetOpenGLESGraphicsRequirementsKHR");
 
             XrResult result = xrGetOpenGLESGraphicsRequirementsKHR(instance, systemId, &graphicsRequirements);
-            CHECK(ValidateResultAllowed("xrGetOpenGLESGraphicsRequirementsKHR", result));
+            XRC_CHECK_THROW(ValidateResultAllowed("xrGetOpenGLESGraphicsRequirementsKHR", result));
             if (XR_FAILED(result)) {
                 // Log result?
                 return false;
@@ -443,8 +454,8 @@ namespace Conformance
 
         // Initialize the binding once we have a context
         {
-            REQUIRE(window.display != EGL_NO_DISPLAY);
-            REQUIRE(window.context.context != EGL_NO_CONTEXT);
+            XRC_CHECK_THROW(window.display != EGL_NO_DISPLAY);
+            XRC_CHECK_THROW(window.context.context != EGL_NO_CONTEXT);
             graphicsBinding = {XR_TYPE_GRAPHICS_BINDING_OPENGL_ES_ANDROID_KHR};
             graphicsBinding.display = window.display;
             graphicsBinding.config = (EGLConfig)0;
@@ -452,7 +463,7 @@ namespace Conformance
         }
 
         GLenum error = glGetError();
-        CHECK(error == GL_NO_ERROR);
+        XRC_CHECK_THROW(error == GL_NO_ERROR);
 
         GLint major, minor;
         GL(glGetIntegerv(GL_MAJOR_VERSION, &major));
@@ -570,251 +581,355 @@ namespace Conformance
         return std::make_shared<OpenGLESGraphicsPlugin>(platformPlugin);
     }
 
-    // Shorthand constants for usage below.
-    static const uint64_t XRC_COLOR_TEXTURE_USAGE = (XR_SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT | XR_SWAPCHAIN_USAGE_SAMPLED_BIT);
-
-    static const uint64_t XRC_COLOR_TEXTURE_USAGE_MUTABLE = (XRC_COLOR_TEXTURE_USAGE | XR_SWAPCHAIN_USAGE_MUTABLE_FORMAT_BIT);
-
-    static const uint64_t XRC_COLOR_TEXTURE_USAGE_COMPRESSED =
-        (XR_SWAPCHAIN_USAGE_SAMPLED_BIT);  // Compressed textures can't be rendered to, so no XR_SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT.
-
-    static const uint64_t XRC_DEPTH_TEXTURE_USAGE = (XR_SWAPCHAIN_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | XR_SWAPCHAIN_USAGE_SAMPLED_BIT);
-
-#define XRC_COLOR_CREATE_FLAGS                                                             \
-    {                                                                                      \
-        0, XR_SWAPCHAIN_CREATE_PROTECTED_CONTENT_BIT, XR_SWAPCHAIN_CREATE_STATIC_IMAGE_BIT \
-    }
-
-#define XRC_DEPTH_CREATE_FLAGS                                                             \
-    {                                                                                      \
-        0, XR_SWAPCHAIN_CREATE_PROTECTED_CONTENT_BIT, XR_SWAPCHAIN_CREATE_STATIC_IMAGE_BIT \
-    }
-
-// one for texture formats which are not known to the GL.h (where a more modern header would be needed):
-#define ADD_GL_COLOR_FORMAT2(X, Y)                                                                          \
-    {                                                                                                       \
-        {X},                                                                                                \
-        {                                                                                                   \
-            Y, IMMUTABLE, NO_MUT_SUPPORT, COLOR, UNCOMPRESSED, RENDERING_SUPPORT, X,                        \
-                {XRC_COLOR_TEXTURE_USAGE, XRC_COLOR_TEXTURE_USAGE_MUTABLE}, XRC_COLOR_CREATE_FLAGS, {}, {}, \
-            {                                                                                               \
-            }                                                                                               \
-        }                                                                                                   \
-    }
-#define ADD_GL_COLOR_FORMAT(X) ADD_GL_COLOR_FORMAT2(X, #X)
-
-#define ADD_GL_COLOR_COMPRESSED_FORMAT2(X, Y)                                                                               \
-    {                                                                                                                       \
-        {X},                                                                                                                \
-        {                                                                                                                   \
-            Y, IMMUTABLE, NO_MUT_SUPPORT, COLOR, COMPRESSED, NO_RENDERING_SUPPORT, X, {XRC_COLOR_TEXTURE_USAGE_COMPRESSED}, \
-                XRC_COLOR_CREATE_FLAGS, {}, {},                                                                             \
-            {                                                                                                               \
-            }                                                                                                               \
-        }                                                                                                                   \
-    }
-#define ADD_GL_COLOR_COMPRESSED_FORMAT(X) ADD_GL_COLOR_COMPRESSED_FORMAT2(X, #X)
-
-#define ADD_GL_DEPTH_FORMAT2(X, Y)                                                                                  \
-    {                                                                                                               \
-        {X},                                                                                                        \
-        {                                                                                                           \
-            Y, IMMUTABLE, NO_MUT_SUPPORT, NON_COLOR, UNCOMPRESSED, RENDERING_SUPPORT, X, {XRC_DEPTH_TEXTURE_USAGE}, \
-                XRC_DEPTH_CREATE_FLAGS, {}, {},                                                                     \
-            {                                                                                                       \
-            }                                                                                                       \
-        }                                                                                                           \
-    }
-#define ADD_GL_DEPTH_FORMAT(X) ADD_GL_DEPTH_FORMAT2(X, #X)
-
+    // For now don't test XR_SWAPCHAIN_USAGE_MUTABLE_FORMAT_BIT on GL since the semantics are unclear and some runtimes don't support this flag.
+    // TODO in the future remove this workaround?
+#define WORKAROUND NotMutable()
     typedef std::map<int64_t, SwapchainCreateTestParameters> SwapchainTestMap;
-    SwapchainTestMap openGLESSwapchainTestMap{
-        //{ {type}, { name, false (typeless), color, type, flags, flagV, arrayV, sampleV, mipV} },
 
-        //
-        // 8 bits per component
-        //
-        ADD_GL_COLOR_FORMAT(GL_R8),            // 1-component, 8-bit unsigned normalized
-        ADD_GL_COLOR_FORMAT(GL_RG8),           // 2-component, 8-bit unsigned normalized
-        ADD_GL_COLOR_FORMAT(GL_RGB8),          // 3-component, 8-bit unsigned normalized
-        ADD_GL_COLOR_FORMAT(GL_RGBA8),         // 4-component, 8-bit unsigned normalized
-        ADD_GL_COLOR_FORMAT(GL_R8_SNORM),      // 1-component, 8-bit signed normalized
-        ADD_GL_COLOR_FORMAT(GL_RG8_SNORM),     // 2-component, 8-bit signed normalized
-        ADD_GL_COLOR_FORMAT(GL_RGB8_SNORM),    // 3-component, 8-bit signed normalized
-        ADD_GL_COLOR_FORMAT(GL_RGBA8_SNORM),   // 4-component, 8-bit signed normalized
-        ADD_GL_COLOR_FORMAT(GL_R8UI),          // 1-component, 8-bit unsigned integer
-        ADD_GL_COLOR_FORMAT(GL_RG8UI),         // 2-component, 8-bit unsigned integer
-        ADD_GL_COLOR_FORMAT(GL_RGB8UI),        // 3-component, 8-bit unsigned integer
-        ADD_GL_COLOR_FORMAT(GL_RGBA8UI),       // 4-component, 8-bit unsigned integer
-        ADD_GL_COLOR_FORMAT(GL_R8I),           // 1-component, 8-bit signed integer
-        ADD_GL_COLOR_FORMAT(GL_RG8I),          // 2-component, 8-bit signed integer
-        ADD_GL_COLOR_FORMAT(GL_RGB8I),         // 3-component, 8-bit signed integer
-        ADD_GL_COLOR_FORMAT(GL_RGBA8I),        // 4-component, 8-bit signed integer
-        ADD_GL_COLOR_FORMAT(GL_SR8),           // 1-component, 8-bit sRGB
-        ADD_GL_COLOR_FORMAT(GL_SRG8),          // 2-component, 8-bit sRGB
-        ADD_GL_COLOR_FORMAT(GL_SRGB8),         // 3-component, 8-bit sRGB
-        ADD_GL_COLOR_FORMAT(GL_SRGB8_ALPHA8),  // 4-component, 8-bit sRGB
+    static const SwapchainFormatDataMap& GetSwapchainFormatData()
+    {
+        static SwapchainFormatDataMap map{
 
-        //
-        // 16 bits per component
-        //
-        ADD_GL_COLOR_FORMAT(GL_R16),           // 1-component, 16-bit unsigned normalized
-        ADD_GL_COLOR_FORMAT(GL_RG16),          // 2-component, 16-bit unsigned normalized
-        ADD_GL_COLOR_FORMAT(GL_RGB16),         // 3-component, 16-bit unsigned normalized
-        ADD_GL_COLOR_FORMAT(GL_RGBA16),        // 4-component, 16-bit unsigned normalized
-        ADD_GL_COLOR_FORMAT(GL_R16_SNORM),     // 1-component, 16-bit signed normalized
-        ADD_GL_COLOR_FORMAT(GL_RG16_SNORM),    // 2-component, 16-bit signed normalized
-        ADD_GL_COLOR_FORMAT(GL_RGB16_SNORM),   // 3-component, 16-bit signed normalized
-        ADD_GL_COLOR_FORMAT(GL_RGBA16_SNORM),  // 4-component, 16-bit signed normalized
-        ADD_GL_COLOR_FORMAT(GL_R16UI),         // 1-component, 16-bit unsigned integer
-        ADD_GL_COLOR_FORMAT(GL_RG16UI),        // 2-component, 16-bit unsigned integer
-        ADD_GL_COLOR_FORMAT(GL_RGB16UI),       // 3-component, 16-bit unsigned integer
-        ADD_GL_COLOR_FORMAT(GL_RGBA16UI),      // 4-component, 16-bit unsigned integer
-        ADD_GL_COLOR_FORMAT(GL_R16I),          // 1-component, 16-bit signed integer
-        ADD_GL_COLOR_FORMAT(GL_RG16I),         // 2-component, 16-bit signed integer
-        ADD_GL_COLOR_FORMAT(GL_RGB16I),        // 3-component, 16-bit signed integer
-        ADD_GL_COLOR_FORMAT(GL_RGBA16I),       // 4-component, 16-bit signed integer
-        ADD_GL_COLOR_FORMAT(GL_R16F),          // 1-component, 16-bit floating-point
-        ADD_GL_COLOR_FORMAT(GL_RG16F),         // 2-component, 16-bit floating-point
-        ADD_GL_COLOR_FORMAT(GL_RGB16F),        // 3-component, 16-bit floating-point
-        ADD_GL_COLOR_FORMAT(GL_RGBA16F),       // 4-component, 16-bit floating-point
+            //
+            // 8 bits per component
+            //
+            XRC_SWAPCHAIN_FORMAT(GL_R8).WORKAROUND.ToPair(),            // 1-component, 8-bit unsigned normalized
+            XRC_SWAPCHAIN_FORMAT(GL_RG8).WORKAROUND.ToPair(),           // 2-component, 8-bit unsigned normalized
+            XRC_SWAPCHAIN_FORMAT(GL_RGB8).WORKAROUND.ToPair(),          // 3-component, 8-bit unsigned normalized
+            XRC_SWAPCHAIN_FORMAT(GL_RGBA8).WORKAROUND.ToPair(),         // 4-component, 8-bit unsigned normalized
+            XRC_SWAPCHAIN_FORMAT(GL_R8_SNORM).WORKAROUND.ToPair(),      // 1-component, 8-bit signed normalized
+            XRC_SWAPCHAIN_FORMAT(GL_RG8_SNORM).WORKAROUND.ToPair(),     // 2-component, 8-bit signed normalized
+            XRC_SWAPCHAIN_FORMAT(GL_RGB8_SNORM).WORKAROUND.ToPair(),    // 3-component, 8-bit signed normalized
+            XRC_SWAPCHAIN_FORMAT(GL_RGBA8_SNORM).WORKAROUND.ToPair(),   // 4-component, 8-bit signed normalized
+            XRC_SWAPCHAIN_FORMAT(GL_R8UI).WORKAROUND.ToPair(),          // 1-component, 8-bit unsigned integer
+            XRC_SWAPCHAIN_FORMAT(GL_RG8UI).WORKAROUND.ToPair(),         // 2-component, 8-bit unsigned integer
+            XRC_SWAPCHAIN_FORMAT(GL_RGB8UI).WORKAROUND.ToPair(),        // 3-component, 8-bit unsigned integer
+            XRC_SWAPCHAIN_FORMAT(GL_RGBA8UI).WORKAROUND.ToPair(),       // 4-component, 8-bit unsigned integer
+            XRC_SWAPCHAIN_FORMAT(GL_R8I).WORKAROUND.ToPair(),           // 1-component, 8-bit signed integer
+            XRC_SWAPCHAIN_FORMAT(GL_RG8I).WORKAROUND.ToPair(),          // 2-component, 8-bit signed integer
+            XRC_SWAPCHAIN_FORMAT(GL_RGB8I).WORKAROUND.ToPair(),         // 3-component, 8-bit signed integer
+            XRC_SWAPCHAIN_FORMAT(GL_RGBA8I).WORKAROUND.ToPair(),        // 4-component, 8-bit signed integer
+            XRC_SWAPCHAIN_FORMAT(GL_SR8).WORKAROUND.ToPair(),           // 1-component, 8-bit sRGB
+            XRC_SWAPCHAIN_FORMAT(GL_SRG8).WORKAROUND.ToPair(),          // 2-component, 8-bit sRGB
+            XRC_SWAPCHAIN_FORMAT(GL_SRGB8).WORKAROUND.ToPair(),         // 3-component, 8-bit sRGB
+            XRC_SWAPCHAIN_FORMAT(GL_SRGB8_ALPHA8).WORKAROUND.ToPair(),  // 4-component, 8-bit sRGB
 
-        //
-        // 32 bits per component
-        //
-        ADD_GL_COLOR_FORMAT(GL_R32UI),     // 1-component, 32-bit unsigned integer
-        ADD_GL_COLOR_FORMAT(GL_RG32UI),    // 2-component, 32-bit unsigned integer
-        ADD_GL_COLOR_FORMAT(GL_RGB32UI),   // 3-component, 32-bit unsigned integer
-        ADD_GL_COLOR_FORMAT(GL_RGBA32UI),  // 4-component, 32-bit unsigned integer
-        ADD_GL_COLOR_FORMAT(GL_R32I),      // 1-component, 32-bit signed integer
-        ADD_GL_COLOR_FORMAT(GL_RG32I),     // 2-component, 32-bit signed integer
-        ADD_GL_COLOR_FORMAT(GL_RGB32I),    // 3-component, 32-bit signed integer
-        ADD_GL_COLOR_FORMAT(GL_RGBA32I),   // 4-component, 32-bit signed integer
-        ADD_GL_COLOR_FORMAT(GL_R32F),      // 1-component, 32-bit floating-point
-        ADD_GL_COLOR_FORMAT(GL_RG32F),     // 2-component, 32-bit floating-point
-        ADD_GL_COLOR_FORMAT(GL_RGB32F),    // 3-component, 32-bit floating-point
-        ADD_GL_COLOR_FORMAT(GL_RGBA32F),   // 4-component, 32-bit floating-point
+            //
+            // 16 bits per component
+            //
+            XRC_SWAPCHAIN_FORMAT(GL_R16).WORKAROUND.ToPair(),           // 1-component, 16-bit unsigned normalized
+            XRC_SWAPCHAIN_FORMAT(GL_RG16).WORKAROUND.ToPair(),          // 2-component, 16-bit unsigned normalized
+            XRC_SWAPCHAIN_FORMAT(GL_RGB16).WORKAROUND.ToPair(),         // 3-component, 16-bit unsigned normalized
+            XRC_SWAPCHAIN_FORMAT(GL_RGBA16).WORKAROUND.ToPair(),        // 4-component, 16-bit unsigned normalized
+            XRC_SWAPCHAIN_FORMAT(GL_R16_SNORM).WORKAROUND.ToPair(),     // 1-component, 16-bit signed normalized
+            XRC_SWAPCHAIN_FORMAT(GL_RG16_SNORM).WORKAROUND.ToPair(),    // 2-component, 16-bit signed normalized
+            XRC_SWAPCHAIN_FORMAT(GL_RGB16_SNORM).WORKAROUND.ToPair(),   // 3-component, 16-bit signed normalized
+            XRC_SWAPCHAIN_FORMAT(GL_RGBA16_SNORM).WORKAROUND.ToPair(),  // 4-component, 16-bit signed normalized
+            XRC_SWAPCHAIN_FORMAT(GL_R16UI).WORKAROUND.ToPair(),         // 1-component, 16-bit unsigned integer
+            XRC_SWAPCHAIN_FORMAT(GL_RG16UI).WORKAROUND.ToPair(),        // 2-component, 16-bit unsigned integer
+            XRC_SWAPCHAIN_FORMAT(GL_RGB16UI).WORKAROUND.ToPair(),       // 3-component, 16-bit unsigned integer
+            XRC_SWAPCHAIN_FORMAT(GL_RGBA16UI).WORKAROUND.ToPair(),      // 4-component, 16-bit unsigned integer
+            XRC_SWAPCHAIN_FORMAT(GL_R16I).WORKAROUND.ToPair(),          // 1-component, 16-bit signed integer
+            XRC_SWAPCHAIN_FORMAT(GL_RG16I).WORKAROUND.ToPair(),         // 2-component, 16-bit signed integer
+            XRC_SWAPCHAIN_FORMAT(GL_RGB16I).WORKAROUND.ToPair(),        // 3-component, 16-bit signed integer
+            XRC_SWAPCHAIN_FORMAT(GL_RGBA16I).WORKAROUND.ToPair(),       // 4-component, 16-bit signed integer
+            XRC_SWAPCHAIN_FORMAT(GL_R16F).WORKAROUND.ToPair(),          // 1-component, 16-bit floating-point
+            XRC_SWAPCHAIN_FORMAT(GL_RG16F).WORKAROUND.ToPair(),         // 2-component, 16-bit floating-point
+            XRC_SWAPCHAIN_FORMAT(GL_RGB16F).WORKAROUND.ToPair(),        // 3-component, 16-bit floating-point
+            XRC_SWAPCHAIN_FORMAT(GL_RGBA16F).WORKAROUND.ToPair(),       // 4-component, 16-bit floating-point
 
-        //
-        // Packed
-        //
-        ADD_GL_COLOR_FORMAT(GL_RGB5),            // 3-component 5:5:5,       unsigned normalized
-        ADD_GL_COLOR_FORMAT(GL_RGB565),          // 3-component 5:6:5,       unsigned normalized
-        ADD_GL_COLOR_FORMAT(GL_RGB10),           // 3-component 10:10:10,    unsigned normalized
-        ADD_GL_COLOR_FORMAT(GL_RGBA4),           // 4-component 4:4:4:4,     unsigned normalized
-        ADD_GL_COLOR_FORMAT(GL_RGB5_A1),         // 4-component 5:5:5:1,     unsigned normalized
-        ADD_GL_COLOR_FORMAT(GL_RGB10_A2),        // 4-component 10:10:10:2,  unsigned normalized
-        ADD_GL_COLOR_FORMAT(GL_RGB10_A2UI),      // 4-component 10:10:10:2,  unsigned integer
-        ADD_GL_COLOR_FORMAT(GL_R11F_G11F_B10F),  // 3-component 11:11:10,    floating-point
-        ADD_GL_COLOR_FORMAT(GL_RGB9_E5),         // 3-component/exp 9:9:9/5, floating-point
+            //
+            // 32 bits per component
+            //
+            XRC_SWAPCHAIN_FORMAT(GL_R32UI).WORKAROUND.ToPair(),     // 1-component, 32-bit unsigned integer
+            XRC_SWAPCHAIN_FORMAT(GL_RG32UI).WORKAROUND.ToPair(),    // 2-component, 32-bit unsigned integer
+            XRC_SWAPCHAIN_FORMAT(GL_RGB32UI).WORKAROUND.ToPair(),   // 3-component, 32-bit unsigned integer
+            XRC_SWAPCHAIN_FORMAT(GL_RGBA32UI).WORKAROUND.ToPair(),  // 4-component, 32-bit unsigned integer
+            XRC_SWAPCHAIN_FORMAT(GL_R32I).WORKAROUND.ToPair(),      // 1-component, 32-bit signed integer
+            XRC_SWAPCHAIN_FORMAT(GL_RG32I).WORKAROUND.ToPair(),     // 2-component, 32-bit signed integer
+            XRC_SWAPCHAIN_FORMAT(GL_RGB32I).WORKAROUND.ToPair(),    // 3-component, 32-bit signed integer
+            XRC_SWAPCHAIN_FORMAT(GL_RGBA32I).WORKAROUND.ToPair(),   // 4-component, 32-bit signed integer
+            XRC_SWAPCHAIN_FORMAT(GL_R32F).WORKAROUND.ToPair(),      // 1-component, 32-bit floating-point
+            XRC_SWAPCHAIN_FORMAT(GL_RG32F).WORKAROUND.ToPair(),     // 2-component, 32-bit floating-point
+            XRC_SWAPCHAIN_FORMAT(GL_RGB32F).WORKAROUND.ToPair(),    // 3-component, 32-bit floating-point
+            XRC_SWAPCHAIN_FORMAT(GL_RGBA32F).WORKAROUND.ToPair(),   // 4-component, 32-bit floating-point
 
-        //
-        // S3TC/DXT/BC
-        //
-        ADD_GL_COLOR_COMPRESSED_FORMAT(GL_COMPRESSED_RGB_S3TC_DXT1_EXT),  // line through 3D space, 4x4 blocks, unsigned normalized
-        ADD_GL_COLOR_COMPRESSED_FORMAT(
-            GL_COMPRESSED_RGBA_S3TC_DXT1_EXT),  // line through 3D space plus 1-bit alpha, 4x4 blocks, unsigned normalized
-        ADD_GL_COLOR_COMPRESSED_FORMAT(
-            GL_COMPRESSED_RGBA_S3TC_DXT5_EXT),  // line through 3D space plus line through 1D space, 4x4 blocks, unsigned normalized
-        ADD_GL_COLOR_COMPRESSED_FORMAT(
-            GL_COMPRESSED_RGBA_S3TC_DXT3_EXT),  // line through 3D space plus 4-bit alpha, 4x4 blocks, unsigned normalized
-        ADD_GL_COLOR_COMPRESSED_FORMAT(GL_COMPRESSED_SRGB_S3TC_DXT1_EXT),        // line through 3D space, 4x4 blocks, sRGB
-        ADD_GL_COLOR_COMPRESSED_FORMAT(GL_COMPRESSED_SRGB_ALPHA_S3TC_DXT1_EXT),  // line through 3D space plus 1-bit alpha, 4x4 blocks, sRGB
-        ADD_GL_COLOR_COMPRESSED_FORMAT(
-            GL_COMPRESSED_SRGB_ALPHA_S3TC_DXT3_EXT),  // line through 3D space plus line through 1D space, 4x4 blocks, sRGB
-        ADD_GL_COLOR_COMPRESSED_FORMAT(GL_COMPRESSED_SRGB_ALPHA_S3TC_DXT5_EXT),  // line through 3D space plus 4-bit alpha, 4x4 blocks, sRGB
-        ADD_GL_COLOR_COMPRESSED_FORMAT(GL_COMPRESSED_LUMINANCE_LATC1_EXT),       // line through 1D space, 4x4 blocks, unsigned normalized
-        ADD_GL_COLOR_COMPRESSED_FORMAT(
-            GL_COMPRESSED_LUMINANCE_ALPHA_LATC2_EXT),  // two lines through 1D space, 4x4 blocks, unsigned normalized
-        ADD_GL_COLOR_COMPRESSED_FORMAT(GL_COMPRESSED_SIGNED_LUMINANCE_LATC1_EXT),  // line through 1D space, 4x4 blocks, signed normalized
-        ADD_GL_COLOR_COMPRESSED_FORMAT(
-            GL_COMPRESSED_SIGNED_LUMINANCE_ALPHA_LATC2_EXT),             // two lines through 1D space, 4x4 blocks, signed normalized
-        ADD_GL_COLOR_COMPRESSED_FORMAT(GL_COMPRESSED_RED_RGTC1),         // line through 1D space, 4x4 blocks, unsigned normalized
-        ADD_GL_COLOR_COMPRESSED_FORMAT(GL_COMPRESSED_RG_RGTC2),          // two lines through 1D space, 4x4 blocks, unsigned normalized
-        ADD_GL_COLOR_COMPRESSED_FORMAT(GL_COMPRESSED_SIGNED_RED_RGTC1),  // line through 1D space, 4x4 blocks, signed normalized
-        ADD_GL_COLOR_COMPRESSED_FORMAT(GL_COMPRESSED_SIGNED_RG_RGTC2),   // two lines through 1D space, 4x4 blocks, signed normalized
-        ADD_GL_COLOR_COMPRESSED_FORMAT(GL_COMPRESSED_RGB_BPTC_UNSIGNED_FLOAT),  // 3-component, 4x4 blocks, unsigned floating-point
-        ADD_GL_COLOR_COMPRESSED_FORMAT(GL_COMPRESSED_RGB_BPTC_SIGNED_FLOAT),    // 3-component, 4x4 blocks, signed floating-point
-        ADD_GL_COLOR_COMPRESSED_FORMAT(GL_COMPRESSED_RGBA_BPTC_UNORM),          // 4-component, 4x4 blocks, unsigned normalized
-        ADD_GL_COLOR_COMPRESSED_FORMAT(GL_COMPRESSED_SRGB_ALPHA_BPTC_UNORM),    // 4-component, 4x4 blocks, sRGB
+            //
+            // Packed
+            //
+            XRC_SWAPCHAIN_FORMAT(GL_RGB5).WORKAROUND.ToPair(),            // 3-component 5:5:5,       unsigned normalized
+            XRC_SWAPCHAIN_FORMAT(GL_RGB565).WORKAROUND.ToPair(),          // 3-component 5:6:5,       unsigned normalized
+            XRC_SWAPCHAIN_FORMAT(GL_RGB10).WORKAROUND.ToPair(),           // 3-component 10:10:10,    unsigned normalized
+            XRC_SWAPCHAIN_FORMAT(GL_RGBA4).WORKAROUND.ToPair(),           // 4-component 4:4:4:4,     unsigned normalized
+            XRC_SWAPCHAIN_FORMAT(GL_RGB5_A1).WORKAROUND.ToPair(),         // 4-component 5:5:5:1,     unsigned normalized
+            XRC_SWAPCHAIN_FORMAT(GL_RGB10_A2).WORKAROUND.ToPair(),        // 4-component 10:10:10:2,  unsigned normalized
+            XRC_SWAPCHAIN_FORMAT(GL_RGB10_A2UI).WORKAROUND.ToPair(),      // 4-component 10:10:10:2,  unsigned integer
+            XRC_SWAPCHAIN_FORMAT(GL_R11F_G11F_B10F).WORKAROUND.ToPair(),  // 3-component 11:11:10,    floating-point
+            XRC_SWAPCHAIN_FORMAT(GL_RGB9_E5).WORKAROUND.ToPair(),         // 3-component/exp 9:9:9/5, floating-point
 
-        //
-        // ETC
-        //
-        ADD_GL_COLOR_COMPRESSED_FORMAT(GL_ETC1_RGB8_OES),         // 3-component ETC1, 4x4 blocks, unsigned normalized
-        ADD_GL_COLOR_COMPRESSED_FORMAT(GL_COMPRESSED_RGB8_ETC2),  // 3-component ETC2, 4x4 blocks, unsigned normalized
-        ADD_GL_COLOR_COMPRESSED_FORMAT(
-            GL_COMPRESSED_RGB8_PUNCHTHROUGH_ALPHA1_ETC2),              // 4-component ETC2 with 1-bit alpha, 4x4 blocks, unsigned normalized
-        ADD_GL_COLOR_COMPRESSED_FORMAT(GL_COMPRESSED_RGBA8_ETC2_EAC),  // 4-component ETC2, 4x4 blocks, unsigned normalized
-        ADD_GL_COLOR_COMPRESSED_FORMAT(GL_COMPRESSED_SRGB8_ETC2),      // 3-component ETC2, 4x4 blocks, sRGB
-        ADD_GL_COLOR_COMPRESSED_FORMAT(
-            GL_COMPRESSED_SRGB8_PUNCHTHROUGH_ALPHA1_ETC2),                    // 4-component ETC2 with 1-bit alpha, 4x4 blocks, sRGB
-        ADD_GL_COLOR_COMPRESSED_FORMAT(GL_COMPRESSED_SRGB8_ALPHA8_ETC2_EAC),  // 4-component ETC2, 4x4 blocks, sRGB
-        ADD_GL_COLOR_COMPRESSED_FORMAT(GL_COMPRESSED_R11_EAC),                // 1-component ETC, 4x4 blocks, unsigned normalized
-        ADD_GL_COLOR_COMPRESSED_FORMAT(GL_COMPRESSED_RG11_EAC),               // 2-component ETC, 4x4 blocks, unsigned normalized
-        ADD_GL_COLOR_COMPRESSED_FORMAT(GL_COMPRESSED_SIGNED_R11_EAC),         // 1-component ETC, 4x4 blocks, signed normalized
-        ADD_GL_COLOR_COMPRESSED_FORMAT(GL_COMPRESSED_SIGNED_RG11_EAC),        // 2-component ETC, 4x4 blocks, signed normalized
+            //
+            // S3TC/DXT/BC
+            //
+            XRC_SWAPCHAIN_FORMAT(GL_COMPRESSED_RGB_S3TC_DXT1_EXT)
+                .Compressed()
+                .NotMutable()
+                .ToPair(),  // line through 3D space, 4x4 blocks, unsigned normalized
+            XRC_SWAPCHAIN_FORMAT(GL_COMPRESSED_RGBA_S3TC_DXT1_EXT)
+                .Compressed()
+                .NotMutable()
+                .ToPair(),  // line through 3D space plus 1-bit alpha, 4x4 blocks, unsigned normalized
+            XRC_SWAPCHAIN_FORMAT(GL_COMPRESSED_RGBA_S3TC_DXT5_EXT)
+                .Compressed()
+                .NotMutable()
+                .ToPair(),  // line through 3D space plus line through 1D space, 4x4 blocks, unsigned normalized
+            XRC_SWAPCHAIN_FORMAT(GL_COMPRESSED_RGBA_S3TC_DXT3_EXT)
+                .Compressed()
+                .NotMutable()
+                .ToPair(),  // line through 3D space plus 4-bit alpha, 4x4 blocks, unsigned normalized
+            XRC_SWAPCHAIN_FORMAT(GL_COMPRESSED_SRGB_S3TC_DXT1_EXT)
+                .Compressed()
+                .NotMutable()
+                .ToPair(),  // line through 3D space, 4x4 blocks, sRGB
+            XRC_SWAPCHAIN_FORMAT(GL_COMPRESSED_SRGB_ALPHA_S3TC_DXT1_EXT)
+                .Compressed()
+                .NotMutable()
+                .ToPair(),  // line through 3D space plus 1-bit alpha, 4x4 blocks, sRGB
+            XRC_SWAPCHAIN_FORMAT(GL_COMPRESSED_SRGB_ALPHA_S3TC_DXT3_EXT)
+                .Compressed()
+                .NotMutable()
+                .ToPair(),  // line through 3D space plus line through 1D space, 4x4 blocks, sRGB
+            XRC_SWAPCHAIN_FORMAT(GL_COMPRESSED_SRGB_ALPHA_S3TC_DXT5_EXT)
+                .Compressed()
+                .NotMutable()
+                .ToPair(),  // line through 3D space plus 4-bit alpha, 4x4 blocks, sRGB
+            XRC_SWAPCHAIN_FORMAT(GL_COMPRESSED_LUMINANCE_LATC1_EXT)
+                .Compressed()
+                .NotMutable()
+                .ToPair(),  // line through 1D space, 4x4 blocks, unsigned normalized
+            XRC_SWAPCHAIN_FORMAT(GL_COMPRESSED_LUMINANCE_ALPHA_LATC2_EXT)
+                .Compressed()
+                .NotMutable()
+                .ToPair(),  // two lines through 1D space, 4x4 blocks, unsigned normalized
+            XRC_SWAPCHAIN_FORMAT(GL_COMPRESSED_SIGNED_LUMINANCE_LATC1_EXT)
+                .Compressed()
+                .NotMutable()
+                .ToPair(),  // line through 1D space, 4x4 blocks, signed normalized
+            XRC_SWAPCHAIN_FORMAT(GL_COMPRESSED_SIGNED_LUMINANCE_ALPHA_LATC2_EXT)
+                .Compressed()
+                .NotMutable()
+                .ToPair(),  // two lines through 1D space, 4x4 blocks, signed normalized
+            XRC_SWAPCHAIN_FORMAT(GL_COMPRESSED_RED_RGTC1)
+                .Compressed()
+                .NotMutable()
+                .ToPair(),  // line through 1D space, 4x4 blocks, unsigned normalized
+            XRC_SWAPCHAIN_FORMAT(GL_COMPRESSED_RG_RGTC2)
+                .Compressed()
+                .NotMutable()
+                .ToPair(),  // two lines through 1D space, 4x4 blocks, unsigned normalized
+            XRC_SWAPCHAIN_FORMAT(GL_COMPRESSED_SIGNED_RED_RGTC1)
+                .Compressed()
+                .NotMutable()
+                .ToPair(),  // line through 1D space, 4x4 blocks, signed normalized
+            XRC_SWAPCHAIN_FORMAT(GL_COMPRESSED_SIGNED_RG_RGTC2)
+                .Compressed()
+                .NotMutable()
+                .ToPair(),  // two lines through 1D space, 4x4 blocks, signed normalized
+            XRC_SWAPCHAIN_FORMAT(GL_COMPRESSED_RGB_BPTC_UNSIGNED_FLOAT)
+                .Compressed()
+                .NotMutable()
+                .ToPair(),  // 3-component, 4x4 blocks, unsigned floating-point
+            XRC_SWAPCHAIN_FORMAT(GL_COMPRESSED_RGB_BPTC_SIGNED_FLOAT)
+                .Compressed()
+                .NotMutable()
+                .ToPair(),  // 3-component, 4x4 blocks, signed floating-point
+            XRC_SWAPCHAIN_FORMAT(GL_COMPRESSED_RGBA_BPTC_UNORM)
+                .Compressed()
+                .NotMutable()
+                .ToPair(),  // 4-component, 4x4 blocks, unsigned normalized
+            XRC_SWAPCHAIN_FORMAT(GL_COMPRESSED_SRGB_ALPHA_BPTC_UNORM).Compressed().NotMutable().ToPair(),  // 4-component, 4x4 blocks, sRGB
 
-        //
-        // ASTC
-        //
-        ADD_GL_COLOR_COMPRESSED_FORMAT(GL_COMPRESSED_RGBA_ASTC_4x4_KHR),            // 4-component ASTC, 4x4 blocks, unsigned normalized
-        ADD_GL_COLOR_COMPRESSED_FORMAT(GL_COMPRESSED_RGBA_ASTC_5x4_KHR),            // 4-component ASTC, 5x4 blocks, unsigned normalized
-        ADD_GL_COLOR_COMPRESSED_FORMAT(GL_COMPRESSED_RGBA_ASTC_5x5_KHR),            // 4-component ASTC, 5x5 blocks, unsigned normalized
-        ADD_GL_COLOR_COMPRESSED_FORMAT(GL_COMPRESSED_RGBA_ASTC_6x5_KHR),            // 4-component ASTC, 6x5 blocks, unsigned normalized
-        ADD_GL_COLOR_COMPRESSED_FORMAT(GL_COMPRESSED_RGBA_ASTC_6x6_KHR),            // 4-component ASTC, 6x6 blocks, unsigned normalized
-        ADD_GL_COLOR_COMPRESSED_FORMAT(GL_COMPRESSED_RGBA_ASTC_8x5_KHR),            // 4-component ASTC, 8x5 blocks, unsigned normalized
-        ADD_GL_COLOR_COMPRESSED_FORMAT(GL_COMPRESSED_RGBA_ASTC_8x6_KHR),            // 4-component ASTC, 8x6 blocks, unsigned normalized
-        ADD_GL_COLOR_COMPRESSED_FORMAT(GL_COMPRESSED_RGBA_ASTC_8x8_KHR),            // 4-component ASTC, 8x8 blocks, unsigned normalized
-        ADD_GL_COLOR_COMPRESSED_FORMAT(GL_COMPRESSED_RGBA_ASTC_10x5_KHR),           // 4-component ASTC, 10x5 blocks, unsigned normalized
-        ADD_GL_COLOR_COMPRESSED_FORMAT(GL_COMPRESSED_RGBA_ASTC_10x6_KHR),           // 4-component ASTC, 10x6 blocks, unsigned normalized
-        ADD_GL_COLOR_COMPRESSED_FORMAT(GL_COMPRESSED_RGBA_ASTC_10x8_KHR),           // 4-component ASTC, 10x8 blocks, unsigned normalized
-        ADD_GL_COLOR_COMPRESSED_FORMAT(GL_COMPRESSED_RGBA_ASTC_10x10_KHR),          // 4-component ASTC, 10x10 blocks, unsigned normalized
-        ADD_GL_COLOR_COMPRESSED_FORMAT(GL_COMPRESSED_RGBA_ASTC_12x10_KHR),          // 4-component ASTC, 12x10 blocks, unsigned normalized
-        ADD_GL_COLOR_COMPRESSED_FORMAT(GL_COMPRESSED_RGBA_ASTC_12x12_KHR),          // 4-component ASTC, 12x12 blocks, unsigned normalized
-        ADD_GL_COLOR_COMPRESSED_FORMAT(GL_COMPRESSED_SRGB8_ALPHA8_ASTC_4x4_KHR),    // 4-component ASTC, 4x4 blocks, sRGB
-        ADD_GL_COLOR_COMPRESSED_FORMAT(GL_COMPRESSED_SRGB8_ALPHA8_ASTC_5x4_KHR),    // 4-component ASTC, 5x4 blocks, sRGB
-        ADD_GL_COLOR_COMPRESSED_FORMAT(GL_COMPRESSED_SRGB8_ALPHA8_ASTC_5x5_KHR),    // 4-component ASTC, 5x5 blocks, sRGB
-        ADD_GL_COLOR_COMPRESSED_FORMAT(GL_COMPRESSED_SRGB8_ALPHA8_ASTC_6x5_KHR),    // 4-component ASTC, 6x5 blocks, sRGB
-        ADD_GL_COLOR_COMPRESSED_FORMAT(GL_COMPRESSED_SRGB8_ALPHA8_ASTC_6x6_KHR),    // 4-component ASTC, 6x6 blocks, sRGB
-        ADD_GL_COLOR_COMPRESSED_FORMAT(GL_COMPRESSED_SRGB8_ALPHA8_ASTC_8x5_KHR),    // 4-component ASTC, 8x5 blocks, sRGB
-        ADD_GL_COLOR_COMPRESSED_FORMAT(GL_COMPRESSED_SRGB8_ALPHA8_ASTC_8x6_KHR),    // 4-component ASTC, 8x6 blocks, sRGB
-        ADD_GL_COLOR_COMPRESSED_FORMAT(GL_COMPRESSED_SRGB8_ALPHA8_ASTC_8x8_KHR),    // 4-component ASTC, 8x8 blocks, sRGB
-        ADD_GL_COLOR_COMPRESSED_FORMAT(GL_COMPRESSED_SRGB8_ALPHA8_ASTC_10x5_KHR),   // 4-component ASTC, 10x5 blocks, sRGB
-        ADD_GL_COLOR_COMPRESSED_FORMAT(GL_COMPRESSED_SRGB8_ALPHA8_ASTC_10x6_KHR),   // 4-component ASTC, 10x6 blocks, sRGB
-        ADD_GL_COLOR_COMPRESSED_FORMAT(GL_COMPRESSED_SRGB8_ALPHA8_ASTC_10x8_KHR),   // 4-component ASTC, 10x8 blocks, sRGB
-        ADD_GL_COLOR_COMPRESSED_FORMAT(GL_COMPRESSED_SRGB8_ALPHA8_ASTC_10x10_KHR),  // 4-component ASTC, 10x10 blocks, sRGB
-        ADD_GL_COLOR_COMPRESSED_FORMAT(GL_COMPRESSED_SRGB8_ALPHA8_ASTC_12x10_KHR),  // 4-component ASTC, 12x10 blocks, sRGB
-        ADD_GL_COLOR_COMPRESSED_FORMAT(GL_COMPRESSED_SRGB8_ALPHA8_ASTC_12x12_KHR),  // 4-component ASTC, 12x12 blocks, sRGB
+            //
+            // ETC
+            //
+            XRC_SWAPCHAIN_FORMAT(GL_ETC1_RGB8_OES).Compressed().NotMutable().ToPair(),  // 3-component ETC1, 4x4 blocks, unsigned normalized
+            XRC_SWAPCHAIN_FORMAT(GL_COMPRESSED_RGB8_ETC2)
+                .Compressed()
+                .NotMutable()
+                .ToPair(),  // 3-component ETC2, 4x4 blocks, unsigned normalized
+            XRC_SWAPCHAIN_FORMAT(GL_COMPRESSED_RGB8_PUNCHTHROUGH_ALPHA1_ETC2)
+                .Compressed()
+                .NotMutable()
+                .ToPair(),  // 4-component ETC2 with 1-bit alpha, 4x4 blocks, unsigned normalized
+            XRC_SWAPCHAIN_FORMAT(GL_COMPRESSED_RGBA8_ETC2_EAC)
+                .Compressed()
+                .NotMutable()
+                .ToPair(),  // 4-component ETC2, 4x4 blocks, unsigned normalized
+            XRC_SWAPCHAIN_FORMAT(GL_COMPRESSED_SRGB8_ETC2).Compressed().NotMutable().ToPair(),  // 3-component ETC2, 4x4 blocks, sRGB
+            XRC_SWAPCHAIN_FORMAT(GL_COMPRESSED_SRGB8_PUNCHTHROUGH_ALPHA1_ETC2)
+                .Compressed()
+                .NotMutable()
+                .ToPair(),  // 4-component ETC2 with 1-bit alpha, 4x4 blocks, sRGB
+            XRC_SWAPCHAIN_FORMAT(GL_COMPRESSED_SRGB8_ALPHA8_ETC2_EAC)
+                .Compressed()
+                .NotMutable()
+                .ToPair(),  // 4-component ETC2, 4x4 blocks, sRGB
+            XRC_SWAPCHAIN_FORMAT(GL_COMPRESSED_R11_EAC)
+                .Compressed()
+                .NotMutable()
+                .ToPair(),  // 1-component ETC, 4x4 blocks, unsigned normalized
+            XRC_SWAPCHAIN_FORMAT(GL_COMPRESSED_RG11_EAC)
+                .Compressed()
+                .NotMutable()
+                .ToPair(),  // 2-component ETC, 4x4 blocks, unsigned normalized
+            XRC_SWAPCHAIN_FORMAT(GL_COMPRESSED_SIGNED_R11_EAC)
+                .Compressed()
+                .NotMutable()
+                .ToPair(),  // 1-component ETC, 4x4 blocks, signed normalized
+            XRC_SWAPCHAIN_FORMAT(GL_COMPRESSED_SIGNED_RG11_EAC)
+                .Compressed()
+                .NotMutable()
+                .ToPair(),  // 2-component ETC, 4x4 blocks, signed normalized
 
-        //
-        // Depth/stencil
-        //
-        ADD_GL_DEPTH_FORMAT(GL_DEPTH_COMPONENT16), ADD_GL_DEPTH_FORMAT(GL_DEPTH_COMPONENT24), ADD_GL_DEPTH_FORMAT(GL_DEPTH_COMPONENT32F),
-        ADD_GL_DEPTH_FORMAT(GL_DEPTH_COMPONENT32F_NV), ADD_GL_DEPTH_FORMAT(GL_STENCIL_INDEX8), ADD_GL_DEPTH_FORMAT(GL_DEPTH24_STENCIL8),
-        ADD_GL_DEPTH_FORMAT(GL_DEPTH32F_STENCIL8), ADD_GL_DEPTH_FORMAT(GL_DEPTH32F_STENCIL8_NV)};
-#undef ADD_GL_COLOR_FORMAT
-#undef ADD_GL_COLOR_FORMAT2
-#undef ADD_GL_DEPTH_FORMAT
-#undef ADD_GL_DEPTH_FORMAT2
+            //
+            // ASTC
+            //
+            XRC_SWAPCHAIN_FORMAT(GL_COMPRESSED_RGBA_ASTC_4x4_KHR)
+                .Compressed()
+                .NotMutable()
+                .ToPair(),  // 4-component ASTC, 4x4 blocks, unsigned normalized
+            XRC_SWAPCHAIN_FORMAT(GL_COMPRESSED_RGBA_ASTC_5x4_KHR)
+                .Compressed()
+                .NotMutable()
+                .ToPair(),  // 4-component ASTC, 5x4 blocks, unsigned normalized
+            XRC_SWAPCHAIN_FORMAT(GL_COMPRESSED_RGBA_ASTC_5x5_KHR)
+                .Compressed()
+                .NotMutable()
+                .ToPair(),  // 4-component ASTC, 5x5 blocks, unsigned normalized
+            XRC_SWAPCHAIN_FORMAT(GL_COMPRESSED_RGBA_ASTC_6x5_KHR)
+                .Compressed()
+                .NotMutable()
+                .ToPair(),  // 4-component ASTC, 6x5 blocks, unsigned normalized
+            XRC_SWAPCHAIN_FORMAT(GL_COMPRESSED_RGBA_ASTC_6x6_KHR)
+                .Compressed()
+                .NotMutable()
+                .ToPair(),  // 4-component ASTC, 6x6 blocks, unsigned normalized
+            XRC_SWAPCHAIN_FORMAT(GL_COMPRESSED_RGBA_ASTC_8x5_KHR)
+                .Compressed()
+                .NotMutable()
+                .ToPair(),  // 4-component ASTC, 8x5 blocks, unsigned normalized
+            XRC_SWAPCHAIN_FORMAT(GL_COMPRESSED_RGBA_ASTC_8x6_KHR)
+                .Compressed()
+                .NotMutable()
+                .ToPair(),  // 4-component ASTC, 8x6 blocks, unsigned normalized
+            XRC_SWAPCHAIN_FORMAT(GL_COMPRESSED_RGBA_ASTC_8x8_KHR)
+                .Compressed()
+                .NotMutable()
+                .ToPair(),  // 4-component ASTC, 8x8 blocks, unsigned normalized
+            XRC_SWAPCHAIN_FORMAT(GL_COMPRESSED_RGBA_ASTC_10x5_KHR)
+                .Compressed()
+                .NotMutable()
+                .ToPair(),  // 4-component ASTC, 10x5 blocks, unsigned normalized
+            XRC_SWAPCHAIN_FORMAT(GL_COMPRESSED_RGBA_ASTC_10x6_KHR)
+                .Compressed()
+                .NotMutable()
+                .ToPair(),  // 4-component ASTC, 10x6 blocks, unsigned normalized
+            XRC_SWAPCHAIN_FORMAT(GL_COMPRESSED_RGBA_ASTC_10x8_KHR)
+                .Compressed()
+                .NotMutable()
+                .ToPair(),  // 4-component ASTC, 10x8 blocks, unsigned normalized
+            XRC_SWAPCHAIN_FORMAT(GL_COMPRESSED_RGBA_ASTC_10x10_KHR)
+                .Compressed()
+                .NotMutable()
+                .ToPair(),  // 4-component ASTC, 10x10 blocks, unsigned normalized
+            XRC_SWAPCHAIN_FORMAT(GL_COMPRESSED_RGBA_ASTC_12x10_KHR)
+                .Compressed()
+                .NotMutable()
+                .ToPair(),  // 4-component ASTC, 12x10 blocks, unsigned normalized
+            XRC_SWAPCHAIN_FORMAT(GL_COMPRESSED_RGBA_ASTC_12x12_KHR)
+                .Compressed()
+                .NotMutable()
+                .ToPair(),  // 4-component ASTC, 12x12 blocks, unsigned normalized
+            XRC_SWAPCHAIN_FORMAT(GL_COMPRESSED_SRGB8_ALPHA8_ASTC_4x4_KHR)
+                .Compressed()
+                .NotMutable()
+                .ToPair(),  // 4-component ASTC, 4x4 blocks, sRGB
+            XRC_SWAPCHAIN_FORMAT(GL_COMPRESSED_SRGB8_ALPHA8_ASTC_5x4_KHR)
+                .Compressed()
+                .NotMutable()
+                .ToPair(),  // 4-component ASTC, 5x4 blocks, sRGB
+            XRC_SWAPCHAIN_FORMAT(GL_COMPRESSED_SRGB8_ALPHA8_ASTC_5x5_KHR)
+                .Compressed()
+                .NotMutable()
+                .ToPair(),  // 4-component ASTC, 5x5 blocks, sRGB
+            XRC_SWAPCHAIN_FORMAT(GL_COMPRESSED_SRGB8_ALPHA8_ASTC_6x5_KHR)
+                .Compressed()
+                .NotMutable()
+                .ToPair(),  // 4-component ASTC, 6x5 blocks, sRGB
+            XRC_SWAPCHAIN_FORMAT(GL_COMPRESSED_SRGB8_ALPHA8_ASTC_6x6_KHR)
+                .Compressed()
+                .NotMutable()
+                .ToPair(),  // 4-component ASTC, 6x6 blocks, sRGB
+            XRC_SWAPCHAIN_FORMAT(GL_COMPRESSED_SRGB8_ALPHA8_ASTC_8x5_KHR)
+                .Compressed()
+                .NotMutable()
+                .ToPair(),  // 4-component ASTC, 8x5 blocks, sRGB
+            XRC_SWAPCHAIN_FORMAT(GL_COMPRESSED_SRGB8_ALPHA8_ASTC_8x6_KHR)
+                .Compressed()
+                .NotMutable()
+                .ToPair(),  // 4-component ASTC, 8x6 blocks, sRGB
+            XRC_SWAPCHAIN_FORMAT(GL_COMPRESSED_SRGB8_ALPHA8_ASTC_8x8_KHR)
+                .Compressed()
+                .NotMutable()
+                .ToPair(),  // 4-component ASTC, 8x8 blocks, sRGB
+            XRC_SWAPCHAIN_FORMAT(GL_COMPRESSED_SRGB8_ALPHA8_ASTC_10x5_KHR)
+                .Compressed()
+                .NotMutable()
+                .ToPair(),  // 4-component ASTC, 10x5 blocks, sRGB
+            XRC_SWAPCHAIN_FORMAT(GL_COMPRESSED_SRGB8_ALPHA8_ASTC_10x6_KHR)
+                .Compressed()
+                .NotMutable()
+                .ToPair(),  // 4-component ASTC, 10x6 blocks, sRGB
+            XRC_SWAPCHAIN_FORMAT(GL_COMPRESSED_SRGB8_ALPHA8_ASTC_10x8_KHR)
+                .Compressed()
+                .NotMutable()
+                .ToPair(),  // 4-component ASTC, 10x8 blocks, sRGB
+            XRC_SWAPCHAIN_FORMAT(GL_COMPRESSED_SRGB8_ALPHA8_ASTC_10x10_KHR)
+                .Compressed()
+                .NotMutable()
+                .ToPair(),  // 4-component ASTC, 10x10 blocks, sRGB
+            XRC_SWAPCHAIN_FORMAT(GL_COMPRESSED_SRGB8_ALPHA8_ASTC_12x10_KHR)
+                .Compressed()
+                .NotMutable()
+                .ToPair(),  // 4-component ASTC, 12x10 blocks, sRGB
+            XRC_SWAPCHAIN_FORMAT(GL_COMPRESSED_SRGB8_ALPHA8_ASTC_12x12_KHR)
+                .Compressed()
+                .NotMutable()
+                .ToPair(),  // 4-component ASTC, 12x12 blocks, sRGB
+
+            //
+            // Depth/stencil
+            //
+            XRC_SWAPCHAIN_FORMAT(GL_DEPTH_COMPONENT16).WORKAROUND.Depth().ToPair(),
+            XRC_SWAPCHAIN_FORMAT(GL_DEPTH_COMPONENT24).WORKAROUND.Depth().ToPair(),
+            XRC_SWAPCHAIN_FORMAT(GL_DEPTH_COMPONENT32F).WORKAROUND.Depth().ToPair(),
+            XRC_SWAPCHAIN_FORMAT(GL_DEPTH_COMPONENT32F_NV).WORKAROUND.Depth().ToPair(),
+            XRC_SWAPCHAIN_FORMAT(GL_STENCIL_INDEX8).WORKAROUND.Stencil().ToPair(),
+            XRC_SWAPCHAIN_FORMAT(GL_DEPTH24_STENCIL8).WORKAROUND.DepthStencil().ToPair(),
+            XRC_SWAPCHAIN_FORMAT(GL_DEPTH32F_STENCIL8).WORKAROUND.DepthStencil().ToPair(),
+            XRC_SWAPCHAIN_FORMAT(GL_DEPTH32F_STENCIL8_NV).WORKAROUND.DepthStencil().ToPair(),
+        };
+        return map;
+    }
 
     // Returns a name for an image format.
     std::string OpenGLESGraphicsPlugin::GetImageFormatName(int64_t imageFormat) const
     {
-        SwapchainTestMap::const_iterator it = openGLESSwapchainTestMap.find(imageFormat);
-
-        if (it != openGLESSwapchainTestMap.end()) {
-            return it->second.imageFormatName;
-        }
-
-        return std::string("unknown");
+        return ::Conformance::GetImageFormatName(GetSwapchainFormatData(), imageFormat);
     }
 
     bool OpenGLESGraphicsPlugin::IsImageFormatKnown(int64_t imageFormat) const
     {
-        SwapchainTestMap::const_iterator it = openGLESSwapchainTestMap.find(imageFormat);
-
-        return (it != openGLESSwapchainTestMap.end());
+        return ::Conformance::IsImageFormatKnown(GetSwapchainFormatData(), imageFormat);
     }
 
     // Retrieves SwapchainCreateTestParameters for the caller, handling plaform-specific functionality
@@ -827,29 +942,7 @@ namespace Conformance
         // Swapchain image format support by the runtime is specified by the xrEnumerateSwapchainFormats function.
         // Runtimes should support R8G8B8A8 and R8G8B8A8 sRGB formats if possible.
 
-        SwapchainTestMap::iterator it = openGLESSwapchainTestMap.find(imageFormat);
-
-        // Verify that the image format is known. If it's not known then this test needs to be
-        // updated to recognize new OpenGL formats.
-        CAPTURE(imageFormat);
-        CHECK_MSG(it != openGLESSwapchainTestMap.end(), "Unknown OpenGLES image format.");
-        if (it == openGLESSwapchainTestMap.end()) {
-            return false;
-        }
-
-        CAPTURE(it->second.imageFormatName);
-
-        // We may now proceed with creating swapchains with the format.
-        SwapchainCreateTestParameters& tp = it->second;
-        tp.arrayCountVector = {1, 2};
-        if (!tp.compressedFormat) {
-            tp.mipCountVector = {1, 2};
-        }
-        else {
-            tp.mipCountVector = {1};
-        }
-
-        *swapchainTestParameters = tp;
+        *swapchainTestParameters = ::Conformance::GetSwapchainCreateTestParameters(GetSwapchainFormatData(), imageFormat);
         return true;
     }
 
@@ -859,6 +952,7 @@ namespace Conformance
     bool OpenGLESGraphicsPlugin::ValidateSwapchainImages(int64_t imageFormat, const SwapchainCreateTestParameters* tp,
                                                          XrSwapchain swapchain, uint32_t* imageCount) const
     {
+        // OK to use CHECK and REQUIRE in here because this is always called from within a test.
         *imageCount = 0;  // Zero until set below upon success.
 
         std::vector<XrSwapchainImageOpenGLESKHR> swapchainImageVector;
@@ -914,7 +1008,18 @@ namespace Conformance
     int64_t OpenGLESGraphicsPlugin::SelectColorSwapchainFormat(const int64_t* imageFormatArray, size_t count) const
     {
         // List of supported color swapchain formats.
-        const std::array<GLenum, 2> f{GL_RGBA8, GL_SRGB8_ALPHA8};
+        // The order of this list does not effect the priority of selecting formats, the runtime list defines that.
+        const std::array<GLenum, 6> f{
+            GL_RGB10_A2,
+            GL_RGBA16,
+            GL_RGBA16F,
+            GL_RGBA32F,
+
+            // The two below should only be used as a fallback, as they are linear color formats without enough bits for color
+            // depth, thus leading to banding.
+            GL_RGBA8,
+            GL_SRGB8_ALPHA8,
+        };
 
         const int64_t* formatArrayEnd = imageFormatArray + count;
         auto it = std::find_first_of(imageFormatArray, formatArrayEnd, f.begin(), f.end());
@@ -930,7 +1035,12 @@ namespace Conformance
     int64_t OpenGLESGraphicsPlugin::SelectDepthSwapchainFormat(const int64_t* imageFormatArray, size_t count) const
     {
         // List of supported depth swapchain formats.
-        const std::array<GLenum, 4> f{GL_DEPTH24_STENCIL8, GL_DEPTH_COMPONENT24, GL_DEPTH_COMPONENT16, GL_DEPTH_COMPONENT32F};
+        const std::array<GLenum, 4> f{
+            GL_DEPTH24_STENCIL8,
+            GL_DEPTH_COMPONENT24,
+            GL_DEPTH_COMPONENT16,
+            GL_DEPTH_COMPONENT32F,
+        };
 
         const int64_t* formatArrayEnd = imageFormatArray + count;
         auto it = std::find_first_of(imageFormatArray, formatArrayEnd, f.begin(), f.end());
@@ -977,7 +1087,7 @@ namespace Conformance
     }
 
     void OpenGLESGraphicsPlugin::ClearImageSlice(const XrSwapchainImageBaseHeader* colorSwapchainImage, uint32_t imageArrayIndex,
-                                                 XrColor4f bgColor)
+                                                 XrColor4f color)
     {
         OpenGLESSwapchainImageData* swapchainData;
         uint32_t imageIndex;
@@ -1010,7 +1120,7 @@ namespace Conformance
         GL(glEnable(GL_SCISSOR_TEST));
 
         // Clear swapchain and depth buffer.
-        GL(glClearColor(bgColor.r, bgColor.g, bgColor.b, bgColor.a));
+        GL(glClearColor(color.r, color.g, color.b, color.a));
         GL(glClearDepthf(1.0f));
         GL(glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT));
 

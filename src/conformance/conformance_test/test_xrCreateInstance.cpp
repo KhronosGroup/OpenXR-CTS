@@ -14,17 +14,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "catch2/catch_message.hpp"
-#include "utils.h"
-#include "conformance_utils.h"
 #include "conformance_framework.h"
-#include <array>
-#include <vector>
-#include <set>
-#include <string>
-#include <cstring>
+#include "conformance_utils.h"
+#include "utilities/types_and_constants.h"
+#include "utilities/utils.h"
+
 #include <catch2/catch_test_macros.hpp>
 #include <openxr/openxr.h>
+
+#include <cstring>
+#include <string>
+#include <thread>
 
 namespace Conformance
 {
@@ -60,7 +60,7 @@ namespace Conformance
         updateCreateInfoApiLayers();
 
         // Enable only the required platform extensions by default
-        StringVec enabledExtensions = globalData.requiredPlatformInstanceExtensions;
+        auto enabledExtensions = StringVec(globalData.requiredPlatformInstanceExtensions);
 
         // Call this to update createInfo after modifying enabledExtensions.
         auto updateCreateInfoExtensions = [&] {
@@ -255,6 +255,7 @@ namespace Conformance
             // To do: Enable any layers and extensions available.
         }
     }
+
     TEST_CASE("xrDestroyInstance", "")
     {
         SECTION("null handle")
@@ -262,6 +263,18 @@ namespace Conformance
             // destruction of a real instance is done during these test over and over again,
             // only test missing: try to destroy NULL
             CHECK(xrDestroyInstance(XR_NULL_HANDLE_CPP) == XR_ERROR_HANDLE_INVALID);
+        }
+
+        SECTION("destroy on a different thread to create")
+        {
+            for (int i = 0; i < 2; ++i) {
+                CAPTURE(i);
+                AutoBasicInstance instance;
+                XrResult destroyResult = XR_ERROR_RUNTIME_FAILURE;
+                std::thread t([&destroyResult, &instance] { destroyResult = xrDestroyInstance(instance); });
+                t.join();
+                REQUIRE(destroyResult == XR_SUCCESS);
+            }
         }
 
         OPTIONAL_INVALID_HANDLE_VALIDATION_SECTION

@@ -18,6 +18,8 @@
 #
 
 add_subdirectory(conformance_layer)
+add_subdirectory(utilities)
+add_subdirectory(framework)
 add_subdirectory(conformance_test)
 if(NOT ANDROID)
     add_subdirectory(conformance_cli)

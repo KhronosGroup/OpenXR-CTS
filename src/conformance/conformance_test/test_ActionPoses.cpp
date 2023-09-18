@@ -14,18 +14,26 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include <array>
-#include <thread>
-#include <numeric>
-#include "utils.h"
-#include "report.h"
-#include "conformance_utils.h"
-#include "conformance_framework.h"
-#include "throw_helpers.h"
+#include "RGBAImage.h"
+#include "common/xr_linear.h"
 #include "composition_utils.h"
-#include <catch2/catch_test_macros.hpp>
+#include "conformance_framework.h"
+#include "graphics_plugin.h"
+#include "utilities/stringification.h"
+#include "utilities/throw_helpers.h"
+#include "utilities/types_and_constants.h"
+
 #include <openxr/openxr.h>
-#include <xr_linear.h>
+#include <catch2/catch_test_macros.hpp>
+
+#include <array>
+#include <cstdint>
+#include <cstring>
+#include <functional>
+#include <memory>
+#include <tuple>
+#include <type_traits>
+#include <vector>
 
 using namespace Conformance;
 

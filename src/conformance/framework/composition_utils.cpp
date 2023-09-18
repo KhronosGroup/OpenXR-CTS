@@ -15,21 +15,23 @@
 // limitations under the License.
 
 #include "composition_utils.h"
-#include "swapchain_image_data.h"
-#include "types_and_constants.h"
-#include "utils.h"
-#include "report.h"
+
 #include "conformance_framework.h"
-#include "throw_helpers.h"
-#include <algorithm>
-#include <fstream>
-#include <array>
-#include <string>
-#include <cstring>
-#include <thread>
-#include <condition_variable>
+#include "swapchain_image_data.h"
+#include "utilities/event_reader.h"
+#include "utilities/throw_helpers.h"
+#include "utilities/xrduration_literals.h"
+
+#include <openxr/openxr.h>
+
 #include <catch2/catch_test_macros.hpp>
-#include <xr_linear.h>
+
+#include <algorithm>
+#include <cassert>
+#include <chrono>
+#include <cstdint>
+#include <ratio>
+#include <utility>
 
 using namespace std::chrono_literals;
 

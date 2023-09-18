@@ -16,43 +16,34 @@
 
 #include "openxr/openxr_platform_defines.h"
 #define CATCH_CONFIG_NOSTDOUT
-#ifdef XR_USE_PLATFORM_ANDROID
-#define CATCH_CONFIG_NO_CPP11_TO_STRING
-#define CATCH_CONFIG_FALLBACK_STRINGIFIER
-#endif  // XR_USE_PLATFORM_ANDROID
+
+#include "conformance_framework.h"
+#include "conformance_test.h"
+#include "conformance_utils.h"
+#include "environment.h"
+#include "graphics_plugin.h"
+#include "platform_utils.hpp"  // for OPENXR_API_LAYER_PATH_ENV_VAR
+#include "report.h"
+#include "utilities/utils.h"
+
+#include <openxr/openxr.h>
 
 #include "catch_reporter_cts.h"
 
-#include <catch2/catch_test_macros.hpp>
-#include <catch2/internal/catch_clara.hpp>
 #include <catch2/catch_session.hpp>
+#include <catch2/catch_test_case_info.hpp>
+#include <catch2/catch_test_macros.hpp>
+#include <catch2/internal/catch_clara.hpp>  // for customizing arg parsing
 #include <catch2/reporters/catch_reporter_event_listener.hpp>
 #include <catch2/reporters/catch_reporter_registrars.hpp>
-#include <catch2/catch_test_case_info.hpp>
-
-#include "throw_helpers.h"
-#include <conformance_framework.h>
-#include <conformance_utils.h>
-#include <openxr/openxr.h>
 
 #include "xr_dependencies.h"
 #include <openxr/openxr_platform.h>
 
 #include <cstddef>
-#include <vector>
 #include <string>
-#include <string.h>
-#include <unordered_map>
-
-#include "throw_helpers.h"
-#include "environment.h"
-#include "conformance_test.h"
-#include "report.h"
-#include "utils.h"
-#include "platform_utils.hpp"  // for OPENXR_API_LAYER_PATH_ENV_VAR
-#include "filesystem_utils.hpp"
-#include "two_call_util.h"
-#include "conformance_utils.h"
+#include <cstring>
+#include <streambuf>
 
 using namespace Conformance;
 
@@ -336,6 +327,12 @@ namespace
               ("Disables logging file/line data.")
                   .optional()
 
+            | Opt(options.pollGetSystem)  // poll xrGetSystem at startup
+                  ["--pollGetSystem"]     //
+              ("Retry xrGetSystem until success or timeout expires before running tests.")
+                  .optional()
+
+            //
             | Opt([&](bool enabled) { options.debugMode = enabled; })  //
                   ["-D"]["--debugMode"]                                //
               ("Sets debug mode as enabled or disabled.")

@@ -14,7 +14,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "utils.h"
+#ifdef XR_USE_PLATFORM_WIN32
+#include "utilities/utils.h"
 #include "conformance_utils.h"
 #include "conformance_framework.h"
 #include <catch2/catch_test_macros.hpp>
@@ -24,13 +25,10 @@
 #include "xr_dependencies.h"
 #include <openxr/openxr_platform.h>
 
-#ifdef XR_USE_PLATFORM_WIN32
 #include <windows.h>
-#endif
 
 namespace Conformance
 {
-#ifdef XR_USE_PLATFORM_WIN32
     TEST_CASE("XR_KHR_win32_convert_performance_counter_time", "")
     {
         GlobalData& globalData = GetGlobalData();
@@ -123,13 +121,12 @@ namespace Conformance
             CAPTURE(qpcBefore);
 
             // Wait until the runtime is ready for us to begin a session
-            auto timeout = (GetGlobalData().options.debugMode ? 3600s : 10s);
             FrameIterator frameIterator(&session);
-            FrameIterator::RunResult runResult = frameIterator.RunToSessionState(XR_SESSION_STATE_FOCUSED, timeout);
-            REQUIRE(runResult == FrameIterator::RunResult::Success);
+            frameIterator.RunToSessionState(XR_SESSION_STATE_FOCUSED);
 
             // Submit a frame and query the time for the next frame
-            frameIterator.SubmitFrame();
+            FrameIterator::RunResult runResult = frameIterator.SubmitFrame();
+            REQUIRE(runResult == FrameIterator::RunResult::Success);
             XrTime nextFrameTime = frameIterator.frameState.predictedDisplayTime;
 
             // predicted display time is required to be a time in the future so it is fair to assume it is after now.
@@ -141,5 +138,6 @@ namespace Conformance
             REQUIRE(qpcAfter > qpcBefore);
         }
     }
-#endif  // XR_USE_PLATFORM_WIN32
 }  // namespace Conformance
+   //
+#endif  // XR_USE_PLATFORM_WIN32

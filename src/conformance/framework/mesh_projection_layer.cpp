@@ -16,8 +16,18 @@
 
 #include "mesh_projection_layer.h"
 #include "composition_utils.h"
+#include "conformance_framework.h"
 #include "graphics_plugin.h"
+#include "utilities/utils.h"
 
+#include "nonstd/span.hpp"
+
+#include <openxr/openxr.h>
+
+#include <initializer_list>
+#include <memory>
+#include <stdexcept>
+#include <type_traits>
 #include <vector>
 
 namespace
@@ -55,7 +65,7 @@ namespace Conformance
     MeshProjectionLayerHelper::MeshProjectionLayerHelper(CompositionHelper& compositionHelper)
         : m_baseHelper(compositionHelper, XR_REFERENCE_SPACE_TYPE_LOCAL)
     {
-        m_bgColors.resize(GetViewCount(), DarkSlateGrey);
+        m_bgColors.resize(GetViewCount(), Colors::Magenta);  // should be overwritten before render
     }
 
     void MeshProjectionLayerHelper::SetMeshes(std::vector<MeshHandle>&& meshes)

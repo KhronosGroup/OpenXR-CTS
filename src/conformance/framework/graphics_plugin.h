@@ -18,7 +18,8 @@
 
 #include "platform_plugin.h"
 #include "conformance_utils.h"
-#include "Geometry.h"
+#include "conformance_framework.h"
+#include "utilities/Geometry.h"
 #include "RGBAImage.h"
 
 #include <openxr/openxr.h>
@@ -307,8 +308,15 @@ namespace Conformance
         AllocateSwapchainImageDataWithDepthSwapchain(size_t size, const XrSwapchainCreateInfo& colorSwapchainCreateInfo,
                                                      XrSwapchain depthSwapchain, const XrSwapchainCreateInfo& depthSwapchainCreateInfo) = 0;
 
-        virtual void ClearImageSlice(const XrSwapchainImageBaseHeader* colorSwapchainImage, uint32_t imageArrayIndex = 0,
-                                     XrColor4f bgColor = DarkSlateGrey) = 0;
+        /// Clears a slice to an arbitrary color
+        virtual void ClearImageSlice(const XrSwapchainImageBaseHeader* colorSwapchainImage, uint32_t imageArrayIndex, XrColor4f color) = 0;
+
+        /// Clears to the background color which varies depending on the environment blend mode that is active.
+        void ClearImageSlice(const XrSwapchainImageBaseHeader* colorSwapchainImage, uint32_t imageArrayIndex = 0)
+        {
+            GlobalData& globalData = GetGlobalData();
+            ClearImageSlice(colorSwapchainImage, imageArrayIndex, globalData.GetClearColorForBackground());
+        }
 
         /// Create internal data for a mesh, returning a handle to refer to it.
         /// This handle expires when the internal data is cleared in Shutdown() and ShutdownDevice().

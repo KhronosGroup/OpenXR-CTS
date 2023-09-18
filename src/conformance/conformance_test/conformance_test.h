@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include <openxr/openxr.h>
+#include <stdint.h>
 #include <openxr/openxr_platform_defines.h>
 
 enum MessageType

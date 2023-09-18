@@ -3,9 +3,12 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include "swapchain_image_data.h"
-#include "throw_helpers.h"
-#include "types_and_constants.h"
-#include "conformance_framework.h"
+
+#include "utilities/throw_helpers.h"
+#include "utilities/types_and_constants.h"
+#include "utilities/xrduration_literals.h"
+
+#include <openxr/openxr.h>
 
 #include <algorithm>
 #include <cstdint>

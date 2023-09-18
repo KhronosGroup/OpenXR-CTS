@@ -75,10 +75,12 @@ def printCopyrightSourceComments(fp):
 
     Writes an asciidoc comment block, which copyrights the source
     file."""
+    # REUSE-IgnoreStart
     print('// Copyright 2014-2023 The Khronos Group Inc.', file=fp)
     print('//', file=fp)
     # This works around constraints of the 'reuse' tool
     print('// SPDX' + '-License-Identifier: CC-BY-4.0', file=fp)
+    # REUSE-IgnoreEnd
     print('', file=fp)
 
 
@@ -833,6 +835,10 @@ def genExtension(baseDir, extpath, name, info):
             continue
         if req_name.endswith('_SPEC_VERSION') or req_name.endswith('_EXTENSION_NAME'):
             # Do not link to spec version or extension name - those ref pages are not created.
+            continue
+
+        if req_name.startswith('/interaction_profiles'):
+            # We do not yet make ref pages for interaction profiles, though we may in the future
             continue
 
         if required.get('extends'):
