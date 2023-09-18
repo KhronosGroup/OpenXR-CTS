@@ -653,4 +653,64 @@ namespace Conformance
 
         RenderLoop(compositionHelper.GetSession(), updateLayers).Loop();
     }
+
+    TEST_CASE("StaleSwapchain", "[composition][interactive][no_auto]")
+    {
+        CompositionHelper compositionHelper("Stale swapchain");
+        InteractiveLayerManager interactiveLayerManager(compositionHelper, "stale_swapchain.png",
+                                                        "Updates swapchain of each square at 1Hz. "
+                                                        "Square on left should be constantly green, and square on right "
+                                                        "should switch between green and blue every second. "
+                                                        "If there is any flicker on the green square, "
+                                                        "likely at the same time as the other square changes color, "
+                                                        "that is a failure.");
+        compositionHelper.GetInteractionManager().AttachActionSets();
+        compositionHelper.BeginSession();
+
+        const XrSpace viewSpace = compositionHelper.CreateReferenceSpace(XR_REFERENCE_SPACE_TYPE_VIEW, XrPosef{Quat::Identity, {0, 0, -1}});
+
+        constexpr int ImageSize = 1;
+
+        // Create an array swapchain
+        auto swapchainCreateInfo =
+            compositionHelper.DefaultColorSwapchainCreateInfo(ImageSize, ImageSize, 0, GetGlobalData().graphicsPlugin->GetSRGBA8Format());
+        swapchainCreateInfo.usageFlags |= XR_SWAPCHAIN_USAGE_TRANSFER_DST_BIT;
+        const XrSwapchain constantColorSwapchain = compositionHelper.CreateSwapchain(swapchainCreateInfo);
+        const XrSwapchain alternatingColorSwapchain = compositionHelper.CreateSwapchain(swapchainCreateInfo);
+
+        RGBAImage images[2] = {RGBAImage(ImageSize, ImageSize), RGBAImage(ImageSize, ImageSize)};
+        images[0].DrawRect(0, 0, ImageSize, ImageSize, Colors::Green);
+        images[1].DrawRect(0, 0, ImageSize, ImageSize, Colors::Blue);
+        images[0].ConvertToSRGB();
+        images[1].ConvertToSRGB();
+
+        XrCompositionLayerQuad* const constantQuad =
+            compositionHelper.CreateQuadLayer(constantColorSwapchain, viewSpace, 0.02f, XrPosef{Quat::Identity, {-0.1f, 0, -1}});
+        interactiveLayerManager.AddLayer(constantQuad);
+
+        XrCompositionLayerQuad* const alternatingQuad =
+            compositionHelper.CreateQuadLayer(alternatingColorSwapchain, viewSpace, 0.02f, XrPosef{Quat::Identity, {0.1f, 0, -1}});
+        interactiveLayerManager.AddLayer(alternatingQuad);
+
+        XrTime lastUpdate = 0;
+        bool alternatingIndex = false;
+        RenderLoop(compositionHelper.GetSession(), [&](const XrFrameState& frameState) {
+            // Failing this test may create a flashing image. 1Hz is well outside the
+            // documented normal range for photosensitive epilepsy (rarely as low as 3Hz).
+            // Regardless, failures may e.g. create a black flash every second, so we use a
+            // small square to minimise any effects of the failure condition.
+            if (lastUpdate == 0 || (frameState.predictedDisplayTime - lastUpdate) >= 1_xrSeconds) {
+                lastUpdate = frameState.predictedDisplayTime;
+                compositionHelper.AcquireWaitReleaseImage(constantColorSwapchain, [&](const XrSwapchainImageBaseHeader* swapchainImage) {
+                    GetGlobalData().graphicsPlugin->CopyRGBAImage(swapchainImage, 0, images[0]);
+                });
+                compositionHelper.AcquireWaitReleaseImage(alternatingColorSwapchain, [&](const XrSwapchainImageBaseHeader* swapchainImage) {
+                    GetGlobalData().graphicsPlugin->CopyRGBAImage(swapchainImage, 0, images[(uint32_t)alternatingIndex]);
+                    alternatingIndex = !alternatingIndex;
+                });
+            }
+            return interactiveLayerManager.EndFrame(frameState);
+        }).Loop();
+    }
+
 }  // namespace Conformance

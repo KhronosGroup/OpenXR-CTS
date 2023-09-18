@@ -65,7 +65,7 @@ namespace Conformance
     MeshProjectionLayerHelper::MeshProjectionLayerHelper(CompositionHelper& compositionHelper)
         : m_baseHelper(compositionHelper, XR_REFERENCE_SPACE_TYPE_LOCAL)
     {
-        m_bgColors.resize(GetViewCount(), DarkSlateGrey);
+        m_bgColors.resize(GetViewCount(), Colors::Magenta);  // should be overwritten before render
     }
 
     void MeshProjectionLayerHelper::SetMeshes(std::vector<MeshHandle>&& meshes)

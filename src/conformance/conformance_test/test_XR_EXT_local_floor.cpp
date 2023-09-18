@@ -70,17 +70,12 @@ namespace Conformance
                                          AutoBasicSession::createSwapchains | AutoBasicSession::createSpaces,
                                      instance);
 
-            // how long the test should wait for the app to get focus: 10 seconds in release, infinite in debug builds.
-            auto timeout = (GetGlobalData().options.debugMode ? 3600s : 10s);
-            CAPTURE(timeout);
-
             // Get frames iterating to the point of app focused state. This will draw frames along the way.
             FrameIterator frameIterator(&session);
-            FrameIterator::RunResult runResult = frameIterator.RunToSessionState(XR_SESSION_STATE_FOCUSED, timeout);
-            REQUIRE(runResult == FrameIterator::RunResult::Success);
+            frameIterator.RunToSessionState(XR_SESSION_STATE_FOCUSED);
 
             // Render one frame to get a predicted display time for the xrLocateSpace calls.
-            runResult = frameIterator.SubmitFrame();
+            FrameIterator::RunResult runResult = frameIterator.SubmitFrame();
             REQUIRE(runResult == FrameIterator::RunResult::Success);
 
             // If stage space is defined, then LOCAL_FLOOR height off the floor must match STAGE

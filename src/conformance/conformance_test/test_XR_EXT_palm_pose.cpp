@@ -472,14 +472,9 @@ namespace Conformance
                                      AutoBasicSession::createSwapchains,
                                  instance);
 
-        // how long the test should wait for the app to get focus: 10 seconds in release, infinite in debug builds.
-        auto timeout = (GetGlobalData().options.debugMode ? 3600s : 10s);
-        CAPTURE(timeout);
-
         // Get frames iterating to the point of app focused state. This will draw frames along the way.
         FrameIterator frameIterator(&session);
-        FrameIterator::RunResult runResult = frameIterator.RunToSessionState(XR_SESSION_STATE_FOCUSED, timeout);
-        REQUIRE(runResult == FrameIterator::RunResult::Success);
+        frameIterator.RunToSessionState(XR_SESSION_STATE_FOCUSED);
 
         XrSessionActionSetsAttachInfo attachInfo{XR_TYPE_SESSION_ACTION_SETS_ATTACH_INFO};
         attachInfo.actionSets = &actionSet;

@@ -355,7 +355,7 @@ namespace Conformance
         std::shared_ptr<IGraphicsPlugin> GetGraphicsPlugin();
 
         /// Returns true if under the current test environment we require a graphics plugin. This may
-        /// be false, for example, if the XR_KHR_headless is enabled.
+        /// be false, for example, if the XR_MND_headless extension is enabled.
         bool IsGraphicsPluginRequired() const;
 
         /// Returns true if a graphics plugin was supplied, or if IsGraphicsPluginRequired() is true.
@@ -363,6 +363,9 @@ namespace Conformance
 
         /// Record a swapchain format as being supported and tested.
         void PushSwapchainFormat(int64_t format, const std::string& name);
+
+        /// Calculate the clear color to use for the background based on the XrEnvironmentBlendMode in use.
+        XrColor4f GetClearColorForBackground() const;
 
     public:
         /// Guards all member data.
@@ -605,6 +608,7 @@ MAKE_ENUM_TO_STRING_FUNC(XrViewConfigurationType);
 MAKE_ENUM_TO_STRING_FUNC(XrVisibilityMaskTypeKHR);
 MAKE_ENUM_TO_STRING_FUNC(XrFormFactor);
 MAKE_ENUM_TO_STRING_FUNC(XrEnvironmentBlendMode);
+MAKE_ENUM_TO_STRING_FUNC(XrActionType);
 
 namespace Catch
 {

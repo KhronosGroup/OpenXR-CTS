@@ -16,6 +16,7 @@
 
 #include "conformance_framework.h"
 
+#include "composition_utils.h"  // for Colors
 #include "graphics_plugin.h"
 #include "platform_plugin.h"
 #include "report.h"
@@ -479,11 +480,6 @@ namespace Conformance
         if (IsInstanceExtensionEnabled(XR_MND_HEADLESS_EXTENSION_NAME)) {
             return false;
         }
-#ifdef XR_KHR_headless
-        if (IsInstanceExtensionEnabled(XR_KHR_HEADLESS_EXTENSION_NAME)) {
-            return false;
-        }
-#endif
         return true;
     }
 
@@ -496,5 +492,19 @@ namespace Conformance
     {
         std::unique_lock<std::recursive_mutex> lock(dataMutex);
         conformanceReport.swapchainFormats.emplace_back(format, name);
+    }
+
+    XrColor4f GlobalData::GetClearColorForBackground() const
+    {
+        switch (options.environmentBlendModeValue) {
+        case XR_ENVIRONMENT_BLEND_MODE_OPAQUE:
+            return DarkSlateGrey;
+        case XR_ENVIRONMENT_BLEND_MODE_ADDITIVE:
+            return Colors::Black;
+        case XR_ENVIRONMENT_BLEND_MODE_ALPHA_BLEND:
+            return Colors::Transparent;
+        default:
+            XRC_THROW("Encountered unrecognized environment blend mode value while determining background color.");
+        }
     }
 }  // namespace Conformance

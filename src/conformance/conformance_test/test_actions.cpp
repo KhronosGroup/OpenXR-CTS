@@ -478,10 +478,7 @@ namespace Conformance
                         CAPTURE(bindingPath);
                         const XrActionType& actionType = inputSourcePathData.Type;
 
-#define ENUM_NAME(e, val) {(XrActionType)val, #e},
-                        std::map<XrActionType, std::string> actionTypeToString = {XR_LIST_ENUM_XrActionType(ENUM_NAME)};
-#undef ENUM_NAME
-                        std::string actionTypeStr = actionTypeToString.at(actionType);
+                        std::string actionTypeStr = enum_to_string(actionType);
                         CAPTURE(actionTypeStr);
 
                         XrAction* actionRef;
@@ -1181,18 +1178,41 @@ namespace Conformance
         compositionHelper.BeginSession();
         SECTION("No Focus")
         {
-            compositionHelper.GetInteractionManager().AddActionSet(actionSet);
-            compositionHelper.GetInteractionManager().AttachActionSets();
+            SECTION("No active action sets")
+            {
+                XrActionsSyncInfo syncInfo{XR_TYPE_ACTIONS_SYNC_INFO};
+                syncInfo.activeActionSets = nullptr;
+                syncInfo.countActiveActionSets = 0;
 
-            XrActionsSyncInfo syncInfo{XR_TYPE_ACTIONS_SYNC_INFO};
-            XrActiveActionSet activeActionSet{actionSet};
-            syncInfo.activeActionSets = &activeActionSet;
-            syncInfo.countActiveActionSets = 1;
+                {
+                    INFO("No action sets attached");
 
-            REQUIRE_RESULT(xrSyncActions(compositionHelper.GetSession(), &syncInfo), XR_SESSION_NOT_FOCUSED);
+                    REQUIRE_RESULT_SUCCEEDED(xrSyncActions(compositionHelper.GetSession(), &syncInfo));
+                }
+                {
+                    INFO("With action sets attached");
 
-            REQUIRE_RESULT(xrGetActionStateBoolean(compositionHelper.GetSession(), &getInfo, &actionStateBoolean), XR_SUCCESS);
-            REQUIRE_FALSE(actionStateBoolean.isActive);
+                    compositionHelper.GetInteractionManager().AddActionSet(actionSet);
+                    compositionHelper.GetInteractionManager().AttachActionSets();
+
+                    REQUIRE_RESULT_SUCCEEDED(xrSyncActions(compositionHelper.GetSession(), &syncInfo));
+                }
+            }
+            SECTION("Active action sets")
+            {
+                compositionHelper.GetInteractionManager().AddActionSet(actionSet);
+                compositionHelper.GetInteractionManager().AttachActionSets();
+
+                XrActionsSyncInfo syncInfo{XR_TYPE_ACTIONS_SYNC_INFO};
+                XrActiveActionSet activeActionSet{actionSet};
+                syncInfo.activeActionSets = &activeActionSet;
+                syncInfo.countActiveActionSets = 1;
+
+                REQUIRE_RESULT(xrSyncActions(compositionHelper.GetSession(), &syncInfo), XR_SESSION_NOT_FOCUSED);
+
+                REQUIRE_RESULT(xrGetActionStateBoolean(compositionHelper.GetSession(), &getInfo, &actionStateBoolean), XR_SUCCESS);
+                REQUIRE_FALSE(actionStateBoolean.isActive);
+            }
         }
         SECTION("Focus")
         {
@@ -1631,6 +1651,12 @@ namespace Conformance
                 REQUIRE_RESULT(xrCreateActionSet(compositionHelper.GetInstance(), &actionSetCreateInfo, &subactionPathFreeActionSet),
                                XR_SUCCESS);
 
+                XrActionSet unboundActionActionSet{XR_NULL_HANDLE};
+                strcpy(actionSetCreateInfo.localizedActionSetName, "test action set localized name 5");
+                strcpy(actionSetCreateInfo.actionSetName, "test_action_set_name_5");
+                REQUIRE_RESULT(xrCreateActionSet(compositionHelper.GetInstance(), &actionSetCreateInfo, &unboundActionActionSet),
+                               XR_SUCCESS);
+
                 XrAction leftHandAction{XR_NULL_HANDLE};
                 actionCreateInfo.actionType = XR_ACTION_TYPE_BOOLEAN_INPUT;
                 strcpy(actionCreateInfo.localizedActionName, "test select action");
@@ -1645,12 +1671,19 @@ namespace Conformance
                 actionCreateInfo.subactionPaths = &rightHandPath;
                 REQUIRE_RESULT(xrCreateAction(actionSet, &actionCreateInfo, &rightHandAction), XR_SUCCESS);
 
+                XrAction unboundAction{XR_NULL_HANDLE};
+                strcpy(actionCreateInfo.localizedActionName, "test select action 4");
+                strcpy(actionCreateInfo.actionName, "test_select_action_4");
+                actionCreateInfo.subactionPaths = &defaultDevicePath;
+                REQUIRE_RESULT(xrCreateAction(unboundActionActionSet, &actionCreateInfo, &unboundAction), XR_SUCCESS);
+
                 compositionHelper.GetInteractionManager().AddActionBindings(
                     simpleControllerInteractionProfile,
                     {{leftHandAction, StringToPath(compositionHelper.GetInstance(), "/user/hand/left/input/select/click")},
                      {rightHandAction, StringToPath(compositionHelper.GetInstance(), "/user/hand/right/input/select/click")}});
                 compositionHelper.GetInteractionManager().AddActionSet(actionSet);
                 compositionHelper.GetInteractionManager().AddActionSet(subactionPathFreeActionSet);
+                compositionHelper.GetInteractionManager().AddActionSet(unboundActionActionSet);
                 compositionHelper.GetInteractionManager().AttachActionSets();
 
                 if (globalData.leftHandUnderTest) {
@@ -1663,6 +1696,7 @@ namespace Conformance
                 XrActionsSyncInfo syncInfo{XR_TYPE_ACTIONS_SYNC_INFO};
                 XrActiveActionSet activeActionSet{actionSet};
                 XrActiveActionSet subactionPathFreeActiveActionSet{subactionPathFreeActionSet};
+                XrActiveActionSet unboundActionActiveActionSet{unboundActionActionSet};
                 syncInfo.activeActionSets = &activeActionSet;
                 syncInfo.countActiveActionSets = 1;
 
@@ -1753,6 +1787,11 @@ namespace Conformance
                     strcpy(actionSetCreateInfo.actionSetName, "test_action_set_name_3");
                     REQUIRE_RESULT(xrCreateActionSet(compositionHelper.GetInstance(), &actionSetCreateInfo, &unattachedActionSet),
                                    XR_SUCCESS);
+
+                    INFO("Unbound action");
+                    syncInfo.activeActionSets = &unboundActionActiveActionSet;
+                    unboundActionActiveActionSet.subactionPath = defaultDevicePath;
+                    actionLayerManager.SyncActionsUntilFocusWithMessage(syncInfo);
 
                     INFO("unattached action set");
                     XrActiveActionSet activeActionSet2 = {unattachedActionSet};

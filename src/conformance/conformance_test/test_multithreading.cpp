@@ -328,10 +328,6 @@ namespace Conformance
 
         // Exercise session multithreading.
         {
-            // how long the test should wait for the app to get focus: 10 seconds in release, infinite in debug builds.
-            auto timeout = (GetGlobalData().options.debugMode ? 3600s : 10s);
-            CAPTURE(timeout);
-
             ThreadTestEnvironment env(invocationCount);
             env.GetAutoBasicSession().Init(AutoBasicSession::beginSession | AutoBasicSession::createActions |
                                            AutoBasicSession::createSpaces | AutoBasicSession::createSwapchains);
@@ -386,8 +382,7 @@ namespace Conformance
 
             // Get frames iterating to the point of app focused state. This will draw frames along the way.
             FrameIterator frameIterator(&env.GetAutoBasicSession());
-            FrameIterator::RunResult runResult = frameIterator.RunToSessionState(XR_SESSION_STATE_FOCUSED, timeout);
-            REQUIRE(runResult == FrameIterator::RunResult::Success);
+            frameIterator.RunToSessionState(XR_SESSION_STATE_FOCUSED);
 
             env.lastFrameTime = frameIterator.frameState.predictedDisplayTime;
 

@@ -796,9 +796,6 @@ namespace Conformance
                     AutoBasicSession::createSession | AutoBasicSession::createSpaces | AutoBasicSession::createSwapchains, instance);
                 FrameIterator frameIterator(&session);
 
-                auto timeout = (globalData.options.debugMode ? 3600s : 10s);
-                CAPTURE(timeout);
-
                 // Create a label struct for initial testing
                 XrDebugUtilsLabelEXT first_label = {XR_TYPE_DEBUG_UTILS_LABEL_EXT};
                 first_label.labelName = first_individual_label_name;
@@ -862,8 +859,7 @@ namespace Conformance
 
                 // Begin the session now.
                 {
-                    FrameIterator::RunResult runResult = frameIterator.RunToSessionState(XR_SESSION_STATE_READY, timeout);
-                    REQUIRE(runResult == FrameIterator::RunResult::Success);
+                    frameIterator.RunToSessionState(XR_SESSION_STATE_READY);
 
                     XrSessionBeginInfo session_begin_info = {XR_TYPE_SESSION_BEGIN_INFO};
                     session_begin_info.primaryViewConfigurationType = GetGlobalData().GetOptions().viewConfigurationValue;
@@ -942,8 +938,7 @@ namespace Conformance
                 {
                     REQUIRE_RESULT(XR_SUCCESS, xrRequestExitSession(session));
 
-                    FrameIterator::RunResult runResult = frameIterator.RunToSessionState(XR_SESSION_STATE_STOPPING, timeout);
-                    REQUIRE(runResult == FrameIterator::RunResult::Success);
+                    frameIterator.RunToSessionState(XR_SESSION_STATE_STOPPING);
 
                     REQUIRE_RESULT(XR_SUCCESS, xrEndSession(session));
                 }
@@ -1062,11 +1057,8 @@ namespace Conformance
                 AutoBasicInstance instance({XR_EXT_DEBUG_UTILS_EXTENSION_NAME});
                 AutoBasicSession session(AutoBasicSession::createSession, instance);
 
-                // Wait until the runtime is ready for us to begin a session
-                auto timeout = (GetGlobalData().options.debugMode ? 3600s : 10s);
                 FrameIterator frameIterator(&session);
-                FrameIterator::RunResult runResult = frameIterator.RunToSessionState(XR_SESSION_STATE_READY, timeout);
-                REQUIRE(runResult == FrameIterator::RunResult::Success);
+                frameIterator.RunToSessionState(XR_SESSION_STATE_READY);
 
                 // Must call extension functions through a function pointer:
 

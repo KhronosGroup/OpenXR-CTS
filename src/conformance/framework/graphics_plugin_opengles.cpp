@@ -291,8 +291,7 @@ namespace Conformance
                                                                           XrSwapchain depthSwapchain,
                                                                           const XrSwapchainCreateInfo& depthSwapchainCreateInfo) override;
 
-        void ClearImageSlice(const XrSwapchainImageBaseHeader* colorSwapchainImage, uint32_t imageArrayIndex,
-                             XrColor4f bgColor = DarkSlateGrey) override;
+        void ClearImageSlice(const XrSwapchainImageBaseHeader* colorSwapchainImage, uint32_t imageArrayIndex, XrColor4f color) override;
 
         MeshHandle MakeSimpleMesh(span<const uint16_t> idx, span<const Geometry::Vertex> vtx) override;
 
@@ -1088,7 +1087,7 @@ namespace Conformance
     }
 
     void OpenGLESGraphicsPlugin::ClearImageSlice(const XrSwapchainImageBaseHeader* colorSwapchainImage, uint32_t imageArrayIndex,
-                                                 XrColor4f bgColor)
+                                                 XrColor4f color)
     {
         OpenGLESSwapchainImageData* swapchainData;
         uint32_t imageIndex;
@@ -1121,7 +1120,7 @@ namespace Conformance
         GL(glEnable(GL_SCISSOR_TEST));
 
         // Clear swapchain and depth buffer.
-        GL(glClearColor(bgColor.r, bgColor.g, bgColor.b, bgColor.a));
+        GL(glClearColor(color.r, color.g, color.b, color.a));
         GL(glClearDepthf(1.0f));
         GL(glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT));
 

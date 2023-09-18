@@ -182,7 +182,6 @@ namespace Conformance
         WriteAvailableInstanceExtensions(xml, globalData.availableInstanceExtensions);
 
         if (globalData.IsGraphicsPluginRequired()) {
-            AutoBasicInstance instance(AutoBasicInstance::createSystemId);
             auto graphicsPlugin = globalData.GetGraphicsPlugin();
             if (graphicsPlugin) {
                 // DescribeGraphics may report only minimal info (name) due to not having a running instance, but this is OK for now.

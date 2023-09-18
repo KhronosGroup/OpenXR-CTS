@@ -443,8 +443,7 @@ namespace Conformance
                                                                           XrSwapchain depthSwapchain,
                                                                           const XrSwapchainCreateInfo& depthSwapchainCreateInfo) override;
 
-        void ClearImageSlice(const XrSwapchainImageBaseHeader* colorSwapchainImage, uint32_t imageArrayIndex,
-                             XrColor4f bgColor = DarkSlateGrey) override;
+        void ClearImageSlice(const XrSwapchainImageBaseHeader* colorSwapchainImage, uint32_t imageArrayIndex, XrColor4f color) override;
 
         MeshHandle MakeSimpleMesh(span<const uint16_t> idx, span<const Geometry::Vertex> vtx) override;
 
@@ -1024,7 +1023,7 @@ namespace Conformance
     }
 
     void OpenGLGraphicsPlugin::ClearImageSlice(const XrSwapchainImageBaseHeader* colorSwapchainImage, uint32_t imageArrayIndex,
-                                               XrColor4f bgColor)
+                                               XrColor4f color)
     {
         OpenGLSwapchainImageData* swapchainData;
         uint32_t imageIndex;
@@ -1058,7 +1057,7 @@ namespace Conformance
         XRC_CHECK_THROW_GLCMD(glEnable(GL_SCISSOR_TEST));
 
         // Clear swapchain and depth buffer.
-        XRC_CHECK_THROW_GLCMD(glClearColor(bgColor.r, bgColor.g, bgColor.b, bgColor.a));
+        XRC_CHECK_THROW_GLCMD(glClearColor(color.r, color.g, color.b, color.a));
         XRC_CHECK_THROW_GLCMD(glClearDepth(1.0f));
         XRC_CHECK_THROW_GLCMD(glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT));
 

@@ -40,8 +40,10 @@ namespace Conformance
             SKIP(XR_KHR_OPENGL_ENABLE_EXTENSION_NAME " not enabled");
         }
 
-        AutoBasicInstance instance{AutoBasicInstance::createSystemId};
-        XrSystemId systemId = instance.systemId;
+        AutoBasicInstance instance;
+
+        XrSystemId systemId{XR_NULL_SYSTEM_ID};
+        REQUIRE(XR_SUCCESS == FindBasicSystem(instance.GetInstance(), &systemId));
 
         // Create the graphics plugin we'll need to exercise session create functionality below.
         std::shared_ptr<IGraphicsPlugin> graphicsPlugin;
@@ -54,12 +56,15 @@ namespace Conformance
 
         // We'll use this XrSession and XrSessionCreateInfo for testing below.
         XrSession session = XR_NULL_HANDLE_CPP;
-        XrSessionCreateInfo sessionCreateInfo{XR_TYPE_SESSION_CREATE_INFO, nullptr, 0, systemId};
+
+        XrSessionCreateInfo sessionCreateInfo{XR_TYPE_SESSION_CREATE_INFO};
+        sessionCreateInfo.systemId = systemId;
+
         CleanupSessionOnScopeExit cleanup(session);
 
         SECTION("No graphics binding")
         {
-            graphicsPlugin->InitializeDevice(instance, systemId, true);
+            REQUIRE(graphicsPlugin->InitializeDevice(instance, systemId, true));
             sessionCreateInfo.next = nullptr;
             CHECK(xrCreateSession(instance, &sessionCreateInfo, &session) == XR_ERROR_GRAPHICS_DEVICE_INVALID);
             cleanup.Destroy();
@@ -70,7 +75,7 @@ namespace Conformance
         // tests related to the graphics binding are OS specific
         SECTION("NULL context: both are NULL")
         {
-            graphicsPlugin->InitializeDevice(instance, systemId, true);
+            REQUIRE(graphicsPlugin->InitializeDevice(instance, systemId, true));
             XrGraphicsBindingOpenGLWin32KHR graphicsBinding =
                 *reinterpret_cast<const XrGraphicsBindingOpenGLWin32KHR*>(graphicsPlugin->GetGraphicsBinding());
             graphicsBinding.hDC = nullptr;
@@ -80,9 +85,10 @@ namespace Conformance
             cleanup.Destroy();
             graphicsPlugin->ShutdownDevice();
         }
+
         SECTION("NULL context: DC is NULL")
         {
-            graphicsPlugin->InitializeDevice(instance, systemId, true);
+            REQUIRE(graphicsPlugin->InitializeDevice(instance, systemId, true));
             XrGraphicsBindingOpenGLWin32KHR graphicsBinding =
                 *reinterpret_cast<const XrGraphicsBindingOpenGLWin32KHR*>(graphicsPlugin->GetGraphicsBinding());
             graphicsBinding.hDC = nullptr;
@@ -91,9 +97,10 @@ namespace Conformance
             cleanup.Destroy();
             graphicsPlugin->ShutdownDevice();
         }
+
         SECTION("NULL context: GLRC is NULL")
         {
-            graphicsPlugin->InitializeDevice(instance, systemId, true);
+            REQUIRE(graphicsPlugin->InitializeDevice(instance, systemId, true));
             XrGraphicsBindingOpenGLWin32KHR graphicsBinding =
                 *reinterpret_cast<const XrGraphicsBindingOpenGLWin32KHR*>(graphicsPlugin->GetGraphicsBinding());
             graphicsBinding.hGLRC = nullptr;
@@ -102,11 +109,41 @@ namespace Conformance
             cleanup.Destroy();
             graphicsPlugin->ShutdownDevice();
         }
+
+        SECTION("Valid session after bad session")
+        {
+            // Pass invalid binding the first time
+            {
+                REQUIRE(graphicsPlugin->InitializeDevice(instance, systemId, true));
+                XrGraphicsBindingOpenGLWin32KHR graphicsBinding =
+                    *reinterpret_cast<const XrGraphicsBindingOpenGLWin32KHR*>(graphicsPlugin->GetGraphicsBinding());
+                graphicsBinding.hDC = nullptr;
+                sessionCreateInfo.next = reinterpret_cast<const void*>(&graphicsBinding);
+                CHECK(xrCreateSession(instance, &sessionCreateInfo, &session) == XR_ERROR_GRAPHICS_DEVICE_INVALID);
+                cleanup.Destroy();
+                graphicsPlugin->ShutdownDevice();
+            }
+
+            // Using the same instance pass valid binding the second time
+            {
+                REQUIRE(XR_SUCCESS == FindBasicSystem(instance.GetInstance(), &systemId));
+                sessionCreateInfo.systemId = systemId;
+
+                REQUIRE(graphicsPlugin->InitializeDevice(instance, systemId, true));
+                XrGraphicsBindingOpenGLWin32KHR graphicsBinding =
+                    *reinterpret_cast<const XrGraphicsBindingOpenGLWin32KHR*>(graphicsPlugin->GetGraphicsBinding());
+                sessionCreateInfo.next = reinterpret_cast<const void*>(&graphicsBinding);
+                CHECK(xrCreateSession(instance, &sessionCreateInfo, &session) == XR_SUCCESS);
+                cleanup.Destroy();
+                graphicsPlugin->ShutdownDevice();
+            }
+        }
+
         // This test dies in the tear-down wglMakeCurrent in ksGpuContext_Destroy, turn it off for now.
 #if 0
         SECTION("Context for runtime is not current")
         {
-            graphicsPlugin->InitializeDevice(instance, systemId, true);
+            REQUIRE(graphicsPlugin->InitializeDevice(instance, systemId, true));
             sessionCreateInfo.next = graphicsPlugin->GetGraphicsBinding();
 
             // Exercise presence of unrecognized extensions, which the runtime should ignore.
@@ -151,11 +188,27 @@ namespace Conformance
                 }
             };
 
-            graphicsPlugin->InitializeDevice(instance, systemId, true);
+            auto xrGetOpenGLGraphicsRequirementsKHR =
+                GetInstanceExtensionFunction<PFN_xrGetOpenGLGraphicsRequirementsKHR>(instance, "xrGetOpenGLGraphicsRequirementsKHR");
+
+            XrGraphicsRequirementsOpenGLKHR referenceGraphicsRequirements{XR_TYPE_GRAPHICS_REQUIREMENTS_OPENGL_KHR};
+            REQUIRE(xrGetOpenGLGraphicsRequirementsKHR(instance, systemId, &referenceGraphicsRequirements) == XR_SUCCESS);
+
+            REQUIRE(graphicsPlugin->InitializeDevice(instance, systemId, true));
             XrGraphicsBindingOpenGLWin32KHR graphicsBinding =
                 *reinterpret_cast<const XrGraphicsBindingOpenGLWin32KHR*>(graphicsPlugin->GetGraphicsBinding());
             sessionCreateInfo.next = reinterpret_cast<const void*>(&graphicsBinding);
             for (int i = 0; i < 3; ++i) {
+                REQUIRE(XR_SUCCESS == FindBasicSystem(instance.GetInstance(), &systemId));
+                sessionCreateInfo.systemId = systemId;
+
+                XrGraphicsRequirementsOpenGLKHR graphicsRequirements{XR_TYPE_GRAPHICS_REQUIREMENTS_OPENGL_KHR};
+                REQUIRE(xrGetOpenGLGraphicsRequirementsKHR(instance, systemId, &graphicsRequirements) == XR_SUCCESS);
+
+                // We expect that the graphics requirements don't change...
+                REQUIRE(referenceGraphicsRequirements.maxApiVersionSupported == graphicsRequirements.maxApiVersionSupported);
+                REQUIRE(referenceGraphicsRequirements.minApiVersionSupported == graphicsRequirements.minApiVersionSupported);
+
                 CHECK(xrCreateSession(instance, &sessionCreateInfo, &session) == XR_SUCCESS);
                 createSwapchains(graphicsPlugin, session);
                 CHECK(xrDestroySession(session) == XR_SUCCESS);

@@ -31,6 +31,7 @@
 
 #define ENUM_LIST(name, val) name,
 constexpr XrEnvironmentBlendMode SupportedBlendModes[] = {XR_LIST_ENUM_XrEnvironmentBlendMode(ENUM_LIST)};
+#undef ENUM_LIST
 
 namespace Conformance
 {
@@ -204,7 +205,8 @@ namespace Conformance
 
             CHECK(XR_SUCCESS == xrRequestExitSession(session));
 
-            REQUIRE(FrameIterator::RunResult::Success == FrameIterator(&session).RunToSessionState(XR_SESSION_STATE_STOPPING, 5s));
+            FrameIterator frameIterator(&session);
+            frameIterator.RunToSessionState(XR_SESSION_STATE_STOPPING);
 
             CHECK(XR_SUCCESS == xrEndSession(session));
 

@@ -628,13 +628,8 @@ namespace Conformance
 
         auto graphicsPlugin = globalData.GetGraphicsPlugin();
 
-        // how long the test should wait for the app to get focus: 10 seconds in release, infinite in debug builds.
-        auto timeout = (GetGlobalData().options.debugMode ? 3600s : 10s);
-        CAPTURE(timeout);
-
         FrameIterator frameIterator(&session);
-        FrameIterator::RunResult runResult = frameIterator.RunToSessionState(XR_SESSION_STATE_FOCUSED, timeout);
-        REQUIRE(runResult == FrameIterator::RunResult::Success);
+        frameIterator.RunToSessionState(XR_SESSION_STATE_FOCUSED);
 
         XrSwapchain swapchain{XR_NULL_HANDLE};
         XrExtent2Di widthHeight{0, 0};  // 0,0 means Use defaults.
@@ -673,7 +668,7 @@ namespace Conformance
                 }
 
                 if ((j % 2) == 0) {
-                    runResult = frameIterator.SubmitFrame();
+                    FrameIterator::RunResult runResult = frameIterator.SubmitFrame();
                     REQUIRE(runResult == FrameIterator::RunResult::Success);
                 }
             }

@@ -398,11 +398,7 @@ namespace Conformance
     class CountdownTimer
     {
     public:
-        CountdownTimer() : stopwatch(), timeoutDuration()
-        {
-        }
-
-        CountdownTimer(std::chrono::nanoseconds timeout) : stopwatch(), timeoutDuration(timeout)
+        explicit CountdownTimer(std::chrono::nanoseconds timeout) : stopwatch(), timeoutDuration(timeout)
         {
             stopwatch.Restart();
         }
@@ -717,11 +713,10 @@ namespace Conformance
     ///
     ///    // Get frames iterating to the point of app focused state. This will draw frames along the way.
     ///    FrameIterator frameIterator(&session);
-    ///    FrameIterator::RunResult runResult = frameIterator.RunToSessionState(XR_SESSION_STATE_FOCUSED, timeoutMicroseconds);
-    ///    REQUIRE(runResult == FrameIterator::RunResult::Success);
+    ///    frameIterator.RunToSessionState(XR_SESSION_STATE_FOCUSED);
     ///
     ///    // Let's have the FrameIterator draw one more frame itself.
-    ///    runResult = frameIterator.SubmitFrame();
+    ///    FrameIterator::RunResult runResult = frameIterator.SubmitFrame();
     ///    REQUIRE(runResult == FrameIterator::RunResult::Success);
     ///
     ///    // Now let's draw a frame ourselves.
@@ -739,11 +734,8 @@ namespace Conformance
     class FrameIterator
     {
     public:
-        FrameIterator(AutoBasicSession* autoBasicSession_ = nullptr);
+        explicit FrameIterator(AutoBasicSession* autoBasicSession_ = nullptr);
         ~FrameIterator() = default;
-
-        /// Must not be called after calling any other member function.
-        void SetAutoBasicSession(AutoBasicSession* autoBasicSession_);
 
         XrSessionState GetCurrentSessionState() const;
 
@@ -797,16 +789,16 @@ namespace Conformance
         /// an example of this.
         RunResult SubmitFrame();
 
-        /// Runs until the given XrSessionState is achieved or timesout before so.
+        /// Runs until the given XrSessionState is achieved or times out before so.
         /// targetSessionState may be any XrSessionState, but some session states may require
         /// special handling in order to get to, such as XR_SESSION_STATE_LOSS_PENDING.
         /// Will repeatedly call SubmitFrame if necessary to get to the desired state.
-        RunResult RunToSessionState(XrSessionState targetSessionState, std::chrono::nanoseconds timeout);
+        /// Will fail test if targetSessionState is not reached.
+        void RunToSessionState(XrSessionState targetSessionState);
 
     protected:
-        AutoBasicSession* autoBasicSession;
+        AutoBasicSession* const autoBasicSession;
         XrSessionState sessionState;
-        CountdownTimer countdownTimer;
 
     public:
         XrFrameState frameState;                                             //< xrWaitFrame from WaitAndBeginFrame fills this in.

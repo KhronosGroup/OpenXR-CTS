@@ -46,8 +46,6 @@ namespace Conformance
         }
 
         auto graphicsPlugin = globalData.GetGraphicsPlugin();
-        auto timeout = (GetGlobalData().options.debugMode ? 3600s : 10s);
-        CAPTURE(timeout);
 
         AutoBasicInstance instance({XR_KHR_COMPOSITION_LAYER_EQUIRECT_EXTENSION_NAME});
         AutoBasicSession session(AutoBasicSession::createSession | AutoBasicSession::beginSession | AutoBasicSession::createSwapchains |
@@ -55,8 +53,7 @@ namespace Conformance
                                  instance);
 
         FrameIterator frameIterator(&session);
-        FrameIterator::RunResult runResult = frameIterator.RunToSessionState(XR_SESSION_STATE_FOCUSED, timeout);
-        REQUIRE(runResult == FrameIterator::RunResult::Success);
+        frameIterator.RunToSessionState(XR_SESSION_STATE_FOCUSED);
 
         // At this point we have a session ready for us to generate custom frames for.
         // The current XrSessionState is XR_SESSION_STATE_FOCUSED.
@@ -109,7 +106,7 @@ namespace Conformance
                         };
 
                         for (const XrQuaternionf& orientation : orientationTestArray) {
-                            runResult = frameIterator.PrepareSubmitFrame();
+                            FrameIterator::RunResult runResult = frameIterator.PrepareSubmitFrame();
                             REQUIRE(runResult == FrameIterator::RunResult::Success);
 
                             // Set up our equirect layer. We always make two, and some of the time we
@@ -173,7 +170,6 @@ namespace Conformance
         result = xrRequestExitSession(session.GetSession());
         CHECK(result == XR_SUCCESS);
 
-        runResult = frameIterator.RunToSessionState(XR_SESSION_STATE_STOPPING, timeout);
-        CHECK(runResult == FrameIterator::RunResult::Success);
+        frameIterator.RunToSessionState(XR_SESSION_STATE_STOPPING);
     }
 }  // namespace Conformance

@@ -629,8 +629,7 @@ namespace Conformance
 
         void SetViewportAndScissor(const VkRect2D& rect);
 
-        void ClearImageSlice(const XrSwapchainImageBaseHeader* colorSwapchainImage, uint32_t imageArrayIndex,
-                             XrColor4f bgColor = DarkSlateGrey) override;
+        void ClearImageSlice(const XrSwapchainImageBaseHeader* colorSwapchainImage, uint32_t imageArrayIndex, XrColor4f color) override;
 
         MeshHandle MakeSimpleMesh(span<const uint16_t> idx, span<const Geometry::Vertex> vtx) override;
 
@@ -1847,7 +1846,7 @@ namespace Conformance
     }
 
     void VulkanGraphicsPlugin::ClearImageSlice(const XrSwapchainImageBaseHeader* colorSwapchainImage, uint32_t imageArrayIndex,
-                                               XrColor4f bgColor)
+                                               XrColor4f color)
     {
         VulkanSwapchainImageData* swapchainData;
         uint32_t imageIndex;
@@ -1882,10 +1881,10 @@ namespace Conformance
 
         // Clear the buffers
         static std::array<VkClearValue, 2> clearValues;
-        clearValues[0].color.float32[0] = bgColor.r;
-        clearValues[0].color.float32[1] = bgColor.g;
-        clearValues[0].color.float32[2] = bgColor.b;
-        clearValues[0].color.float32[3] = bgColor.a;
+        clearValues[0].color.float32[0] = color.r;
+        clearValues[0].color.float32[1] = color.g;
+        clearValues[0].color.float32[2] = color.b;
+        clearValues[0].color.float32[3] = color.a;
         clearValues[1].depthStencil.depth = 1.0f;
         clearValues[1].depthStencil.stencil = 0;
         std::array<VkClearAttachment, 2> clearAttachments{{

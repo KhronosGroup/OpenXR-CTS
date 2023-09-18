@@ -43,7 +43,7 @@ namespace Conformance
         MakeSystemPropertiesBoolChecker(XrSystemEyeGazeInteractionPropertiesEXT{XR_TYPE_SYSTEM_EYE_GAZE_INTERACTION_PROPERTIES_EXT},
                                         &XrSystemEyeGazeInteractionPropertiesEXT::supportsEyeGazeInteraction);
 
-    TEST_CASE("XR_EXT_eye_gaze_interaction", "[XR_EXT_eye_gaze_interaction][interactive][no_auto]")
+    TEST_CASE("XR_EXT_eye_gaze_interaction", "[scenario][interactive][no_auto][XR_EXT_eye_gaze_interaction]")
     {
         GlobalData& globalData = GetGlobalData();
         if (!globalData.IsInstanceExtensionSupported(XR_EXT_EYE_GAZE_INTERACTION_EXTENSION_NAME)) {
@@ -373,7 +373,7 @@ namespace Conformance
         }
     }
 
-    TEST_CASE("XR_EXT_eye_gaze_interaction-interactive_gaze_only", "[XR_EXT_eye_gaze_interaction][scenario][interactive][no_auto]")
+    TEST_CASE("XR_EXT_eye_gaze_interaction-interactive_gaze_only", "[scenario][interactive][no_auto][XR_EXT_eye_gaze_interaction]")
     {
         GlobalData& globalData = GetGlobalData();
 

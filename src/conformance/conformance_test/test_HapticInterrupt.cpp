@@ -39,7 +39,7 @@ namespace Conformance
 {
     constexpr XrVector3f Up{0, 1, 0};
 
-    TEST_CASE("Haptic Interrupt", "[scenario][interactive][no_auto]")
+    TEST_CASE("HapticInterrupt", "[scenario][interactive][no_auto]")
     {
         const char* instructions =
             "Press the select button on either hand to begin a 2 second haptic output. "

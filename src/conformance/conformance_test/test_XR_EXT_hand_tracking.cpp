@@ -20,6 +20,7 @@
 #include "utilities/system_properties_helper.h"
 #include "utilities/utils.h"
 #include <catch2/catch_test_macros.hpp>
+#include <catch2/matchers/catch_matchers_floating_point.hpp>
 #include <openxr/openxr.h>
 #include "common/xr_linear.h"
 
@@ -137,10 +138,8 @@ namespace Conformance
             REQUIRE_RESULT(xrCreateReferenceSpace(session, &localSpaceCreateInfo, &localSpace), XR_SUCCESS);
 
             // Wait until the runtime is ready for us to begin a session
-            auto timeout = (GetGlobalData().options.debugMode ? 3600s : 10s);
             FrameIterator frameIterator(&session);
-            FrameIterator::RunResult runResult = frameIterator.RunToSessionState(XR_SESSION_STATE_READY, timeout);
-            REQUIRE(runResult == FrameIterator::RunResult::Success);
+            frameIterator.RunToSessionState(XR_SESSION_STATE_READY);
 
             for (auto hand : {LEFT_HAND, RIGHT_HAND}) {
                 std::array<std::array<XrHandJointLocationEXT, XR_HAND_JOINT_COUNT_EXT>, HAND_COUNT> jointLocations;
@@ -172,18 +171,12 @@ namespace Conformance
                         // the returned radius must be a positive value.
                         REQUIRE(jointLocations[hand][i].radius > 0);
 
-                        // If an XrHandJointVelocitiesEXT structure is chained to XrHandJointLocationsEXT::next,
-                        // the returned XrHandJointLocationsEXT::isActive is true, and the velocity is observed
-                        // or can be calculated by the runtime, the runtime must fill in the linear velocity of
-                        // each hand joint within the reference frame of baseSpace and set the
-                        // XR_SPACE_VELOCITY_LINEAR_VALID_BIT.
-                        // Similarly, if an XrHandJointVelocitiesEXT structure is chained to
-                        // XrHandJointLocationsEXT::next, the returned XrHandJointLocationsEXT::isActive is true,
-                        // and the angular velocity is observed or can be calculated by the runtime, the runtime
-                        // must fill in the angular velocity of each joint within the reference frame of baseSpace
-                        // and set the XR_SPACE_VELOCITY_ANGULAR_VALID_BIT.
-                        REQUIRE((jointVelocities[hand][i].velocityFlags & XR_SPACE_VELOCITY_LINEAR_VALID_BIT) != 0);
-                        REQUIRE((jointVelocities[hand][i].velocityFlags & XR_SPACE_VELOCITY_ANGULAR_VALID_BIT) != 0);
+                        // From https://registry.khronos.org/OpenXR/specs/1.0/html/xrspec.html#_locate_hand_joints
+                        // the velocity is observed or can be calculated by the runtime, the runtime must
+                        // fill in the linear velocity of each hand joint within the reference frame of baseSpace
+                        // and set the XR_SPACE_VELOCITY_LINEAR_VALID_BIT.
+                        // So we cannot validate the jointVelocities flags XR_SPACE_VELOCITY_LINEAR_VALID_BIT
+                        // or XR_SPACE_VELOCITY_ANGULAR_VALID_BIT.
                     }
                     else {
                         // If the returned isActive is false, it indicates the hand tracker did not detect the hand
@@ -207,10 +200,8 @@ namespace Conformance
             REQUIRE_RESULT(xrCreateReferenceSpace(session, &localSpaceCreateInfo, &localSpace), XR_SUCCESS);
 
             // Wait until the runtime is ready for us to begin a session
-            auto timeout = (GetGlobalData().options.debugMode ? 3600s : 10s);
             FrameIterator frameIterator(&session);
-            FrameIterator::RunResult runResult = frameIterator.RunToSessionState(XR_SESSION_STATE_READY, timeout);
-            REQUIRE(runResult == FrameIterator::RunResult::Success);
+            frameIterator.RunToSessionState(XR_SESSION_STATE_READY);
 
             // The application must input jointCount as described by the XrHandJointSetEXT when creating the XrHandTrackerEXT.
             // Otherwise, the runtime must return XR_ERROR_VALIDATION_FAILURE.
@@ -328,6 +319,74 @@ namespace Conformance
                 locateInfo.baseSpace = localSpace;
                 locateInfo.time = frameState.predictedDisplayTime;
                 REQUIRE(XR_SUCCESS == xrLocateHandJointsEXT(handTracker[hand], &locateInfo, &locations));
+
+                if (locations.isActive) {
+                    const auto& wrist = jointLocations[hand][XR_HAND_JOINT_WRIST_EXT];
+                    const auto& palm = jointLocations[hand][XR_HAND_JOINT_PALM_EXT];
+                    const auto& middleMetacarpal = jointLocations[hand][XR_HAND_JOINT_MIDDLE_METACARPAL_EXT];
+                    const auto& middleProximal = jointLocations[hand][XR_HAND_JOINT_MIDDLE_PROXIMAL_EXT];
+
+                    // Check if the palm joint is located correctly for each hand.
+                    if ((palm.locationFlags & XR_SPACE_LOCATION_POSITION_VALID_BIT) != 0 &&
+                        (middleMetacarpal.locationFlags & XR_SPACE_LOCATION_POSITION_VALID_BIT) != 0 &&
+                        (middleProximal.locationFlags & XR_SPACE_LOCATION_POSITION_VALID_BIT) != 0) {
+
+                        // The palm joint is located at the center of the middle finger’s metacarpal bone.
+                        XrPosef expectedPalmPose;
+                        XrVector3f_Lerp(&expectedPalmPose.position, &middleMetacarpal.pose.position, &middleProximal.pose.position, 0.5f);
+                        REQUIRE_THAT(palm.pose.position.x, Catch::Matchers::WithinRel(expectedPalmPose.position.x));
+                        REQUIRE_THAT(palm.pose.position.y, Catch::Matchers::WithinRel(expectedPalmPose.position.y));
+                        REQUIRE_THAT(palm.pose.position.z, Catch::Matchers::WithinRel(expectedPalmPose.position.z));
+                    }
+
+                    // Check the palm orientation for each hand if we have valid orientation.
+                    if ((palm.locationFlags & XR_SPACE_LOCATION_ORIENTATION_VALID_BIT) != 0 &&
+                        (middleMetacarpal.locationFlags & XR_SPACE_LOCATION_ORIENTATION_VALID_BIT) != 0) {
+
+                        // The backward (+Z) direction is parallel to the middle finger’s metacarpal bone, and points away from the
+                        // fingertips.
+                        XrVector3f zAxis{0, 0, 1.0f};
+                        XrVector3f palmZAxis, middleMetacarpalZAxis;
+                        XrQuaternionf_RotateVector3f(&palmZAxis, &palm.pose.orientation, &zAxis);
+                        XrQuaternionf_RotateVector3f(&middleMetacarpalZAxis, &middleMetacarpal.pose.orientation, &zAxis);
+                        REQUIRE_THAT(XrVector3f_Dot(&palmZAxis, &middleMetacarpalZAxis), Catch::Matchers::WithinRel(1.0f));
+
+                        // The up (+Y) direction is perpendicular to palm surface and pointing towards the back of the hand.
+                        // We can compare this to the +Y axis of the middle metacarpal bone to check gross direction.
+                        XrVector3f yAxis{0, 1.0f, 0};
+                        XrVector3f palmYAxis, middleMetacarpalYAxis;
+                        XrQuaternionf_RotateVector3f(&palmYAxis, &palm.pose.orientation, &yAxis);
+                        XrQuaternionf_RotateVector3f(&middleMetacarpalYAxis, &middleMetacarpal.pose.orientation, &yAxis);
+                        REQUIRE_THAT(XrVector3f_Dot(&palmYAxis, &middleMetacarpalYAxis), Catch::Matchers::WithinRel(1.0f, 0.1f));
+
+                        // The X direction is perpendicular to the Y and Z directions and follows the right hand rule.
+                        XrVector3f xAxis{0, 1.0f, 0};
+                        XrVector3f palmXAxis, middleMetacarpalXAxis;
+                        XrQuaternionf_RotateVector3f(&palmXAxis, &palm.pose.orientation, &xAxis);
+                        XrQuaternionf_RotateVector3f(&middleMetacarpalXAxis, &middleMetacarpal.pose.orientation, &xAxis);
+                        REQUIRE_THAT(XrVector3f_Dot(&palmXAxis, &middleMetacarpalXAxis), Catch::Matchers::WithinRel(1.0f, 0.1f));
+                    }
+
+                    // Check the orientation of the wrist pose is correct for each hand, we can only reliably test the +Z direction
+                    // programmatically.
+                    if ((wrist.locationFlags & XR_SPACE_LOCATION_ORIENTATION_VALID_BIT) != 0 &&
+                        (middleMetacarpal.locationFlags & XR_SPACE_LOCATION_ORIENTATION_VALID_BIT) != 0) {
+
+                        // The (wrist) backward (+Z) direction is parallel to the line from wrist joint to middle finger metacarpal joint,
+                        // and points away from the fingertips.
+                        XrVector3f zAxis{0, 0, 1.0f};
+                        XrVector3f wristZAxis, fromMiddleMetacarpalToWrist;
+                        XrQuaternionf_RotateVector3f(&wristZAxis, &wrist.pose.orientation, &zAxis);
+                        XrVector3f_Sub(&fromMiddleMetacarpalToWrist, &wrist.pose.position, &middleMetacarpal.pose.position);
+                        XrVector3f_Normalize(&fromMiddleMetacarpalToWrist);
+                        // 0.1 here represents 26 degrees variance between these orientations; which is more than can reasonable be
+                        // explained by numerical inaccuracy...
+                        REQUIRE_THAT(XrVector3f_Dot(&wristZAxis, &fromMiddleMetacarpalToWrist), Catch::Matchers::WithinRel(1.0f, 0.1f));
+                        if (XrVector3f_Dot(&wristZAxis, &fromMiddleMetacarpalToWrist) > 0.03) {
+                            WARN("Variance between wrist z axis orientation and metacarpal greater than 14 degrees!");
+                        }
+                    }
+                }
             }
 
             // Check if user has requested to complete the test.

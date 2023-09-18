@@ -42,8 +42,6 @@ namespace Conformance
 
         auto graphicsPlugin = globalData.GetGraphicsPlugin();
 
-        auto timeout = (globalData.options.debugMode ? 3600s : 10s);
-        CAPTURE(timeout);
         AutoBasicInstance instance({XR_KHR_COMPOSITION_LAYER_DEPTH_EXTENSION_NAME});
         AutoBasicSession session(AutoBasicSession::createSession | AutoBasicSession::beginSession | AutoBasicSession::createSwapchains |
                                      AutoBasicSession::createSpaces,
@@ -51,8 +49,7 @@ namespace Conformance
         REQUIRE(session.IsValidHandle());
 
         FrameIterator frameIterator(&session);
-        FrameIterator::RunResult runResult = frameIterator.RunToSessionState(XR_SESSION_STATE_FOCUSED, timeout);
-        REQUIRE(runResult == FrameIterator::RunResult::Success);
+        frameIterator.RunToSessionState(XR_SESSION_STATE_FOCUSED);
 
         // At this point we have a session ready for us to generate custom frames for.
         // The current XrSessionState is XR_SESSION_STATE_FOCUSED.
@@ -98,7 +95,7 @@ namespace Conformance
                 DepthVaryingInfo{0.0f, 1.0f, std::numeric_limits<float>::max(), minimum_useful_z}};
 
             for (const DepthVaryingInfo& varyingInfo : varyingInfoTestArray) {
-                runResult = frameIterator.PrepareSubmitFrame();
+                FrameIterator::RunResult runResult = frameIterator.PrepareSubmitFrame();
                 REQUIRE(runResult == FrameIterator::RunResult::Success);
 
                 {
@@ -148,8 +145,7 @@ namespace Conformance
             CHECK(result == XR_SUCCESS);
         }
 
-        runResult = frameIterator.RunToSessionState(XR_SESSION_STATE_STOPPING, timeout);
-        CHECK(runResult == FrameIterator::RunResult::Success);
+        frameIterator.RunToSessionState(XR_SESSION_STATE_STOPPING);
 
         for (const XrSwapchain& swapchain : depthSwapchains) {
             XrResult result = xrDestroySwapchain(swapchain);

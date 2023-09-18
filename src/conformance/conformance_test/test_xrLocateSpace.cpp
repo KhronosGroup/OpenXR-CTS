@@ -22,31 +22,28 @@
 #include <catch2/catch_test_macros.hpp>
 #include <openxr/openxr.h>
 
+#include <algorithm>
 #include <chrono>
 #include <cmath>
 #include <ostream>
 #include <ratio>
+#include <thread>
 #include <vector>
 
 namespace Conformance
 {
     TEST_CASE("xrLocateSpace", "")
     {
-        // how long the test should wait for the app to get focus: 10 seconds in release, infinite in debug builds.
-        auto timeout = (GetGlobalData().options.debugMode ? 3600s : 10s);
-        CAPTURE(timeout);
-
         // Get a session started.
         AutoBasicSession session(AutoBasicSession::createInstance | AutoBasicSession::createSession | AutoBasicSession::beginSession |
                                  AutoBasicSession::createSwapchains | AutoBasicSession::createSpaces);
 
         // Get frames iterating to the point of app focused state. This will draw frames along the way.
         FrameIterator frameIterator(&session);
-        FrameIterator::RunResult runResult = frameIterator.RunToSessionState(XR_SESSION_STATE_FOCUSED, timeout);
-        REQUIRE(runResult == FrameIterator::RunResult::Success);
+        frameIterator.RunToSessionState(XR_SESSION_STATE_FOCUSED);
 
         // Render one frame to get a predicted display time for the xrLocateSpace calls.
-        runResult = frameIterator.SubmitFrame();
+        FrameIterator::RunResult runResult = frameIterator.SubmitFrame();
         REQUIRE(runResult == FrameIterator::RunResult::Success);
 
         XrResult result;
@@ -87,6 +84,31 @@ namespace Conformance
         XrSpaceLocation location = {XR_TYPE_SPACE_LOCATION, nullptr, 0, XrPosefCPP()};
         XrTime time = frameIterator.frameState.predictedDisplayTime;
         CHECK(time != 0);
+
+        SECTION("valid inputs")
+        {
+            // two identical spaces:
+            result = xrCreateReferenceSpace(session, &spaceCreateInfo, &spaceA);
+            CHECK(result == XR_SUCCESS);
+            result = xrCreateReferenceSpace(session, &spaceCreateInfo, &spaceB);
+            CHECK(result == XR_SUCCESS);
+
+            // Exercise the predicted display time
+            result = xrLocateSpace(spaceA, spaceB, time, &location);
+            CHECK(result == XR_SUCCESS);
+
+            // Exercise 40ms ago (or the first valid time, whichever is later)
+            result = xrLocateSpace(spaceA, spaceB, std::max(time - 40_xrMilliseconds, (XrTime)1), &location);
+            CHECK(result == XR_SUCCESS);
+
+            // Exercise 1s ago (or the first valid time, whichever is later)
+            result = xrLocateSpace(spaceA, spaceB, std::max(time - 1_xrSeconds, (XrTime)1), &location);
+            CHECK(result == XR_SUCCESS);
+
+            // cleanup
+            CHECK(XR_SUCCESS == xrDestroySpace(spaceA));
+            CHECK(XR_SUCCESS == xrDestroySpace(spaceB));
+        }
 
         SECTION("wrong inputs")
         {
@@ -233,7 +255,6 @@ namespace Conformance
         result = xrRequestExitSession(session);
         CHECK(result == XR_SUCCESS);
 
-        runResult = frameIterator.RunToSessionState(XR_SESSION_STATE_STOPPING, timeout);
-        CHECK(runResult == FrameIterator::RunResult::Success);
+        frameIterator.RunToSessionState(XR_SESSION_STATE_STOPPING);
     }
 }  // namespace Conformance

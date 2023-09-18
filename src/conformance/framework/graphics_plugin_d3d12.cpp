@@ -355,8 +355,7 @@ namespace Conformance
                                                                           XrSwapchain depthSwapchain,
                                                                           const XrSwapchainCreateInfo& depthSwapchainCreateInfo) override;
 
-        void ClearImageSlice(const XrSwapchainImageBaseHeader* colorSwapchainImage, uint32_t imageArrayIndex,
-                             XrColor4f bgColor = DarkSlateGrey) override;
+        void ClearImageSlice(const XrSwapchainImageBaseHeader* colorSwapchainImage, uint32_t imageArrayIndex, XrColor4f color) override;
 
         MeshHandle MakeSimpleMesh(span<const uint16_t> idx, span<const Geometry::Vertex> vtx) override;
 
@@ -937,7 +936,7 @@ namespace Conformance
     }
 
     void D3D12GraphicsPlugin::ClearImageSlice(const XrSwapchainImageBaseHeader* colorSwapchainImage, uint32_t imageArrayIndex,
-                                              XrColor4f bgColor)
+                                              XrColor4f color)
     {
 
         D3D12SwapchainImageData* swapchainData;
@@ -957,7 +956,7 @@ namespace Conformance
         D3D12_CPU_DESCRIPTOR_HANDLE renderTargetView =
             CreateRenderTargetView(colorTexture, imageArrayIndex, swapchainData->GetCreateInfo().format);
         // TODO: Do not clear to a color when using a pass-through view configuration.
-        FLOAT bg[] = {bgColor.r, bgColor.g, bgColor.b, bgColor.a};
+        FLOAT bg[] = {color.r, color.g, color.b, color.a};
         cmdList->ClearRenderTargetView(renderTargetView, bg, 0, nullptr);
 
         // Clear depth buffer.

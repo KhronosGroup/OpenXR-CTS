@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="org.khronos.openxr.cts"
+    xmlns:tools="http://schemas.android.com/tools"
     android:installLocation="auto"
     android:versionCode="1"
     android:versionName="1.0">
@@ -56,11 +56,14 @@
         <!-- If targeting API level 24+, android:resizeableActivity="false" should be added. -->
         <activity
             android:name="android.app.NativeActivity"
-            android:configChanges="screenSize|screenLayout|orientation|keyboardHidden|keyboard|navigation|uiMode"
+            android:configChanges="screenSize|screenLayout|orientation|keyboardHidden|keyboard|navigation|uiMode|density"
             android:excludeFromRecents="false"
+            android:exported="true"
             android:launchMode="singleTask"
+            android:resizeableActivity="false"
             android:screenOrientation="landscape"
-            android:theme="@android:style/Theme.Black.NoTitleBar.Fullscreen">
+            android:theme="@android:style/Theme.Black.NoTitleBar.Fullscreen"
+            tools:ignore="NonResizeableActivity">
             <!-- Tell NativeActivity the name of the .so -->
             <meta-data
                 android:name="android.app.lib_name"

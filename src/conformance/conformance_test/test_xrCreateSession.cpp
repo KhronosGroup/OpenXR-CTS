@@ -27,6 +27,7 @@
 #include <initializer_list>
 #include <memory>
 #include <string>
+#include <thread>
 
 namespace Conformance
 {
@@ -81,7 +82,7 @@ namespace Conformance
                 // Happens if the application tries to create the session but hasn't queried the graphics requirements (e.g.
                 // xrGetD3D12GraphicsRequirementsKHR). This spec states that applications must call this, but
                 // how we enforce it in conformance testing is problematic because a specific return code isn't specified.
-                graphicsPlugin->InitializeDevice(instance, systemId, false /* checkGraphicsRequirements */);
+                REQUIRE(graphicsPlugin->InitializeDevice(instance, systemId, false /* checkGraphicsRequirements */));
                 sessionCreateInfo.next = graphicsPlugin->GetGraphicsBinding();
                 XrResult sessionResult = xrCreateSession(instance, &sessionCreateInfo, &session);
                 CHECK_THAT(sessionResult, In<XrResult>({XR_ERROR_VALIDATION_FAILURE, XR_ERROR_GRAPHICS_REQUIREMENTS_CALL_MISSING}));
@@ -124,6 +125,33 @@ namespace Conformance
                 {
                     CHECK(xrCreateSession(globalData.invalidInstance, &sessionCreateInfo, &session) == XR_ERROR_HANDLE_INVALID);
                 }
+            }
+        }
+    }
+
+    TEST_CASE("xrDestroySession", "")
+    {
+        SECTION("null handle")
+        {
+            CHECK(xrDestroySession(XR_NULL_HANDLE_CPP) == XR_ERROR_HANDLE_INVALID);
+        }
+
+        SECTION("destroy on a different thread to create")
+        {
+            for (int i = 0; i < 2; ++i) {
+                CAPTURE(i);
+
+                AutoBasicInstance instance;
+                AutoBasicSession session(AutoBasicSession::createSession, instance);
+                XrResult destroySessionResult = XR_ERROR_RUNTIME_FAILURE;
+                XrResult destroyInstanceResult = XR_ERROR_RUNTIME_FAILURE;
+                std::thread t([&destroySessionResult, &destroyInstanceResult, &session, &instance] {
+                    destroySessionResult = xrDestroySession(session);
+                    destroyInstanceResult = xrDestroyInstance(instance);
+                });
+                t.join();
+                REQUIRE(destroySessionResult == XR_SUCCESS);
+                REQUIRE(destroyInstanceResult == XR_SUCCESS);
             }
         }
     }
