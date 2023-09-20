@@ -1,7 +1,7 @@
 Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
 Upstream-Name: OpenXR
 Upstream-Contact: Ryan Pavlik <openxr-speceditor AT khronos DOT org>
-Source: https://khronos.org/registry/OpenXR/
+Source: https://registry.khronos.org/OpenXR/
 
 Files: changes/conformance/*
        changes/registry/*
