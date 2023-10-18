@@ -106,6 +106,9 @@ class ValidationSourceOutputGenerator(AutomaticSourceOutputGenerator):
             preamble += '#include <utility>\n'
             preamble += '#include <vector>\n'
             preamble += '\n'
+            preamble += '#ifdef __clang__\n'
+            preamble += '#pragma GCC diagnostic ignored "-Wunused-parameter"\n'
+            preamble += '#endif\n'
         write(preamble, file=self.outFile)
 
     # Write out all the information for the appropriate file,
@@ -834,6 +837,10 @@ class ValidationSourceOutputGenerator(AutomaticSourceOutputGenerator):
         else:
             verify_extensions += self.writeIndent(indent)
             verify_extensions += '// No system extensions to check dependencies for\n'
+            for arg in ('gen_instance_info', 'command', 'struct_name', 'objects_info', 'extensions'):
+                verify_extensions += self.writeIndent(indent)
+                verify_extensions += f'(void){arg};\n'
+
         verify_extensions += self.writeIndent(indent)
         verify_extensions += 'return true;\n'
         verify_extensions += '}\n\n'
@@ -1874,7 +1881,11 @@ class ValidationSourceOutputGenerator(AutomaticSourceOutputGenerator):
             struct_check += '                          const %s* value) {\n' % xr_struct.name
             setup_bail = False
             struct_check += '    XrResult xr_result = XR_SUCCESS;\n'
+            struct_check += '    (void)xr_result;\n'
 
+            for arg in ('instance_info', 'command_name', 'objects_info', 'check_members', 'value'):
+                struct_check += self.writeIndent(indent)
+                struct_check += f'(void){arg};\n'
             # Check to see if this struct is the base of a relation group
             relation_group = self.getRelationGroupForBaseStruct(xr_struct.name)
             if relation_group is not None:

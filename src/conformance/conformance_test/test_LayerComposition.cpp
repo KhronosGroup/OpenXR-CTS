@@ -574,7 +574,7 @@ namespace Conformance
             compositionHelper.CreateReferenceSpace(XR_REFERENCE_SPACE_TYPE_LOCAL, XrPosef{Quat::Identity, {0, 0, 0}});
 
         if (!compositionHelper.GetViewConfigurationProperties().fovMutable) {
-            return;
+            SKIP("View configuration does not support mutable FoV");
         }
 
         const std::vector<XrViewConfigurationView> viewProperties = compositionHelper.EnumerateConfigurationViews();

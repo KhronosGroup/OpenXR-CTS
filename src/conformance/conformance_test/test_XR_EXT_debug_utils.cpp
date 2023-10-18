@@ -84,7 +84,7 @@ namespace Conformance
                                                                             const XrDebugUtilsMessengerCallbackDataEXT* callbackData,
                                                                             void* userData)
     {
-        REQUIRE(userData != NULL);
+        REQUIRE(userData != nullptr);
         auto pMessages = reinterpret_cast<std::vector<DebugUtilsCallbackInfo>*>(userData);
 
         DebugUtilsCallbackInfo callbackInfo;
@@ -223,6 +223,25 @@ namespace Conformance
             }
         }
         return false;
+    }
+
+    static const DebugUtilsCallbackInfo& findMessageByMessageId(const std::vector<DebugUtilsCallbackInfo>& callbackInfos,
+                                                                const char* messageId)
+    {
+        {
+            size_t messageMatchCount = 0;
+            for (const auto& callbackInfo : callbackInfos) {
+                if (strcmp(callbackInfo.callbackData.messageId, messageId) == 0) {
+                    messageMatchCount++;
+                }
+            }
+            REQUIRE(messageMatchCount == 1);
+        }
+        auto it = std::find_if(callbackInfos.begin(), callbackInfos.end(), [messageId](const auto& callbackInfo) {
+            return strcmp(callbackInfo.callbackData.messageId, messageId) == 0;
+        });
+        REQUIRE(it != callbackInfos.end());
+        return *it;
     }
 
     TEST_CASE("XR_EXT_debug_utils", "")
@@ -720,24 +739,6 @@ namespace Conformance
 
         SECTION("Test object names")
         {
-            auto findMessageByMessageId = [](const std::vector<DebugUtilsCallbackInfo>& callbackInfos,
-                                             const char* messageId) -> const DebugUtilsCallbackInfo& {
-                {
-                    size_t messageMatchCount = 0;
-                    for (const auto& callbackInfo : callbackInfos) {
-                        if (strcmp(callbackInfo.callbackData.messageId, messageId) == 0) {
-                            messageMatchCount++;
-                        }
-                    }
-                    REQUIRE(messageMatchCount == 1);
-                }
-                auto it = std::find_if(callbackInfos.begin(), callbackInfos.end(), [messageId](const auto& callbackInfo) {
-                    return strcmp(callbackInfo.callbackData.messageId, messageId) == 0;
-                });
-                REQUIRE(it != callbackInfos.end());
-                return *it;
-            };
-
             AutoBasicInstance instance({XR_EXT_DEBUG_UTILS_EXTENSION_NAME});
 
             auto pfn_create_debug_utils_messager_ext =
@@ -770,8 +771,6 @@ namespace Conformance
             object.objectName = "My Instance Obj";
             REQUIRE_RESULT(XR_SUCCESS, pfn_set_obj_name(instance, &object));
 
-            // TODO: validate objectName works (in a separate test case)
-
             {
                 XrDebugUtilsMessengerCallbackDataEXT callback_data{XR_TYPE_DEBUG_UTILS_MESSENGER_CALLBACK_DATA_EXT};
                 callback_data.messageId = "General Error";
@@ -799,19 +798,6 @@ namespace Conformance
                 // Create a label struct for initial testing
                 XrDebugUtilsLabelEXT first_label = {XR_TYPE_DEBUG_UTILS_LABEL_EXT};
                 first_label.labelName = first_individual_label_name;
-
-                // TODO: Invalid parameters might be better as a separate test case
-                SECTION("Invalid parameters")
-                {
-                    // Try invalid session on each of the label functions
-                    REQUIRE_RESULT(XR_ERROR_HANDLE_INVALID, pfn_begin_debug_utils_label_region_ext(XR_NULL_HANDLE, &first_label));
-                    REQUIRE_RESULT(XR_ERROR_HANDLE_INVALID, pfn_end_debug_utils_label_region_ext(XR_NULL_HANDLE));
-                    REQUIRE_RESULT(XR_ERROR_HANDLE_INVALID, pfn_insert_debug_utils_label_ext(XR_NULL_HANDLE, &first_label));
-
-                    // Try with nullptr for the label
-                    REQUIRE_RESULT(XR_ERROR_VALIDATION_FAILURE, pfn_begin_debug_utils_label_region_ext(session, nullptr));
-                    REQUIRE_RESULT(XR_ERROR_VALIDATION_FAILURE, pfn_insert_debug_utils_label_ext(session, nullptr));
-                }
 
                 // Set it up to put in the session and instance to any debug utils messages
                 XrDebugUtilsMessengerCallbackDataEXT callback_data{XR_TYPE_DEBUG_UTILS_MESSENGER_CALLBACK_DATA_EXT};
@@ -921,7 +907,6 @@ namespace Conformance
                 // End the last (most recent) label region
                 {
                     REQUIRE_RESULT(XR_SUCCESS, pfn_end_debug_utils_label_region_ext(session));
-                    // TODO: need a test for end a label region that has not been started
                 }
 
                 // Trigger a message and make sure we see "First Label Region"
@@ -964,7 +949,159 @@ namespace Conformance
             REQUIRE_RESULT(XR_SUCCESS, pfn_destroy_debug_utils_messager_ext(debug_utils_messenger));
         }
 
-        // https://www.khronos.org/registry/OpenXR/specs/1.0/html/xrspec.html#XR_EXT_debug_utils
+        SECTION("Object naming")
+        {
+            AutoBasicInstance instance({XR_EXT_DEBUG_UTILS_EXTENSION_NAME});
+            AutoBasicSession session(AutoBasicSession::createSession, instance);
+
+            auto pfn_create_debug_utils_messager_ext =
+                GetInstanceExtensionFunction<PFN_xrCreateDebugUtilsMessengerEXT>(instance, "xrCreateDebugUtilsMessengerEXT");
+            auto pfn_destroy_debug_utils_messager_ext =
+                GetInstanceExtensionFunction<PFN_xrDestroyDebugUtilsMessengerEXT>(instance, "xrDestroyDebugUtilsMessengerEXT");
+            auto pfn_submit_dmsg = GetInstanceExtensionFunction<PFN_xrSubmitDebugUtilsMessageEXT>(instance, "xrSubmitDebugUtilsMessageEXT");
+            auto pfn_set_obj_name =
+                GetInstanceExtensionFunction<PFN_xrSetDebugUtilsObjectNameEXT>(instance, "xrSetDebugUtilsObjectNameEXT");
+
+            // Create the debug utils messenger
+            std::vector<DebugUtilsCallbackInfo> callbackInfo;
+
+            XrDebugUtilsMessengerCreateInfoEXT dbg_msg_ci = {XR_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT};
+            dbg_msg_ci.messageSeverities = XR_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT;
+            dbg_msg_ci.messageTypes = XR_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT;
+            dbg_msg_ci.userCallback = addToDebugUtilsCallbackInfoVector;
+            dbg_msg_ci.userData = reinterpret_cast<void*>(&callbackInfo);
+
+            XrDebugUtilsMessengerEXT debug_utils_messenger = XR_NULL_HANDLE;
+            REQUIRE_RESULT(XR_SUCCESS, pfn_create_debug_utils_messager_ext(instance, &dbg_msg_ci, &debug_utils_messenger));
+
+            // Set object name
+            XrDebugUtilsObjectNameInfoEXT referenceObject{XR_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT};
+            referenceObject.objectType = XR_OBJECT_TYPE_INSTANCE;
+            referenceObject.objectHandle = MakeHandleGeneric(instance.GetInstance());
+            referenceObject.objectName = "My Instance Obj";
+            REQUIRE_RESULT(XR_SUCCESS, pfn_set_obj_name(instance, &referenceObject));
+
+            // Check object names
+            {
+                std::array<XrDebugUtilsObjectNameInfoEXT, 2> objects;
+                objects.fill({XR_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT});
+                // We pass an object with a name we expect to be overridden with the correct name
+                objects[0].objectType = XR_OBJECT_TYPE_INSTANCE;
+                objects[0].objectHandle = MakeHandleGeneric(instance.GetInstance());
+                objects[0].objectName = "Not my instance";
+                // and we pass an object with a name we expect to stay
+                objects[1].objectType = XR_OBJECT_TYPE_SESSION;
+                objects[1].objectHandle = MakeHandleGeneric(session.GetSession());
+                objects[1].objectName = "My Session Obj";
+
+                XrDebugUtilsMessengerCallbackDataEXT callback_data{XR_TYPE_DEBUG_UTILS_MESSENGER_CALLBACK_DATA_EXT};
+                callback_data.messageId = "Object Name Test";
+                callback_data.functionName = "MyTestFunctionName";
+                callback_data.message = "Object name";
+                callback_data.objectCount = static_cast<uint32_t>(objects.size());
+                callback_data.objects = objects.data();
+                REQUIRE_RESULT(XR_SUCCESS, pfn_submit_dmsg(instance, XR_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT,
+                                                           XR_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT, &callback_data));
+
+                const auto& cb = findMessageByMessageId(callbackInfo, callback_data.messageId);
+
+                REQUIRE(cb.callbackData.objectCount == 2);
+
+                // We expect that the Instance name will be filled by the debug utils implementation
+                REQUIRE(cb.callbackData.objects[0].objectName != nullptr);
+                REQUIRE_THAT(cb.callbackData.objects[0].objectName, Catch::Matchers::Equals(referenceObject.objectName));
+
+                // We expect that the passed name will not be overridden / removed
+                REQUIRE(cb.callbackData.objects[1].objectName != nullptr);
+                REQUIRE_THAT(cb.callbackData.objects[1].objectName, Catch::Matchers::Equals(objects[1].objectName));
+            }
+
+            // Unset object name
+            // https://registry.khronos.org/OpenXR/specs/1.0/man/html/xrSetDebugUtilsObjectNameEXT.html
+            // If XrDebugUtilsObjectNameInfoEXT::objectName is an empty string, then any previously set name is removed.
+            XrDebugUtilsObjectNameInfoEXT unsetObject{XR_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT};
+            unsetObject.objectType = XR_OBJECT_TYPE_INSTANCE;
+            unsetObject.objectHandle = MakeHandleGeneric(instance.GetInstance());
+            unsetObject.objectName = "";
+            REQUIRE_RESULT(XR_SUCCESS, pfn_set_obj_name(instance, &unsetObject));
+
+            {
+                XrDebugUtilsObjectNameInfoEXT object{XR_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT};
+                object.objectType = XR_OBJECT_TYPE_INSTANCE;
+                object.objectHandle = MakeHandleGeneric(instance.GetInstance());
+                object.objectName = nullptr;
+
+                XrDebugUtilsMessengerCallbackDataEXT callback_data{XR_TYPE_DEBUG_UTILS_MESSENGER_CALLBACK_DATA_EXT};
+                callback_data.messageId = "Object Name Test Removed";
+                callback_data.functionName = "MyTestFunctionName";
+                callback_data.message = "Object name";
+                callback_data.objectCount = 1;
+                callback_data.objects = &object;
+                REQUIRE_RESULT(XR_SUCCESS, pfn_submit_dmsg(instance, XR_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT,
+                                                           XR_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT, &callback_data));
+
+                const auto& cb = findMessageByMessageId(callbackInfo, callback_data.messageId);
+
+                REQUIRE(cb.callbackData.objectCount == 1);
+
+                // We expect that the Instance name will NOT be filled by the debug utils implementation
+                REQUIRE(cb.callbackData.objects[0].objectName == nullptr);
+            }
+
+            // Destroy what we created
+            REQUIRE_RESULT(XR_SUCCESS, pfn_destroy_debug_utils_messager_ext(debug_utils_messenger));
+        }
+
+        SECTION("Invalid parameters")
+        {
+            AutoBasicInstance instance({XR_EXT_DEBUG_UTILS_EXTENSION_NAME});
+
+            auto pfn_begin_debug_utils_label_region_ext = GetInstanceExtensionFunction<PFN_xrSessionBeginDebugUtilsLabelRegionEXT>(
+                instance, "xrSessionBeginDebugUtilsLabelRegionEXT");
+            auto pfn_end_debug_utils_label_region_ext =
+                GetInstanceExtensionFunction<PFN_xrSessionEndDebugUtilsLabelRegionEXT>(instance, "xrSessionEndDebugUtilsLabelRegionEXT");
+            auto pfn_insert_debug_utils_label_ext =
+                GetInstanceExtensionFunction<PFN_xrSessionInsertDebugUtilsLabelEXT>(instance, "xrSessionInsertDebugUtilsLabelEXT");
+
+            AutoBasicSession session(AutoBasicSession::createSession | AutoBasicSession::createSpaces | AutoBasicSession::createSwapchains,
+                                     instance);
+            FrameIterator frameIterator(&session);
+
+            {
+                // auto pfn_set_obj_name =
+                //     GetInstanceExtensionFunction<PFN_xrSetDebugUtilsObjectNameEXT>(instance, "xrSetDebugUtilsObjectNameEXT");
+                // Cannot try invalid instance on set object name as loader will crash
+                // REQUIRE_RESULT(XR_ERROR_HANDLE_INVALID, pfn_set_obj_name(XR_NULL_HANDLE, nullptr));
+                // Cannot try nullptr for the object name info as loader will crash
+                // REQUIRE_RESULT(XR_ERROR_HANDLE_INVALID, pfn_set_obj_name(instance, nullptr));
+            }
+
+            // Try invalid session on each of the label functions
+            {
+                // Create a label struct for initial testing
+                XrDebugUtilsLabelEXT label = {XR_TYPE_DEBUG_UTILS_LABEL_EXT};
+                label.labelName = "individual label";
+
+                REQUIRE_RESULT(XR_ERROR_HANDLE_INVALID, pfn_begin_debug_utils_label_region_ext(XR_NULL_HANDLE, &label));
+                REQUIRE_RESULT(XR_ERROR_HANDLE_INVALID, pfn_end_debug_utils_label_region_ext(XR_NULL_HANDLE));
+                REQUIRE_RESULT(XR_ERROR_HANDLE_INVALID, pfn_insert_debug_utils_label_ext(XR_NULL_HANDLE, &label));
+            }
+
+            // Try with nullptr for the label
+            {
+                REQUIRE_RESULT(XR_ERROR_VALIDATION_FAILURE, pfn_begin_debug_utils_label_region_ext(session, nullptr));
+                REQUIRE_RESULT(XR_ERROR_VALIDATION_FAILURE, pfn_insert_debug_utils_label_ext(session, nullptr));
+            }
+
+            // Try to end a label region that has not been started
+            {
+                // This seems like an error condition but the OpenXR Loader does not return an error
+                // here so we need the same behavior.
+                REQUIRE_RESULT(XR_SUCCESS, pfn_end_debug_utils_label_region_ext(session));
+            }
+        }
+
+        // https://registry.khronos.org/OpenXR/specs/1.0/html/xrspec.html#XR_EXT_debug_utils
         // The OpenXR spec provides some examples of how to use the extension; they are not full
         // examples but let's make sure that something equivalent to them works.
         // Example 1 / multiple callbacks

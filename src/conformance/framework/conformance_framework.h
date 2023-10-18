@@ -305,6 +305,8 @@ namespace Conformance
         XrVersion apiVersion{XR_CURRENT_API_VERSION};
         uint64_t testSuccessCount{};
         uint64_t testFailureCount{};
+        bool unmatchedTestSpecs{false};
+        Catch::Totals totals{};
         TimedSubmissionResults timedSubmission;
         std::vector<std::pair<int64_t, std::string>> swapchainFormats;
     };

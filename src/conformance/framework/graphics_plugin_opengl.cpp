@@ -43,12 +43,12 @@
 // XR_SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT: can be bound to a framebuffer as color
 // XR_SWAPCHAIN_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT: can be bound to a framebuffer as depth (or stencil-only GL_STENCIL_INDEX8)
 // XR_SWAPCHAIN_USAGE_UNORDERED_ACCESS_BIT: image load/store and core since 4.2.
-//   List of supported formats is in https://www.khronos.org/registry/OpenGL/extensions/ARB/ARB_shader_image_load_store.txt
+//   List of supported formats is in https://registry.khronos.org/OpenGL/extensions/ARB/ARB_shader_image_load_store.txt
 // XR_SWAPCHAIN_USAGE_TRANSFER_SRC_BIT & XR_SWAPCHAIN_USAGE_TRANSFER_DST_BIT: must be compatible format with glCopyTexImage* calls
 // XR_SWAPCHAIN_USAGE_SAMPLED_BIT: can be sampled in a shader
 // XR_SWAPCHAIN_USAGE_MUTABLE_FORMAT_BIT: all GL formats are typed, but some can be reinterpreted with a different view.
 //   OpenGL 4.2 / 4.3 with MSAA. Only for color formats and compressed ones
-//   List with compatible textures: https://www.khronos.org/registry/OpenGL/extensions/ARB/ARB_texture_view.txt
+//   List with compatible textures: https://registry.khronos.org/OpenGL/extensions/ARB/ARB_texture_view.txt
 //   Note: no GL formats are "mutableFormats" in the sense of SwapchainCreateTestParameters as this is intended for TYPELESS,
 //   however, some are "supportsMutableFormat"
 

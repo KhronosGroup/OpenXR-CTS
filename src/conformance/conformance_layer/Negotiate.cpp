@@ -20,8 +20,6 @@
 
 namespace
 {
-    constexpr XrVersion LayerApiVersion = XR_CURRENT_API_VERSION;
-
     XRAPI_ATTR XrResult XRAPI_CALL ConformanceLayer_RegisterInstance(const XrInstanceCreateInfo* createInfo,
                                                                      const XrApiLayerCreateInfo* apiLayerInfo, XrInstance* instance)
     {
@@ -67,32 +65,42 @@ namespace
 #define LAYER_EXPORT
 #endif
 
+// Function used to negotiate an interface betewen the loader and an API layer.  Each library exposing one or
+// more API layers needs to expose at least this function.
 extern "C" LAYER_EXPORT XRAPI_ATTR XrResult XRAPI_CALL xrNegotiateLoaderApiLayerInterface(const XrNegotiateLoaderInfo* loaderInfo,
                                                                                           const char* /*apiLayerName*/,
                                                                                           XrNegotiateApiLayerRequest* apiLayerRequest)
 {
-    if (loaderInfo->structType != XR_LOADER_INTERFACE_STRUCT_LOADER_INFO || loaderInfo->structVersion != XR_LOADER_INFO_STRUCT_VERSION ||
-        loaderInfo->structSize != sizeof(XrNegotiateLoaderInfo)) {
-        return XR_ERROR_INITIALIZATION_FAILED;  // TODO: Log reason somehow.
+    if (loaderInfo == nullptr || loaderInfo->structType != XR_LOADER_INTERFACE_STRUCT_LOADER_INFO ||
+        loaderInfo->structVersion != XR_LOADER_INFO_STRUCT_VERSION || loaderInfo->structSize != sizeof(XrNegotiateLoaderInfo)) {
+        // TODO: Log reason somehow.
+        // LogPlatformUtilsError("loaderInfo struct is not valid");
+        return XR_ERROR_INITIALIZATION_FAILED;
     }
 
     if (loaderInfo->minInterfaceVersion > XR_CURRENT_LOADER_API_LAYER_VERSION ||
         loaderInfo->maxInterfaceVersion < XR_CURRENT_LOADER_API_LAYER_VERSION) {
-        return XR_ERROR_INITIALIZATION_FAILED;  // TODO: Log reason somehow.
+        // TODO: Log reason somehow.
+        // LogPlatformUtilsError("loader interface version is not in the range [minInterfaceVersion, maxInterfaceVersion]");
+        return XR_ERROR_INITIALIZATION_FAILED;
     }
 
-    if (XR_CURRENT_API_VERSION > loaderInfo->maxApiVersion || XR_CURRENT_API_VERSION < loaderInfo->minApiVersion) {
-        return XR_ERROR_INITIALIZATION_FAILED;  // TODO: Log reason somehow.
+    if (loaderInfo->minApiVersion > XR_CURRENT_API_VERSION || loaderInfo->maxApiVersion < XR_CURRENT_API_VERSION) {
+        // TODO: Log reason somehow.
+        // LogPlatformUtilsError("loader api version is not in the range [minApiVersion, maxApiVersion]");
+        return XR_ERROR_INITIALIZATION_FAILED;
     }
 
-    if (apiLayerRequest->structType != XR_LOADER_INTERFACE_STRUCT_API_LAYER_REQUEST ||
+    if (apiLayerRequest == nullptr || apiLayerRequest->structType != XR_LOADER_INTERFACE_STRUCT_API_LAYER_REQUEST ||
         apiLayerRequest->structVersion != XR_API_LAYER_INFO_STRUCT_VERSION ||
         apiLayerRequest->structSize != sizeof(XrNegotiateApiLayerRequest)) {
-        return XR_ERROR_INITIALIZATION_FAILED;  // TODO: Log reason somehow.
+        // TODO: Log reason somehow.
+        // LogPlatformUtilsError("apiLayerRequest is not valid");
+        return XR_ERROR_INITIALIZATION_FAILED;
     }
 
     apiLayerRequest->layerInterfaceVersion = XR_CURRENT_LOADER_API_LAYER_VERSION;
-    apiLayerRequest->layerApiVersion = LayerApiVersion;
+    apiLayerRequest->layerApiVersion = XR_CURRENT_API_VERSION;
     apiLayerRequest->getInstanceProcAddr = ConformanceLayer_xrGetInstanceProcAddr;
     apiLayerRequest->createApiLayerInstance = ConformanceLayer_RegisterInstance;
 

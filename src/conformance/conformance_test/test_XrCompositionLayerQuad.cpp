@@ -38,7 +38,7 @@ namespace Conformance
         GlobalData& globalData = GetGlobalData();
         if (!globalData.IsUsingGraphicsPlugin()) {
             // Nothing to check - no graphics plugin means no frame submission
-            return;
+            SKIP("Cannot test using frame submission without a graphics plugin");
         }
 
         AutoBasicSession session(AutoBasicSession::beginSession | AutoBasicSession::createSpaces);

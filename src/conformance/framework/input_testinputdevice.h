@@ -31,7 +31,7 @@ namespace Conformance
     {
         const char* Path;
         XrActionType Type;
-        bool systemOnly;
+        bool systemOnly = false;
     };
 
     using InputSourcePathCollection = std::initializer_list<InputSourcePathData>;

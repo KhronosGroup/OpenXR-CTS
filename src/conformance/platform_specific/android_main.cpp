@@ -308,10 +308,10 @@ void android_main(struct android_app* app)
                     launchSettings.argv = args.data();
                     launchSettings.message = OnTestMessage;
 
-                    uint32_t failureCount = 0;
-                    XrcResult result = xrcRunConformanceTests(&launchSettings, &failureCount);
-                    const int exitResult = result == XRC_SUCCESS ? 0 : (int)std::max((uint32_t)1, failureCount);
-                    ALOGV("Exit Result %d", exitResult);
+                    XrcTestResult testResult;
+                    uint64_t failureCount = 0;
+                    XrcResult result = xrcRunConformanceTests(&launchSettings, &testResult, &failureCount);
+                    ALOGV("Execution result %d, Test result %d (%" PRIu64 " failures)", result, testResult, failureCount);
 
                     // Clean up conformance test
                     xrcCleanup();

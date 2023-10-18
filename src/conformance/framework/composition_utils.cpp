@@ -343,8 +343,9 @@ namespace Conformance
         XRC_CHECK_THROW_XRCMD(xrAcquireSwapchainImage(swapchain, &acquireInfo, &colorImageIndex));
 
         XrSwapchainImageWaitInfo waitInfo{XR_TYPE_SWAPCHAIN_IMAGE_WAIT_INFO};
-        waitInfo.timeout = 500_xrMilliseconds;  // Call can block waiting for image to become available for writing.
+        waitInfo.timeout = XR_INFINITE_DURATION;  // Call can block waiting for image to become available for writing.
         XRC_CHECK_THROW_XRCMD(xrWaitSwapchainImage(swapchain, &waitInfo));
+
         m_swapchainImages[swapchain]->AcquireAndWaitDepthSwapchainImage(colorImageIndex);
 
         std::unique_lock<std::mutex> lock(m_mutex);

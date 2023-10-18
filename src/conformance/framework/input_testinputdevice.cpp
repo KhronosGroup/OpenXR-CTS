@@ -182,7 +182,10 @@ namespace Conformance
 
             // Checks the isActive on a boolean action to determine if a controller is on
             auto findController = [&]() -> ControllerState {
-                XrActiveActionSet activeActionSets[] = {{m_actionSet}, {detectionActionSet}};
+                XrActiveActionSet activeActionSets[] = {
+                    {m_actionSet, XR_NULL_PATH},
+                    {detectionActionSet, XR_NULL_PATH},
+                };
                 XrActionsSyncInfo syncInfo{XR_TYPE_ACTIONS_SYNC_INFO};
                 syncInfo.countActiveActionSets = detectionActionSet == XR_NULL_HANDLE ? 1 : 2;
                 syncInfo.activeActionSets = activeActionSets;
@@ -342,7 +345,10 @@ namespace Conformance
             XrAction actionToDetect = m_actionMap.at(button);
 
             auto GetButtonState = [&](XrAction action) -> bool {
-                XrActiveActionSet activeActionSet[] = {{m_actionSet}, {extraActionSet}};
+                XrActiveActionSet activeActionSet[] = {
+                    {m_actionSet, XR_NULL_PATH},
+                    {extraActionSet, XR_NULL_PATH},
+                };
                 XrActionsSyncInfo syncInfo{XR_TYPE_ACTIONS_SYNC_INFO};
                 syncInfo.countActiveActionSets = extraActionSet == XR_NULL_HANDLE ? 1 : 2;
                 syncInfo.activeActionSets = activeActionSet;
@@ -404,7 +410,10 @@ namespace Conformance
             XrAction actionToDetect = m_actionMap.at(button);
 
             auto FloatStateWithinEpsilon = [&](XrAction action, float target, float epsilon) -> bool {
-                XrActiveActionSet activeActionSet[] = {{m_actionSet}, {extraActionSet}};
+                XrActiveActionSet activeActionSet[] = {
+                    {m_actionSet, XR_NULL_PATH},
+                    {extraActionSet, XR_NULL_PATH},
+                };
                 XrActionsSyncInfo syncInfo{XR_TYPE_ACTIONS_SYNC_INFO};
                 syncInfo.countActiveActionSets = extraActionSet == XR_NULL_HANDLE ? 1 : 2;
                 syncInfo.activeActionSets = activeActionSet;
@@ -470,7 +479,10 @@ namespace Conformance
             XrAction actionToDetect = m_actionMap.at(button);
 
             auto VectorStateWithinEpsilon = [&](XrAction action, XrVector2f target, float epsilon) -> bool {
-                XrActiveActionSet activeActionSet[] = {{m_actionSet}, {extraActionSet}};
+                XrActiveActionSet activeActionSet[] = {
+                    {m_actionSet, XR_NULL_PATH},
+                    {extraActionSet, XR_NULL_PATH},
+                };
                 XrActionsSyncInfo syncInfo{XR_TYPE_ACTIONS_SYNC_INFO};
                 syncInfo.countActiveActionSets = extraActionSet == XR_NULL_HANDLE ? 1 : 2;
                 syncInfo.activeActionSets = activeActionSet;

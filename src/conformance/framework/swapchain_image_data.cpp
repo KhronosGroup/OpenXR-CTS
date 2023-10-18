@@ -31,9 +31,8 @@ namespace Conformance
         XRC_CHECK_THROW_XRCMD(xrAcquireSwapchainImage(m_depthSwapchain, &acquireInfo, &depthImageIndex));
 
         XrSwapchainImageWaitInfo waitInfo{XR_TYPE_SWAPCHAIN_IMAGE_WAIT_INFO};
-        waitInfo.timeout = 500_xrMilliseconds;  // Call can block waiting for image to become available for writing.
+        waitInfo.timeout = XR_INFINITE_DURATION;  // Call can block waiting for image to become available for writing.
         XRC_CHECK_THROW_XRCMD(xrWaitSwapchainImage(m_depthSwapchain, &waitInfo));
-
         m_colorToAcquiredDepthIndices.emplace_back(colorImageIndex, depthImageIndex);
     }
 

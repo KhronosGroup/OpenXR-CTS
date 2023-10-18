@@ -60,12 +60,24 @@ enum XrcResult
     XRC_ERROR_INTERNAL_ERROR = -4,
 };
 
+enum XrcTestResult
+{
+    XRC_TEST_RESULT_SUCCESS = 0,
+    XRC_TEST_RESULT_UNMATCHED_TEST_SPEC = 1,
+    /// Not returned if --allow-running-no-tests is passed
+    XRC_TEST_RESULT_NO_TESTS_SELECTED = 2,
+    /// Not returned if --allow-running-no-tests is passed
+    XRC_TEST_RESULT_ALL_TESTS_SKIPPED = 3,
+    XRC_TEST_RESULT_SOME_TESTS_FAILED = 4,
+};
+
 /// Clean up after enumerating test cases or running tests. Idempotent: may call more than once.
 extern "C" CONFORMANCE_EXPORT XrcResult XRAPI_CALL xrcCleanup(void);
 
 extern "C" CONFORMANCE_EXPORT XrcResult XRAPI_CALL xrcEnumerateTestCases(uint32_t capacityInput, uint32_t* countOutput,
                                                                          ConformanceTestCase* testCases);
 
-/// Returns failure count, including tests and initialization failure.
+/// Returns XRC_SUCCESS if test execution was successful - tests may still have failed, or another failure condition may have been hit.
+/// In case of Catch2-defined error conditions, testResult is set to a value other than XRC_TEST_RESULT_SUCCESS.
 extern "C" CONFORMANCE_EXPORT XrcResult XRAPI_CALL xrcRunConformanceTests(const ConformanceLaunchSettings* conformanceLaunchSettings,
-                                                                          uint32_t* failureCount);
+                                                                          XrcTestResult* testResult, uint64_t* failureCount);

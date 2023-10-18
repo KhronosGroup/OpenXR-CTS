@@ -73,13 +73,21 @@ if(TARGET openxr-gfxwrapper)
   target_link_libraries(conformance_framework PUBLIC openxr-gfxwrapper)
 endif()
 
+if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GCC")
+    target_compile_options(conformance_framework PUBLIC -Wno-missing-field-initializers)
+endif()
+
 if(WIN32)
 
   target_compile_definitions(conformance_framework
                              PUBLIC _CRT_SECURE_NO_WARNINGS)
   if(MSVC)
     target_compile_options(conformance_framework
-                           PUBLIC /Zc:wchar_t /Zc:forScope /W4 /WX /wd4996)
+                           PUBLIC /Zc:wchar_t /Zc:forScope /W4 /wd4996)
+    if(NOT CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+        # If actually msvc and not clang-cl
+        target_compile_options(conformance_framework PRIVATE /WX)
+    endif()
 
     # Right now can't build this on MinGW because of directxcolors, directxmath, etc.
     target_link_libraries(conformance_framework PUBLIC d3d11 d3d12 d3dcompiler
