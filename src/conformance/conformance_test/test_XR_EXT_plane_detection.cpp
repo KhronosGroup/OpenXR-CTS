@@ -78,7 +78,7 @@ namespace Conformance
             // Runtime does not support extension - it should not be possible to get function pointers.
             AutoBasicInstance instance;
             ValidateInstanceExtensionFunctionNotSupported(instance, "xrCreatePlaneDetectorEXT");
-            return;
+            SKIP(XR_EXT_PLANE_DETECTION_EXTENSION_NAME " not supported");
         }
 
         SECTION("Extension not enabled")
@@ -127,11 +127,11 @@ namespace Conformance
     {
         GlobalData& globalData = GetGlobalData();
         if (!globalData.IsInstanceExtensionSupported(XR_EXT_PLANE_DETECTION_EXTENSION_NAME)) {
-            SKIP();
+            SKIP(XR_EXT_PLANE_DETECTION_EXTENSION_NAME " not supported");
         }
 
         if (!globalData.IsUsingGraphicsPlugin()) {
-            SKIP();
+            SKIP("Not using graphics, which the test requires");
         }
 
         CompositionHelper compositionHelper("XR_EXT_plane_detection", {XR_EXT_PLANE_DETECTION_EXTENSION_NAME});
@@ -480,7 +480,7 @@ namespace Conformance
         // basic setup stuff
         GlobalData& globalData = GetGlobalData();
         if (!globalData.IsInstanceExtensionSupported(XR_EXT_PLANE_DETECTION_EXTENSION_NAME)) {
-            SKIP();
+            SKIP(XR_EXT_PLANE_DETECTION_EXTENSION_NAME " not supported");
         }
 
         CompositionHelper compositionHelper("XR_EXT_plane_detection", {XR_EXT_PLANE_DETECTION_EXTENSION_NAME});
@@ -605,11 +605,11 @@ namespace Conformance
 
         GlobalData& globalData = GetGlobalData();
         if (!globalData.IsInstanceExtensionSupported(XR_EXT_PLANE_DETECTION_EXTENSION_NAME)) {
-            SKIP();
+            SKIP(XR_EXT_PLANE_DETECTION_EXTENSION_NAME " not supported");
         }
 
         if (!globalData.IsUsingGraphicsPlugin()) {
-            SKIP();
+            SKIP("Not using graphics, which the test requires");
         }
 
         CompositionHelper compositionHelper("XR_EXT_plane_detection", {XR_EXT_PLANE_DETECTION_EXTENSION_NAME});

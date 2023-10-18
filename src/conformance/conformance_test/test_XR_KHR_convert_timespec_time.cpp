@@ -33,7 +33,9 @@ namespace Conformance
 
     TEST_CASE("XR_KHR_convert_timespec_time", "")
     {
-#ifdef XR_USE_TIMESPEC
+#ifndef XR_USE_TIMESPEC
+        SKIP("XR_KHR_convert_timespec_time test not enabled in CTS");
+#else
         GlobalData& globalData = GetGlobalData();
         if (!globalData.IsInstanceExtensionSupported("XR_KHR_convert_timespec_time")) {
             SKIP(XR_KHR_CONVERT_TIMESPEC_TIME_EXTENSION_NAME " not supported");

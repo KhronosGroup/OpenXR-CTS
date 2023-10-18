@@ -137,9 +137,13 @@ namespace Conformance
             localSpaceCreateInfo.referenceSpaceType = XR_REFERENCE_SPACE_TYPE_LOCAL;
             REQUIRE_RESULT(xrCreateReferenceSpace(session, &localSpaceCreateInfo, &localSpace), XR_SUCCESS);
 
-            // Wait until the runtime is ready for us to begin a session
+            // Wait until the runtime has transitioned to the sync/visible/focused state for us to begin a session,
+            // this is to ensure that `frameIterator` has a valid, non-zero predicated display time.
             FrameIterator frameIterator(&session);
-            frameIterator.RunToSessionState(XR_SESSION_STATE_READY);
+            frameIterator.RunToSessionState(XR_SESSION_STATE_FOCUSED);
+
+            // We are relying on a non-zero predicted display time here.
+            REQUIRE(frameIterator.frameState.predictedDisplayTime != 0);
 
             for (auto hand : {LEFT_HAND, RIGHT_HAND}) {
                 std::array<std::array<XrHandJointLocationEXT, XR_HAND_JOINT_COUNT_EXT>, HAND_COUNT> jointLocations;
@@ -199,9 +203,13 @@ namespace Conformance
             localSpaceCreateInfo.referenceSpaceType = XR_REFERENCE_SPACE_TYPE_LOCAL;
             REQUIRE_RESULT(xrCreateReferenceSpace(session, &localSpaceCreateInfo, &localSpace), XR_SUCCESS);
 
-            // Wait until the runtime is ready for us to begin a session
+            // Wait until the runtime has transitioned to the sync/visible/focused state for us to begin a session,
+            // this is to ensure that `frameIterator` has a valid, non-zero predicated display time.
             FrameIterator frameIterator(&session);
-            frameIterator.RunToSessionState(XR_SESSION_STATE_READY);
+            frameIterator.RunToSessionState(XR_SESSION_STATE_FOCUSED);
+
+            // We are relying on a non-zero predicted display time here.
+            REQUIRE(frameIterator.frameState.predictedDisplayTime != 0);
 
             // The application must input jointCount as described by the XrHandJointSetEXT when creating the XrHandTrackerEXT.
             // Otherwise, the runtime must return XR_ERROR_VALIDATION_FAILURE.

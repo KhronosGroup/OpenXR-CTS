@@ -84,7 +84,7 @@ namespace Conformance
                                                                             const XrDebugUtilsMessengerCallbackDataEXT* callbackData,
                                                                             void* userData)
     {
-        REQUIRE(userData != NULL);
+        REQUIRE(userData != nullptr);
         auto pMessages = reinterpret_cast<std::vector<DebugUtilsCallbackInfo>*>(userData);
 
         DebugUtilsCallbackInfo callbackInfo;

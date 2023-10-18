@@ -45,19 +45,21 @@ target_include_directories(conformance_test
     PRIVATE
     ${CMAKE_CURRENT_LIST_DIR}/../framework
     ${PROJECT_SOURCE_DIR}/src/common
-    ${PROJECT_SOURCE_DIR}/src/external
-
-    # Earcut algorithm for simple polygon triangulation
-    ${PROJECT_SOURCE_DIR}/src/external/earcut/include
-
     # for openxr.h:
     ${PROJECT_BINARY_DIR}/include
 
     # for common_config.h:
     ${PROJECT_BINARY_DIR}/src
-
+)
+target_include_directories(conformance_test
+    SYSTEM PRIVATE
     # for helper headers
     ${PROJECT_SOURCE_DIR}/external/include
+
+    ${PROJECT_SOURCE_DIR}/src/external
+
+    # Earcut algorithm for simple polygon triangulation
+    ${PROJECT_SOURCE_DIR}/src/external/earcut/include
 )
 
 source_group("Header Files" FILES ${LOCAL_HEADERS})
@@ -68,14 +70,20 @@ target_link_libraries(conformance_test PRIVATE conformance_framework)
 if(WIN32)
     target_compile_definitions(conformance_test PRIVATE _CRT_SECURE_NO_WARNINGS)
     if(MSVC)
-        target_compile_options(conformance_test PRIVATE /Zc:wchar_t /Zc:forScope /W4 /WX /wd4996)
+        target_compile_options(conformance_test PRIVATE /Zc:wchar_t /Zc:forScope /W4 /wd4996)
+        if(NOT CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+            # If actually msvc and not clang-cl
+            target_compile_options(conformance_test PRIVATE /WX)
+        endif()
     endif()
-
 endif()
 
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     target_compile_options(conformance_test PRIVATE -Wall)
     target_link_libraries(conformance_test PRIVATE m)
+endif()
+if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GCC")
+    target_compile_options(conformance_test PRIVATE -Wno-missing-field-initializers)
 endif()
 if(ANDROID)
     target_sources(

@@ -1200,8 +1200,21 @@ namespace Conformance
             }
             SECTION("Active action sets")
             {
+                XrInteractionProfileState interactionProfileState{XR_TYPE_INTERACTION_PROFILE_STATE};
+                REQUIRE_RESULT(xrGetCurrentInteractionProfile(compositionHelper.GetSession(), defaultDevicePath, &interactionProfileState),
+                               XR_ERROR_ACTIONSET_NOT_ATTACHED);
+
                 compositionHelper.GetInteractionManager().AddActionSet(actionSet);
                 compositionHelper.GetInteractionManager().AttachActionSets();
+
+                {
+                    INFO("Interaction profile selection changes must: only happen when flink:xrSyncActions is called.");
+                    REQUIRE_RESULT(
+                        xrGetCurrentInteractionProfile(compositionHelper.GetSession(), defaultDevicePath, &interactionProfileState),
+                        XR_SUCCESS);
+                    // per spec: "Interaction profile selection changes must: only happen when flink:xrSyncActions is called."
+                    REQUIRE(interactionProfileState.interactionProfile == XR_NULL_PATH);
+                }
 
                 XrActionsSyncInfo syncInfo{XR_TYPE_ACTIONS_SYNC_INFO};
                 XrActiveActionSet activeActionSet{actionSet};

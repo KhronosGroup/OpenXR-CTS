@@ -31,7 +31,7 @@ namespace Conformance
     {
         GlobalData& globalData = GetGlobalData();
         if (!globalData.IsInstanceExtensionSupported(XR_EXT_LOCAL_FLOOR_EXTENSION_NAME)) {
-            return;
+            SKIP(XR_EXT_LOCAL_FLOOR_EXTENSION_NAME " not supported");
         }
 
         SECTION("Extension not enabled")

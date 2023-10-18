@@ -413,7 +413,7 @@ namespace Conformance
     {
         GlobalData& globalData = GetGlobalData();
         if (!globalData.IsInstanceExtensionSupported(XR_EXT_PALM_POSE_EXTENSION_NAME)) {
-            SKIP();
+            SKIP(XR_EXT_PALM_POSE_EXTENSION_NAME " not supported");
         }
 
         AutoBasicInstance instance({XR_EXT_PALM_POSE_EXTENSION_NAME});

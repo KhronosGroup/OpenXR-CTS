@@ -17,6 +17,54 @@ particular, since it is primarily software, pull requests may be integrated as
 they are accepted even between periodic updates. However, versions that are not
 signed tags on the `approved` branch are not valid for conformance submission.
 
+## OpenXR CTS 1.0.30.0 (2023-10-12)
+
+- Conformance Tests
+  - Fix: Replace early returns with `SKIP()`.
+    ([internal MR 2898](https://gitlab.khronos.org/openxr/openxr/merge_requests/2898),
+    [OpenXR-CTS issue 60](https://github.com/KhronosGroup/OpenXR-CTS/issues/60),
+    [internal issue 2072](https://gitlab.khronos.org/openxr/openxr/issues/2072))
+  - Fix: Remove infinite loop in `Timed_Pipelined_Frame_Submission` in error case.
+    ([internal MR 2915](https://gitlab.khronos.org/openxr/openxr/merge_requests/2915))
+  - Fix: Test failure count API
+    ([internal MR 2940](https://gitlab.khronos.org/openxr/openxr/merge_requests/2940),
+    [internal issue 2072](https://gitlab.khronos.org/openxr/openxr/issues/2072),
+    [internal MR 2965](https://gitlab.khronos.org/openxr/openxr/merge_requests/2965),
+    [internal MR 2999](https://gitlab.khronos.org/openxr/openxr/merge_requests/2999))
+  - Fix: Fix waiting for `xrWaitSwapchainImage` timeout cases.
+    ([internal MR 2944](https://gitlab.khronos.org/openxr/openxr/merge_requests/2944))
+  - Fix: Enable build with clang, clang-cl, and GCC (MinGW64) on Windows.
+    ([internal MR 2948](https://gitlab.khronos.org/openxr/openxr/merge_requests/2948),
+    [internal MR 2975](https://gitlab.khronos.org/openxr/openxr/merge_requests/2975))
+  - Fix: Do not request hand tracking joint poses with an `XrTime` of 0: it is
+    invalid. Be sure to be in "FOCUSED" since we want input data.
+    ([internal MR 2977](https://gitlab.khronos.org/openxr/openxr/merge_requests/2977))
+  - Improvement: Add validation of test tags to CTS.
+    ([internal MR 2924](https://gitlab.khronos.org/openxr/openxr/merge_requests/2924),
+    [internal issue 2050](https://gitlab.khronos.org/openxr/openxr/issues/2050),
+    [internal issue 2062](https://gitlab.khronos.org/openxr/openxr/issues/2062))
+  - Improvement: Make conformance layer initialization clear and consistent with
+    other layers in the official OpenXR repos.
+    ([internal MR 2926](https://gitlab.khronos.org/openxr/openxr/merge_requests/2926))
+  - Improvement: Update Khronos registry URLs in comments.
+    ([internal MR 2935](https://gitlab.khronos.org/openxr/openxr/merge_requests/2935))
+  - Improvement: Add conformance test library API output value for Catch2 error
+    conditions.
+    ([internal MR 2940](https://gitlab.khronos.org/openxr/openxr/merge_requests/2940),
+    [internal issue 2072](https://gitlab.khronos.org/openxr/openxr/issues/2072),
+    [internal MR 2965](https://gitlab.khronos.org/openxr/openxr/merge_requests/2965),
+    [internal MR 2999](https://gitlab.khronos.org/openxr/openxr/merge_requests/2999))
+  - Improvement: Add OpenGL 3.3 functions to gfxwrapper, an internal utility
+    library used by the CTS.
+    ([internal MR 2941](https://gitlab.khronos.org/openxr/openxr/merge_requests/2941))
+  - New test: Add additional tests for `XR_EXT_debug_utils` based on the test app
+    `loader_test`.
+    ([internal MR 2861](https://gitlab.khronos.org/openxr/openxr/merge_requests/2861))
+  - New test: Check that no interaction profile is returned as current before
+    calling `xrSyncActions`.
+    ([internal MR 2897](https://gitlab.khronos.org/openxr/openxr/merge_requests/2897),
+    [internal issue 1942](https://gitlab.khronos.org/openxr/openxr/issues/1942))
+
 ## OpenXR CTS 1.0.29.0 (2023-09-07)
 
 - Conformance Tests

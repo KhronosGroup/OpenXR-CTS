@@ -44,6 +44,7 @@
 #include <string>
 #include <cstring>
 #include <streambuf>
+#include <algorithm>
 
 using namespace Conformance;
 
@@ -150,18 +151,78 @@ namespace
     // Ensure conformance is configured correctly.
     TEST_CASE("ValidateEnvironment")
     {
-        GlobalData& globalData = GetGlobalData();
+        // Ensure that the conformance layer is loaded (or print a warning if it
+        // is not)
+        SECTION("Conformance layer")
+        {
+            GlobalData& globalData = GetGlobalData();
 
-        if (!globalData.options.invalidHandleValidation) {
-            REQUIRE_MSG(globalData.IsAPILayerEnabled("XR_APILAYER_KHRONOS_runtime_conformance"),
-                        "Conformance layer required to pass conformance");
+            if (!globalData.options.invalidHandleValidation) {
+                REQUIRE_MSG(globalData.IsAPILayerEnabled("XR_APILAYER_KHRONOS_runtime_conformance"),
+                            "Conformance layer required to pass conformance");
 
-            // Conformance listens for failures from the conformance layer through the debug messenger extension.
-            REQUIRE_MSG(IsInstanceExtensionEnabled(XR_EXT_DEBUG_UTILS_EXTENSION_NAME),
-                        "Debug utils extension required by conformance layer");
+                // Conformance listens for failures from the conformance layer through the debug messenger extension.
+                REQUIRE_MSG(IsInstanceExtensionEnabled(XR_EXT_DEBUG_UTILS_EXTENSION_NAME),
+                            "Debug utils extension required by conformance layer");
+            }
+            else {
+                WARN("Conformance API layer not supported due to handle validation tests; do not submit this log for official conformance");
+            }
         }
-        else {
-            WARN("Conformance API layer not supported due to handle validation tests; do not submit this log for official conformance");
+
+        uint32_t testCasesCount = 0;
+        REQUIRE(XRC_SUCCESS == xrcEnumerateTestCases(0, &testCasesCount, nullptr));
+
+        std::vector<ConformanceTestCase> testCases(testCasesCount);
+        REQUIRE(XRC_SUCCESS == xrcEnumerateTestCases(testCasesCount, &testCasesCount, testCases.data()));
+
+        SECTION("Validate Test Case Names")
+        {
+            for (const auto& testCase : testCases) {
+                std::string testName = testCase.testName;
+
+                // Spaces in test names break our Android runner
+                INFO(testName);
+                REQUIRE(testName.find(" ") == std::string::npos);
+            }
+        }
+
+        SECTION("Validate Test Case Tags")
+        {
+            for (const auto& testCase : testCases) {
+                std::string testTags = testCase.tags;
+                INFO(testCase.testName);
+                INFO(testTags);
+
+                // readme.md instructions use [interactive] with [actions], [composition], and [scenario]
+                // Let's ensure that these cover all of the possible test cases.
+                const std::array<std::string, 3> interactiveTestTypes = {
+                    "[actions]",
+                    "[composition]",
+                    "[scenario]",
+                };
+                if (testTags.find("[interactive]") != std::string::npos) {
+                    {
+                        bool foundInteractiveTestType = false;
+                        for (const auto& testType : interactiveTestTypes) {
+                            if (testTags.find(testType) != std::string::npos) {
+                                foundInteractiveTestType = true;
+                            }
+                        }
+                        INFO("An interactive test should also have a tag for either actions, composition, or scenario");
+                        REQUIRE(foundInteractiveTestType);
+                    }
+
+                    {
+                        INFO("Interactive tests are typically either [actions] or [no_auto]");
+                        // [interactive] tests are almost always not automatable [no_auto] except when
+                        // they are [actions] tests using `XR_EXT_conformance_automation`
+                        bool isNoAuto = testTags.find("[no_auto]") != std::string::npos;
+                        bool isActions = testTags.find("[actions]") != std::string::npos;
+                        REQUIRE((isNoAuto || isActions));
+                    }
+                }
+            }
         }
     }
 
@@ -415,6 +476,18 @@ namespace
             m_sectionIndent--;
         }
 
+        void noMatchingTestCases(Catch::StringRef /* unmatchedSpec */) override
+        {
+            Conformance::GlobalData& globalData = Conformance::GetGlobalData();
+            globalData.conformanceReport.unmatchedTestSpecs = true;
+        }
+
+        void testRunEnded(Catch::TestRunStats const& testRunStats) override
+        {
+            Conformance::GlobalData& globalData = Conformance::GetGlobalData();
+            globalData.conformanceReport.totals = testRunStats.totals;
+        }
+
         int m_sectionIndent{0};
     };
     CATCH_REGISTER_LISTENER(ConformanceTestListener)
@@ -488,7 +561,8 @@ XrcResult XRAPI_CALL xrcEnumerateTestCases(uint32_t capacityInput, uint32_t* cou
     return XRC_SUCCESS;
 }
 
-XrcResult XRAPI_CALL xrcRunConformanceTests(const ConformanceLaunchSettings* conformanceLaunchSettings, uint32_t* failureCount)
+XrcResult XRAPI_CALL xrcRunConformanceTests(const ConformanceLaunchSettings* conformanceLaunchSettings, XrcTestResult* testResult,
+                                            uint64_t* failureCount)
 {
     using namespace Conformance;
 
@@ -501,6 +575,8 @@ XrcResult XRAPI_CALL xrcRunConformanceTests(const ConformanceLaunchSettings* con
     g_conformanceLaunchSettings = conformanceLaunchSettings;
 
     XrcResult result = XRC_SUCCESS;
+    *testResult = XRC_TEST_RESULT_SUCCESS;
+    *failureCount = 0;
     bool conformanceTestsRun = false;
     try {
         Conformance::g_reportCallback = [&](const char* message) { conformanceLaunchSettings->message(MessageType_Stdout, message); };
@@ -529,6 +605,7 @@ XrcResult XRAPI_CALL xrcRunConformanceTests(const ConformanceLaunchSettings* con
             ReportConsoleOnlyF("Test failure: Command line arguments were invalid or insufficient.");
             return XRC_ERROR_COMMAND_LINE_INVALID;
         }
+        auto& catchConfig = CreateOrGetCatchSession().config();
         auto& catchConfigData = CreateOrGetCatchSession().configData();
         bool skipActuallyTesting =
             catchConfigData.listTests || catchConfigData.listTags || catchConfigData.listListeners || catchConfigData.listReporters;
@@ -548,8 +625,30 @@ XrcResult XRAPI_CALL xrcRunConformanceTests(const ConformanceLaunchSettings* con
         }
 
         if (initialized) {
-            *failureCount = CreateOrGetCatchSession().run();
+            int exitCode = CreateOrGetCatchSession().run();
+
+            Conformance::GlobalData& globalData = Conformance::GetGlobalData();
+            *failureCount = globalData.conformanceReport.testFailureCount;
+            const auto& totals = globalData.conformanceReport.totals;
             conformanceTestsRun = true;
+
+            // a list option was used so no tests could have run
+            if (skipActuallyTesting) {
+                *testResult = XRC_TEST_RESULT_SUCCESS;
+            }
+            else if (globalData.conformanceReport.unmatchedTestSpecs && catchConfig.warnAboutUnmatchedTestSpecs()) {
+                *testResult = XRC_TEST_RESULT_UNMATCHED_TEST_SPEC;
+            }
+            else if (totals.testCases.total() == 0 && !catchConfig.zeroTestsCountAsSuccess()) {
+                *testResult = XRC_TEST_RESULT_NO_TESTS_SELECTED;
+            }
+            else if (totals.testCases.total() > 0 && totals.testCases.total() == totals.testCases.skipped &&
+                     !catchConfig.zeroTestsCountAsSuccess()) {
+                *testResult = XRC_TEST_RESULT_ALL_TESTS_SKIPPED;
+            }
+            else if (exitCode != 0) {
+                *testResult = XRC_TEST_RESULT_SOME_TESTS_FAILED;
+            }
         }
         else {
             ReportF("Test failure: Test data initialization failed.");

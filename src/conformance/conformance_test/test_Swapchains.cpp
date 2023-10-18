@@ -51,7 +51,7 @@ namespace Conformance
         projectionView.subImage.imageArrayIndex = 0;
 
         XrSwapchainImageWaitInfo imageWaitInfo{XR_TYPE_SWAPCHAIN_IMAGE_WAIT_INFO};
-        imageWaitInfo.timeout = 500_xrMilliseconds;
+        imageWaitInfo.timeout = XR_INFINITE_DURATION;
 
         // acquire/wait/render/release all the images.
         for (uint32_t i = 0; i < colorImageCount; ++i) {
@@ -189,7 +189,7 @@ namespace Conformance
                 // Wait/release all the images.
                 for (uint32_t i = 0; i < imageCount; ++i) {
                     XrSwapchainImageWaitInfo imageWaitInfo{XR_TYPE_SWAPCHAIN_IMAGE_WAIT_INFO};
-                    imageWaitInfo.timeout = 500_xrMilliseconds;  // Call can block waiting for image to become available for writing.
+                    imageWaitInfo.timeout = XR_INFINITE_DURATION;  // Call can block waiting for image to become available for writing.
                     REQUIRE_RESULT_UNQUALIFIED_SUCCESS(xrWaitSwapchainImage(swapchain, &imageWaitInfo));
 
                     // Another wait should fail with XR_ERROR_CALL_ORDER_INVALID.
@@ -393,7 +393,7 @@ namespace Conformance
         const GlobalData& globalData = GetGlobalData();
         if (!globalData.IsUsingGraphicsPlugin()) {
             // Nothing to check - no graphics plugin means no swapchain
-            return;
+            SKIP("Cannot test swapchains without a graphics plugin");
         }
 
         // Set up the session we will use for the testing
@@ -480,7 +480,7 @@ namespace Conformance
         const GlobalData& globalData = GetGlobalData();
         if (!globalData.IsUsingGraphicsPlugin()) {
             // Nothing to check - no graphics plugin means no swapchain
-            return;
+            SKIP("Cannot test swapchains without a graphics plugin");
         }
 
         // Set up the session we will use for the testing
@@ -619,7 +619,7 @@ namespace Conformance
         GlobalData& globalData = GetGlobalData();
         if (!globalData.IsUsingGraphicsPlugin()) {
             // Nothing to check - no graphics plugin means no swapchain
-            return;
+            SKIP("Cannot test swapchains without a graphics plugin");
         }
 
         // Set up the session we will use for the testing
@@ -654,7 +654,7 @@ namespace Conformance
                     // Wait/release all the images.
                     for (uint32_t i = 0; i < imageCount; ++i) {
                         XrSwapchainImageWaitInfo imageWaitInfo{XR_TYPE_SWAPCHAIN_IMAGE_WAIT_INFO};
-                        imageWaitInfo.timeout = 500_xrMilliseconds;  // Call can block waiting for image to become available for writing.
+                        imageWaitInfo.timeout = XR_INFINITE_DURATION;  // Call can block waiting for image to become available for writing.
                         REQUIRE_RESULT_UNQUALIFIED_SUCCESS(xrWaitSwapchainImage(swapchain, &imageWaitInfo));
 
                         // Another wait should fail with XR_ERROR_CALL_ORDER_INVALID.

@@ -41,7 +41,7 @@ namespace Conformance
         GlobalData& globalData = GetGlobalData();
         if (!globalData.IsUsingGraphicsPlugin()) {
             // Nothing to check - no graphics plugin means no frame submission
-            return;
+            SKIP("Cannot test frame submission without a graphics plugin");
         }
 
         SECTION("Before_xrBeginSession")
@@ -260,10 +260,13 @@ namespace Conformance
         auto appThread = std::thread([&]() {
             ATTACH_THREAD;
             auto queueFrameRender = [&](const XrFrameState& frameState) {
-                {
-                    std::unique_lock<std::mutex> lock(displayMutex);
-                    queuedFramesForRender.push(frameState);
-                }
+                std::unique_lock<std::mutex> lock(displayMutex);
+                queuedFramesForRender.push(frameState);
+                displayCv.notify_one();
+            };
+            auto signalNoMoreFrames = [&]() {
+                std::unique_lock<std::mutex> lock(displayMutex);
+                frameSubmissionCompleted = true;
                 displayCv.notify_one();
             };
 
@@ -272,6 +275,7 @@ namespace Conformance
                 XrFrameState frameState{XR_TYPE_FRAME_STATE};
                 appThreadResult = xrWaitFrame(compositionHelper.GetSession(), nullptr, &frameState);
                 if (appThreadResult != XR_SUCCESS) {
+                    signalNoMoreFrames();
                     DETACH_THREAD;
                     return;
                 }
@@ -292,6 +296,8 @@ namespace Conformance
                     Stopwatch waitTimer(true);
                     appThreadResult = xrWaitFrame(compositionHelper.GetSession(), nullptr, &frameState);
                     if (appThreadResult != XR_SUCCESS) {
+                        signalNoMoreFrames();
+
                         DETACH_THREAD;
                         return;
                     }
@@ -309,22 +315,18 @@ namespace Conformance
             }
 
             // Signal that no more frames are coming and wait for the render thread to exit.
-            {
-                std::unique_lock<std::mutex> lock(displayMutex);
-                frameSubmissionCompleted = true;
-                displayCv.notify_one();
-            }
+            signalNoMoreFrames();
             DETACH_THREAD;
         });
 
-        while (true) {
+        while (appThreadResult == XR_SUCCESS) {
             // Dequeue a frame to render.
             XrFrameState frameState;
             {
                 std::unique_lock<std::mutex> lock(displayMutex);
                 displayCv.wait(lock, [&] { return !queuedFramesForRender.empty() || frameSubmissionCompleted; });
                 if (queuedFramesForRender.empty()) {
-                    assert(frameSubmissionCompleted);
+                    REQUIRE(frameSubmissionCompleted);
                     break;
                 }
                 frameState = queuedFramesForRender.front();

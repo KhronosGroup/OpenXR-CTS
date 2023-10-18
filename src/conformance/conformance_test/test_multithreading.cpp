@@ -724,7 +724,7 @@ namespace Conformance
                 SleepMs(5);
 
                 XrSwapchainImageWaitInfo waitInfo{XR_TYPE_SWAPCHAIN_IMAGE_WAIT_INFO};
-                waitInfo.timeout = 10000000;  // 10ms
+                waitInfo.timeout = XR_INFINITE_DURATION;
                 XRC_CHECK_THROW_XRCMD(xrWaitSwapchainImage(swapchain, &waitInfo));
                 SleepMs(5);
 
