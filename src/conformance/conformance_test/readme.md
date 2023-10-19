@@ -164,6 +164,26 @@ however, this does not allow you to specify arguments with spaces and does not
 allow you to set the output filename. A property set this way persists until the
 device restarts.
 
+Interactive self-tests
+----------------------
+
+Some interactive tests are primarily a test of mechanisms within the CTS, rather
+than runtime functionality. These are labeled with the tag `[self_test]` rather
+than `[scenario]`, `[actions]`, or `[composition]`. While it is good to run
+these, and doing so may help troubleshoot failures with tests that build on,
+submission of a CTS results package. Currently, the only self-tests are for the
+PBR/glTF rendering subsystem. They synchronously load very large, artificial
+test assets, originally from the "glTF-Sample-Models" repository, to test
+specific details of the renderer.
+
+To run the self-tests, commands similar to the following can be used:
+
+        conformance_cli "[self_test][interactive]" -G d3d11 --reporter ctsxml::out=interactive_self_test_d3d11.xml
+        conformance_cli "[self_test][interactive]" -G d3d12 --reporter ctsxml::out=interactive_self_test_d3d12.xml
+        conformance_cli "[self_test][interactive]" -G vulkan --reporter ctsxml::out=interactive_self_test_vulkan.xml
+        conformance_cli "[self_test][interactive]" -G vulkan2 --reporter ctsxml::out=interactive_self_test_vulkan2.xml
+        conformance_cli "[self_test][interactive]" -G opengl --reporter ctsxml::out=interactive_self_test_opengl.xml
+
 Conformance Submission Package Requirements
 -------------------------------------------
 

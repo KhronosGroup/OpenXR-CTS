@@ -7,7 +7,7 @@
 #include "conformance_framework.h"
 
 #ifdef XR_USE_PLATFORM_ANDROID
-#include "unique_asset.h"
+#include "common/unique_asset.h"
 
 #include <android/asset_manager.h>
 #endif
@@ -321,6 +321,20 @@ namespace Conformance
             pixel.Channels.R = (uint8_t)(ToSRGB((double)pixel.Channels.R / 255.0) * 255.0);
             pixel.Channels.G = (uint8_t)(ToSRGB((double)pixel.Channels.G / 255.0) * 255.0);
             pixel.Channels.B = (uint8_t)(ToSRGB((double)pixel.Channels.B / 255.0) * 255.0);
+        }
+    }
+
+    void RGBAImage::CopyWithStride(uint8_t* data, uint32_t rowPitch, uint32_t offset) const
+    {
+        Conformance::CopyWithStride(reinterpret_cast<const uint8_t*>(pixels.data()), data + offset, width * sizeof(RGBA8Color), height,
+                                    rowPitch);
+    }
+
+    void CopyWithStride(const uint8_t* source, uint8_t* dest, uint32_t rowSize, uint32_t rows, uint32_t rowPitch)
+    {
+        for (size_t row = 0; row < rows; ++row) {
+            uint8_t* rowPtr = &dest[row * rowPitch];
+            memcpy(rowPtr, &source[row * rowSize], rowSize);
         }
     }
 

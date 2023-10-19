@@ -20,6 +20,7 @@
 #include "utilities/stringification.h"
 #include "utilities/types_and_constants.h"
 #include "utilities/utils.h"
+#include "utilities/android_declarations.h"
 
 #include <openxr/openxr.h>
 #include <openxr/openxr_reflection.h>
@@ -40,17 +41,6 @@
 #ifdef XR_USE_PLATFORM_WIN32
 #include "windows.h"
 #endif
-
-#if defined(XR_USE_PLATFORM_ANDROID)
-// For Android, we require the following functions to be implemented
-// in our library for accessing Android specific information.
-void* Conformance_Android_Get_Application_VM();
-void* Conformance_Android_Get_Application_Context();
-void* Conformance_Android_Get_Application_Activity();
-void* Conformance_Android_Get_Asset_Manager();
-void Conformance_Android_Attach_Current_Thread();
-void Conformance_Android_Detach_Current_Thread();
-#endif  // defined(XR_USE_PLATFORM_ANDROID)
 
 /**
  * @defgroup cts_framework OpenXR CTS framework

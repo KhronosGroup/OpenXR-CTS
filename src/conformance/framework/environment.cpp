@@ -20,7 +20,7 @@
 
 #include <Windows.h>
 
-#include "catch2/catch_test_macros.hpp"
+#include <catch2/catch_test_macros.hpp>
 
 #endif
 
@@ -80,7 +80,7 @@ namespace Conformance
             return {};
         }
 
-        // MultiByteToWideChar returns number of chars of the input buffer, regardless of null terminitor
+        // MultiByteToWideChar returns number of chars of the input buffer, regardless of null terminator
         wideText.resize(wideLength, 0);
         wchar_t* wideString = const_cast<wchar_t*>(wideText.data());  // mutable data() only exists in c++17
         const int length = ::MultiByteToWideChar(CP_UTF8, 0, utf8Text.data(), (int)utf8Text.size(), wideString, wideLength);
@@ -105,7 +105,7 @@ namespace Conformance
             return {};
         }
 
-        // WideCharToMultiByte returns number of chars of the input buffer, regardless of null terminitor
+        // WideCharToMultiByte returns number of chars of the input buffer, regardless of null terminator
         narrowText.resize(narrowLength, 0);
         char* narrowString = const_cast<char*>(narrowText.data());  // mutable data() only exists in c++17
         const int length =

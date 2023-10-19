@@ -14,7 +14,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "openxr/openxr_platform_defines.h"
+#include <openxr/openxr_platform_defines.h>
 #define CATCH_CONFIG_NOSTDOUT
 
 #include "conformance_framework.h"
@@ -37,7 +37,7 @@
 #include <catch2/reporters/catch_reporter_event_listener.hpp>
 #include <catch2/reporters/catch_reporter_registrars.hpp>
 
-#include "xr_dependencies.h"
+#include "common/xr_dependencies.h"
 #include <openxr/openxr_platform.h>
 
 #include <cstddef>
@@ -194,12 +194,14 @@ namespace
                 INFO(testCase.testName);
                 INFO(testTags);
 
-                // readme.md instructions use [interactive] with [actions], [composition], and [scenario]
+                // readme.md instructions use [interactive] with [actions], [composition], and [scenario].
+                // (self_test are not required for submission.)
                 // Let's ensure that these cover all of the possible test cases.
-                const std::array<std::string, 3> interactiveTestTypes = {
+                const std::array<std::string, 4> interactiveTestTypes = {
                     "[actions]",
                     "[composition]",
                     "[scenario]",
+                    "[self_test]",
                 };
                 if (testTags.find("[interactive]") != std::string::npos) {
                     {

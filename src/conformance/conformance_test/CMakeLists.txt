@@ -18,7 +18,18 @@
 file(GLOB LOCAL_HEADERS "*.h")
 file(GLOB LOCAL_SOURCE "*.cpp")
 file(GLOB ASSETS "composition_examples/*.png"
-                 "SourceCodePro-Regular.otf")
+                 "SourceCodePro-Regular.otf"
+                 "gltf_examples/*.glb"
+                 "gltf_examples/*.png"
+                 "pbr_assets/*.png"
+                 "d3d_shaders/*.hlsl")
+file(GLOB VULKAN_SHADERS "vulkan_shaders/*.glsl")
+
+# Check to see if git-lfs is working right
+file(STRINGS gltf_examples/VertexColorTest.glb LFS_CHECK_STRINGS)
+if(LFS_CHECK_STRINGS MATCHES "https://git-lfs[.]github[.]com/spec/v1")
+    message(FATAL_ERROR "Found a git-lfs pointer file instead of the binary file that should replace it. Please install git-lfs, run 'git lfs install', and 'git lfs checkout'")
+endif()
 
 # For including compiled shaders
 include_directories(${CMAKE_CURRENT_BINARY_DIR})

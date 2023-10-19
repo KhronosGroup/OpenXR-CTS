@@ -4,8 +4,8 @@
 
 #pragma once
 
-#include "openxr/openxr.h"
-#include "nonstd/span.hpp"
+#include <openxr/openxr.h>
+#include <nonstd/span.hpp>
 
 namespace Catch
 {

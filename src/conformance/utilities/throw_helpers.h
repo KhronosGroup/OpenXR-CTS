@@ -68,30 +68,26 @@ namespace Conformance
 
 #define XRC_THROW(msg) ::Conformance::Throw(msg, nullptr, XRC_FILE_AND_LINE);
 
-#define XRC_CHECK_THROW(exp)                                \
-    {                                                       \
-        if (!(exp)) {                                       \
-            Throw("Check failed", #exp, XRC_FILE_AND_LINE); \
-        }                                                   \
+#define XRC_CHECK_THROW(exp)                                               \
+    {                                                                      \
+        if (!(exp)) {                                                      \
+            ::Conformance::Throw("Check failed", #exp, XRC_FILE_AND_LINE); \
+        }                                                                  \
     }
 
-#define XRC_CHECK_THROW_MSG(exp, msg)            \
-    {                                            \
-        if (!(exp)) {                            \
-            Throw(msg, #exp, XRC_FILE_AND_LINE); \
-        }                                        \
+#define XRC_CHECK_THROW_MSG(exp, msg)                           \
+    {                                                           \
+        if (!(exp)) {                                           \
+            ::Conformance::Throw(msg, #exp, XRC_FILE_AND_LINE); \
+        }                                                       \
     }
 
-    [[noreturn]] inline void ThrowXrResult(XrResult res, const char* originator = nullptr,
-                                           const char* sourceLocation = nullptr) noexcept(false)
-    {
-        Throw(StringSprintf("XrResult failure [%s]", ResultToString(res)), originator, sourceLocation);
-    }
+    [[noreturn]] void ThrowXrResult(XrResult res, const char* originator = nullptr, const char* sourceLocation = nullptr) noexcept(false);
 
     inline XrResult CheckThrowXrResult(XrResult res, const char* originator = nullptr, const char* sourceLocation = nullptr) noexcept(false)
     {
         if (XR_FAILED(res)) {
-            ThrowXrResult(res, originator, sourceLocation);
+            ::Conformance::ThrowXrResult(res, originator, sourceLocation);
         }
 
         return res;
@@ -101,20 +97,14 @@ namespace Conformance
                                                          const char* sourceLocation = nullptr) noexcept(false)
     {
         if (!XR_UNQUALIFIED_SUCCESS(res)) {
-            ThrowXrResult(res, originator, sourceLocation);
+            ::Conformance::ThrowXrResult(res, originator, sourceLocation);
         }
 
         return res;
     }
 
-    inline XrResult CheckThrowXrResultSuccessOrLimitReached(XrResult res, const char* originator = nullptr,
-                                                            const char* sourceLocation = nullptr) noexcept(false)
-    {
-        if (XR_FAILED(res) && res != XR_ERROR_LIMIT_REACHED) {
-            Throw(StringSprintf("XrResult failure (and not XR_ERROR_LIMIT_REACHED) [%s]", ResultToString(res)), originator, sourceLocation);
-        }
-        return res;
-    }
+    XrResult CheckThrowXrResultSuccessOrLimitReached(XrResult res, const char* originator = nullptr,
+                                                     const char* sourceLocation = nullptr) noexcept(false);
 
 #define XRC_THROW_XRRESULT(xr, cmd) ::Conformance::ThrowXrResult(xr, #cmd, XRC_FILE_AND_LINE);
 #define XRC_CHECK_THROW_XRCMD(cmd) ::Conformance::CheckThrowXrResult(cmd, #cmd, XRC_FILE_AND_LINE);

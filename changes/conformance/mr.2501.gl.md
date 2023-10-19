@@ -1,0 +1,6 @@
+---
+- issue.1726.gl
+- mr.2758.gl
+---
+- Improvement: Add PBR rendering subsystem for loading and rendering of glTF assets.
+- New test: Interactive (rendering) test of `XR_MSFT_controller_model` as an initial usage of the glTF/PBR rendering.

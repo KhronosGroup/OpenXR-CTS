@@ -15,42 +15,62 @@
 // limitations under the License.
 
 #ifdef XR_USE_GRAPHICS_API_VULKAN
-
 #include "RGBAImage.h"
-#include "common/hex_and_handles.h"
-#include "common/xr_linear.h"
+#include "conformance_utils.h"
+#include "gltf.h"
 #include "graphics_plugin.h"
 #include "graphics_plugin_impl_helpers.h"
+#include "graphics_plugin_vulkan_gltf.h"
 #include "report.h"
 #include "swapchain_image_data.h"
+
+#include "common/hex_and_handles.h"
+#include "common/vulkan_debug_object_namer.hpp"
+#include "common/xr_dependencies.h"
+#include "common/xr_linear.h"
+#include "pbr/PbrCommon.h"
+#include "pbr/Vulkan/VkCommon.h"
+#include "pbr/Vulkan/VkResources.h"
+#include "pbr/Vulkan/VkTexture.h"
 #include "utilities/Geometry.h"
 #include "utilities/swapchain_format_data.h"
 #include "utilities/swapchain_parameters.h"
 #include "utilities/throw_helpers.h"
+#include "utilities/utils.h"
 #include "utilities/vulkan_utils.h"
-#include "xr_dependencies.h"
 
-#include <openxr/openxr.h>
-#include <openxr/openxr_platform.h>
 #include <catch2/catch_message.hpp>
 #include <catch2/catch_test_macros.hpp>
+#include <nonstd/span.hpp>
+#include <nonstd/type.hpp>
+#include <openxr/openxr.h>
+#include <openxr/openxr_platform.h>
+#include <vulkan/vk_platform.h>
+#include <vulkan/vulkan_core.h>
 
 #include <algorithm>
 #include <array>
+#include <assert.h>
 #include <cstdint>
 #include <iterator>
 #include <map>
 #include <memory>
+#include <stddef.h>
 #include <stdexcept>
+#include <string.h>
 #include <string>
 #include <tuple>
-#include <type_traits>
 #include <utility>
 #include <vector>
 
 #ifdef USE_CHECKPOINTS
 #include <unordered_set>
 #endif
+
+namespace Pbr
+{
+    class Model;
+}  // namespace Pbr
 
 namespace Conformance
 {
@@ -113,9 +133,8 @@ namespace Conformance
         {
             m_renderTarget.resize(capacity);
             m_rp.Create(namer, device, colorFormat, depthFormat, sampleCount);
-            m_pipe.Dynamic(VK_DYNAMIC_STATE_SCISSOR);
-            m_pipe.Dynamic(VK_DYNAMIC_STATE_VIEWPORT);
-            m_pipe.Create(device, size, layout, m_rp, sp, bindDesc, attrDesc);
+            VkDynamicState dynamicStates[] = {VK_DYNAMIC_STATE_SCISSOR, VK_DYNAMIC_STATE_VIEWPORT};
+            m_pipe.Create(device, size, layout, m_rp, sp, bindDesc, attrDesc, dynamicStates);
         }
 
         void Reset()
@@ -126,6 +145,7 @@ namespace Conformance
         }
     };
 
+    /// Vulkan data used per swapchain. One per XrSwapchain handle.
     class VulkanSwapchainImageData : public SwapchainImageDataBase<XrSwapchainImageVulkanKHR>
     {
         void init(uint32_t capacity, VkFormat colorFormat, const PipelineLayout& layout, const ShaderProgram& sp,
@@ -508,8 +528,8 @@ namespace Conformance
             std::vector<VkVertexInputAttributeDescription> attrDesc(std::begin(c_attrDesc), std::end(c_attrDesc));
             m_DrawBuffer.Init(device, memAllocator, attrDesc);
             m_DrawBuffer.Create(idx_count, vtx_count);
-            m_DrawBuffer.UpdateIndices(idx_data, idx_count, 0);
-            m_DrawBuffer.UpdateVertices(vtx_data, vtx_count, 0);
+            m_DrawBuffer.UpdateIndices(nonstd::span<const uint16_t>(idx_data, idx_count), 0);
+            m_DrawBuffer.UpdateVertices(nonstd::span<const Geometry::Vertex>(vtx_data, vtx_count), 0);
         }
 
         VulkanMesh(VulkanMesh&& other) noexcept
@@ -633,6 +653,10 @@ namespace Conformance
 
         MeshHandle MakeSimpleMesh(span<const uint16_t> idx, span<const Geometry::Vertex> vtx) override;
 
+        GLTFHandle LoadGLTF(span<const uint8_t> data) override;
+
+        std::shared_ptr<Pbr::Model> GetModel(GLTFHandle handle) const override;
+
         void RenderView(const XrCompositionLayerProjectionView& layerView, const XrSwapchainImageBaseHeader* colorSwapchainImage,
                         const RenderParams& params) override;
 
@@ -686,6 +710,8 @@ namespace Conformance
         PipelineLayout m_pipelineLayout{};
         MeshHandle m_cubeMesh{};
         VectorWithGenerationCountedHandles<VulkanMesh, MeshHandle> m_meshes;
+        VectorWithGenerationCountedHandles<VulkanGLTF, GLTFHandle> m_gltfs;
+        std::unique_ptr<Pbr::VulkanResources> m_pbrResources;
 
 #if defined(USE_MIRROR_WINDOW)
         Swapchain m_swapchain{};
@@ -824,11 +850,12 @@ namespace Conformance
                                              VkPhysicalDevice* vulkanPhysicalDevice) override;
         XrResult CreateVulkanDeviceKHR(XrInstance instance, const XrVulkanDeviceCreateInfoKHR* createInfo, VkDevice* vulkanDevice,
                                        VkResult* vulkanResult) override;
+
+        // do not override ShutdownDevice or Shutdown here!
     };
 
     VulkanGraphicsPlugin::VulkanGraphicsPlugin(const std::shared_ptr<IPlatformPlugin>& /*unused*/)
     {
-        m_graphicsBinding.type = GetGraphicsBindingType();
     }
 
     VulkanGraphicsPlugin::~VulkanGraphicsPlugin()
@@ -999,6 +1026,7 @@ namespace Conformance
         if (initialized) {
             return false;
         }
+        m_graphicsBinding.type = GetGraphicsBindingType();
 
         // To do.
         initialized = true;
@@ -1272,10 +1300,10 @@ namespace Conformance
         auto fragmentSPIRV = CompileGlslShader("fragment", shaderc_glsl_default_fragment_shader, FragmentShaderGlsl);
 #else
         std::vector<uint32_t> vertexSPIRV = SPV_PREFIX
-#include "vert.spv"
+#include "vert.spv"  // IWYU pragma: keep
             SPV_SUFFIX;
         std::vector<uint32_t> fragmentSPIRV = SPV_PREFIX
-#include "frag.spv"
+#include "frag.spv"  // IWYU pragma: keep
             SPV_SUFFIX;
 #endif
         if (vertexSPIRV.empty())
@@ -1300,6 +1328,19 @@ namespace Conformance
         static_assert(sizeof(Geometry::Vertex) == 24, "Unexpected Vertex size");
 
         m_cubeMesh = MakeCubeMesh();
+
+        m_pbrResources = std::make_unique<Pbr::VulkanResources>(m_namer, m_vkPhysicalDevice, m_vkDevice, m_queueFamilyIndex);
+        m_pbrResources->SetLight({0.0f, 0.7071067811865475f, 0.7071067811865475f}, Pbr::RGB::White);
+
+        auto blackCubeMap = std::make_shared<Pbr::VulkanTextureBundle>(
+            Pbr::VulkanTexture::CreateFlatCubeTexture(*m_pbrResources, Pbr::RGBA::Black, VK_FORMAT_R8G8B8A8_UNORM));
+        m_pbrResources->SetEnvironmentMap(blackCubeMap, blackCubeMap);
+
+        // Read the BRDF Lookup Table used by the PBR system into a DirectX texture.
+        std::vector<unsigned char> brdfLutFileData = ReadFileBytes("brdf_lut.png");
+        auto brdLutResourceView = std::make_shared<Pbr::VulkanTextureBundle>(
+            Pbr::VulkanTexture::LoadTextureImage(*m_pbrResources, brdfLutFileData.data(), (uint32_t)brdfLutFileData.size()));
+        m_pbrResources->SetBrdfLut(brdLutResourceView);
 
 #if defined(USE_MIRROR_WINDOW)
         m_swapchain.Create(m_vkInstance, m_vkPhysicalDevice, m_vkDevice, m_graphicsBinding.queueFamilyIndex);
@@ -1327,9 +1368,12 @@ namespace Conformance
             // Reset the swapchains to avoid calling Vulkan functions in the dtors after
             // we've shut down the device.
 
+            m_pbrResources.reset();
+
             m_swapchainImageDataMap.Reset();
             m_cubeMesh = {};
             m_meshes.clear();
+            m_gltfs.clear();
 
             m_queueFamilyIndex = 0;
             m_vkQueue = VK_NULL_HANDLE;
@@ -1718,12 +1762,7 @@ namespace Conformance
 
         uint8_t* data{nullptr};
         XRC_CHECK_THROW_VKCMD(vkMapMemory(m_vkDevice, stagingMemory, layout.offset, layout.size, 0, (void**)&data));
-        const size_t rowSize = w * sizeof(RGBA8Color);
-        for (size_t row = 0; row < h; ++row) {
-            uint8_t* rowPtr = &data[layout.offset + row * layout.rowPitch];
-            // Note pixels is a vector<RGBA8Color>
-            memcpy(rowPtr, &image.pixels[row * w], rowSize);
-        }
+        image.CopyWithStride(data, static_cast<uint32_t>(layout.rowPitch), static_cast<uint32_t>(layout.offset));
         vkUnmapMemory(m_vkDevice, stagingMemory);
 
         m_cmdBuffer.Clear();
@@ -1911,6 +1950,17 @@ namespace Conformance
         return handle;
     }
 
+    inline GLTFHandle VulkanGraphicsPlugin::LoadGLTF(span<const uint8_t> data)
+    {
+        auto handle = m_gltfs.emplace_back(*m_pbrResources, Conformance::LoadGLTF(data));
+        return handle;
+    }
+
+    inline std::shared_ptr<Pbr::Model> VulkanGraphicsPlugin::GetModel(GLTFHandle handle) const
+    {
+        return m_gltfs[handle].GetModel();
+    }
+
     void VulkanGraphicsPlugin::RenderView(const XrCompositionLayerProjectionView& layerView,
                                           const XrSwapchainImageBaseHeader* colorSwapchainImage, const RenderParams& params)
     {
@@ -1968,12 +2018,12 @@ namespace Conformance
                 // We are now rendering a new mesh
 
                 // Bind index and vertex buffers
-                vkCmdBindIndexBuffer(m_cmdBuffer.buf, vkMesh.m_DrawBuffer.idxBuf, 0, VK_INDEX_TYPE_UINT16);
+                vkCmdBindIndexBuffer(m_cmdBuffer.buf, vkMesh.m_DrawBuffer.idx.buf, 0, VK_INDEX_TYPE_UINT16);
 
                 CHECKPOINT();
 
                 VkDeviceSize offset = 0;
-                vkCmdBindVertexBuffers(m_cmdBuffer.buf, 0, 1, &vkMesh.m_DrawBuffer.vtxBuf, &offset);
+                vkCmdBindVertexBuffers(m_cmdBuffer.buf, 0, 1, &vkMesh.m_DrawBuffer.vtx.buf, &offset);
 
                 CHECKPOINT();
                 lastMeshHandle = mesh.handle;
@@ -2005,14 +2055,37 @@ namespace Conformance
             drawMesh(mesh);
         }
 
+        // Render each gltf
+        for (const auto& gltfHandle : params.glTFs) {
+            VulkanGLTF& gltf = m_gltfs[gltfHandle.handle];
+            // Compute and update the model transform.
+
+            XrMatrix4x4f modelToWorld;
+            XrMatrix4x4f_CreateTranslationRotationScale(&modelToWorld, &gltfHandle.params.pose.position,
+                                                        &gltfHandle.params.pose.orientation, &gltfHandle.params.scale);
+            // XrMatrix4x4f viewMatrix;
+            // XrVector3f unitScale = {1, 1, 1};
+            // XrMatrix4x4f_CreateTranslationRotationScale(&viewMatrix, &layerView.pose.position, &layerView.pose.orientation, &unitScale);
+            // XrMatrix4x4f viewMatrixInverse;
+            // XrMatrix4x4f_Invert(&viewMatrixInverse, &viewMatrix);
+            m_pbrResources->SetViewProjection(view, proj);
+
+            gltf.Render(m_cmdBuffer, *m_pbrResources, modelToWorld, renderPassBeginInfo.renderPass,
+                        (VkSampleCountFlagBits)swapchainData->GetCreateInfo().sampleCount);
+        }
+
         vkCmdEndRenderPass(m_cmdBuffer.buf);
 
         CHECKPOINT();
+
+        m_pbrResources->SubmitFrameResources(m_vkQueue);
 
         m_cmdBuffer.End();
         m_cmdBuffer.Exec(m_vkQueue);
         // XXX Should double-buffer the command buffers, for now just flush
         m_cmdBuffer.Wait();
+
+        m_pbrResources->Wait();
 
 #if defined(USE_MIRROR_WINDOW)
         // Cycle the window's swapchain on the last view rendered

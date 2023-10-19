@@ -19,7 +19,7 @@
 #include "conformance_utils.h"
 #include "graphics_plugin.h"
 #include "matchers.h"
-#include "xr_dependencies.h"
+#include "common/xr_dependencies.h"
 
 #include <catch2/catch_test_macros.hpp>
 

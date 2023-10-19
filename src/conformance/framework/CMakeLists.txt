@@ -2,6 +2,41 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+# tinygltf
+
+add_library(conformance_framework_tinygltf STATIC gltf.cpp)
+
+target_include_directories(
+  conformance_framework_tinygltf
+  # stb
+  PRIVATE ${PROJECT_SOURCE_DIR}/src/external/stb
+          # tinygltf impl needs bundled json.hpp
+          ${PROJECT_SOURCE_DIR}/src/external/tinygltf
+  # tinygltf itself
+  PUBLIC ${PROJECT_SOURCE_DIR}/src/external)
+
+target_compile_definitions(
+  conformance_framework_tinygltf
+  PUBLIC TINYGLTF_USE_CPP14 TINYGLTF_NO_STB_IMAGE_WRITE
+  # TODO once we have rapidjson to avoid stack overflow
+  # RAPIDJSON_PARSE_DEFAULT_FLAGS=kParseIterativeFlag TINYGLTF_USE_RAPIDJSON
+  # TINYGLTF_USE_RAPIDJSON_CRTALLOCATOR
+)
+
+if(SUPPORTS_Werrorunusedparameter)
+  target_compile_options(conformance_framework_tinygltf
+                         PRIVATE -Wno-unused-parameter)
+endif()
+set_target_properties(conformance_framework_tinygltf
+                      PROPERTIES FOLDER ${CONFORMANCE_TESTS_FOLDER})
+
+
+# PBR subsystem and glTF handling
+add_subdirectory(pbr)
+add_subdirectory(gltf)
+
+# Main conformance framework
+
 set(VULKAN_SHADERS ${CMAKE_CURRENT_SOURCE_DIR}/vulkan_shaders/frag.glsl
                    ${CMAKE_CURRENT_SOURCE_DIR}/vulkan_shaders/vert.glsl)
 
@@ -16,13 +51,18 @@ add_library(
   composition_utils.cpp
   conformance_framework.cpp
   conformance_utils.cpp
+  controller_animation_handler.cpp
   environment.cpp
   graphics_plugin_d3d11.cpp
+  graphics_plugin_d3d11_gltf.cpp
   graphics_plugin_d3d12.cpp
+  graphics_plugin_d3d12_gltf.cpp
   graphics_plugin_factory.cpp
   graphics_plugin_opengl.cpp
+  graphics_plugin_opengl_gltf.cpp
   graphics_plugin_opengles.cpp
   graphics_plugin_vulkan.cpp
+  graphics_plugin_vulkan_gltf.cpp
   input_testinputdevice.cpp
   mesh_projection_layer.cpp
   platform_plugin_android.cpp
@@ -37,7 +77,12 @@ add_library(
 
 target_link_libraries(
   conformance_framework PUBLIC conformance_utilities OpenXR::openxr_loader
-                               Threads::Threads Catch2)
+                               Threads::Threads Catch2 conformance_framework_gltf
+                               conformance_framework_tinygltf)
+
+if(GLSLANG_VALIDATOR AND NOT GLSL_COMPILER)
+  target_compile_definitions(conformance_framework PUBLIC USE_GLSLANGVALIDATOR)
+endif()
 
 target_include_directories(
   conformance_framework

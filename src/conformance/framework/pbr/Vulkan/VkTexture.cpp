@@ -1,0 +1,315 @@
+// Copyright 2023, The Khronos Group, Inc.
+//
+// Based in part on code that is:
+//
+// Copyright (C) Microsoft Corporation.  All Rights Reserved
+// Licensed under the MIT License. See License.txt in the project root for license information.
+//
+// SPDX-License-Identifier: MIT AND Apache-2.0
+
+#include "VkTexture.h"
+
+#include "VkCommon.h"
+#include "VkResources.h"
+#include "stb_image.h"
+
+#include "../PbrCommon.h"
+
+#include "common/vulkan_debug_object_namer.hpp"
+#include "utilities/throw_helpers.h"
+#include "utilities/vulkan_scoped_handle.h"
+#include "utilities/vulkan_utils.h"
+
+#include <assert.h>
+#include <cstdint>
+#include <memory>
+#include <stdexcept>
+#include <stdlib.h>
+
+namespace Pbr
+{
+    namespace VulkanTexture
+    {
+        std::array<uint8_t, 4> LoadRGBAUI4(RGBAColor color)
+        {
+            return std::array<uint8_t, 4>{(uint8_t)(color.r * 255.), (uint8_t)(color.g * 255.), (uint8_t)(color.b * 255.),
+                                          (uint8_t)(color.a * 255.)};
+        }
+
+        VulkanTextureBundle LoadTextureImage(Pbr::VulkanResources& pbrResources, const uint8_t* fileData, uint32_t fileSize)
+        {
+            auto freeImageData = [](unsigned char* ptr) { ::free(ptr); };
+            using stbi_unique_ptr = std::unique_ptr<unsigned char, decltype(freeImageData)>;
+
+            constexpr uint32_t DesiredComponentCount = 4;
+
+            int w, h, c;
+            // If c == 3, a component will be padded with 1.0f
+            stbi_unique_ptr rgbaData(stbi_load_from_memory(fileData, fileSize, &w, &h, &c, DesiredComponentCount), freeImageData);
+            if (!rgbaData) {
+                throw std::runtime_error("Failed to load image file data.");
+            }
+
+            return CreateTexture(pbrResources, rgbaData.get(), DesiredComponentCount, w, h, VK_FORMAT_R8G8B8A8_UNORM);
+        }
+
+        /// Creates a texture and fills all array members with the data in rgba
+        VulkanTextureBundle CreateTextureArrayRepeat(VulkanResources& pbrResources, const VulkanDebugObjectNamer& namer, const char* name,
+                                                     const uint8_t* rgba, uint32_t elemSize, uint32_t width, uint32_t height, bool cubemap,
+                                                     VkFormat format)
+        {
+            // Microsoft::WRL::ComPtr<IVulkanDevice> device = pbrResources.GetDevice();
+
+            // Microsoft::WRL::ComPtr<IVulkanGraphicsCommandList> cmdList = pbrResources.CreateCopyCommandList();
+
+            // std::vector<Microsoft::WRL::ComPtr<IVulkanResource>> imageUploadBuffers;
+            // Microsoft::WRL::ComPtr<IVulkanResource> image =
+            //     Conformance::VulkanCreateImage(device.get(), width, height, arraySize, format, Vulkan_HEAP_TYPE_DEFAULT);
+
+            // Vulkan_RESOURCE_DESC imageDesc = image->GetDesc();
+            // assert(imageDesc.DepthOrArraySize == arraySize);
+            // imageUploadBuffers.reserve(arraySize);
+            // // TODO: maybe call GetCopyableFootprints only once, as all out fields accept arrays
+            // // TODO: put the upload buffer in a staging resources vector and make async
+            // for (int arrayIndex = 0; arrayIndex < arraySize; arrayIndex++) {
+            //     UINT subresourceIndex = VulkanCalcSubresource(0, arrayIndex, 0, imageDesc.MipLevels, arraySize);
+
+            //     Vulkan_PLACED_SUBRESOURCE_FOOTPRINT footprint;
+            //     UINT rowCount;
+            //     UINT64 rowSize;
+            //     UINT64 uploadBufferSize;
+            //     device->GetCopyableFootprints(&imageDesc, subresourceIndex, 1, 0, &footprint, &rowCount, &rowSize, &uploadBufferSize);
+
+            //     assert(
+            //         rowCount ==
+            //         height);  // doesn't hold for compressed textures, see: https://www.gamedev.net/forums/topic/677932-getcopyablefootprints-question/
+            //     assert(rowSize == width * elemSize);  // assert this for now, probably doesn't hold for e.g. compressed textures
+
+            //     Microsoft::WRL::ComPtr<IVulkanResource> imageUpload =
+            //         Conformance::VulkanCreateBuffer(device.get(), (uint32_t)uploadBufferSize, Vulkan_HEAP_TYPE_UPLOAD);
+            //     imageUploadBuffers.push_back(imageUpload);
+
+            //     Vulkan_SUBRESOURCE_DATA initData{};
+            //     initData.pData = rgba;
+            //     initData.RowPitch = elemSize * width;
+            //     initData.SlicePitch = elemSize * width * height;
+
+            //     // this does a row-by-row memcpy internally or we would have used our own CopyWithStride
+            //     Internal::ThrowIf(!UpdateSubresources(cmdList.get(), image.get(), imageUpload.get(), 0, 1, uploadBufferSize, &footprint,
+            //                                           &rowCount, &rowSize, &initData),
+            //                       "Call to UpdateSubresources helper failed");
+            // }
+
+            // XRC_CHECK_THROW_HRCMD(cmdList->Close());
+            // pbrResources.ExecuteCopyCommandList(cmdList.get(), std::move(imageUploadBuffers));
+
+            // return image;
+
+            VkDevice device = pbrResources.GetDevice();
+            const Conformance::MemoryAllocator& memAllocator = pbrResources.GetMemoryAllocator();
+            const Conformance::CmdBuffer& copyCmdBuffer = pbrResources.GetCopyCommandBuffer();
+
+            VulkanTextureBundle bundle{};
+
+            uint32_t layerCount = cubemap ? 6 : 1;
+
+            bundle.width = width;
+            bundle.height = height;
+            bundle.mipLevels = 1;
+            bundle.layerCount = layerCount;
+
+            // Create a staging buffer
+            VkBufferCreateInfo bufferCreateInfo{VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO};
+            bufferCreateInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+            bufferCreateInfo.size = width * height * elemSize;
+
+            Conformance::BufferAndMemory stagingBuffer;
+            stagingBuffer.Create(device, memAllocator, bufferCreateInfo);
+            stagingBuffer.Update<uint8_t>(device, {rgba, width * height * elemSize}, 0);
+
+            // create image
+            VkImage image{VK_NULL_HANDLE};
+            VkImageCreateInfo imageInfo{VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO};
+            imageInfo.flags = cubemap ? VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT : 0;
+            imageInfo.imageType = VK_IMAGE_TYPE_2D;
+            imageInfo.extent.width = width;
+            imageInfo.extent.height = height;
+            imageInfo.extent.depth = 1;
+            imageInfo.mipLevels = 1;
+            imageInfo.arrayLayers = layerCount;
+            imageInfo.format = format;
+            imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
+            imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+            imageInfo.usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+            imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+            imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+            XRC_CHECK_THROW_VKCMD(vkCreateImage(device, &imageInfo, nullptr, &image));
+            XRC_CHECK_THROW_VKCMD(namer.SetName(VK_OBJECT_TYPE_IMAGE, (uint64_t)image, name));
+
+            bundle.image = Conformance::ScopedVkImage(image, device);
+
+            VkDeviceMemory imageMemory;
+            VkMemoryRequirements memRequirements{};
+            vkGetImageMemoryRequirements(device, bundle.image.get(), &memRequirements);
+            memAllocator.Allocate(memRequirements, &imageMemory, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+            XRC_CHECK_THROW_VKCMD(namer.SetName(VK_OBJECT_TYPE_DEVICE_MEMORY, (uint64_t)imageMemory, name));
+            XRC_CHECK_THROW_VKCMD(vkBindImageMemory(device, bundle.image.get(), imageMemory, 0));
+
+            bundle.deviceMemory = Conformance::ScopedVkDeviceMemory(imageMemory, device);
+
+            // // Switch the source buffer to TRANSFER_DST_OPTIMAL
+            // VkBufferMemoryBarrier bufferBarrier{VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER};
+            // // VkAccessFlags      srcAccessMask;
+            // // VkAccessFlags      dstAccessMask;
+            // // uint32_t           srcQueueFamilyIndex;
+            // // uint32_t           dstQueueFamilyIndex;
+            // // VkBuffer           buffer;
+            // // VkDeviceSize       offset;
+            // // VkDeviceSize       size;
+            // bufferBarrier.srcAccessMask = 0;
+            // bufferBarrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+            // bufferBarrier.oldLayout = VK_BUFFER_;
+            // bufferBarrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+            // bufferBarrier.= stagingBuffer.buf;
+            // bufferBarrier.subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, layerCount};
+            // vkCmdPipelineBarrier(copyCmdBuffer.buf, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0,
+            //                      nullptr, 1, &bufferBarrier);
+
+            // Switch the destination image to TRANSFER_DST_OPTIMAL
+            VkImageMemoryBarrier imgBarrier{VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
+            imgBarrier.srcAccessMask = 0;
+            imgBarrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+            imgBarrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+            imgBarrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+            imgBarrier.image = bundle.image.get();
+            imgBarrier.subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, layerCount};
+            vkCmdPipelineBarrier(copyCmdBuffer.buf, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0,
+                                 nullptr, 1, &imgBarrier);
+
+            for (uint32_t layer = 0; layer < layerCount; ++layer) {
+                VkBufferImageCopy region;
+                region.bufferOffset = 0;
+                region.bufferRowLength = 0;
+                region.bufferImageHeight = 0;
+                region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+                region.imageSubresource.mipLevel = 0;
+                region.imageSubresource.baseArrayLayer = layer;
+                region.imageSubresource.layerCount = 1;
+                region.imageOffset = {0, 0, 0};
+                region.imageExtent = {width, height, 1};
+
+                vkCmdCopyBufferToImage(copyCmdBuffer.buf, stagingBuffer.buf, bundle.image.get(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1,
+                                       &region);
+            }
+
+            // Switch the destination image to SHADER_READ_ONLY_OPTIMAL
+            imgBarrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+            imgBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+            imgBarrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+            imgBarrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+            imgBarrier.image = bundle.image.get();
+            imgBarrier.subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, layerCount};
+            vkCmdPipelineBarrier(copyCmdBuffer.buf, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr, 0,
+                                 nullptr, 1, &imgBarrier);
+
+            pbrResources.DestroyAfterRender(stagingBuffer);
+
+            return bundle;
+        }
+
+        VulkanTextureBundle CreateFlatCubeTexture(VulkanResources& pbrResources, RGBAColor color, VkFormat format)
+        {
+            // Each side is a 1x1 pixel (RGBA) image.
+            const std::array<uint8_t, 4> rgbaColor = LoadRGBAUI4(color);
+            const VulkanDebugObjectNamer& namer = pbrResources.GetDebugNamer();
+            VulkanTextureBundle textureBundle =
+                CreateTextureArrayRepeat(pbrResources, namer, "CTS PBR 2D color image", rgbaColor.data(), 4, 1, 1, true, format);
+            assert(textureBundle.image != VK_NULL_HANDLE);
+
+            VkImageViewCreateInfo viewInfo{VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO};
+            viewInfo.image = textureBundle.image.get();
+            viewInfo.viewType = VK_IMAGE_VIEW_TYPE_CUBE;
+            viewInfo.format = format;
+            viewInfo.components.r = VK_COMPONENT_SWIZZLE_R;
+            viewInfo.components.g = VK_COMPONENT_SWIZZLE_G;
+            viewInfo.components.b = VK_COMPONENT_SWIZZLE_B;
+            viewInfo.components.a = VK_COMPONENT_SWIZZLE_A;
+            viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+            viewInfo.subresourceRange.baseMipLevel = 0;
+            viewInfo.subresourceRange.levelCount = 1;
+            viewInfo.subresourceRange.baseArrayLayer = 0;
+            viewInfo.subresourceRange.layerCount = 6;
+            VkImageView view;
+            XRC_CHECK_THROW_VKCMD(vkCreateImageView(pbrResources.GetDevice(), &viewInfo, nullptr, &view));
+            XRC_CHECK_THROW_VKCMD(namer.SetName(VK_OBJECT_TYPE_IMAGE_VIEW, (uint64_t)view, "CTS PBR 2D color image view"));
+
+            textureBundle.view.adopt(view, pbrResources.GetDevice());
+
+            return textureBundle;
+        }
+
+        VulkanTextureBundle CreateTexture(VulkanResources& pbrResources, const uint8_t* rgba, int elemSize, int width, int height,
+                                          VkFormat format)
+        {
+            const VulkanDebugObjectNamer& namer = pbrResources.GetDebugNamer();
+            VulkanTextureBundle textureBundle =
+                CreateTextureArrayRepeat(pbrResources, namer, "CTS PBR 2D color image", rgba, elemSize, width, height, false, format);
+            assert(textureBundle.image != VK_NULL_HANDLE);
+
+            VkImageViewCreateInfo viewInfo{VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO};
+            viewInfo.image = textureBundle.image.get();
+            viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+            viewInfo.format = format;
+            viewInfo.components.r = VK_COMPONENT_SWIZZLE_R;
+            viewInfo.components.g = VK_COMPONENT_SWIZZLE_G;
+            viewInfo.components.b = VK_COMPONENT_SWIZZLE_B;
+            viewInfo.components.a = VK_COMPONENT_SWIZZLE_A;
+            viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+            viewInfo.subresourceRange.baseMipLevel = 0;
+            viewInfo.subresourceRange.levelCount = 1;
+            viewInfo.subresourceRange.baseArrayLayer = 0;
+            viewInfo.subresourceRange.layerCount = 1;
+            VkImageView view;
+            XRC_CHECK_THROW_VKCMD(vkCreateImageView(pbrResources.GetDevice(), &viewInfo, nullptr, &view));
+            XRC_CHECK_THROW_VKCMD(namer.SetName(VK_OBJECT_TYPE_IMAGE_VIEW, (uint64_t)view, "CTS PBR 2D color image view"));
+
+            textureBundle.view.adopt(view, pbrResources.GetDevice());
+
+            return textureBundle;
+        }
+
+        VkSamplerCreateInfo DefaultSamplerCreateInfo()
+        {
+            VkSamplerCreateInfo info{};
+
+            info.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+            info.magFilter = VK_FILTER_LINEAR;
+            info.minFilter = VK_FILTER_LINEAR;
+            info.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+            info.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+            info.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+            info.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+            info.mipLodBias = 0.0f;
+            info.anisotropyEnable = false;
+            info.maxAnisotropy = 16.0f;
+            info.compareEnable = false;
+            info.minLod = 0.0f;
+            info.maxLod = VK_LOD_CLAMP_NONE;
+            info.borderColor = VK_BORDER_COLOR_FLOAT_TRANSPARENT_BLACK;
+            info.unnormalizedCoordinates = false;
+
+            return info;
+        }
+
+        VkSampler CreateSampler(VkDevice device, VkSamplerAddressMode addressMode)
+        {
+            VkSamplerCreateInfo info = DefaultSamplerCreateInfo();
+
+            info.addressModeU = info.addressModeV = info.addressModeW = addressMode;
+
+            VkSampler destSampler;
+            XRC_CHECK_THROW_VKCMD(vkCreateSampler(device, &info, NULL, &destSampler));
+            return destSampler;
+        }
+    }  // namespace VulkanTexture
+}  // namespace Pbr

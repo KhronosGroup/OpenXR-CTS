@@ -22,7 +22,7 @@
 #include <openxr/openxr.h>
 
 // Include all dependencies of openxr_platform as configured
-#include "xr_dependencies.h"
+#include "common/xr_dependencies.h"
 #include <openxr/openxr_platform.h>
 
 #include <windows.h>

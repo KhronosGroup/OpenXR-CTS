@@ -25,12 +25,19 @@
 #include <algorithm>
 #include <mutex>
 #include <cstring>
+#include <fstream>
 #include <iterator>
 #include <stdexcept>
 #include <utility>
 
 #ifdef _WIN32
 #include <windows.h>
+#endif
+
+#ifdef XR_USE_PLATFORM_ANDROID
+#include "common/unique_asset.h"
+
+#include "utilities/android_declarations.h"
 #endif
 
 namespace Conformance
@@ -85,6 +92,44 @@ namespace Conformance
         }
 
         return str;
+    }
+
+    std::vector<uint8_t> ReadFileBytes(const char* path, const char* description)
+    {
+        auto space = (description[0] == '\0') ? "" : " ";
+        std::vector<uint8_t> data;
+#ifdef XR_USE_PLATFORM_ANDROID
+        AAssetManager* assetManager = (AAssetManager*)Conformance_Android_Get_Asset_Manager();
+        UniqueAsset asset(AAssetManager_open(assetManager, path, AASSET_MODE_BUFFER));
+
+        if (!asset) {
+            throw std::runtime_error((std::string("Unable to load ") + description + space + "asset " + path).c_str());
+        }
+
+        size_t length = AAsset_getLength(asset.get());
+        data.resize(length);
+
+        auto buf = AAsset_getBuffer(asset.get());
+
+        if (!buf) {
+            throw std::runtime_error((std::string("Unable to load ") + description + space + "asset " + path).c_str());
+        }
+
+        memcpy(data.data(), buf, data.size());
+#else
+        std::ifstream file;
+        file.open(path, std::ios::in | std::ios::binary);
+        if (!file) {
+            throw std::runtime_error((std::string("Unable to open ") + description + space + "file " + path).c_str());
+        }
+
+        file.seekg(0, std::ios::end);
+        data.resize((uint32_t)file.tellg());
+        file.seekg(0, std::ios::beg);
+
+        file.read(reinterpret_cast<char*>(data.data()), data.size());
+#endif
+        return data;
     }
 
     // Provides a managed set of random number generators. Currently the usage of these generators

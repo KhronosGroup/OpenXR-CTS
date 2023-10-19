@@ -19,7 +19,7 @@
 #ifdef XR_USE_PLATFORM_ANDROID
 
 #include "conformance_framework.h"
-#include "xr_dependencies.h"
+#include "common/xr_dependencies.h"
 
 #include <openxr/openxr.h>
 #include <openxr/openxr_platform.h>

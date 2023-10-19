@@ -270,12 +270,6 @@ Platform headers / declarations
 #define GRAPHICS_API_OPENGL 1
 #define OUTPUT_PATH ""
 
-#if !defined(__USE_GNU)
-// These prototypes are only included when __USE_GNU is defined but that causes other compile errors.
-extern int pthread_setname_np(pthread_t __target_thread, __const char *__name);
-extern int pthread_setaffinity_np(pthread_t thread, size_t cpusetsize, const cpu_set_t *cpuset);
-#endif  // !__USE_GNU
-
 #elif defined(OS_APPLE_MACOS)
 
 // Apple is still at OpenGL 4.1

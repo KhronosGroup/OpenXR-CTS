@@ -20,7 +20,7 @@
 #include "conformance_utils.h"
 #include "conformance_framework.h"
 #include "utilities/throw_helpers.h"
-#include "hex_and_handles.h"
+#include "common/hex_and_handles.h"
 
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers.hpp>

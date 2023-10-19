@@ -89,12 +89,15 @@ namespace Conformance
     /// This is a base class template, extended by each graphics plugin to add API-specific functionality.
     ///
     /// It implements the generic interface @ref ISwapchainImageData
+    ///
+    /// @tparam SwapchainImageDerivedType The per-API OpenXR structure type based on XrSwapchainImageBaseHeader
     template <typename SwapchainImageDerivedType>
     class SwapchainImageDataBase : public ISwapchainImageData
     {
-    public:
-        /// Constructor
-        /// @param derivedTypeConstant The `XrStructureType` for your specialized, API-specific swapchain image struct.
+    protected:
+        /// Constructor with no explicit depth swapchain: must call from a subclass
+        ///
+        /// @param derivedTypeConstant The `XrStructureType` for your specialized, API-specific swapchain image struct @p SwapchainImageDerivedType
         /// @param capacity The number of swapchain image structs to allocate.
         /// @param colorSwapchainCreateInfo The info used to create your color swapchain.
         SwapchainImageDataBase(XrStructureType derivedTypeConstant, uint32_t capacity,
@@ -106,8 +109,9 @@ namespace Conformance
         {
         }
 
-        /// Constructor
-        /// @param derivedTypeConstant The `XrStructureType` for your specialized, API-specific swapchain image struct.
+        /// Constructor with explicit depth swapchain: must call from a subclass
+        ///
+        /// @param derivedTypeConstant The `XrStructureType` for your specialized, API-specific swapchain image struct @p SwapchainImageDerivedType
         /// @param capacity The number of swapchain image structs to allocate.
         /// @param colorSwapchainCreateInfo The info used to create your color swapchain.
         /// @param depthSwapchain The handle to your depth swapchain: while we won't own it, we will acquire, wait, and release images on it
@@ -124,6 +128,7 @@ namespace Conformance
         {
         }
 
+    public:
         /// Get a pointer to the first color swapchain image in the array, as a base pointer,
         /// for use in passing to `xrEnumerateSwapchainImages`.
         ///

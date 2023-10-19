@@ -16,28 +16,31 @@
 
 #if defined(XR_USE_GRAPHICS_API_D3D11)
 
-#include "graphics_plugin.h"
-#include "common/xr_linear.h"
 #include "conformance_framework.h"
+#include "graphics_plugin.h"
+#include "graphics_plugin_d3d11_gltf.h"
 #include "graphics_plugin_impl_helpers.h"
 #include "swapchain_image_data.h"
+
+#include "common/xr_linear.h"
+#include "common/xr_dependencies.h"
+#include "pbr/D3D11/D3D11Resources.h"
+#include "pbr/D3D11/D3D11Texture.h"
 #include "utilities/Geometry.h"
 #include "utilities/d3d_common.h"
 #include "utilities/swapchain_parameters.h"
 #include "utilities/throw_helpers.h"
 
-#include <openxr/openxr_platform.h>
-
-#include <catch2/catch_test_macros.hpp>
-
 #include <D3Dcompiler.h>
 #include <DirectXColors.h>
+#include <catch2/catch_test_macros.hpp>
 #include <d3d11.h>
-#include <windows.h>
+#include <openxr/openxr_platform.h>
 #include <wrl/client.h>  // For Microsoft::WRL::ComPtr
 
 #include <algorithm>
 #include <array>
+#include <windows.h>
 
 using namespace Microsoft::WRL;
 using namespace DirectX;
@@ -204,6 +207,10 @@ namespace Conformance
 
         MeshHandle MakeSimpleMesh(span<const uint16_t> idx, span<const Geometry::Vertex> vtx) override;
 
+        GLTFHandle LoadGLTF(span<const uint8_t> data) override;
+
+        std::shared_ptr<Pbr::Model> GetModel(GLTFHandle handle) const override;
+
         void RenderView(const XrCompositionLayerProjectionView& layerView, const XrSwapchainImageBaseHeader* colorSwapchainImage,
                         const RenderParams& params) override;
 
@@ -218,7 +225,7 @@ namespace Conformance
         ComPtr<ID3D11Device> d3d11Device;
         ComPtr<ID3D11DeviceContext> d3d11DeviceContext;
 
-        // Resources needed for rendering cubes
+        // Resources needed for rendering cubes, meshes and glTFs
         ComPtr<ID3D11VertexShader> vertexShader;
         ComPtr<ID3D11PixelShader> pixelShader;
         ComPtr<ID3D11InputLayout> inputLayout;
@@ -227,6 +234,9 @@ namespace Conformance
 
         MeshHandle m_cubeMesh;
         VectorWithGenerationCountedHandles<D3D11Mesh, MeshHandle> m_meshes;
+        VectorWithGenerationCountedHandles<D3D11GLTF, GLTFHandle> m_gltfs;
+
+        std::unique_ptr<Pbr::D3D11Resources> pbrResources;
 
         SwapchainImageDataMap<D3D11SwapchainImageData> m_swapchainImageDataMap;
     };
@@ -238,8 +248,8 @@ namespace Conformance
 
     D3D11GraphicsPlugin::~D3D11GraphicsPlugin()
     {
-        ShutdownDevice();
-        Shutdown();
+        D3D11GraphicsPlugin::ShutdownDevice();
+        D3D11GraphicsPlugin::Shutdown();
     }
 
     bool D3D11GraphicsPlugin::Initialize()
@@ -373,6 +383,15 @@ namespace Conformance
                     d3d11Device->CreateBuffer(&viewProjectionConstantBufferDesc, nullptr, viewProjectionCBuffer.ReleaseAndGetAddressOf()));
 
                 m_cubeMesh = MakeCubeMesh();
+
+                pbrResources = std::make_unique<Pbr::D3D11Resources>(d3d11Device.Get());
+                pbrResources->SetLight({0.0f, 0.7071067811865475f, 0.7071067811865475f}, Pbr::RGB::White);
+
+                // Read the BRDF Lookup Table used by the PBR system into a DirectX texture.
+                std::vector<byte> brdfLutFileData = ReadFileBytes("brdf_lut.png");
+                Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> brdfLutResourceView =
+                    Pbr::D3D11Texture::LoadTextureImage(d3d11Device.Get(), brdfLutFileData.data(), (uint32_t)brdfLutFileData.size());
+                pbrResources->SetBrdfLut(brdfLutResourceView.Get());
             }
 
             return true;
@@ -409,6 +428,8 @@ namespace Conformance
 
         m_cubeMesh = {};
         m_meshes.clear();
+        m_gltfs.clear();
+        pbrResources.reset();
 
         d3d11DeviceContext.Reset();
         d3d11Device.Reset();
@@ -668,6 +689,17 @@ namespace Conformance
         return handle;
     }
 
+    inline GLTFHandle D3D11GraphicsPlugin::LoadGLTF(span<const uint8_t> data)
+    {
+        auto handle = m_gltfs.emplace_back(*pbrResources, Conformance::LoadGLTF(data));
+        return handle;
+    }
+
+    inline std::shared_ptr<Pbr::Model> D3D11GraphicsPlugin::GetModel(GLTFHandle handle) const
+    {
+        return m_gltfs[handle].GetModel();
+    }
+
     void D3D11GraphicsPlugin::RenderView(const XrCompositionLayerProjectionView& layerView,
                                          const XrSwapchainImageBaseHeader* colorSwapchainImage, const RenderParams& params)
     {
@@ -741,6 +773,24 @@ namespace Conformance
         // Render each mesh
         for (const auto& mesh : params.meshes) {
             drawMesh(mesh);
+        }
+
+        // Render each gltf
+        for (const auto& gltfHandle : params.glTFs) {
+            D3D11GLTF& gltf = m_gltfs[gltfHandle.handle];
+            // Compute and update the model transform.
+
+            XrMatrix4x4f modelToWorld;
+            XrMatrix4x4f_CreateTranslationRotationScale(&modelToWorld, &gltfHandle.params.pose.position,
+                                                        &gltfHandle.params.pose.orientation, &gltfHandle.params.scale);
+            XrMatrix4x4f viewMatrix;
+            XrVector3f unitScale = {1, 1, 1};
+            XrMatrix4x4f_CreateTranslationRotationScale(&viewMatrix, &layerView.pose.position, &layerView.pose.orientation, &unitScale);
+            XrMatrix4x4f viewMatrixInverse;
+            XrMatrix4x4f_Invert(&viewMatrixInverse, &viewMatrix);
+            pbrResources->SetViewProjection(LoadXrMatrix(viewMatrixInverse), LoadXrMatrix(projectionMatrix));
+
+            gltf.Render(d3d11DeviceContext, *pbrResources, modelToWorld);
         }
     }
 

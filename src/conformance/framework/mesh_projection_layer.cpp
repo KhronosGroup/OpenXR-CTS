@@ -20,7 +20,7 @@
 #include "graphics_plugin.h"
 #include "utilities/utils.h"
 
-#include "nonstd/span.hpp"
+#include <nonstd/span.hpp>
 
 #include <openxr/openxr.h>
 

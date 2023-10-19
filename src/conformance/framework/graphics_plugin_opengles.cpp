@@ -14,21 +14,25 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "graphics_plugin.h"
-
 #ifdef XR_USE_GRAPHICS_API_OPENGL_ES
 
-#include "common/gfxwrapper_opengl.h"
-#include "common/xr_linear.h"
 #include "conformance_framework.h"
+#include "graphics_plugin.h"
 #include "graphics_plugin_impl_helpers.h"
+#include "graphics_plugin_opengl_gltf.h"
 #include "report.h"
 #include "swapchain_image_data.h"
+
+#include "common/gfxwrapper_opengl.h"
+#include "common/xr_dependencies.h"
+#include "common/xr_linear.h"
+#include "pbr/OpenGL/GLCommon.h"
+#include "pbr/OpenGL/GLResources.h"
+#include "pbr/OpenGL/GLTexture.h"
 #include "utilities/Geometry.h"
 #include "utilities/swapchain_format_data.h"
 #include "utilities/swapchain_parameters.h"
 #include "utilities/throw_helpers.h"
-#include "xr_dependencies.h"
 
 #include <catch2/catch_test_macros.hpp>
 #include <openxr/openxr.h>
@@ -295,6 +299,10 @@ namespace Conformance
 
         MeshHandle MakeSimpleMesh(span<const uint16_t> idx, span<const Geometry::Vertex> vtx) override;
 
+        GLTFHandle LoadGLTF(span<const uint8_t> data) override;
+
+        std::shared_ptr<Pbr::Model> GetModel(GLTFHandle handle) const override;
+
         void RenderView(const XrCompositionLayerProjectionView& layerView, const XrSwapchainImageBaseHeader* colorSwapchainImage,
                         const RenderParams& params) override;
 
@@ -318,6 +326,8 @@ namespace Conformance
         GLint m_vertexAttribColor{0};
         MeshHandle m_cubeMesh{};
         VectorWithGenerationCountedHandles<OpenGLESMesh, MeshHandle> m_meshes;
+        VectorWithGenerationCountedHandles<GLGLTF, GLTFHandle> m_gltfs;
+        std::unique_ptr<Pbr::GLResources> m_pbrResources;
 
         SwapchainImageDataMap<OpenGLESSwapchainImageData> m_swapchainImageDataMap;
     };
@@ -554,6 +564,18 @@ namespace Conformance
         m_vertexAttribColor = glGetAttribLocation(m_program, "VertexColor");
 
         m_cubeMesh = MakeCubeMesh();
+
+        m_pbrResources = std::make_unique<Pbr::GLResources>();
+        m_pbrResources->SetLight({0.0f, 0.7071067811865475f, 0.7071067811865475f}, Pbr::RGB::White);
+
+        auto blackCubeMap = std::make_shared<Pbr::ScopedGLTexture>(Pbr::GLTexture::CreateFlatCubeTexture(Pbr::RGBA::Black, GL_RGBA8));
+        m_pbrResources->SetEnvironmentMap(blackCubeMap, blackCubeMap);
+
+        // Read the BRDF Lookup Table used by the PBR system into a DirectX texture.
+        std::vector<unsigned char> brdfLutFileData = ReadFileBytes("brdf_lut.png");
+        auto brdLutResourceView = std::make_shared<Pbr::ScopedGLTexture>(
+            Pbr::GLTexture::LoadTextureImage(brdfLutFileData.data(), (uint32_t)brdfLutFileData.size()));
+        m_pbrResources->SetBrdfLut(brdLutResourceView);
     }
 
     void OpenGLESGraphicsPlugin::ShutdownResources()
@@ -570,6 +592,7 @@ namespace Conformance
 
             m_cubeMesh = {};
             m_meshes.clear();
+            m_gltfs.clear();
 
             ksGpuWindow_Destroy(&window);
         }
@@ -1135,6 +1158,17 @@ namespace Conformance
         return handle;
     }
 
+    inline GLTFHandle OpenGLESGraphicsPlugin::LoadGLTF(span<const uint8_t> data)
+    {
+        auto handle = m_gltfs.emplace_back(*m_pbrResources, Conformance::LoadGLTF(data));
+        return handle;
+    }
+
+    inline std::shared_ptr<Pbr::Model> OpenGLESGraphicsPlugin::GetModel(GLTFHandle handle) const
+    {
+        return m_gltfs[handle].GetModel();
+    }
+
     void OpenGLESGraphicsPlugin::RenderView(const XrCompositionLayerProjectionView& layerView,
                                             const XrSwapchainImageBaseHeader* colorSwapchainImage, const RenderParams& params)
     {
@@ -1221,6 +1255,20 @@ namespace Conformance
         // Render each mesh
         for (const auto& mesh : params.meshes) {
             drawMesh(mesh);
+        }
+
+        // Render each gltf
+        for (const auto& gltfHandle : params.glTFs) {
+            GLGLTF& gltf = m_gltfs[gltfHandle.handle];
+            // Compute and update the model transform.
+
+            XrMatrix4x4f modelToWorld;
+            XrMatrix4x4f_CreateTranslationRotationScale(&modelToWorld, &gltfHandle.params.pose.position,
+                                                        &gltfHandle.params.pose.orientation, &gltfHandle.params.scale);
+
+            m_pbrResources->SetViewProjection(view, proj);
+
+            gltf.Render(*m_pbrResources, modelToWorld);
         }
 
         GL(glBindVertexArray(0));

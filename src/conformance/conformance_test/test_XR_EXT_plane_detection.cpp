@@ -22,7 +22,7 @@
 #include <catch2/catch_test_macros.hpp>
 #include <earcut.hpp>
 #include <openxr/openxr.h>
-#include <xr_linear.h>
+#include "common/xr_linear.h"
 
 #include <future>
 

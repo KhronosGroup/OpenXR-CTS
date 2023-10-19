@@ -20,11 +20,14 @@
 #include "conformance_utils.h"
 #include "conformance_framework.h"
 #include "utilities/Geometry.h"
+#include "utilities/throw_helpers.h"
+#include "gltf.h"
 #include "RGBAImage.h"
+#include "pbr/PbrModel.h"
 
 #include <openxr/openxr.h>
-#include "nonstd/span.hpp"
-#include "nonstd/type.hpp"
+#include <nonstd/span.hpp>
+#include <nonstd/type.hpp>
 #include <cstdint>
 #include <memory>
 #include <functional>
@@ -54,7 +57,7 @@
 #if defined(__APPLE__)
 #include <OpenGL/gl.h>
 #else
-#include <GL/gl.h>
+#include "common/gfxwrapper_opengl.h"
 #endif  // defined(__APPLE__)
 
 #endif  // defined(XR_USE_GRAPHICS_API_OPENGL)
@@ -145,11 +148,44 @@ namespace Conformance
     /// They are "null" by default, so may be tested for validity by comparison against a default-constructed instance.
     using GLTFHandle = nonstd::equality<uint64_t, struct GLTFHandleTag, detail::custom_default_max_uint64>;
 
+    using NodeHandle = nonstd::ordered<uint64_t, struct NodeHandleTag, detail::custom_default_max_uint64>;
+
+    struct NodeParams
+    {
+        XrPosef pose;
+        bool visible;
+    };
+
+    static inline std::shared_ptr<tinygltf::Model> LoadGLTF(span<const uint8_t> data)
+    {
+        tinygltf::Model model;
+        tinygltf::TinyGLTF loader;
+        std::string err;
+        std::string warn;
+        bool loadedModel = loader.LoadBinaryFromMemory(&model, &err, &warn, data.data(), (unsigned int)data.size());
+        if (!warn.empty()) {
+            // ReportF("glTF WARN: %s", &warn);
+        }
+
+        if (!err.empty()) {
+            XRC_THROW("glTF ERR: " + err);
+        }
+
+        if (!loadedModel) {
+            XRC_THROW("Failed to load glTF model provided.");
+        }
+
+        return std::make_shared<tinygltf::Model>(std::move(model));
+    }
+
     /// A drawable GLTF model, consisting of a reference to plugin-specific data for a GLTF model, plus pose and scale.
     struct GLTFDrawable
     {
         GLTFHandle handle;
         DrawableParams params;
+
+        // or unordered_map, probably not significant
+        std::map<NodeHandle, NodeParams> nodesAndParams;
 
         GLTFDrawable(GLTFHandle handle, XrPosef pose = XrPosefCPP{}, XrVector3f scale = {1.0, 1.0, 1.0})
             : handle(handle), params(pose, scale)
@@ -321,6 +357,12 @@ namespace Conformance
         /// Create internal data for a mesh, returning a handle to refer to it.
         /// This handle expires when the internal data is cleared in Shutdown() and ShutdownDevice().
         virtual MeshHandle MakeSimpleMesh(span<const uint16_t> idx, span<const Geometry::Vertex> vtx) = 0;
+
+        /// Create internal data for a glTF model, returning a handle to refer to it.
+        /// This handle expires when the internal data is cleared in Shutdown() and ShutdownDevice().
+        virtual GLTFHandle LoadGLTF(span<const uint8_t> data) = 0;
+
+        virtual std::shared_ptr<Pbr::Model> GetModel(GLTFHandle handle) const = 0;
 
         /// Convenience helper function to make a mesh that is our standard cube (with R, G, B faces along X, Y, Z, respectively)
         MeshHandle MakeCubeMesh()
