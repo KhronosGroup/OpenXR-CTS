@@ -28,7 +28,7 @@ jobs:
           distribution: "temurin"
           cache: gradle
 
-      - uses: gradle/gradle-build-action@v2
+      - uses: gradle/gradle-build-action@v2.9.0
         with:
           arguments: assembleDebug
           build-root-directory: src/conformance
