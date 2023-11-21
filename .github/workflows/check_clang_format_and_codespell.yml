@@ -13,6 +13,9 @@ jobs:
       image: khronosgroup/docker-images:openxr-sdk.20230209
     steps:
       - uses: actions/checkout@v4
+        with:
+          lfs: true
+
       - run: ./runClangFormat.sh
         name: Run clang-format
 
