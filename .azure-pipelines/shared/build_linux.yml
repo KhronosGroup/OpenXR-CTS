@@ -16,6 +16,8 @@ parameters:
     default: build
 
 steps:
+  - checkout: self
+    lfs: true
   - script: |
       rm -rf ${{ parameters.sourceDir }}/${{ parameters.buildDir }}
       mkdir -p ${{ parameters.sourceDir }}/${{ parameters.buildDir }}
