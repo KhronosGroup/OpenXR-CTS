@@ -192,6 +192,11 @@ XRAPI_ATTR XrResult XRAPI_CALL ConformanceLayer_xrGetInstanceProcAddr(
     const char*                                 name,
     PFN_xrVoidFunction*                         function) try {
 
+    if (instance == XR_NULL_HANDLE) {
+        *function = nullptr;
+        return XR_ERROR_FUNCTION_UNSUPPORTED;
+    }
+
     HandleState* const handleState = GetHandleState({ HandleToInt(instance), XR_OBJECT_TYPE_INSTANCE });
 
     *function = ConformanceLayer_InnerGetInstanceProcAddr(name, handleState);

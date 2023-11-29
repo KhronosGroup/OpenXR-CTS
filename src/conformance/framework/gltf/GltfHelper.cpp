@@ -669,7 +669,7 @@ namespace GltfHelper
     {
         // The image vector (image.image) will be populated if the image was successfully loaded by glTF.
         if (image.width > 0 && image.height > 0) {
-            if (image.width * image.height * image.component != image.image.size()) {
+            if ((size_t)(image.width * image.height * image.component) != image.image.size()) {
                 throw std::runtime_error("Invalid image buffer size");
             }
 

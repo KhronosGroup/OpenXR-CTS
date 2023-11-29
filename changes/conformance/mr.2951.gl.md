@@ -1,0 +1,1 @@
+- New test: Try zero XrTime values in hand tracking joints test.

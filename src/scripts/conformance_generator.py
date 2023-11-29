@@ -29,6 +29,7 @@ VALID_FOR_NULL_INSTANCE = set((
     'xrInitializeLoaderKHR'
 ))
 
+
 class ConformanceGenerator(AutomaticSourceOutputGenerator):
     """Generate conformance source using XML element attributes from registry"""
 
