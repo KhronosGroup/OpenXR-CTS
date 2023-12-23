@@ -30,7 +30,7 @@
 #include <cmath>
 #include <initializer_list>
 
-#include "xr_dependencies.h"
+#include "common/xr_dependencies.h"
 #include <openxr/openxr.h>
 #include <openxr/openxr_platform.h>
 #include <openxr/openxr_reflection.h>

@@ -21,6 +21,8 @@
 #include "utilities/throw_helpers.h"
 
 #include <catch2/catch_test_macros.hpp>
+#include <catch2/matchers/catch_matchers.hpp>
+#include <catch2/matchers/catch_matchers_contains.hpp>
 #include <openxr/openxr.h>
 #include <openxr/openxr_reflection.h>
 
@@ -170,8 +172,7 @@ namespace Conformance
                 INFO("Environment Blend Modes");
 
                 const auto supportedBlendModes = session.SupportedEnvironmentBlendModes();
-                CHECK(std::find(supportedBlendModes.begin(), supportedBlendModes.end(), XR_ENVIRONMENT_BLEND_MODE_MAX_ENUM) ==
-                      supportedBlendModes.end());
+                CHECK_THAT(supportedBlendModes, !Catch::Matchers::Contains(XR_ENVIRONMENT_BLEND_MODE_MAX_ENUM));
 
                 for (XrEnvironmentBlendMode blendMode : SupportedBlendModes) {
                     CAPTURE(blendMode);

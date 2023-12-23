@@ -1,40 +1,56 @@
 # Copyright (c) 2019-2023, The Khronos Group Inc.
 # SPDX-License-Identifier: Apache-2.0
 
-QUIET                  = YES
 PROJECT_NAME           = "OpenXR CTS Framework"
 OUTPUT_DIRECTORY       = doc
 INPUT                  = \
      framework \
+     framework/pbr \
+     framework/pbr/D3D11 \
+     framework/pbr/D3D12 \
+     framework/pbr/Vulkan \
+     framework/pbr/OpenGL \
+     framework/gltf \
      conformance_cli
+
+ALWAYS_DETAILED_SEC    = YES
 
 
 STRIP_FROM_INC_PATH    = framework
-
-PREDEFINED             = XRC_DOXYGEN
-
-SHOW_GROUPED_MEMB_INC  = YES
-STRIP_CODE_COMMENTS    = NO
-REFERENCED_BY_RELATION = YES
-REFERENCES_RELATION    = YES
-ALWAYS_DETAILED_SEC    = YES
-WARN_IF_UNDOCUMENTED   = NO
-EXTRACT_ALL            = YES
-HIDE_UNDOC_RELATIONS   = NO
-EXTRACT_STATIC         = YES
-INCLUDED_BY_GRAPH      = YES
-
-MACRO_EXPANSION        = YES
-
 
 JAVADOC_AUTOBRIEF      = YES
 
 QT_AUTOBRIEF           = YES
 
-TAB_SIZE               = 4
-
 BUILTIN_STL_SUPPORT    = YES
+
+EXTRACT_ALL            = YES
+
+EXTRACT_STATIC         = YES
 
 CASE_SENSE_NAMES       = NO
 
+SHOW_GROUPED_MEMB_INC  = YES
+
+QUIET                  = YES
+
+WARN_IF_UNDOCUMENTED   = NO
+
+STRIP_CODE_COMMENTS    = NO
+
+REFERENCED_BY_RELATION = YES
+
+REFERENCES_RELATION    = YES
+
 GENERATE_LATEX         = NO
+
+MACRO_EXPANSION        = YES
+
+PREDEFINED             = XRC_DOXYGEN \
+                         XR_USE_GRAPHICS_API_VULKAN
+
+HIDE_UNDOC_RELATIONS   = NO
+
+HAVE_DOT               = YES
+
+CALLER_GRAPH           = YES

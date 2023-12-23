@@ -123,12 +123,23 @@ TestOptions =
 
 TestEnvironment =
     element ctsTestEnvironment {
+        RevisionInfo,
         InstanceProperties,
         TestOptions,
         AvailableApiLayers,
         AvailableInstanceExtensions,
         element graphicsPluginDescription { text }?
     }
+
+RevisionInfo =
+    element revisionData {
+        attribute revision { xsd:string },
+        attribute localChanges { xsd:boolean }
+    }
+    | element revisionData {
+          attribute gitDescribeSucceeded { "false" },
+          attribute revision { xsd:string }
+      }
 
 # These are the layers and extensions enabled by the tests, as well as those specified in the options.
 ActiveLayersAndExtensions =

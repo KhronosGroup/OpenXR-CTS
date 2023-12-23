@@ -17,6 +17,7 @@
 #pragma once
 
 #include "RGBAImage.h"
+#include "utilities/colors.h"
 #include "common/xr_linear.h"
 #include "conformance_framework.h"
 #include "conformance_utils.h"
@@ -24,7 +25,7 @@
 #include "utilities/throw_helpers.h"
 #include "utilities/types_and_constants.h"
 
-#include "catch2/catch_test_macros.hpp"
+#include <catch2/catch_test_macros.hpp>
 #include <openxr/openxr.h>
 
 #include <array>
@@ -46,7 +47,7 @@ namespace Conformance
     class EventReader;
     class ISwapchainImageData;
 
-    RGBAImage CreateTextImage(int width, int height, const char* text, int fontHeight);
+    RGBAImage CreateTextImage(int32_t width, int32_t height, const char* text, int32_t fontHeight);
 
     XrPath StringToPath(XrInstance instance, const char* pathStr);
 
@@ -340,22 +341,6 @@ namespace Conformance
         Complete
     };
 
-    namespace Colors
-    {
-        constexpr XrColor4f Red = {1, 0, 0, 1};
-        constexpr XrColor4f Green = {0, 1, 0, 1};
-        constexpr XrColor4f GreenZeroAlpha = {0, 1, 0, 0};
-        constexpr XrColor4f Blue = {0, 0, 1, 1};
-        constexpr XrColor4f Yellow = {1, 1, 0, 1};
-        constexpr XrColor4f Orange = {1, 0.65f, 0, 1};
-        constexpr XrColor4f Magenta = {1, 0, 1, 1};
-        constexpr XrColor4f Transparent = {0, 0, 0, 0};
-        constexpr XrColor4f Black = {0, 0, 0, 1};
-
-        /// A list of unique colors, not including red which is a "failure color".
-        constexpr std::array<XrColor4f, 4> UniqueColors{Green, Blue, Yellow, Orange};
-    }  // namespace Colors
-
     namespace Math
     {
         /// Do a linear conversion of a number from one range to another range.
@@ -430,37 +415,53 @@ namespace Conformance
             m_exampleQuadSpace = compositionHelper.CreateReferenceSpace(
                 XR_REFERENCE_SPACE_TYPE_VIEW, {Quat::FromAxisAngle(UpVector, -15 * MATH_PI / 180), {0.5f, 0, -1.5f}});
 
+            Configure(exampleImage, descriptionText);
+        }
+
+        void Configure(const char* exampleImage, const char* descriptionText)
+        {
+            if (m_descriptionQuad != nullptr && m_descriptionQuad->subImage.swapchain != XR_NULL_HANDLE) {
+                m_compositionHelper.DestroySwapchain(m_descriptionQuad->subImage.swapchain);
+            }
+            if (m_exampleQuad != nullptr && m_exampleQuad->subImage.swapchain != XR_NULL_HANDLE) {
+                m_compositionHelper.DestroySwapchain(m_exampleQuad->subImage.swapchain);
+            }
+
             // Load example screenshot if available and set up the quad layer for it.
             {
                 XrSwapchain exampleSwapchain;
                 if (exampleImage) {
-                    exampleSwapchain = compositionHelper.CreateStaticSwapchainImage(RGBAImage::Load(exampleImage));
+                    exampleSwapchain = m_compositionHelper.CreateStaticSwapchainImage(RGBAImage::Load(exampleImage));
                 }
                 else {
                     RGBAImage image(256, 256);
                     image.PutText(XrRect2Di{{0, image.height / 2}, {image.width, image.height}}, "Example Not Available", 64, {1, 0, 0, 1});
-                    exampleSwapchain = compositionHelper.CreateStaticSwapchainImage(image);
+                    exampleSwapchain = m_compositionHelper.CreateStaticSwapchainImage(image);
                 }
 
                 // Create a quad to the right of the help text.
-                m_exampleQuad = compositionHelper.CreateQuadLayer(exampleSwapchain, m_exampleQuadSpace, 1.25f);
+                m_exampleQuad = m_compositionHelper.CreateQuadLayer(exampleSwapchain, m_exampleQuadSpace, 1.25f);
             }
 
+            constexpr uint32_t width = 768;
+            constexpr uint32_t descriptionHeight = width;
+            constexpr uint32_t fontHeight = 48;
+            constexpr uint32_t actionsHeight = 128;
+
             // Set up the quad layer for showing the help text to the left of the example image.
-            m_descriptionQuad = compositionHelper.CreateQuadLayer(
-                compositionHelper.CreateStaticSwapchainImage(CreateTextImage(768, 768, descriptionText, 48)), m_descriptionQuadSpace,
-                0.75f);
+            m_descriptionQuad = m_compositionHelper.CreateQuadLayer(
+                m_compositionHelper.CreateStaticSwapchainImage(CreateTextImage(width, descriptionHeight, descriptionText, fontHeight)),
+                m_descriptionQuadSpace, 0.75f);
             m_descriptionQuad->layerFlags |= XR_COMPOSITION_LAYER_BLEND_TEXTURE_SOURCE_ALPHA_BIT;
 
-            constexpr uint32_t actionsWidth = 768, actionsHeight = 128;
-            m_sceneActionsSwapchain = compositionHelper.CreateStaticSwapchainImage(
-                CreateTextImage(actionsWidth, actionsHeight, "Press Select to PASS. Press Menu for description", 48));
+            m_sceneActionsSwapchain = m_compositionHelper.CreateStaticSwapchainImage(
+                CreateTextImage(width, actionsHeight, "Press Select to PASS. Press Menu for description", fontHeight));
             m_helpActionsSwapchain =
-                compositionHelper.CreateStaticSwapchainImage(CreateTextImage(actionsWidth, actionsHeight, "Press select to FAIL", 48));
+                m_compositionHelper.CreateStaticSwapchainImage(CreateTextImage(width, actionsHeight, "Press select to FAIL", fontHeight));
 
             // Set up the quad layer and swapchain for showing what actions the user can take in the Scene/Help mode.
             m_actionsQuad =
-                compositionHelper.CreateQuadLayer(m_sceneActionsSwapchain, m_viewSpace, 0.75f, {Quat::Identity, {0, -0.4f, -1}});
+                m_compositionHelper.CreateQuadLayer(m_sceneActionsSwapchain, m_viewSpace, 0.75f, {Quat::Identity, {0, -0.4f, -1}});
             m_actionsQuad->layerFlags |= XR_COMPOSITION_LAYER_BLEND_TEXTURE_SOURCE_ALPHA_BIT;
         }
 
@@ -573,9 +574,9 @@ namespace Conformance
         XrSwapchain m_helpActionsSwapchain;
         LayerMode m_lastLayerMode{LayerMode::Scene};
         XrCompositionLayerQuad* m_actionsQuad;
-        XrCompositionLayerQuad* m_descriptionQuad;
+        XrCompositionLayerQuad* m_descriptionQuad{};
         XrSpace m_descriptionQuadSpace;
-        XrCompositionLayerQuad* m_exampleQuad;
+        XrCompositionLayerQuad* m_exampleQuad{};
         XrSpace m_exampleQuadSpace;
         std::vector<XrCompositionLayerBaseHeader*> m_sceneLayers;
     };

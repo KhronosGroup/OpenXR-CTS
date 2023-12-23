@@ -7,6 +7,7 @@
 
 #include "conformance_framework.h"
 #include "common/hex_and_handles.h"
+#include "utilities/git_revision.h"
 
 #include <catch2/internal/catch_xmlwriter.hpp>
 
@@ -169,6 +170,18 @@ namespace Conformance
     void WriteTestEnvironment(Catch::XmlWriter& xml, GlobalData& globalData)
     {
         auto e = xml.scopedElement(CTS_XML_NS_PREFIX_QUALIFIER "ctsTestEnvironment");
+
+        // Report the git info
+        if (kGitRevisionSucceeded) {
+            xml.scopedElement(CTS_XML_NS_PREFIX_QUALIFIER "revisionData")
+                .writeAttribute("revision", kGitRevisionString)
+                .writeAttribute("localChanges", kGitRevisionLocalChanges);
+        }
+        else {
+            xml.scopedElement(CTS_XML_NS_PREFIX_QUALIFIER "revisionData")
+                .writeAttribute("gitDescribeSucceeded", false)
+                .writeAttribute("revision", kGitRevisionString);
+        }
 
         // Report the runtime name and info.
         WriteInstanceProperties(xml, globalData.GetInstanceProperties());

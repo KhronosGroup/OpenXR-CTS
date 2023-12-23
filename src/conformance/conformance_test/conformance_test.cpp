@@ -14,7 +14,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "openxr/openxr_platform_defines.h"
 #define CATCH_CONFIG_NOSTDOUT
 
 #include "conformance_framework.h"
@@ -24,12 +23,12 @@
 #include "graphics_plugin.h"
 #include "platform_utils.hpp"  // for OPENXR_API_LAYER_PATH_ENV_VAR
 #include "report.h"
+#include "utilities/git_revision.h"
 #include "utilities/utils.h"
-
-#include <openxr/openxr.h>
 
 #include "catch_reporter_cts.h"
 
+#include <catch2/catch_message.hpp>
 #include <catch2/catch_session.hpp>
 #include <catch2/catch_test_case_info.hpp>
 #include <catch2/catch_test_macros.hpp>
@@ -37,7 +36,8 @@
 #include <catch2/reporters/catch_reporter_event_listener.hpp>
 #include <catch2/reporters/catch_reporter_registrars.hpp>
 
-#include "xr_dependencies.h"
+#include "common/xr_dependencies.h"
+#include <openxr/openxr.h>
 #include <openxr/openxr_platform.h>
 
 #include <cstddef>
@@ -148,6 +148,35 @@ namespace
         }
     }
 
+    // Ensure this is a git checkout and that it is clean (all changes committed)
+    // and add a warning that will show in the output
+    TEST_CASE("SourceCodeRevision", "")
+    {
+
+        CAPTURE(kGitRevisionSucceeded);
+        CAPTURE(kGitRevisionString);
+        CAPTURE(kGitRevisionLocalChanges);
+        CAPTURE(kGitRevisionExactTag);
+        if (kGitRevisionSucceeded) {
+            if (kGitRevisionLocalChanges) {
+                WARN(
+                    "Uncommitted changes found in the source code working tree. "
+                    "Recommend committing changes to a local branch. "
+                    "Conformance packages must include diff(s) from the latest approved CTS release tag.");
+            }
+            if (!kGitRevisionExactTag) {
+                WARN(
+                    "Source does not match an exact git tag: "
+                    "Conformance packages must include a diff(s) from the latest approved CTS release tag.");
+            }
+        }
+        else {
+            WARN(
+                "Build system could not use git to describe the source tree with respect to a release tag. "
+                "Please be sure to build the conformance package in a full git clone with tags.");
+        }
+    }
+
     // Ensure conformance is configured correctly.
     TEST_CASE("ValidateEnvironment")
     {
@@ -194,12 +223,14 @@ namespace
                 INFO(testCase.testName);
                 INFO(testTags);
 
-                // readme.md instructions use [interactive] with [actions], [composition], and [scenario]
+                // readme.md instructions use [interactive] with [actions], [composition], and [scenario].
+                // (self_test are not required for submission.)
                 // Let's ensure that these cover all of the possible test cases.
-                const std::array<std::string, 3> interactiveTestTypes = {
+                const std::array<std::string, 4> interactiveTestTypes = {
                     "[actions]",
                     "[composition]",
                     "[scenario]",
+                    "[self_test]",
                 };
                 if (testTags.find("[interactive]") != std::string::npos) {
                     {

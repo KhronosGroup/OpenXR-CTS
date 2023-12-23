@@ -26,7 +26,7 @@
 #include "utilities/Geometry.h"
 #include "utilities/types_and_constants.h"
 
-#include "nonstd/type.hpp"
+#include <nonstd/type.hpp>
 
 #include <earcut.hpp>
 #include <catch2/catch_test_macros.hpp>

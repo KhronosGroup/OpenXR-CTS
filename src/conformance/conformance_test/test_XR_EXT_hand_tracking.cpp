@@ -128,6 +128,46 @@ namespace Conformance
             REQUIRE(XR_SUCCESS == xrCreateHandTrackerEXT(session, &createInfo, &handTracker[i]));
         }
 
+        SECTION("Query Zero XrTime joint locations")
+        {
+            XrSpace localSpace = XR_NULL_HANDLE;
+
+            XrReferenceSpaceCreateInfo localSpaceCreateInfo{XR_TYPE_REFERENCE_SPACE_CREATE_INFO};
+            localSpaceCreateInfo.poseInReferenceSpace = XrPosefCPP();
+            localSpaceCreateInfo.referenceSpaceType = XR_REFERENCE_SPACE_TYPE_LOCAL;
+            REQUIRE_RESULT(xrCreateReferenceSpace(session, &localSpaceCreateInfo, &localSpace), XR_SUCCESS);
+
+            // Wait until the runtime is ready for us to begin a session
+            FrameIterator frameIterator(&session);
+            frameIterator.RunToSessionState(XR_SESSION_STATE_FOCUSED);
+
+            for (auto hand : {LEFT_HAND, RIGHT_HAND}) {
+                std::array<std::array<XrHandJointLocationEXT, XR_HAND_JOINT_COUNT_EXT>, HAND_COUNT> jointLocations;
+                for (size_t i = 0; i < jointLocations[hand].size(); ++i) {
+                    // locationFlags should not change after invoking `xrLocateHandJointsEXT` with invalid parameters.
+                    jointLocations[hand][i].locationFlags = 0;
+                }
+
+                XrHandJointLocationsEXT locations{XR_TYPE_HAND_JOINT_LOCATIONS_EXT, nullptr};
+                // isActive should not change after invoking `xrLocateHandJointsEXT` with invalid parameters.
+                locations.isActive = XR_FALSE;
+                locations.jointCount = XR_HAND_JOINT_COUNT_EXT;
+                locations.jointLocations = jointLocations[hand].data();
+
+                XrHandJointsLocateInfoEXT locateInfo{XR_TYPE_HAND_JOINTS_LOCATE_INFO_EXT, nullptr};
+                locateInfo.baseSpace = localSpace;
+                locateInfo.time = 0;  // Zero XrTimes should never be valid or return valid results.
+                REQUIRE(XR_ERROR_TIME_INVALID == xrLocateHandJointsEXT(handTracker[hand], &locateInfo, &locations));
+                REQUIRE(locations.isActive == XR_FALSE);
+
+                // https://registry.khronos.org/OpenXR/specs/1.0/html/xrspec.html#_locate_hand_joints
+                for (size_t i = 0; i < jointLocations[hand].size(); ++i) {
+                    REQUIRE((jointLocations[hand][i].locationFlags & XR_SPACE_LOCATION_POSITION_VALID_BIT) == 0);
+                    REQUIRE((jointLocations[hand][i].locationFlags & XR_SPACE_LOCATION_ORIENTATION_VALID_BIT) == 0);
+                }
+            }
+        }
+
         SECTION("Query joint locations")
         {
             XrSpace localSpace = XR_NULL_HANDLE;

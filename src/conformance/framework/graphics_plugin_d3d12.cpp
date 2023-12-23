@@ -16,31 +16,37 @@
 
 #if defined(XR_USE_GRAPHICS_API_D3D12)
 
-#include "graphics_plugin.h"
-#include "common/xr_linear.h"
 #include "conformance_framework.h"
+#include "gltf.h"
+#include "graphics_plugin.h"
+#include "graphics_plugin_d3d12_gltf.h"
 #include "graphics_plugin_impl_helpers.h"
+#include "report.h"
 #include "swapchain_image_data.h"
+
+#include "common/xr_dependencies.h"
+#include "common/xr_linear.h"
+#include "pbr/D3D12/D3D12Texture.h"
 #include "utilities/Geometry.h"
 #include "utilities/align_to.h"
 #include "utilities/array_size.h"
+#include "utilities/d3d12_queue_wrapper.h"
+#include "utilities/d3d12_utils.h"
 #include "utilities/d3d_common.h"
 #include "utilities/swapchain_parameters.h"
 #include "utilities/throw_helpers.h"
 
-#include <catch2/catch_test_macros.hpp>
-
 #include <D3Dcompiler.h>
 #include <DirectXColors.h>
-#include <dxgiformat.h>
-#include <windows.h>
-#include <wrl/client.h>  // For Microsoft::WRL::ComPtr
-
+#include <catch2/catch_test_macros.hpp>
 #include <openxr/openxr_platform.h>
+#include <wrl/client.h>  // For Microsoft::WRL::ComPtr
 
 #include <algorithm>
 #include <array>
+#include <dxgiformat.h>
 #include <functional>
+#include <windows.h>
 
 using namespace Microsoft::WRL;
 using namespace DirectX;
@@ -94,7 +100,7 @@ namespace Conformance
         UINT numIndices;
 
         D3D12Mesh(ComPtr<ID3D12Device> d3d12Device, span<const uint16_t> indices, span<const Geometry::Vertex> vertices,
-                  const std::function<bool(ID3D12CommandList* cmdList)>& ExecuteCommandList)
+                  const std::shared_ptr<D3D12QueueWrapper>& queueWrapper)
             : device(d3d12Device), numIndices((UINT)indices.size())
         {
 
@@ -112,10 +118,10 @@ namespace Conformance
 
             vertexBufferSizeBytes = (uint32_t)vertices.size_bytes();
             ComPtr<ID3D12Resource> vertexBufferUpload;
-            vertexBuffer = CreateBuffer(d3d12Device.Get(), vertexBufferSizeBytes, D3D12_HEAP_TYPE_DEFAULT);
+            vertexBuffer = D3D12CreateBuffer(d3d12Device.Get(), vertexBufferSizeBytes, D3D12_HEAP_TYPE_DEFAULT);
             XRC_CHECK_THROW_HRCMD(vertexBuffer->SetName(L"CTS mesh vertex buffer"));
             {
-                vertexBufferUpload = CreateBuffer(d3d12Device.Get(), vertexBufferSizeBytes, D3D12_HEAP_TYPE_UPLOAD);
+                vertexBufferUpload = D3D12CreateBuffer(d3d12Device.Get(), vertexBufferSizeBytes, D3D12_HEAP_TYPE_UPLOAD);
                 XRC_CHECK_THROW_HRCMD(vertexBufferUpload->SetName(L"CTS mesh vertex buffer upload"));
 
                 void* data;
@@ -129,11 +135,12 @@ namespace Conformance
 
             indexBufferSizeBytes = (uint32_t)indices.size_bytes();
             ComPtr<ID3D12Resource> indexBufferUpload;
-            indexBuffer = CreateBuffer(d3d12Device.Get(), indexBufferSizeBytes, D3D12_HEAP_TYPE_DEFAULT);
+            indexBuffer = D3D12CreateBuffer(d3d12Device.Get(), indexBufferSizeBytes, D3D12_HEAP_TYPE_DEFAULT);
             XRC_CHECK_THROW_HRCMD(indexBuffer->SetName(L"CTS mesh index buffer"));
             {
-                indexBufferUpload = CreateBuffer(d3d12Device.Get(), indexBufferSizeBytes, D3D12_HEAP_TYPE_UPLOAD);
+                indexBufferUpload = D3D12CreateBuffer(d3d12Device.Get(), indexBufferSizeBytes, D3D12_HEAP_TYPE_UPLOAD);
                 XRC_CHECK_THROW_HRCMD(indexBufferUpload->SetName(L"CTS mesh index buffer upload"));
+
                 void* data;
                 const D3D12_RANGE readRange{0, 0};
                 XRC_CHECK_THROW_HRCMD(indexBufferUpload->Map(0, &readRange, &data));
@@ -144,7 +151,8 @@ namespace Conformance
             }
 
             XRC_CHECK_THROW_HRCMD(cmdList->Close());
-            XRC_CHECK_THROW(ExecuteCommandList(cmdList.Get()));
+            XRC_CHECK_THROW(queueWrapper->ExecuteCommandList(cmdList.Get()));
+            queueWrapper->CPUWaitOnFence();
         }
     };
 
@@ -215,7 +223,7 @@ namespace Conformance
                                                       reinterpret_cast<void**>(commandAllocator.ReleaseAndGetAddressOf())));
             XRC_CHECK_THROW_HRCMD(commandAllocator->SetName(L"CTS swapchain command allocator"));
 
-            viewProjectionCBuffer = CreateBuffer(m_d3d12Device.Get(), sizeof(ViewProjectionConstantBuffer), D3D12_HEAP_TYPE_UPLOAD);
+            viewProjectionCBuffer = D3D12CreateBuffer(m_d3d12Device.Get(), sizeof(ViewProjectionConstantBuffer), D3D12_HEAP_TYPE_UPLOAD);
             XRC_CHECK_THROW_HRCMD(viewProjectionCBuffer->SetName(L"CTS view proj cbuffer"));
         }
 
@@ -262,15 +270,6 @@ namespace Conformance
             return commandAllocator.Get();
         }
 
-        uint64_t GetFrameFenceValue() const
-        {
-            return fenceValue;
-        }
-        void SetFrameFenceValue(uint64_t fenceVal)
-        {
-            fenceValue = fenceVal;
-        }
-
         void ResetCommandAllocator()
         {
             XRC_CHECK_THROW_HRCMD(commandAllocator->Reset());
@@ -279,7 +278,7 @@ namespace Conformance
         void RequestModelCBuffer(uint32_t requiredSize)
         {
             if (!modelCBuffer || (requiredSize > modelCBuffer->GetDesc().Width)) {
-                modelCBuffer = CreateBuffer(m_d3d12Device.Get(), requiredSize, D3D12_HEAP_TYPE_UPLOAD);
+                modelCBuffer = D3D12CreateBuffer(m_d3d12Device.Get(), requiredSize, D3D12_HEAP_TYPE_UPLOAD);
                 XRC_CHECK_THROW_HRCMD(modelCBuffer->SetName(L"CTS model cbuffer"));
             }
         }
@@ -299,7 +298,6 @@ namespace Conformance
         ComPtr<ID3D12CommandAllocator> commandAllocator;
         ComPtr<ID3D12Resource> modelCBuffer;
         ComPtr<ID3D12Resource> viewProjectionCBuffer;
-        uint64_t fenceValue = 0;
         std::vector<D3D12FallbackDepthTexture> m_internalDepthTextures;
     };
 
@@ -359,6 +357,10 @@ namespace Conformance
 
         MeshHandle MakeSimpleMesh(span<const uint16_t> idx, span<const Geometry::Vertex> vtx) override;
 
+        GLTFHandle LoadGLTF(span<const uint8_t> data) override;
+
+        std::shared_ptr<Pbr::Model> GetModel(GLTFHandle handle) const override;
+
         void RenderView(const XrCompositionLayerProjectionView& layerView, const XrSwapchainImageBaseHeader* colorSwapchainImage,
                         const RenderParams& params) override;
 
@@ -370,19 +372,15 @@ namespace Conformance
         D3D12_CPU_DESCRIPTOR_HANDLE CreateDepthStencilView(ID3D12Resource* depthStencilTexture, uint32_t imageArrayIndex,
                                                            DXGI_FORMAT depthSwapchainFormat);
 
+        void SetupBasePipelineStateDesc(D3D12_GRAPHICS_PIPELINE_STATE_DESC& pipelineStateDesc);
         ID3D12PipelineState* GetOrCreatePipelineState(DXGI_FORMAT colorSwapchainFormat, DXGI_FORMAT dsvSwapchainFormat);
-        bool ExecuteCommandList(ID3D12CommandList* cmdList) const;
-        void CpuWaitForFence(uint64_t fenceVal) const;
         void WaitForGpu() const;
 
     protected:
         bool initialized = false;
         XrGraphicsBindingD3D12KHR graphicsBinding{XR_TYPE_GRAPHICS_BINDING_D3D12_KHR};
         ComPtr<ID3D12Device> d3d12Device;
-        ComPtr<ID3D12CommandQueue> d3d12CmdQueue;
-        ComPtr<ID3D12Fence> fence;
-        mutable uint64_t fenceValue = 0;
-        HANDLE fenceEvent = INVALID_HANDLE_VALUE;
+        std::shared_ptr<D3D12QueueWrapper> m_queueWrapper;
 
         SwapchainImageDataMap<D3D12SwapchainImageData> m_swapchainImageDataMap;
         const XrSwapchainImageBaseHeader* lastSwapchainImage = nullptr;
@@ -397,6 +395,8 @@ namespace Conformance
 
         MeshHandle m_cubeMesh;
         VectorWithGenerationCountedHandles<D3D12Mesh, MeshHandle> m_meshes;
+        VectorWithGenerationCountedHandles<D3D12GLTF, GLTFHandle> m_gltfs;
+        std::unique_ptr<Pbr::D3D12Resources> pbrResources;
     };
 
     D3D12GraphicsPlugin::D3D12GraphicsPlugin(std::shared_ptr<IPlatformPlugin>)
@@ -406,8 +406,8 @@ namespace Conformance
 
     D3D12GraphicsPlugin::~D3D12GraphicsPlugin()
     {
-        ShutdownDevice();
-        Shutdown();
+        D3D12GraphicsPlugin::ShutdownDevice();
+        D3D12GraphicsPlugin::Shutdown();
     }
 
     bool D3D12GraphicsPlugin::Initialize()
@@ -497,12 +497,9 @@ namespace Conformance
                                                     reinterpret_cast<void**>(d3d12Device.ReleaseAndGetAddressOf())));
             XRC_CHECK_THROW_HRCMD(d3d12Device->SetName(L"CTS device"));
 
-            D3D12_COMMAND_QUEUE_DESC queueDesc = {};
-            queueDesc.Flags = D3D12_COMMAND_QUEUE_FLAG_NONE;
-            queueDesc.Type = D3D12_COMMAND_LIST_TYPE_DIRECT;
-            XRC_CHECK_THROW_HRCMD(d3d12Device->CreateCommandQueue(&queueDesc, __uuidof(ID3D12CommandQueue),
-                                                                  reinterpret_cast<void**>(d3d12CmdQueue.ReleaseAndGetAddressOf())));
-            XRC_CHECK_THROW_HRCMD(d3d12CmdQueue->SetName(L"CTS direct cmd queue"));
+            m_queueWrapper = std::make_shared<D3D12QueueWrapper>(d3d12Device, D3D12_COMMAND_LIST_TYPE_DIRECT);
+            XRC_CHECK_THROW_HRCMD(m_queueWrapper->GetCommandQueue()->SetName(L"CTS direct cmd queue"));
+            XRC_CHECK_THROW_HRCMD(m_queueWrapper->GetFence()->SetName(L"CTS fence"));
 
             {
                 D3D12_DESCRIPTOR_HEAP_DESC heapDesc{};
@@ -552,17 +549,21 @@ namespace Conformance
             XrSwapchainCreateInfo emptyCreateInfo = {XR_TYPE_SWAPCHAIN_CREATE_INFO};
             auto initImages = std::make_shared<D3D12SwapchainImageData>(d3d12Device.Get(), 1, emptyCreateInfo);
 
-            XRC_CHECK_THROW_HRCMD(d3d12Device->CreateFence(fenceValue, D3D12_FENCE_FLAG_NONE, __uuidof(ID3D12Fence),
-                                                           reinterpret_cast<void**>(fence.ReleaseAndGetAddressOf())));
-            XRC_CHECK_THROW_HRCMD(fence->SetName(L"CTS fence"));
-
-            fenceEvent = ::CreateEvent(nullptr, FALSE, FALSE, nullptr);
-            XRC_CHECK_THROW(fenceEvent != nullptr);
-
             m_cubeMesh = MakeCubeMesh();
 
+            D3D12_GRAPHICS_PIPELINE_STATE_DESC pipelineStateDesc{};
+            SetupBasePipelineStateDesc(pipelineStateDesc);
+            pbrResources = std::make_unique<Pbr::D3D12Resources>(d3d12Device.Get(), pipelineStateDesc);
+            pbrResources->SetLight({0.0f, 0.7071067811865475f, 0.7071067811865475f}, Pbr::RGB::White);
+
+            // Read the BRDF Lookup Table used by the PBR system into a DirectX texture.
+            std::vector<byte> brdfLutFileData = ReadFileBytes("brdf_lut.png");
+            D3D12ResourceWithSRVDesc brdLutResourceView =
+                Pbr::D3D12Texture::LoadTextureImage(*pbrResources, brdfLutFileData.data(), (uint32_t)brdfLutFileData.size());
+            pbrResources->SetBrdfLut(brdLutResourceView);
+
             graphicsBinding.device = d3d12Device.Get();
-            graphicsBinding.queue = d3d12CmdQueue.Get();
+            graphicsBinding.queue = m_queueWrapper->GetCommandQueue().Get();
 
             return true;
         }
@@ -582,20 +583,18 @@ namespace Conformance
     void D3D12GraphicsPlugin::ShutdownDevice()
     {
         graphicsBinding = XrGraphicsBindingD3D12KHR{XR_TYPE_GRAPHICS_BINDING_D3D12_KHR};
-        d3d12CmdQueue.Reset();
-        fence.Reset();
-        if (fenceEvent != INVALID_HANDLE_VALUE) {
-            ::CloseHandle(fenceEvent);
-            fenceEvent = INVALID_HANDLE_VALUE;
-        }
+        m_queueWrapper.reset();
+
         rootSignature.Reset();
         pipelineStates.clear();
         m_cubeMesh = {};
         m_meshes.clear();
+        m_gltfs.clear();
         rtvHeap.Reset();
         dsvHeap.Reset();
         m_swapchainImageDataMap.Reset();
 
+        pbrResources.reset();
         d3d12Device.Reset();
         lastSwapchainImage = nullptr;
     }
@@ -615,7 +614,7 @@ namespace Conformance
         uint64_t rowSizeInBytes = 0;
         d3d12Device->GetCopyableFootprints(&rgbaImageDesc, 0, 1, 0, &layout, nullptr, &rowSizeInBytes, &requiredSize);
 
-        ComPtr<ID3D12Resource> uploadBuffer = CreateBuffer(d3d12Device.Get(), (uint32_t)(requiredSize), D3D12_HEAP_TYPE_UPLOAD);
+        ComPtr<ID3D12Resource> uploadBuffer = D3D12CreateBuffer(d3d12Device.Get(), (uint32_t)(requiredSize), D3D12_HEAP_TYPE_UPLOAD);
         XRC_CHECK_THROW_HRCMD(uploadBuffer->SetName(L"CTS RGBA upload buffer"));
         {
             const uint8_t* src = reinterpret_cast<const uint8_t*>(image.pixels.data());
@@ -649,12 +648,13 @@ namespace Conformance
         D3D12_TEXTURE_COPY_LOCATION dstLocation;
         dstLocation.pResource = destTexture;
         dstLocation.Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
-        dstLocation.SubresourceIndex = D3D11CalcSubresource(0, arraySlice, rgbaImageDesc.MipLevels);
+        dstLocation.SubresourceIndex =
+            D3D11CalcSubresource(0, arraySlice, rgbaImageDesc.MipLevels);  // todo: shouldn't this be D3D12CalcSubresource?
 
         cmdList->CopyTextureRegion(&dstLocation, 0 /* X */, 0 /* Y */, 0 /* Z */, &srcLocation, nullptr);
 
         XRC_CHECK_THROW_HRCMD(cmdList->Close());
-        XRC_CHECK_THROW(ExecuteCommandList(cmdList.Get()));
+        XRC_CHECK_THROW(m_queueWrapper->ExecuteCommandList(cmdList.Get()));
 
         WaitForGpu();
     }
@@ -724,24 +724,6 @@ namespace Conformance
         return true;
     }
 
-    bool D3D12GraphicsPlugin::ExecuteCommandList(ID3D12CommandList* cmdList) const
-    {
-        bool success;
-        __try {
-            ID3D12CommandList* cmdLists[] = {cmdList};
-            d3d12CmdQueue->ExecuteCommandLists((UINT)ArraySize(cmdLists), cmdLists);
-            success = true;
-        }
-        __except (EXCEPTION_EXECUTE_HANDLER) {
-            success = false;
-        }
-
-        ++fenceValue;
-        XRC_CHECK_THROW_HRCMD(d3d12CmdQueue->Signal(fence.Get(), fenceValue));
-
-        return success;
-    }
-
     bool D3D12GraphicsPlugin::ValidateSwapchainImageState(XrSwapchain swapchain, uint32_t index, int64_t imageFormat) const
     {
         // OK to use CHECK and REQUIRE in here because this is always called from within a test.
@@ -762,7 +744,7 @@ namespace Conformance
         XRC_CHECK_THROW_HRCMD(d3d12Device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, commandAllocator.Get(), nullptr,
                                                              __uuidof(ID3D12GraphicsCommandList),
                                                              reinterpret_cast<void**>(cmdList.ReleaseAndGetAddressOf())));
-        XRC_CHECK_THROW_HRCMD(commandAllocator->SetName(L"CTS ValidateSwapchainImageState cmd list"));
+        XRC_CHECK_THROW_HRCMD(cmdList->SetName(L"CTS ValidateSwapchainImageState cmd list"));
 
         const XrSwapchainImageD3D12KHR& image = swapchainImageVector[index];
         const bool isColorFormat = GetDxgiSwapchainTestMap()[imageFormat].colorFormat;
@@ -788,7 +770,7 @@ namespace Conformance
             infoQueue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_ERROR, true);
         }
 
-        const bool success = ExecuteCommandList(cmdList.Get());
+        const bool success = m_queueWrapper->ExecuteCommandList(cmdList.Get());
 
         if (infoQueue) {
             infoQueue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_ERROR, oldBreakOnError);
@@ -969,26 +951,32 @@ namespace Conformance
         cmdList->ClearDepthStencilView(depthStencilView, D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, nullptr);
 
         XRC_CHECK_THROW_HRCMD(cmdList->Close());
-        XRC_CHECK_THROW(ExecuteCommandList(cmdList.Get()));
+        XRC_CHECK_THROW(m_queueWrapper->ExecuteCommandList(cmdList.Get()));
     }
 
     inline MeshHandle D3D12GraphicsPlugin::MakeSimpleMesh(span<const uint16_t> idx, span<const Geometry::Vertex> vtx)
 
     {
-        auto handle = m_meshes.emplace_back(d3d12Device, idx, vtx, [&](ID3D12CommandList* cmdList) -> bool {
-            bool success = ExecuteCommandList(cmdList);
-            // Must wait in here so that we don't try to clean up the "upload"-related objects before they're finished.
-            WaitForGpu();
-            return success;
-        });
+        auto handle = m_meshes.emplace_back(d3d12Device, idx, vtx, m_queueWrapper);
 
         return handle;
+    }
+
+    inline GLTFHandle D3D12GraphicsPlugin::LoadGLTF(span<const uint8_t> data)
+    {
+        auto handle = m_gltfs.emplace_back(*pbrResources, Conformance::LoadGLTF(data));
+        return handle;
+    }
+
+    inline std::shared_ptr<Pbr::Model> D3D12GraphicsPlugin::GetModel(GLTFHandle handle) const
+    {
+        return m_gltfs[handle].GetModel();
     }
 
     void D3D12GraphicsPlugin::RenderView(const XrCompositionLayerProjectionView& layerView,
                                          const XrSwapchainImageBaseHeader* colorSwapchainImage, const RenderParams& params)
     {
-        if (params.cubes.empty() && params.meshes.empty()) {
+        if (params.cubes.empty() && params.meshes.empty() && params.glTFs.empty()) {
             return;
         }
         D3D12SwapchainImageData* swapchainData;
@@ -1058,12 +1046,18 @@ namespace Conformance
         cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
         constexpr uint32_t modelCBufferSize = AlignTo<D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT>(sizeof(ModelConstantBuffer));
-        swapchainData->RequestModelCBuffer(static_cast<uint32_t>(modelCBufferSize * (params.cubes.size() + params.meshes.size())));
+        swapchainData->RequestModelCBuffer(
+            static_cast<uint32_t>(modelCBufferSize * (params.cubes.size() + params.meshes.size() + params.glTFs.size())));
         ID3D12Resource* modelCBuffer = swapchainData->GetModelCBuffer();
 
         // Render each cube
         uint32_t offset = 0;
         MeshHandle lastMeshHandle;
+
+        const auto calculateModelMat = [&](const DrawableParams params, DirectX::XMFLOAT4X4& mat) {
+            XMStoreFloat4x4(&mat,
+                            XMMatrixTranspose(XMMatrixScaling(params.scale.x, params.scale.y, params.scale.z) * LoadXrPose(params.pose)));
+        };
 
         const auto drawMesh = [&, this](const MeshDrawable mesh) {
             D3D12Mesh& d3dMesh = m_meshes[mesh.handle];
@@ -1083,8 +1077,7 @@ namespace Conformance
             // Compute and update the model transform.
             ModelConstantBuffer model;
 
-            XMStoreFloat4x4(&model.Model, XMMatrixTranspose(XMMatrixScaling(mesh.params.scale.x, mesh.params.scale.y, mesh.params.scale.z) *
-                                                            LoadXrPose(mesh.params.pose)));
+            calculateModelMat(mesh.params, model.Model);
             {
                 uint8_t* data;
                 const D3D12_RANGE readRange{0, 0};
@@ -1112,8 +1105,31 @@ namespace Conformance
             drawMesh(mesh);
         }
 
+        // Render each gltf
+        for (const auto& gltfHandle : params.glTFs) {
+            D3D12GLTF& gltf = m_gltfs[gltfHandle.handle];
+            // Compute and update the model transform.
+
+            XrMatrix4x4f modelToWorld;
+            XrMatrix4x4f_CreateTranslationRotationScale(&modelToWorld, &gltfHandle.params.pose.position,
+                                                        &gltfHandle.params.pose.orientation, &gltfHandle.params.scale);
+            XrMatrix4x4f viewMatrix;
+            XrVector3f unitScale = {1, 1, 1};
+            XrMatrix4x4f_CreateTranslationRotationScale(&viewMatrix, &layerView.pose.position, &layerView.pose.orientation, &unitScale);
+            XrMatrix4x4f viewMatrixInverse;
+            XrMatrix4x4f_Invert(&viewMatrixInverse, &viewMatrix);
+            pbrResources->SetViewProjection(LoadXrMatrix(viewMatrixInverse), LoadXrMatrix(projectionMatrix));
+
+            DXGI_FORMAT depthSwapchainFormatDX = GetDepthStencilFormatOrDefault(depthCreateInfo);
+
+            gltf.Render(cmdList, *pbrResources, modelToWorld, (DXGI_FORMAT)swapchainData->GetCreateInfo().format, depthSwapchainFormatDX);
+
+            // wait in the direct queue for resources' internal copy queue to complete
+            m_queueWrapper->GPUWaitOnOtherFence(pbrResources->GetFenceAndValue());
+        }
+
         XRC_CHECK_THROW_HRCMD(cmdList->Close());
-        XRC_CHECK_THROW(ExecuteCommandList(cmdList.Get()));
+        XRC_CHECK_THROW(m_queueWrapper->ExecuteCommandList(cmdList.Get()));
 
         // TODO: Track down exactly why this wait is needed.
         // On some drivers and/or hardware the test is generating the same image for the left and right eye,
@@ -1124,24 +1140,15 @@ namespace Conformance
 
     void D3D12GraphicsPlugin::Flush()
     {
-        if (fence) {
-            WaitForGpu();
+        if (m_queueWrapper) {
+            m_queueWrapper->CPUWaitOnFence();
         }
     }
 
-    ID3D12PipelineState* D3D12GraphicsPlugin::GetOrCreatePipelineState(DXGI_FORMAT colorSwapchainFormat, DXGI_FORMAT dsvSwapchainFormat)
+    void D3D12GraphicsPlugin::SetupBasePipelineStateDesc(D3D12_GRAPHICS_PIPELINE_STATE_DESC& pipelineStateDesc)
     {
-        auto iter = pipelineStates.find({colorSwapchainFormat, dsvSwapchainFormat});
-        if (iter != pipelineStates.end()) {
-            return iter->second.Get();
-        }
+        // separate get base descriptor and create
 
-        const D3D12_INPUT_ELEMENT_DESC inputElementDescs[] = {
-            {"POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0},
-            {"COLOR", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0},
-        };
-
-        D3D12_GRAPHICS_PIPELINE_STATE_DESC pipelineStateDesc{};
         pipelineStateDesc.pRootSignature = rootSignature.Get();
         pipelineStateDesc.VS = {vertexShaderBytes->GetBufferPointer(), vertexShaderBytes->GetBufferSize()};
         pipelineStateDesc.PS = {pixelShaderBytes->GetBufferPointer(), pixelShaderBytes->GetBufferSize()};
@@ -1188,19 +1195,33 @@ namespace Conformance
             pipelineStateDesc.DepthStencilState.FrontFace = pipelineStateDesc.DepthStencilState.BackFace = {
                 D3D12_STENCIL_OP_KEEP, D3D12_STENCIL_OP_KEEP, D3D12_STENCIL_OP_KEEP, D3D12_COMPARISON_FUNC_ALWAYS};
         }
-        {
-            pipelineStateDesc.InputLayout.pInputElementDescs = inputElementDescs;
-            pipelineStateDesc.InputLayout.NumElements = (UINT)ArraySize(inputElementDescs);
-        }
-        pipelineStateDesc.IBStripCutValue = D3D12_INDEX_BUFFER_STRIP_CUT_VALUE_0xFFFF;
+        pipelineStateDesc.IBStripCutValue = D3D12_INDEX_BUFFER_STRIP_CUT_VALUE_DISABLED;
         pipelineStateDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
         pipelineStateDesc.NumRenderTargets = 1;
-        pipelineStateDesc.RTVFormats[0] = colorSwapchainFormat;
-        pipelineStateDesc.DSVFormat = dsvSwapchainFormat;
         pipelineStateDesc.SampleDesc = {1, 0};
         pipelineStateDesc.NodeMask = 0;
         pipelineStateDesc.CachedPSO = {nullptr, 0};
         pipelineStateDesc.Flags = D3D12_PIPELINE_STATE_FLAG_NONE;
+    }
+
+    ID3D12PipelineState* D3D12GraphicsPlugin::GetOrCreatePipelineState(DXGI_FORMAT colorSwapchainFormat, DXGI_FORMAT dsvSwapchainFormat)
+    {
+        auto iter = pipelineStates.find({colorSwapchainFormat, dsvSwapchainFormat});
+        if (iter != pipelineStates.end()) {
+            return iter->second.Get();
+        }
+
+        D3D12_GRAPHICS_PIPELINE_STATE_DESC pipelineStateDesc{};
+        SetupBasePipelineStateDesc(pipelineStateDesc);
+        pipelineStateDesc.RTVFormats[0] = colorSwapchainFormat;
+        pipelineStateDesc.DSVFormat = dsvSwapchainFormat;
+
+        const D3D12_INPUT_ELEMENT_DESC inputElementDescs[] = {
+            {"POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0},
+            {"COLOR", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0},
+        };
+        pipelineStateDesc.InputLayout.pInputElementDescs = inputElementDescs;
+        pipelineStateDesc.InputLayout.NumElements = (UINT)ArraySize(inputElementDescs);
 
         ComPtr<ID3D12PipelineState> pipelineState;
         XRC_CHECK_THROW_HRCMD(d3d12Device->CreateGraphicsPipelineState(&pipelineStateDesc, __uuidof(ID3D12PipelineState),
@@ -1213,20 +1234,9 @@ namespace Conformance
         return pipelineStateRaw;
     }
 
-    void D3D12GraphicsPlugin::CpuWaitForFence(uint64_t fenceVal) const
-    {
-        if (fence->GetCompletedValue() < fenceVal) {
-            XRC_CHECK_THROW_HRCMD(fence->SetEventOnCompletion(fenceVal, fenceEvent));
-            const uint32_t retVal = WaitForSingleObjectEx(fenceEvent, INFINITE, FALSE);
-            if (retVal != WAIT_OBJECT_0) {
-                XRC_CHECK_THROW_HRCMD(E_FAIL);
-            }
-        }
-    }
-
     void D3D12GraphicsPlugin::WaitForGpu() const
     {
-        CpuWaitForFence(fenceValue);
+        m_queueWrapper->CPUWaitOnFence();
     }
 
     std::shared_ptr<IGraphicsPlugin> CreateGraphicsPlugin_D3D12(std::shared_ptr<IPlatformPlugin> platformPlugin)

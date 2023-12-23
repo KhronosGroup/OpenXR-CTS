@@ -15,63 +15,99 @@
 # limitations under the License.
 #
 
-file(GLOB LOCAL_HEADERS "*.h")
-file(GLOB LOCAL_SOURCE "*.cpp")
-file(GLOB ASSETS "composition_examples/*.png"
-                 "SourceCodePro-Regular.otf")
+file(
+    GLOB
+    LOCAL_HEADERS
+    CONFIGURE_DEPENDS
+    "*.h"
+)
+file(
+    GLOB
+    LOCAL_SOURCE
+    CONFIGURE_DEPENDS
+    "*.cpp"
+)
+file(
+    GLOB
+    ASSETS
+    "composition_examples/*.png"
+    "SourceCodePro-Regular.otf"
+    "gltf_examples/*.glb"
+    "gltf_examples/*.png"
+    "pbr_assets/*.png"
+    "d3d_shaders/*.hlsl"
+)
+file(GLOB VULKAN_SHADERS "vulkan_shaders/*.glsl")
 
-# For including compiled shaders
-include_directories(${CMAKE_CURRENT_BINARY_DIR})
+# Check to see if git-lfs is working right
+file(STRINGS gltf_examples/VertexColorTest.glb LFS_CHECK_STRINGS)
+if(LFS_CHECK_STRINGS MATCHES "https://git-lfs[.]github[.]com/spec/v1")
+    message(
+        FATAL_ERROR
+            "Found a git-lfs pointer file instead of the binary file that should replace it. Please install git-lfs, run 'git lfs install', and 'git lfs checkout'"
+    )
+endif()
 
-add_library(conformance_test SHARED
+add_library(
+    conformance_test SHARED
     ${LOCAL_HEADERS}
     ${LOCAL_SOURCE}
     ${VULKAN_SHADERS}
     ${PROJECT_SOURCE_DIR}/src/common/platform_utils.hpp
 )
-if(ANDROID)
-    target_sources(conformance_test PRIVATE $<TARGET_OBJECTS:android_native_app_glue>)
-endif()
-
-target_link_libraries(conformance_test PRIVATE conformance_utilities conformance_framework)
-
-add_dependencies(conformance_test
-    generate_openxr_header
-    XrApiLayer_runtime_conformance
-)
-openxr_add_filesystem_utils(conformance_test)
-
-target_include_directories(conformance_test
-    PRIVATE
-    ${CMAKE_CURRENT_LIST_DIR}/../framework
-    ${PROJECT_SOURCE_DIR}/src/common
-    # for openxr.h:
-    ${PROJECT_BINARY_DIR}/include
-
-    # for common_config.h:
-    ${PROJECT_BINARY_DIR}/src
-)
-target_include_directories(conformance_test
-    SYSTEM PRIVATE
-    # for helper headers
-    ${PROJECT_SOURCE_DIR}/external/include
-
-    ${PROJECT_SOURCE_DIR}/src/external
-
-    # Earcut algorithm for simple polygon triangulation
-    ${PROJECT_SOURCE_DIR}/src/external/earcut/include
-)
 
 source_group("Header Files" FILES ${LOCAL_HEADERS})
 source_group("Source Files" FILES ${LOCAL_SOURCE})
+target_link_libraries(
+    conformance_test
+    PRIVATE conformance_utilities conformance_framework
+    PUBLIC OpenXR::headers
+)
 
-target_link_libraries(conformance_test PRIVATE conformance_framework)
+add_dependencies(conformance_test XrApiLayer_runtime_conformance)
+openxr_add_filesystem_utils(conformance_test)
 
+target_include_directories(
+    conformance_test
+    PRIVATE
+        # For including compiled shaders
+        ${CMAKE_CURRENT_BINARY_DIR}
+        ../framework
+        ${PROJECT_SOURCE_DIR}/src/common
+        # for common_config.h:
+        ${PROJECT_BINARY_DIR}/src
+)
+
+target_include_directories(
+    conformance_test SYSTEM
+    PRIVATE
+        # for helper headers
+        ${PROJECT_SOURCE_DIR}/external/include
+        ${PROJECT_SOURCE_DIR}/src/external
+        # Earcut algorithm for simple polygon triangulation
+        ${PROJECT_SOURCE_DIR}/src/external/earcut/include
+)
+if(ANDROID)
+    target_sources(
+        conformance_test PRIVATE $<TARGET_OBJECTS:android_native_app_glue>
+    )
+endif()
 if(WIN32)
     target_compile_definitions(conformance_test PRIVATE _CRT_SECURE_NO_WARNINGS)
     if(MSVC)
-        target_compile_options(conformance_test PRIVATE /Zc:wchar_t /Zc:forScope /W4 /wd4996)
-        if(NOT CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+        target_compile_options(
+            conformance_test
+            PRIVATE
+                /Zc:wchar_t
+                /Zc:forScope
+                /W4
+                /wd4996
+        )
+        if(NOT
+           CMAKE_CXX_COMPILER_ID
+           STREQUAL
+           "Clang"
+        )
             # If actually msvc and not clang-cl
             target_compile_options(conformance_test PRIVATE /WX)
         endif()
@@ -83,7 +119,9 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     target_link_libraries(conformance_test PRIVATE m)
 endif()
 if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GCC")
-    target_compile_options(conformance_test PRIVATE -Wno-missing-field-initializers)
+    target_compile_options(
+        conformance_test PRIVATE -Wno-missing-field-initializers
+    )
 endif()
 if(ANDROID)
     target_sources(
@@ -91,39 +129,42 @@ if(ANDROID)
         PRIVATE
             "${CMAKE_CURRENT_SOURCE_DIR}/../platform_specific/android_main.cpp"
             "${CMAKE_CURRENT_SOURCE_DIR}/../platform_specific/android_intent_extras.cpp"
-            "${CMAKE_CURRENT_SOURCE_DIR}/../../external/jnipp/jnipp.cpp"
+            "${PROJECT_SOURCE_DIR}/src/external/jnipp/jnipp.cpp"
     )
     target_include_directories(
-        conformance_test
-        PRIVATE
-        "${CMAKE_CURRENT_SOURCE_DIR}"
-        "${CMAKE_CURRENT_SOURCE_DIR}/../../external")
+        conformance_test PRIVATE . "${PROJECT_SOURCE_DIR}/src/external"
+    )
     target_link_libraries(
-        conformance_test
-        PRIVATE
-        ${ANDROID_LIBRARY}
-        ${ANDROID_LOG_LIBRARY}
+        conformance_test PRIVATE ${ANDROID_LIBRARY} ${ANDROID_LOG_LIBRARY}
     )
 endif()
-
 
 if(BUILD_CONFORMANCE_CLI)
     # Copy conformance_test assets files to the conformance_cli binary folder
     foreach(ASSET ${ASSETS})
-        add_custom_command(TARGET conformance_test PRE_BUILD
-            COMMAND ${CMAKE_COMMAND} -E copy ${ASSET} $<TARGET_PROPERTY:conformance_cli,BINARY_DIR>
+        add_custom_command(
+            TARGET conformance_test
+            PRE_BUILD
+            COMMAND
+                ${CMAKE_COMMAND} -E copy ${ASSET}
+                $<TARGET_PROPERTY:conformance_cli,BINARY_DIR>
         )
-        install(FILES ${ASSET}
-            DESTINATION conformance)
+        install(FILES ${ASSET} DESTINATION conformance)
     endforeach()
 
     # Copy conformance test binary to conformance_cli binary folder
-    add_custom_command(TARGET conformance_test POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:conformance_test> $<TARGET_PROPERTY:conformance_cli,BINARY_DIR>
+    add_custom_command(
+        TARGET conformance_test
+        POST_BUILD
+        COMMAND
+            ${CMAKE_COMMAND} -E copy $<TARGET_FILE:conformance_test>
+            $<TARGET_PROPERTY:conformance_cli,BINARY_DIR>
     )
 endif()
 
-set_target_properties(conformance_test PROPERTIES FOLDER ${CONFORMANCE_TESTS_FOLDER})
+set_target_properties(
+    conformance_test PROPERTIES FOLDER ${CONFORMANCE_TESTS_FOLDER}
+)
 
 install(
     TARGETS conformance_test
@@ -132,5 +173,9 @@ install(
     RUNTIME DESTINATION conformance
 )
 if(MSVC)
-    install(FILES $<TARGET_PDB_FILE:conformance_test> DESTINATION conformance OPTIONAL)
+    install(
+        FILES $<TARGET_PDB_FILE:conformance_test>
+        DESTINATION conformance
+        OPTIONAL
+    )
 endif()

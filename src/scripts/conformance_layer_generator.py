@@ -72,10 +72,10 @@ class ConformanceLayerGenerator(AutomaticSourceOutputGenerator):
         skip_hooks = set(self.no_trampoline_or_terminator).union(
             set(MANUALLY_DEFINED_IN_LAYER))
         file_data = self.template.render(
-                gen=self,
-                registry=self.registry,
-                sorted_cmds=sorted_cmds,
-                skip_hooks=skip_hooks)
+            gen=self,
+            registry=self.registry,
+            sorted_cmds=sorted_cmds,
+            skip_hooks=skip_hooks)
         write(file_data, file=self.outFile)
 
         # Finish processing in superclass

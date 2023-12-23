@@ -18,13 +18,15 @@
 
 #include "conformance_framework.h"
 #include "swapchain_image_data.h"
+
+#include "common/xr_dependencies.h"
+#include "common/xr_linear.h"
 #include "utilities/event_reader.h"
 #include "utilities/throw_helpers.h"
-#include "utilities/xrduration_literals.h"
-
-#include <openxr/openxr.h>
 
 #include <catch2/catch_test_macros.hpp>
+#include <openxr/openxr.h>
+#include <openxr/openxr_platform.h>
 
 #include <algorithm>
 #include <cassert>
@@ -37,7 +39,7 @@ using namespace std::chrono_literals;
 
 namespace Conformance
 {
-    RGBAImage CreateTextImage(int width, int height, const char* text, int fontHeight)
+    RGBAImage CreateTextImage(int32_t width, int32_t height, const char* text, int32_t fontHeight)
     {
         constexpr int FontPaddingPixels = 4;
         constexpr int BorderPixels = 2;

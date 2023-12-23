@@ -245,6 +245,10 @@ namespace Conformance
     /// Returns a reference to the input str.
     std::string& FlipCase(std::string& str);
 
+    /// Reads the file at path @p path to a vector. @p description can be used for more informative
+    /// errors in case this fails, e.g. "texture".
+    std::vector<uint8_t> ReadFileBytes(const char* path, const char* description = "");
+
     /// SleepMs
     ///
     /// Sleeps the current thread for at least the given milliseconds. Attempt is made to return

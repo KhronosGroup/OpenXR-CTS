@@ -15,12 +15,20 @@
 # limitations under the License.
 #
 
-file(GLOB LOCAL_HEADERS "*.h")
-file(GLOB LOCAL_SOURCE "*.cpp")
+file(
+    GLOB
+    LOCAL_HEADERS
+    CONFIGURE_DEPENDS
+    "*.h"
+)
+file(
+    GLOB
+    LOCAL_SOURCE
+    CONFIGURE_DEPENDS
+    "*.cpp"
+)
 
-add_executable(conformance_cli
-    ${LOCAL_SOURCE}
-    ${LOCAL_HEADERS})
+add_executable(conformance_cli ${LOCAL_SOURCE} ${LOCAL_HEADERS})
 
 source_group("Headers" FILES ${LOCAL_HEADERS})
 
@@ -28,42 +36,41 @@ add_dependencies(conformance_cli conformance_test)
 
 target_link_libraries(conformance_cli conformance_test)
 
-target_include_directories(conformance_cli
-    PRIVATE ${CMAKE_CURRENT_LIST_DIR}/../conformance_test
-    PRIVATE ${CMAKE_CURRENT_LIST_DIR}/../framework
-    ${CMAKE_CURRENT_LIST_DIR}/../../common
-    PRIVATE ${PROJECT_SOURCE_DIR}/src/external
-)
-
-target_include_directories(conformance_cli
+target_include_directories(
+    conformance_cli
     PRIVATE
-    ${PROJECT_SOURCE_DIR}/src
-    ${PROJECT_SOURCE_DIR}/src/common
-    ${PROJECT_SOURCE_DIR}/include
-    ${PROJECT_BINARY_DIR}/include
-    ${PROJECT_SOURCE_DIR}/external/include
+        ../conformance_test
+        ../framework
+        ${PROJECT_SOURCE_DIR}/src/common
+        ${PROJECT_SOURCE_DIR}/src/external
 )
 
-if(Vulkan_FOUND)
-    target_include_directories(conformance_cli
-        PRIVATE ${Vulkan_INCLUDE_DIRS}
-    )
+target_include_directories(
+    conformance_cli
+    PRIVATE ${PROJECT_SOURCE_DIR}/src ${PROJECT_SOURCE_DIR}/src/common
+            ${PROJECT_SOURCE_DIR}/external/include
+)
+
+if(XR_USE_GRAPHICS_API_VULKAN)
+    target_include_directories(conformance_cli PRIVATE ${Vulkan_INCLUDE_DIRS})
 endif()
 
 # Be able to find .so when installed
-set_property(TARGET conformance_cli
-    PROPERTY INSTALL_RPATH $ORIGIN)
+set_property(TARGET conformance_cli PROPERTY INSTALL_RPATH $ORIGIN)
 
-set_target_properties(conformance_cli PROPERTIES FOLDER ${CONFORMANCE_TESTS_FOLDER})
-
-install(
-    TARGETS conformance_cli
-    RUNTIME DESTINATION conformance
+set_target_properties(
+    conformance_cli PROPERTIES FOLDER ${CONFORMANCE_TESTS_FOLDER}
 )
 
+install(TARGETS conformance_cli RUNTIME DESTINATION conformance)
+
 if(MSVC)
-    install(FILES $<TARGET_PDB_FILE:conformance_cli> DESTINATION conformance OPTIONAL)
+    install(
+        FILES $<TARGET_PDB_FILE:conformance_cli>
+        DESTINATION conformance
+        OPTIONAL
+    )
 endif()
 
 # Install the README
-install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/../conformance_test/readme.md DESTINATION conformance)
+install(FILES ../conformance_test/readme.md DESTINATION conformance)

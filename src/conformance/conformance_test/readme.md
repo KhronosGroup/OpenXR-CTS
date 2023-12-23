@@ -24,6 +24,22 @@ does not support a command-line interface, a host application must be built for
 the device which the OpenXR runtime will run on. The conformance host must
 invoke `conformance_test`, the test suite shared library.
 
+When you plan to submit for conformance, you must observe a few considerations
+to ensure that the build system has accurate source code revision information
+available to embed in the test suite and output reports. You must build from a
+git repo (forked from either the internal Gitlab or public GitHub) with tags
+available (a full clone, not shallow). You also must either perform a clean
+build, from an empty binary tree, or at least run `cmake` immediately before
+building to pick up current source tree status. If your "porting" process (as
+described by the conformance process documents) involves replacing the build
+system, you must populate the revision data constants in
+`utilities/git_revision.cpp.in` accurately. The contents of that file affect all
+"ctsxml" format outputs, as well as an automated "SourceCodeRevision" test that
+warns if it cannot identify an approved release. (It only checks for the
+presence of an appropriately-named tag: it does not check for a signature on the
+tag, so if you have added tags to your repo it may not warn if you are not on a
+release.)
+
 Running CTS
 -----------
 
@@ -163,6 +179,26 @@ Alternatively, you may pass space-separated args using
 however, this does not allow you to specify arguments with spaces and does not
 allow you to set the output filename. A property set this way persists until the
 device restarts.
+
+Interactive self-tests
+----------------------
+
+Some interactive tests are primarily a test of mechanisms within the CTS, rather
+than runtime functionality. These are labeled with the tag `[self_test]` rather
+than `[scenario]`, `[actions]`, or `[composition]`. While it is good to run
+these, and doing so may help troubleshoot failures with tests that build on,
+submission of a CTS results package. Currently, the only self-tests are for the
+PBR/glTF rendering subsystem. They synchronously load very large, artificial
+test assets, originally from the "glTF-Sample-Models" repository, to test
+specific details of the renderer.
+
+To run the self-tests, commands similar to the following can be used:
+
+        conformance_cli "[self_test][interactive]" -G d3d11 --reporter ctsxml::out=interactive_self_test_d3d11.xml
+        conformance_cli "[self_test][interactive]" -G d3d12 --reporter ctsxml::out=interactive_self_test_d3d12.xml
+        conformance_cli "[self_test][interactive]" -G vulkan --reporter ctsxml::out=interactive_self_test_vulkan.xml
+        conformance_cli "[self_test][interactive]" -G vulkan2 --reporter ctsxml::out=interactive_self_test_vulkan2.xml
+        conformance_cli "[self_test][interactive]" -G opengl --reporter ctsxml::out=interactive_self_test_opengl.xml
 
 Conformance Submission Package Requirements
 -------------------------------------------

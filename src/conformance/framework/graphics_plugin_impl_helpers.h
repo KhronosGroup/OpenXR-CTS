@@ -17,6 +17,7 @@
 #pragma once
 
 #include <vector>
+#include <stdexcept>
 #include <stdint.h>
 
 namespace Conformance
@@ -30,6 +31,9 @@ namespace Conformance
     class VectorWithGenerationCountedHandles
     {
     public:
+        // TODO genericize
+        // static_assert(sizeof(HandleType) == sizeof(uint64_t), "Only works with 64-bit handles right now");
+        using GenerationType = uint32_t;
         template <typename... Args>
         HandleType emplace_back(Args&&... args)
         {
@@ -61,17 +65,18 @@ namespace Conformance
             if (h == HandleType{}) {
                 throw std::logic_error("Internal CTS error: Trying to use a null graphics handle!");
             }
-            auto generation = static_cast<uint32_t>(h.get() >> kGenerationShift);
+            auto generation = static_cast<GenerationType>(h.get() >> kGenerationShift);
             if (generation != m_generationNumber) {
                 throw std::logic_error(
                     "Internal CTS error: Trying to use a graphics handle left over from before a Shutdown() or ShutdownDevice() call!");
             }
+            // TODO implicit mask is here by truncating!
             auto index = static_cast<uint32_t>(h.get());
             return index;
         }
         static constexpr size_t kGenerationShift = 32;
         std::vector<T> m_data;
-        uint32_t m_generationNumber{1};
+        GenerationType m_generationNumber{1};
     };
 
 }  // namespace Conformance

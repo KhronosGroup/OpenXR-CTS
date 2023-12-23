@@ -7,11 +7,15 @@
 #ifdef XR_USE_GRAPHICS_API_VULKAN
 
 #include "throw_helpers.h"
-#include "xr_dependencies.h"
-#include <common/vulkan_debug_object_namer.hpp>
+#include "common/xr_dependencies.h"
+#include "common/vulkan_debug_object_namer.hpp"
 #include <openxr/openxr_platform.h>
 
+#include <nonstd/span.hpp>
+
 #include <string>
+#include <vector>
+#include <cstdint>
 
 //#define USE_ONLINE_VULKAN_SHADERC
 #ifdef USE_ONLINE_VULKAN_SHADERC
@@ -37,6 +41,7 @@
 
 namespace Conformance
 {
+    using nonstd::span;
 
     inline std::string vkResultString(VkResult res)
     {
@@ -156,9 +161,9 @@ namespace Conformance
     }
 
 // XXX These really shouldn't have trailing ';'s
-#define XRC_THROW_VK(res, cmd) ThrowVkResult(res, #cmd, XRC_FILE_AND_LINE);
-#define XRC_CHECK_THROW_VKCMD(cmd) CheckThrowVkResult(cmd, #cmd, XRC_FILE_AND_LINE);
-#define XRC_CHECK_THROW_VKRESULT(res, cmdStr) CheckThrowVkResult(res, cmdStr, XRC_FILE_AND_LINE);
+#define XRC_THROW_VK(res, cmd) ::Conformance::ThrowVkResult(res, #cmd, XRC_FILE_AND_LINE);
+#define XRC_CHECK_THROW_VKCMD(cmd) ::Conformance::CheckThrowVkResult(cmd, #cmd, XRC_FILE_AND_LINE);
+#define XRC_CHECK_THROW_VKRESULT(res, cmdStr) ::Conformance::CheckThrowVkResult(res, cmdStr, XRC_FILE_AND_LINE);
 
     struct MemoryAllocator
     {
@@ -187,12 +192,12 @@ namespace Conformance
                         VkMemoryAllocateInfo memAlloc{VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO, pNext};
                         memAlloc.allocationSize = memReqs.size;
                         memAlloc.memoryTypeIndex = i;
-                        XRC_CHECK_THROW_VKCMD(vkAllocateMemory(m_vkDevice, &memAlloc, nullptr, mem));
+                        XRC_CHECK_THROW_VKCMD(vkAllocateMemory(m_vkDevice, &memAlloc, nullptr, mem))
                         return;
                     }
                 }
             }
-            XRC_THROW("Memory format not supported");
+            XRC_THROW("Memory format not supported")
         }
 
     private:
@@ -386,12 +391,12 @@ namespace Conformance
         ShaderProgram(ShaderProgram&&) = delete;
         ShaderProgram& operator=(ShaderProgram&&) = delete;
 
-        void LoadVertexShader(const std::vector<uint32_t>& code)
+        void LoadVertexShader(const span<const uint32_t> code)
         {
             Load(0, code);
         }
 
-        void LoadFragmentShader(const std::vector<uint32_t>& code)
+        void LoadFragmentShader(const span<const uint32_t> code)
         {
             Load(1, code);
         }
@@ -404,7 +409,7 @@ namespace Conformance
     private:
         VkDevice m_vkDevice{VK_NULL_HANDLE};
 
-        void Load(uint32_t index, const std::vector<uint32_t>& code)
+        void Load(uint32_t index, const span<const uint32_t> code)
         {
             VkShaderModuleCreateInfo modInfo{VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO};
 
@@ -435,13 +440,195 @@ namespace Conformance
         }
     };
 
+    /// A wrapper for VkBuffer and VkDeviceMemory.
+    /// DOES NOT clean up itself on destruction because it does not carry a VkDevice pointer - the containing/derived class's destructor
+    /// must call Reset(device)
+    struct BufferAndMemory
+    {
+        VkBuffer buf{VK_NULL_HANDLE};
+        VkDeviceMemory mem{VK_NULL_HANDLE};
+
+        /// Destroy the buffer and free the memory, if applicable.
+        void Reset(VkDevice device)
+        {
+            if (device != nullptr) {
+                if (buf != VK_NULL_HANDLE) {
+                    vkDestroyBuffer(device, buf, nullptr);
+                }
+                if (mem != VK_NULL_HANDLE) {
+                    vkFreeMemory(device, mem, nullptr);
+                }
+            }
+            buf = VK_NULL_HANDLE;
+            mem = VK_NULL_HANDLE;
+        }
+
+        /// Swap the internals with another object.
+        /// Used by subclasses to provide move construction/assignment.
+        void Swap(BufferAndMemory& other)
+        {
+            using std::swap;
+            swap(buf, other.buf);
+            swap(mem, other.mem);
+        }
+
+        /// Create the buffer handle (using the specified VkBufferCreateInfo),
+        /// allocate the memory, and bind the buffer to the memory.
+        void Create(VkDevice device, const MemoryAllocator& memAllocator, const VkBufferCreateInfo& bufInfo)
+        {
+            XRC_CHECK_THROW_VKCMD(vkCreateBuffer(device, &bufInfo, nullptr, &this->buf));
+            VkMemoryRequirements memReq = {};
+            vkGetBufferMemoryRequirements(device, buf, &memReq);
+            memAllocator.Allocate(memReq, &mem);
+            XRC_CHECK_THROW_VKCMD(vkBindBufferMemory(device, this->buf, this->mem, 0));
+        }
+
+        /// Create the buffer handle (using the specified array count, usage, and element type `T`),
+        /// allocate the memory, and bind the buffer to the memory.
+        /// Function template to allow easy, generic access: caller must make sure the type used here matches the type used elsewhere!
+        template <typename T>
+        void Create(VkDevice device, const MemoryAllocator& memAllocator, uint32_t count, VkBufferUsageFlags usage)
+        {
+
+            VkBufferCreateInfo bufInfo{VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO};
+            bufInfo.usage = usage;
+            bufInfo.size = sizeof(T) * count;
+            Create(device, memAllocator, bufInfo);
+        }
+
+        /// Update the elements of the buffer using vkMapMemory.
+        ///
+        /// Function template to allow easy, generic access: caller must make sure the type used here matches the type used elsewhere!
+        ///
+        /// @param device The VkDevice associated with this buffer
+        /// @param data Your data span (contiguous - pointer and size)
+        /// @param offsetElements A zero-based **element** offset from the beginning of the memory object.
+        template <typename T>
+        void Update(VkDevice device, span<const T> data, uint32_t offsetElements = 0)
+        {
+            const size_t elements = data.size();
+            T* map = nullptr;
+            XRC_CHECK_THROW_VKCMD(vkMapMemory(device, this->mem, sizeof(T) * offsetElements, sizeof(T) * elements, 0, (void**)&map));
+            for (size_t i = 0; i < elements; ++i) {
+                map[i] = data[i];
+            }
+            vkUnmapMemory(device, this->mem);
+        }
+    };
+
+    /// Type-generic base class for what d3d12 calls a "structured buffer" - an array of arbitrary things.
+    /// Unlike @ref UntypedBuffer this *does* carry the VkDevice
+    struct StructuredBufferBase : BufferAndMemory
+    {
+        /// Default constructible
+        StructuredBufferBase() noexcept = default;
+
+        /// Delete the buffer, free the memory, and reset the count to 0.
+        void Reset()
+        {
+            BufferAndMemory::Reset(m_vkDevice);
+            m_vkDevice = nullptr;
+            m_memAllocator = nullptr;
+            m_count = 0;
+        }
+
+        /// Destructor - frees resources
+        ~StructuredBufferBase()
+        {
+            Reset();
+        }
+
+        StructuredBufferBase(StructuredBufferBase&&) noexcept = delete;
+        StructuredBufferBase& operator=(StructuredBufferBase&& other) noexcept = delete;
+        StructuredBufferBase(const StructuredBufferBase&) = delete;
+        StructuredBufferBase& operator=(const StructuredBufferBase&) = delete;
+
+        /// Initialize with a device and a memory allocator
+        void Init(VkDevice device, const MemoryAllocator& memAllocator)
+        {
+            m_vkDevice = device;
+            m_memAllocator = &memAllocator;
+        }
+
+    protected:
+        /// Swap the internals with another object.
+        /// Used by subclasses to provide move construction/assignment.
+        void Swap(StructuredBufferBase& other)
+        {
+            using std::swap;
+            BufferAndMemory::Swap(other);
+            swap(m_vkDevice, other.m_vkDevice);
+            swap(m_count, other.m_count);
+            swap(m_memAllocator, other.m_memAllocator);
+        }
+        VkDevice m_vkDevice{VK_NULL_HANDLE};
+        uint32_t m_count{};
+        const MemoryAllocator* m_memAllocator{nullptr};
+    };
+
+    /// Class template for a "Structured Buffer" - an array of some arbitrary type.
+    ///
+    /// Most of the functionality is in StructuredBufferBase, only the few things that are type-specific are on this most-derived class.
+    template <typename T>
+    struct StructuredBuffer : StructuredBufferBase
+    {
+
+        /// Default constructible
+        StructuredBuffer() noexcept = default;
+
+        /// Move-constructor
+        StructuredBuffer(StructuredBuffer<T>&& other) noexcept : StructuredBuffer()
+        {
+            Swap(other);
+        }
+
+        /// Move-assignment
+        StructuredBuffer& operator=(StructuredBuffer<T>&& other) noexcept
+        {
+            if (this == &other) {
+                return *this;
+            }
+            Reset();
+            Swap(other);
+            return *this;
+        }
+
+        StructuredBuffer(const StructuredBuffer&) = delete;
+        StructuredBuffer& operator=(const StructuredBuffer&) = delete;
+
+        /// Create the buffer handle (using the specified array count and usage), allocate the memory,
+        /// and bind the buffer to the memory.
+        bool Create(uint32_t count, VkBufferUsageFlags usage)
+        {
+            BufferAndMemory::Create<T>(m_vkDevice, *m_memAllocator, count, usage);
+
+            m_count = count;
+
+            return true;
+        }
+
+        /// Update the elements of the buffer using vkMapMemory
+        ///
+        /// @param device The VkDevice associated with this buffer
+        /// @param data Your data (contiguous)
+        /// @param offsetElements A zero-based **element** offset from the beginning of the memory object.
+        void Update(span<const T> data, uint32_t offsetElements = 0)
+        {
+            BufferAndMemory::Update(m_vkDevice, data, offsetElements);
+        }
+
+        /// Create a VkDescriptorBufferInfo covering the entire buffer
+        VkDescriptorBufferInfo MakeDescriptor()
+        {
+            return {buf, 0, sizeof(T) * m_count};
+        }
+    };
+
     // VertexBuffer base class
     struct VertexBufferBase
     {
-        VkBuffer idxBuf{VK_NULL_HANDLE};
-        VkDeviceMemory idxMem{VK_NULL_HANDLE};
-        VkBuffer vtxBuf{VK_NULL_HANDLE};
-        VkDeviceMemory vtxMem{VK_NULL_HANDLE};
+        BufferAndMemory idx;
+        BufferAndMemory vtx;
         VkVertexInputBindingDescription bindDesc{};
         std::vector<VkVertexInputAttributeDescription> attrDesc{};
         struct
@@ -454,24 +641,8 @@ namespace Conformance
 
         void Reset()
         {
-            if (m_vkDevice != nullptr) {
-                if (idxBuf != VK_NULL_HANDLE) {
-                    vkDestroyBuffer(m_vkDevice, idxBuf, nullptr);
-                }
-                if (idxMem != VK_NULL_HANDLE) {
-                    vkFreeMemory(m_vkDevice, idxMem, nullptr);
-                }
-                if (vtxBuf != VK_NULL_HANDLE) {
-                    vkDestroyBuffer(m_vkDevice, vtxBuf, nullptr);
-                }
-                if (vtxMem != VK_NULL_HANDLE) {
-                    vkFreeMemory(m_vkDevice, vtxMem, nullptr);
-                }
-            }
-            idxBuf = VK_NULL_HANDLE;
-            idxMem = VK_NULL_HANDLE;
-            vtxBuf = VK_NULL_HANDLE;
-            vtxMem = VK_NULL_HANDLE;
+            idx.Reset(m_vkDevice);
+            vtx.Reset(m_vkDevice);
             bindDesc = {};
             attrDesc.clear();
             count = {0, 0};
@@ -487,6 +658,13 @@ namespace Conformance
         VertexBufferBase& operator=(const VertexBufferBase&) = delete;
         VertexBufferBase(VertexBufferBase&&) = delete;
         VertexBufferBase& operator=(VertexBufferBase&&) = delete;
+        void Init(VkDevice device, const MemoryAllocator* memAllocator, std::vector<VkVertexInputAttributeDescription>&& attr)
+        {
+            m_vkDevice = device;
+            m_memAllocator = memAllocator;
+            attrDesc = std::move(attr);
+        }
+
         void Init(VkDevice device, const MemoryAllocator* memAllocator, const std::vector<VkVertexInputAttributeDescription>& attr)
         {
             m_vkDevice = device;
@@ -496,11 +674,18 @@ namespace Conformance
 
     protected:
         VkDevice m_vkDevice{VK_NULL_HANDLE};
-        void AllocateBufferMemory(VkBuffer buf, VkDeviceMemory* mem) const
+
+        /// Create and bind the index and vertex buffers.
+        /// @pre Call Init()
+        template <typename VertexType, typename IndexType>
+        bool Create(uint32_t idxCount, uint32_t vtxCount)
         {
-            VkMemoryRequirements memReq = {};
-            vkGetBufferMemoryRequirements(m_vkDevice, buf, &memReq);
-            m_memAllocator->Allocate(memReq, mem);
+            idx.Create<IndexType>(m_vkDevice, *m_memAllocator, idxCount, VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
+            vtx.Create<VertexType>(m_vkDevice, *m_memAllocator, vtxCount, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
+
+            count = {idxCount, vtxCount};
+
+            return true;
         }
 
         /// Swap the internals with another object.
@@ -508,10 +693,8 @@ namespace Conformance
         void Swap(VertexBufferBase& other)
         {
             using std::swap;
-            swap(idxBuf, other.idxBuf);
-            swap(idxMem, other.idxMem);
-            swap(vtxBuf, other.vtxBuf);
-            swap(vtxMem, other.vtxMem);
+            swap(idx, other.idx);
+            swap(vtx, other.vtx);
             swap(bindDesc, other.bindDesc);
             swap(attrDesc, other.attrDesc);
             swap(count, other.count);
@@ -524,22 +707,22 @@ namespace Conformance
     };
 
     // VertexBuffer template to wrap the indices and vertices
-    template <typename T>
+    template <typename VertexType, typename IndexType = uint16_t>
     struct VertexBuffer : public VertexBufferBase
     {
-        static constexpr VkVertexInputBindingDescription c_bindingDesc = {0, sizeof(T), VK_VERTEX_INPUT_RATE_VERTEX};
+        static constexpr VkVertexInputBindingDescription c_bindingDesc = {0, sizeof(VertexType), VK_VERTEX_INPUT_RATE_VERTEX};
 
         /// Default constructible
         VertexBuffer() noexcept = default;
 
         /// Move-constructor
-        VertexBuffer(VertexBuffer<T>&& other) noexcept : VertexBuffer()
+        VertexBuffer(VertexBuffer<VertexType, IndexType>&& other) noexcept : VertexBuffer()
         {
             Swap(other);
         }
 
         /// Move-assignment
-        VertexBuffer& operator=(VertexBuffer<T>&& other) noexcept
+        VertexBuffer& operator=(VertexBuffer<VertexType, IndexType>&& other) noexcept
         {
             if (this == &other) {
                 return *this;
@@ -550,54 +733,36 @@ namespace Conformance
         }
 
         // no copy construct
-        VertexBuffer(const VertexBuffer<T>&) = delete;
+        VertexBuffer(const VertexBuffer<VertexType, IndexType>&) = delete;
         // no copy assign
-        VertexBuffer& operator=(const VertexBuffer<T>&) = delete;
+        VertexBuffer& operator=(const VertexBuffer<VertexType, IndexType>&) = delete;
 
+        /// Create and bind the index and vertex buffers.
+        /// @pre Call Init()
         bool Create(uint32_t idxCount, uint32_t vtxCount)
         {
-            VkBufferCreateInfo bufInfo{VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO};
-            bufInfo.usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
-            bufInfo.size = sizeof(uint16_t) * idxCount;
-            XRC_CHECK_THROW_VKCMD(vkCreateBuffer(m_vkDevice, &bufInfo, nullptr, &idxBuf));
-            AllocateBufferMemory(idxBuf, &idxMem);
-            XRC_CHECK_THROW_VKCMD(vkBindBufferMemory(m_vkDevice, idxBuf, idxMem, 0));
-
-            bufInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
-            bufInfo.size = sizeof(T) * vtxCount;
-            XRC_CHECK_THROW_VKCMD(vkCreateBuffer(m_vkDevice, &bufInfo, nullptr, &vtxBuf));
-            AllocateBufferMemory(vtxBuf, &vtxMem);
-            XRC_CHECK_THROW_VKCMD(vkBindBufferMemory(m_vkDevice, vtxBuf, vtxMem, 0));
-
             bindDesc = c_bindingDesc;
-
-            count = {idxCount, vtxCount};
-
-            return true;
+            return VertexBufferBase::Create<VertexType, IndexType>(idxCount, vtxCount);
         }
 
-        void UpdateIndices(const uint16_t* data, uint32_t elements, uint32_t offset = 0)
+        /// Update the elements of the index buffer using vkMapMemory
+        ///
+        /// @param device The VkDevice associated with this buffer
+        /// @param data Your index data (contiguous)
+        /// @param offsetElements A zero-based **element** offset from the beginning of the memory object.
+        void UpdateIndices(span<const IndexType> data, uint32_t offsetElements = 0)
         {
-            uint16_t* map = nullptr;
-            XRC_CHECK_THROW_VKCMD(vkMapMemory(m_vkDevice, idxMem, sizeof(map[0]) * offset, sizeof(map[0]) * elements, 0, (void**)&map));
-            for (size_t i = 0; i < elements; ++i) {
-                map[i] = data[i];
-            }
-            vkUnmapMemory(m_vkDevice, idxMem);
+            idx.Update<IndexType>(m_vkDevice, data, offsetElements);
         }
 
-        void UpdateVertices(const T* data, uint32_t elements, uint32_t offset = 0)
+        void UpdateVertices(span<const VertexType> data, uint32_t offsetElements = 0)
         {
-            T* map = nullptr;
-            XRC_CHECK_THROW_VKCMD(vkMapMemory(m_vkDevice, vtxMem, sizeof(map[0]) * offset, sizeof(map[0]) * elements, 0, (void**)&map));
-            for (size_t i = 0; i < elements; ++i) {
-                map[i] = data[i];
-            }
-            vkUnmapMemory(m_vkDevice, vtxMem);
+            vtx.Update<VertexType>(m_vkDevice, data, offsetElements);
         }
     };
-    template <typename T>
-    constexpr VkVertexInputBindingDescription VertexBuffer<T>::c_bindingDesc;
+
+    template <typename VertexType, typename IndexType>
+    constexpr VkVertexInputBindingDescription VertexBuffer<VertexType, IndexType>::c_bindingDesc;
 
     // RenderPass wrapper
     struct RenderPass
@@ -886,8 +1051,6 @@ namespace Conformance
     struct Pipeline
     {
         VkPipeline pipe{VK_NULL_HANDLE};
-        VkPrimitiveTopology topology{VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST};
-        std::vector<VkDynamicState> dynamicStateEnables;
 
         Pipeline() = default;
         ~Pipeline()
@@ -895,19 +1058,15 @@ namespace Conformance
             Reset();
         }
 
-        void Dynamic(VkDynamicState state)
-        {
-            dynamicStateEnables.emplace_back(state);
-        }
-
         void Create(VkDevice device, VkExtent2D /*size*/, const PipelineLayout& layout, const RenderPass& rp, const ShaderProgram& sp,
-                    const VkVertexInputBindingDescription& bindDesc, span<const VkVertexInputAttributeDescription> attrDesc)
+                    const VkVertexInputBindingDescription& bindDesc, span<const VkVertexInputAttributeDescription> attrDesc,
+                    span<VkDynamicState> dynamicStates)
         {
             m_vkDevice = device;
 
             VkPipelineDynamicStateCreateInfo dynamicState{VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO};
-            dynamicState.dynamicStateCount = (uint32_t)dynamicStateEnables.size();
-            dynamicState.pDynamicStates = dynamicStateEnables.data();
+            dynamicState.dynamicStateCount = (uint32_t)dynamicStates.size();
+            dynamicState.pDynamicStates = dynamicStates.data();
 
             VkPipelineVertexInputStateCreateInfo vi{VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO};
             vi.vertexBindingDescriptionCount = 1;
@@ -917,7 +1076,7 @@ namespace Conformance
 
             VkPipelineInputAssemblyStateCreateInfo ia{VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO};
             ia.primitiveRestartEnable = VK_FALSE;
-            ia.topology = topology;
+            ia.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
 
             VkPipelineRasterizationStateCreateInfo rs{VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO};
             rs.polygonMode = VK_POLYGON_MODE_FILL;
@@ -991,7 +1150,15 @@ namespace Conformance
             pipeInfo.layout = layout.layout;
             pipeInfo.renderPass = rp.pass;
             pipeInfo.subpass = 0;
-            XRC_CHECK_THROW_VKCMD(vkCreateGraphicsPipelines(m_vkDevice, VK_NULL_HANDLE, 1, &pipeInfo, nullptr, &pipe));
+
+            Create(device, pipeInfo);
+        }
+
+        void Create(VkDevice device, const VkGraphicsPipelineCreateInfo& info)
+        {
+            m_vkDevice = device;
+
+            XRC_CHECK_THROW_VKCMD(vkCreateGraphicsPipelines(m_vkDevice, VK_NULL_HANDLE, 1, &info, nullptr, &pipe));
         }
 
         void Reset()

@@ -13,19 +13,36 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-#
-# Author:
-#
 
-file(GLOB LOCAL_HEADERS "*.h")
-file(GLOB LOCAL_SOURCE "*.cpp")
+file(
+    GLOB
+    LOCAL_HEADERS
+    CONFIGURE_DEPENDS
+    "*.h"
+)
+file(
+    GLOB
+    LOCAL_SOURCE
+    CONFIGURE_DEPENDS
+    "*.cpp"
+)
 
-run_xr_xml_generate(conformance_layer_generator.py gen_dispatch.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/../../scripts/template_gen_dispatch.cpp)
-run_xr_xml_generate(conformance_layer_generator.py gen_dispatch.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/../../scripts/template_gen_dispatch.h)
+run_xr_xml_generate(
+    conformance_layer_generator.py gen_dispatch.cpp
+    ${PROJECT_SOURCE_DIR}/src/scripts/template_gen_dispatch.cpp
+)
+run_xr_xml_generate(
+    conformance_layer_generator.py gen_dispatch.h
+    ${PROJECT_SOURCE_DIR}/src/scripts/template_gen_dispatch.h
+)
 
-add_library(XrApiLayer_runtime_conformance MODULE
+configure_file(
+    conformance_layer.json
+    ${CMAKE_CURRENT_BINARY_DIR}/XrApiLayer_runtime_conformance.json @ONLY
+)
+
+add_library(
+    XrApiLayer_runtime_conformance MODULE
     ${LOCAL_SOURCE}
     ${LOCAL_HEADERS}
     XrApiLayer_conformance_layer.def
@@ -33,36 +50,37 @@ add_library(XrApiLayer_runtime_conformance MODULE
     ${CMAKE_CURRENT_BINARY_DIR}/gen_dispatch.cpp
     ${CMAKE_CURRENT_BINARY_DIR}/gen_dispatch.h
 )
-
-configure_file(${CMAKE_CURRENT_SOURCE_DIR}/conformance_layer.json
-    ${CMAKE_CURRENT_BINARY_DIR}/XrApiLayer_runtime_conformance.json
-    @ONLY)
+target_link_libraries(
+    XrApiLayer_runtime_conformance PRIVATE Threads::Threads OpenXR::headers
+)
 
 source_group("Headers" FILES ${LOCAL_HEADERS})
 
-add_dependencies(XrApiLayer_runtime_conformance
-    generate_openxr_header
-    xr_common_generated_files
+add_dependencies(XrApiLayer_runtime_conformance xr_common_generated_files)
+
+target_include_directories(
+    XrApiLayer_runtime_conformance
+    PRIVATE
+        ${CMAKE_CURRENT_BINARY_DIR}
+        ${CMAKE_CURRENT_SOURCE_DIR}
+        ${PROJECT_SOURCE_DIR}/src/common
+        ${PROJECT_SOURCE_DIR}/src
+        #for common_config.h:
+        ${PROJECT_BINARY_DIR}/src
+        #for xr_generated_dispatch_table_all.h:
+        ${CMAKE_CURRENT_BINARY_DIR}/../../api_layers
 )
-
-target_include_directories(XrApiLayer_runtime_conformance
-    PRIVATE ${CMAKE_CURRENT_BINARY_DIR}
-    PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}
-    PRIVATE ${PROJECT_SOURCE_DIR}/src/common
-
-#for openxr.h:
-    PRIVATE ${PROJECT_BINARY_DIR}/include
-#for common_config.h:
-    PRIVATE ${PROJECT_BINARY_DIR}/src
-#for xr_generated_dispatch_table_all.h:
-    PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/../../api_layers
-)
-
-target_link_libraries(XrApiLayer_runtime_conformance Threads::Threads)
 
 if(MSVC)
     # Right now can't build this on MinGW because of directxcolors, directxmath, etc.
-    target_link_libraries(XrApiLayer_runtime_conformance d3d11 d3d12 d3dcompiler dxgi)
+    target_link_libraries(
+        XrApiLayer_runtime_conformance
+        PRIVATE
+            d3d11
+            d3d12
+            d3dcompiler
+            dxgi
+    )
 endif()
 
 # Flag generated files
@@ -72,36 +90,57 @@ set_source_files_properties(
     # ${PROJECT_BINARY_DIR}/src/conformance/conformance_layer/gen_dispatch.h
     PROPERTIES GENERATED TRUE
 )
-if(Vulkan_FOUND)
-    target_include_directories(XrApiLayer_runtime_conformance
-        PRIVATE ${Vulkan_INCLUDE_DIRS}
+if(XR_USE_GRAPHICS_API_VULKAN)
+    target_include_directories(
+        XrApiLayer_runtime_conformance PRIVATE ${Vulkan_INCLUDE_DIRS}
     )
 endif()
 
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     target_compile_options(XrApiLayer_runtime_conformance PRIVATE -Wall)
-    target_link_libraries(XrApiLayer_runtime_conformance m)
+    target_link_libraries(XrApiLayer_runtime_conformance PRIVATE m)
 endif()
 
 if(ANDROID)
-    target_link_libraries(XrApiLayer_runtime_conformance ${ANDROID_LOG_LIBRARY})
+    target_link_libraries(
+        XrApiLayer_runtime_conformance PRIVATE ${ANDROID_LOG_LIBRARY}
+    )
 endif()
 
 if(APPLE)
-    set_target_properties(XrApiLayer_runtime_conformance PROPERTIES LINK_FLAGS "-Wl,-exported_symbols_list,${CMAKE_CURRENT_SOURCE_DIR}/XrApiLayer_conformance_layer.expsym")
+    set_target_properties(
+        XrApiLayer_runtime_conformance
+        PROPERTIES
+            LINK_FLAGS
+            "-Wl,-exported_symbols_list,${CMAKE_CURRENT_SOURCE_DIR}/XrApiLayer_conformance_layer.expsym"
+    )
 elseif(NOT WIN32)
-    set_target_properties(XrApiLayer_runtime_conformance PROPERTIES LINK_FLAGS "-Wl,-Bsymbolic,--exclude-libs,ALL")
+    set_target_properties(
+        XrApiLayer_runtime_conformance
+        PROPERTIES LINK_FLAGS "-Wl,-Bsymbolic,--exclude-libs,ALL"
+    )
 endif()
 
 if(BUILD_CONFORMANCE_CLI)
     # Copy conformance layer files to conformance_cli binary folder
-    add_custom_command(TARGET XrApiLayer_runtime_conformance POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:XrApiLayer_runtime_conformance> $<TARGET_PROPERTY:conformance_cli,BINARY_DIR>
-        COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_BINARY_DIR}/XrApiLayer_runtime_conformance.json $<TARGET_PROPERTY:conformance_cli,BINARY_DIR>
+    add_custom_command(
+        TARGET XrApiLayer_runtime_conformance
+        POST_BUILD
+        COMMAND
+            ${CMAKE_COMMAND} -E copy
+            $<TARGET_FILE:XrApiLayer_runtime_conformance>
+            $<TARGET_PROPERTY:conformance_cli,BINARY_DIR>
+        COMMAND
+            ${CMAKE_COMMAND} -E copy
+            ${CMAKE_CURRENT_BINARY_DIR}/XrApiLayer_runtime_conformance.json
+            $<TARGET_PROPERTY:conformance_cli,BINARY_DIR>
     )
 endif()
 
-set_target_properties(XrApiLayer_runtime_conformance PROPERTIES FOLDER ${CONFORMANCE_TESTS_FOLDER})
+set_target_properties(
+    XrApiLayer_runtime_conformance PROPERTIES FOLDER
+                                              ${CONFORMANCE_TESTS_FOLDER}
+)
 
 install(
     FILES ${CMAKE_CURRENT_BINARY_DIR}/XrApiLayer_runtime_conformance.json
@@ -116,5 +155,9 @@ install(
 )
 
 if(MSVC)
-    install(FILES $<TARGET_PDB_FILE:XrApiLayer_runtime_conformance> DESTINATION conformance OPTIONAL)
+    install(
+        FILES $<TARGET_PDB_FILE:XrApiLayer_runtime_conformance>
+        DESTINATION conformance
+        OPTIONAL
+    )
 endif()

@@ -30,7 +30,7 @@ namespace Conformance
 
         ~PlatformPluginWin32() override
         {
-            Shutdown();
+            PlatformPluginWin32::Shutdown();
         }
 
         virtual bool Initialize() override

@@ -26,6 +26,13 @@ task copyAssets(type: Copy) {
     from('conformance_test/composition_examples') {
         include '*.png'
     }
+    from('conformance_test/gltf_examples') {
+        include '*.png'
+        include '*.glb'
+    }
+    from('conformance_test/pbr_assets') {
+        include '*.png'
+    }
 
     // layer manifests
     from('conformance_test/android_assets') {

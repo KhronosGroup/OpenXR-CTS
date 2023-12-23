@@ -16,27 +16,57 @@
 
 #ifdef XR_USE_GRAPHICS_API_OPENGL
 
-#include "common/xr_linear.h"
+#include "RGBAImage.h"
 #include "conformance_framework.h"
+#include "conformance_utils.h"
+#include "gltf.h"
 #include "graphics_plugin.h"
 #include "graphics_plugin_impl_helpers.h"
+#include "graphics_plugin_opengl_gltf.h"
 #include "report.h"
 #include "swapchain_image_data.h"
+
+#include "common/gfxwrapper_opengl.h"
+#include "common/xr_dependencies.h"
+#include "common/xr_linear.h"
+#include "pbr/OpenGL/GLCommon.h"
+#include "pbr/OpenGL/GLResources.h"
+#include "pbr/OpenGL/GLTexture.h"
+#include "pbr/PbrCommon.h"
 #include "utilities/Geometry.h"
+#include "utilities/opengl_utils.h"
 #include "utilities/swapchain_format_data.h"
 #include "utilities/swapchain_parameters.h"
 #include "utilities/throw_helpers.h"
-#include "xr_dependencies.h"
+#include "utilities/utils.h"
 
+#include <catch2/catch_message.hpp>
 #include <catch2/catch_test_macros.hpp>
-#include <openxr/openxr_platform.h>
+#include <nonstd/span.hpp>
+#include <nonstd/type.hpp>
 #include <openxr/openxr.h>
+#include <openxr/openxr_platform.h>
 
 #include <algorithm>
-#include <thread>
+#include <array>
+#include <assert.h>
+#include <cstdint>
+#include <map>
 #include <memory>
+#include <stddef.h>
+#include <string>
+#include <tuple>
+#include <utility>
+#include <vector>
 
-#include "gfxwrapper_opengl.h"
+namespace Conformance
+{
+    struct IPlatformPlugin;
+}  // namespace Conformance
+namespace Pbr
+{
+    class Model;
+}  // namespace Pbr
 
 // Note: mapping of OpenXR usage flags to OpenGL
 //
@@ -139,63 +169,6 @@ namespace Conformance
         };
         return map;
     }
-
-    std::string glResultString(GLenum err)
-    {
-        switch (err) {
-        case GL_NO_ERROR:
-            return "GL_NO_ERROR";
-        case GL_INVALID_ENUM:
-            return "GL_INVALID_ENUM";
-        case GL_INVALID_VALUE:
-            return "GL_INVALID_VALUE";
-        case GL_INVALID_OPERATION:
-            return "GL_INVALID_OPERATION";
-        case GL_INVALID_FRAMEBUFFER_OPERATION:
-            return "GL_INVALID_FRAMEBUFFER_OPERATION";
-        case GL_OUT_OF_MEMORY:
-            return "GL_OUT_OF_MEMORY";
-        case GL_STACK_UNDERFLOW:
-            return "GL_STACK_UNDERFLOW";
-        case GL_STACK_OVERFLOW:
-            return "GL_STACK_OVERFLOW";
-        }
-        return "<unknown " + std::to_string(err) + ">";
-    }
-
-    [[noreturn]] inline void ThrowGLResult(GLenum res, const char* originator = nullptr, const char* sourceLocation = nullptr)
-    {
-        Throw("GL failure " + glResultString(res), originator, sourceLocation);
-    }
-
-    inline GLenum CheckThrowGLResult(GLenum res, const char* originator = nullptr, const char* sourceLocation = nullptr)
-    {
-        if ((res) != GL_NO_ERROR) {
-            ThrowGLResult(res, originator, sourceLocation);
-        }
-
-        return res;
-    }
-
-    inline GLenum TexTarget(bool isArray, bool isMultisample)
-    {
-        if (isArray && isMultisample) {
-            return GL_TEXTURE_2D_MULTISAMPLE_ARRAY;
-        }
-        else if (isMultisample) {
-            return GL_TEXTURE_2D_MULTISAMPLE;
-        }
-        else if (isArray) {
-            return GL_TEXTURE_2D_ARRAY;
-        }
-        else {
-            return GL_TEXTURE_2D;
-        }
-    }
-
-#define XRC_THROW_GL(res, cmd) ThrowGLResult(res, #cmd, XRC_FILE_AND_LINE)
-#define XRC_CHECK_THROW_GLCMD(cmd) CheckThrowGLResult(((cmd), glGetError()), #cmd, XRC_FILE_AND_LINE)
-#define XRC_CHECK_THROW_GLRESULT(res, cmdStr) CheckThrowGLResult(res, cmdStr, XRC_FILE_AND_LINE)
 
     static const char* VertexShaderGlsl = R"_(
         #version 410
@@ -408,8 +381,6 @@ namespace Conformance
         void DebugMessageCallback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar* message) const;
         void InitializeResources();
         void CheckFramebuffer(GLuint fb) const;
-        void CheckShader(GLuint shader) const;
-        void CheckProgram(GLuint prog) const;
 
         void ClearSwapchainCache() override;
         void ShutdownDevice() override;
@@ -447,6 +418,10 @@ namespace Conformance
 
         MeshHandle MakeSimpleMesh(span<const uint16_t> idx, span<const Geometry::Vertex> vtx) override;
 
+        GLTFHandle LoadGLTF(span<const uint8_t> data) override;
+
+        std::shared_ptr<Pbr::Model> GetModel(GLTFHandle handle) const override;
+
         void RenderView(const XrCompositionLayerProjectionView& layerView, const XrSwapchainImageBaseHeader* colorSwapchainImage,
                         const RenderParams& params) override;
 
@@ -480,6 +455,8 @@ namespace Conformance
         GLint m_vertexAttribColor{0};
         MeshHandle m_cubeMesh{};
         VectorWithGenerationCountedHandles<OpenGLMesh, MeshHandle> m_meshes;
+        VectorWithGenerationCountedHandles<GLGLTF, GLTFHandle> m_gltfs;
+        std::unique_ptr<Pbr::GLResources> m_pbrResources;
     };
 
     OpenGLGraphicsPlugin::OpenGLGraphicsPlugin(const std::shared_ptr<IPlatformPlugin>& /*unused*/)
@@ -728,18 +705,18 @@ namespace Conformance
         GLuint vertexShader = glCreateShader(GL_VERTEX_SHADER);
         glShaderSource(vertexShader, 1, &VertexShaderGlsl, nullptr);
         glCompileShader(vertexShader);
-        CheckShader(vertexShader);
+        CheckGLShader(vertexShader);
 
         GLuint fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
         glShaderSource(fragmentShader, 1, &FragmentShaderGlsl, nullptr);
         glCompileShader(fragmentShader);
-        CheckShader(fragmentShader);
+        CheckGLShader(fragmentShader);
 
         m_program = glCreateProgram();
         glAttachShader(m_program, vertexShader);
         glAttachShader(m_program, fragmentShader);
         glLinkProgram(m_program);
-        CheckProgram(m_program);
+        CheckGLProgram(m_program);
 
         glDeleteShader(vertexShader);
         glDeleteShader(fragmentShader);
@@ -750,6 +727,18 @@ namespace Conformance
         m_vertexAttribColor = glGetAttribLocation(m_program, "VertexColor");
 
         m_cubeMesh = MakeCubeMesh();
+
+        m_pbrResources = std::make_unique<Pbr::GLResources>();
+        m_pbrResources->SetLight({0.0f, 0.7071067811865475f, 0.7071067811865475f}, Pbr::RGB::White);
+
+        auto blackCubeMap = std::make_shared<Pbr::ScopedGLTexture>(Pbr::GLTexture::CreateFlatCubeTexture(Pbr::RGBA::Black, GL_RGBA8));
+        m_pbrResources->SetEnvironmentMap(blackCubeMap, blackCubeMap);
+
+        // Read the BRDF Lookup Table used by the PBR system into a DirectX texture.
+        std::vector<unsigned char> brdfLutFileData = ReadFileBytes("brdf_lut.png");
+        auto brdLutResourceView = std::make_shared<Pbr::ScopedGLTexture>(
+            Pbr::GLTexture::LoadTextureImage(brdfLutFileData.data(), (uint32_t)brdfLutFileData.size()));
+        m_pbrResources->SetBrdfLut(brdLutResourceView);
     }
 
     void OpenGLGraphicsPlugin::CheckFramebuffer(GLuint fb) const
@@ -797,30 +786,6 @@ namespace Conformance
 #endif  // !defined(OS_APPLE_MACOS)
     }
 
-    void OpenGLGraphicsPlugin::CheckShader(GLuint shader) const
-    {
-        GLint r = 0;
-        glGetShaderiv(shader, GL_COMPILE_STATUS, &r);
-        if (r == GL_FALSE) {
-            GLchar msg[4096] = {};
-            GLsizei length;
-            glGetShaderInfoLog(shader, sizeof(msg), &length, msg);
-            XRC_CHECK_THROW_MSG(r, msg);
-        }
-    }
-
-    void OpenGLGraphicsPlugin::CheckProgram(GLuint prog) const
-    {
-        GLint r = 0;
-        glGetProgramiv(prog, GL_LINK_STATUS, &r);
-        if (r == GL_FALSE) {
-            GLchar msg[4096] = {};
-            GLsizei length;
-            glGetProgramInfoLog(prog, sizeof(msg), &length, msg);
-            XRC_CHECK_THROW_MSG(r, msg);
-        }
-    }
-
     void OpenGLGraphicsPlugin::ClearSwapchainCache()
     {
         m_swapchainImageDataMap.Reset();
@@ -840,6 +805,7 @@ namespace Conformance
         m_swapchainImageDataMap.Reset();
         m_cubeMesh = {};
         m_meshes.clear();
+        m_gltfs.clear();
 
         deleteGLContext();
     }
@@ -1072,6 +1038,17 @@ namespace Conformance
         return handle;
     }
 
+    inline GLTFHandle OpenGLGraphicsPlugin::LoadGLTF(span<const uint8_t> data)
+    {
+        auto handle = m_gltfs.emplace_back(*m_pbrResources, Conformance::LoadGLTF(data));
+        return handle;
+    }
+
+    inline std::shared_ptr<Pbr::Model> OpenGLGraphicsPlugin::GetModel(GLTFHandle handle) const
+    {
+        return m_gltfs[handle].GetModel();
+    }
+
     void OpenGLGraphicsPlugin::RenderView(const XrCompositionLayerProjectionView& layerView,
                                           const XrSwapchainImageBaseHeader* colorSwapchainImage, const RenderParams& params)
     {
@@ -1157,6 +1134,20 @@ namespace Conformance
         // Render each mesh
         for (const auto& mesh : params.meshes) {
             drawMesh(mesh);
+        }
+
+        // Render each gltf
+        for (const auto& gltfHandle : params.glTFs) {
+            GLGLTF& gltf = m_gltfs[gltfHandle.handle];
+            // Compute and update the model transform.
+
+            XrMatrix4x4f modelToWorld;
+            XrMatrix4x4f_CreateTranslationRotationScale(&modelToWorld, &gltfHandle.params.pose.position,
+                                                        &gltfHandle.params.pose.orientation, &gltfHandle.params.scale);
+
+            m_pbrResources->SetViewProjection(view, proj);
+
+            gltf.Render(*m_pbrResources, modelToWorld);
         }
 
         glBindVertexArray(0);

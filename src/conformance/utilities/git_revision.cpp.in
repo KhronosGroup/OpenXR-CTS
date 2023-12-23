@@ -1,0 +1,36 @@
+// Copyright (c) 2023, The Khronos Group Inc.
+//
+// SPDX-License-Identifier: Apache-2.0
+
+#include "utilities/git_revision.h"
+
+namespace Conformance
+{
+    const char* kGitRevisionString = "@CTS_GIT_REV@";
+
+#cmakedefine CTS_GIT_SUCCEEDED
+
+#ifdef CTS_GIT_SUCCEEDED
+    const bool kGitRevisionSucceeded = true;
+#else
+    const bool kGitRevisionSucceeded = false;
+#endif
+
+#cmakedefine CTS_EXACT_TAG
+
+#ifdef CTS_EXACT_TAG
+    const bool kGitRevisionExactTag = true;
+#else
+    const bool kGitRevisionExactTag = false;
+#endif
+
+#cmakedefine CTS_GIT_DIRTY
+
+#ifdef CTS_GIT_DIRTY
+    const bool kGitRevisionLocalChanges = true;
+#else
+    const bool kGitRevisionLocalChanges = false;
+#endif
+
+
+}  // namespace Conformance
