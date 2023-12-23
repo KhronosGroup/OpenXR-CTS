@@ -73,10 +73,10 @@ namespace Pbr
 
         Model(bool createRootNode = true);
 
-        // Add a node to the model.
+        /// Add a node to the model.
         NodeIndex_t AddNode(const XrMatrix4x4f& transform, NodeIndex_t parentIndex, std::string name = "");
 
-        // Add a primitive to the model.
+        /// Add a primitive to the model.
         void AddPrimitive(PrimitiveHandle primitive);
 
         // Remove all primitives.
@@ -104,7 +104,7 @@ namespace Pbr
             return m_primitives[index];
         }
 
-        // Find the first node which matches a given name.
+        /// Find the first node (after an optional parent node) which matches a given name.
         bool FindFirstNode(NodeIndex_t* outNodeIndex, const char* name, const NodeIndex_t* parentNodeIndex = nullptr) const;
 
     protected:

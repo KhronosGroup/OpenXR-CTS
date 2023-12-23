@@ -24,6 +24,22 @@ does not support a command-line interface, a host application must be built for
 the device which the OpenXR runtime will run on. The conformance host must
 invoke `conformance_test`, the test suite shared library.
 
+When you plan to submit for conformance, you must observe a few considerations
+to ensure that the build system has accurate source code revision information
+available to embed in the test suite and output reports. You must build from a
+git repo (forked from either the internal Gitlab or public GitHub) with tags
+available (a full clone, not shallow). You also must either perform a clean
+build, from an empty binary tree, or at least run `cmake` immediately before
+building to pick up current source tree status. If your "porting" process (as
+described by the conformance process documents) involves replacing the build
+system, you must populate the revision data constants in
+`utilities/git_revision.cpp.in` accurately. The contents of that file affect all
+"ctsxml" format outputs, as well as an automated "SourceCodeRevision" test that
+warns if it cannot identify an approved release. (It only checks for the
+presence of an appropriately-named tag: it does not check for a signature on the
+tag, so if you have added tags to your repo it may not warn if you are not on a
+release.)
+
 Running CTS
 -----------
 

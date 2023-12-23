@@ -744,7 +744,7 @@ namespace Conformance
         XRC_CHECK_THROW_HRCMD(d3d12Device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, commandAllocator.Get(), nullptr,
                                                              __uuidof(ID3D12GraphicsCommandList),
                                                              reinterpret_cast<void**>(cmdList.ReleaseAndGetAddressOf())));
-        XRC_CHECK_THROW_HRCMD(commandAllocator->SetName(L"CTS ValidateSwapchainImageState cmd list"));
+        XRC_CHECK_THROW_HRCMD(cmdList->SetName(L"CTS ValidateSwapchainImageState cmd list"));
 
         const XrSwapchainImageD3D12KHR& image = swapchainImageVector[index];
         const bool isColorFormat = GetDxgiSwapchainTestMap()[imageFormat].colorFormat;

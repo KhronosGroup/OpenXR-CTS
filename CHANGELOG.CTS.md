@@ -17,6 +17,64 @@ particular, since it is primarily software, pull requests may be integrated as
 they are accepted even between periodic updates. However, versions that are not
 signed tags on the `approved` branch are not valid for conformance submission.
 
+## OpenXR CTS 1.0.32.1 (2023-12-14)
+
+A notable change in this release, is that the build system now checks for git
+commit/tag information at configure time and reports this information in the CTS
+logs. If you have taken any porting steps that involve changing the build
+system, be sure to update your changes accordingly. See the README for more
+information.
+
+There is one known issue with the new PBR rendering subsystem, but it only
+affects running a self test under Vulkan, which is not required for conformance
+submissions. It will be fixed in the next release.
+
+- Conformance Tests
+  - Fix: Handle the loader passing `xrInitializeLoaderKHR` calls to enabled API
+    layers if `XR_KHR_loader_init` is enabled, per ratified update to that
+    extension.
+    ([internal MR 2703](https://gitlab.khronos.org/openxr/openxr/merge_requests/2703),
+    [internal MR 3033](https://gitlab.khronos.org/openxr/openxr/merge_requests/3033))
+  - Fix: comment typo in environment source.
+    ([internal MR 2991](https://gitlab.khronos.org/openxr/openxr/merge_requests/2991))
+  - Fix: Correct linking to GLX when glvnd is not found on the system.
+    ([internal MR 3000](https://gitlab.khronos.org/openxr/openxr/merge_requests/3000))
+  - Fix: Warning/build fix
+    ([internal MR 3008](https://gitlab.khronos.org/openxr/openxr/merge_requests/3008))
+  - Fix: Correct the object naming of command lists on D3D12.
+    ([internal MR 3066](https://gitlab.khronos.org/openxr/openxr/merge_requests/3066))
+  - Improvement: Add PBR rendering subsystem for loading and rendering of glTF
+    assets.
+    ([internal MR 2501](https://gitlab.khronos.org/openxr/openxr/merge_requests/2501),
+    [internal issue 1726](https://gitlab.khronos.org/openxr/openxr/issues/1726),
+    [internal MR 2758](https://gitlab.khronos.org/openxr/openxr/merge_requests/2758),
+    [internal MR 3038](https://gitlab.khronos.org/openxr/openxr/merge_requests/3038),
+    [internal MR 3081](https://gitlab.khronos.org/openxr/openxr/merge_requests/3081))
+  - Improvement: Clean up our CMake build substantially, correcting dependencies
+    and narrowing the scope of includes.
+    ([internal MR 2886](https://gitlab.khronos.org/openxr/openxr/merge_requests/2886))
+  - Improvement: Include git revision information in all reports, and generate test
+    warnings in case of not matching a release tag, etc.
+    ([internal MR 2964](https://gitlab.khronos.org/openxr/openxr/merge_requests/2964),
+    [internal issue 2041](https://gitlab.khronos.org/openxr/openxr/issues/2041))
+  - Improvement: Build system cleanup.
+    ([internal MR 2987](https://gitlab.khronos.org/openxr/openxr/merge_requests/2987))
+  - Improvement: Update configuration for Doxygen source-code documentation
+    generator/extractor.
+    ([internal MR 2988](https://gitlab.khronos.org/openxr/openxr/merge_requests/2988))
+  - Improvement: Use "matchers" rather than STL algorithms to verify that supported
+    environment blend modes do not include an invalid value.
+    ([internal MR 2994](https://gitlab.khronos.org/openxr/openxr/merge_requests/2994))
+  - New test: Interactive (rendering) test of `XR_MSFT_controller_model` as an
+    initial usage of the glTF/PBR rendering.
+    ([internal MR 2501](https://gitlab.khronos.org/openxr/openxr/merge_requests/2501),
+    [internal issue 1726](https://gitlab.khronos.org/openxr/openxr/issues/1726),
+    [internal MR 2758](https://gitlab.khronos.org/openxr/openxr/merge_requests/2758),
+    [internal MR 3038](https://gitlab.khronos.org/openxr/openxr/merge_requests/3038),
+    [internal MR 3081](https://gitlab.khronos.org/openxr/openxr/merge_requests/3081))
+  - New test: Try zero XrTime values in hand tracking joints test.
+    ([internal MR 2951](https://gitlab.khronos.org/openxr/openxr/merge_requests/2951))
+
 ## OpenXR CTS 1.0.30.0 (2023-10-12)
 
 - Conformance Tests

@@ -1,15 +1,15 @@
 // Copyright (c) 2022-2023, The Khronos Group Inc.
 //
 // SPDX-License-Identifier: MIT
-#if defined(XR_USE_GRAPHICS_API_D3D12) && !defined(MISSING_DIRECTX_COLORS)
+#if defined(XR_USE_GRAPHICS_API_D3D11) && !defined(MISSING_DIRECTX_COLORS)
 
 #include "graphics_plugin_d3d11_gltf.h"
 
 #include "conformance_framework.h"
 #include "report.h"
 
-#include "pbr/D3D12/D3D12Primitive.h"
-#include "pbr/D3D12/D3D12Resources.h"
+#include "pbr/D3D11/D3D11Primitive.h"
+#include "pbr/D3D11/D3D11Resources.h"
 #include "pbr/GltfLoader.h"
 #include "utilities/d3d_common.h"
 #include "utilities/throw_helpers.h"
