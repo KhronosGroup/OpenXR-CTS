@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2023, The Khronos Group Inc.
+// Copyright (c) 2019-2024, The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -19,7 +19,7 @@
 #include "RGBAImage.h"
 #include "conformance_framework.h"
 #include "conformance_utils.h"
-#include "gltf.h"
+#include "gltf_helpers.h"
 #include "graphics_plugin.h"
 #include "graphics_plugin_impl_helpers.h"
 #include "graphics_plugin_opengl_gltf.h"
@@ -418,7 +418,7 @@ namespace Conformance
 
         MeshHandle MakeSimpleMesh(span<const uint16_t> idx, span<const Geometry::Vertex> vtx) override;
 
-        GLTFHandle LoadGLTF(span<const uint8_t> data) override;
+        GLTFHandle LoadGLTF(std::shared_ptr<tinygltf::Model> tinygltfModel) override;
 
         std::shared_ptr<Pbr::Model> GetModel(GLTFHandle handle) const override;
 
@@ -1038,9 +1038,9 @@ namespace Conformance
         return handle;
     }
 
-    inline GLTFHandle OpenGLGraphicsPlugin::LoadGLTF(span<const uint8_t> data)
+    GLTFHandle OpenGLGraphicsPlugin::LoadGLTF(std::shared_ptr<tinygltf::Model> tinygltfModel)
     {
-        auto handle = m_gltfs.emplace_back(*m_pbrResources, Conformance::LoadGLTF(data));
+        auto handle = m_gltfs.emplace_back(*m_pbrResources, std::move(tinygltfModel));
         return handle;
     }
 

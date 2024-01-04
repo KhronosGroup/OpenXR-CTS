@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2023, The Khronos Group Inc.
+// Copyright (c) 2019-2024, The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -17,8 +17,8 @@
 #include "ConformanceHooks.h"
 #include "CustomHandleState.h"
 #include "RuntimeFailure.h"
-#include <loader_interfaces.h>
 
+#include <openxr/openxr_loader_negotiation.h>
 #include <openxr/openxr_reflection_parent_structs.h>
 
 /////////////////

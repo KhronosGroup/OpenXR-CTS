@@ -1,11 +1,10 @@
-// Copyright (c) 2022-2023, The Khronos Group Inc.
+// Copyright (c) 2022-2024, The Khronos Group Inc.
 //
 // SPDX-License-Identifier: MIT
 
 #pragma once
 
 #if defined(XR_USE_GRAPHICS_API_OPENGL) || defined(XR_USE_GRAPHICS_API_OPENGL_ES)
-#include "gltf.h"
 #include "gltf_model.h"
 
 #include "common/xr_linear.h"

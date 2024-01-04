@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2023, The Khronos Group Inc.
+// Copyright (c) 2019-2024, The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -31,7 +31,6 @@
 
 #include <memory>
 #include <mutex>
-#include <sstream>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -607,31 +606,17 @@ namespace Catch
     template <>
     struct StringMaker<XrPosef>
     {
-        static std::string convert(XrPosef const& value)
-        {
-            std::ostringstream oss;
-            oss << "[pos = (" << value.position.x;
-            oss << ", " << value.position.y;
-            oss << ", " << value.position.z;
-            oss << ") ori = (w=" << value.orientation.w;
-            oss << ", xyz=(" << value.orientation.x;
-            oss << ", " << value.orientation.y;
-            oss << ", " << value.orientation.z;
-            oss << ")]";
-            return oss.str();
-        }
+        static std::string convert(XrPosef const& value);
     };
     template <>
     struct StringMaker<XrVector3f>
     {
-        static std::string convert(XrVector3f const& value)
-        {
-            std::ostringstream oss;
-            oss << "(" << value.x;
-            oss << ", " << value.y;
-            oss << ", " << value.z;
-            oss << ")";
-            return oss.str();
-        }
+        static std::string convert(XrVector3f const& value);
+    };
+
+    template <>
+    struct StringMaker<XrUuidEXT>
+    {
+        static std::string convert(XrUuidEXT const& value);
     };
 }  // namespace Catch

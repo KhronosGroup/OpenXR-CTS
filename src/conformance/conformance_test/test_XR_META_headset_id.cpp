@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2023, The Khronos Group Inc.
+// Copyright (c) 2019-2024, The Khronos Group Inc.
 // Copyright (c) Meta Platforms, LLC and its affiliates. All rights reserved.
 //
 // SPDX-License-Identifier: Apache-2.0

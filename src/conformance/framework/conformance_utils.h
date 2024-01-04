@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2023, The Khronos Group Inc.
+// Copyright (c) 2019-2024, The Khronos Group Inc.
 // Copyright (c) 2019 Collabora, Ltd.
 //
 // SPDX-License-Identifier: Apache-2.0
@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include "utilities/event_reader.h"
 #include "utilities/types_and_constants.h"
 #include "utilities/xrduration_literals.h"
 
@@ -27,6 +28,7 @@
 #include <cstdint>
 #include <cstring>
 #include <functional>
+#include <memory>
 #include <string>
 #include <type_traits>
 #include <unordered_map>
@@ -187,11 +189,6 @@ namespace Conformance
     namespace deleters
     {
 
-        struct SwapchainDelete
-        {
-            typedef XrSwapchain pointer;
-            void operator()(XrSwapchain s) const;
-        };
         struct InstanceDeleteCHECK
         {
             typedef XrInstance pointer;
@@ -202,12 +199,22 @@ namespace Conformance
             typedef XrInstance pointer;
             void operator()(XrInstance i) const;
         };
+        struct InstanceDelete
+        {
+            typedef XrInstance pointer;
+            void operator()(XrInstance i) const;
+        };
         struct SessionDeleteCHECK
         {
             typedef XrSession pointer;
             void operator()(XrSession s) const;
         };
         struct SessionDeleteREQUIRE
+        {
+            typedef XrSession pointer;
+            void operator()(XrSession s) const;
+        };
+        struct SessionDelete
         {
             typedef XrSession pointer;
             void operator()(XrSession s) const;
@@ -232,6 +239,11 @@ namespace Conformance
             typedef XrSwapchain pointer;
             void operator()(XrSwapchain s) const;
         };
+        struct SwapchainDelete
+        {
+            typedef XrSwapchain pointer;
+            void operator()(XrSwapchain s) const;
+        };
     }  // namespace deleters
 
     /// Defines a type similar to std::unique_ptr for XrInstance which uses CHECK() on destruction to verify that the
@@ -251,6 +263,10 @@ namespace Conformance
     ///
     using InstanceREQUIRE = ScopedHandle<XrInstance, deleters::InstanceDeleteREQUIRE>;
 
+    /// This is similar to InstanceCHECK except that it ignores the result of xrDestroyInstance.
+    ///
+    using InstanceScoped = ScopedHandle<XrInstance, deleters::InstanceDelete>;
+
     /// Defines a type similar to std::unique_ptr for XrSession which uses CHECK() on destruction to verify that the
     /// destroy function succeeded.
     /// (Unlike std::unique_ptr, this copes with 32-bit builds where the handles are not pointers but uint64_t typedefs.)
@@ -268,6 +284,10 @@ namespace Conformance
     /// This is similar to SessionCHECK except that it uses REQUIRE on the result of xrDestroySession.
     ///
     using SessionREQUIRE = ScopedHandle<XrSession, deleters::SessionDeleteREQUIRE>;
+
+    /// This is similar to SessionCHECK except that it ignores the result of xrDestroySession.
+    ///
+    using SessionScoped = ScopedHandle<XrSession, deleters::SessionDelete>;
 
     /// Defines a type similar to std::unique_ptr for XrSpace which uses CHECK() on destruction to verify that the
     /// destroy function succeeded.
@@ -568,6 +588,9 @@ namespace Conformance
         /// If instance is valid then we inherit it instead of create one ourselves.
         void Init(int optionFlags, XrInstance instance = XR_NULL_HANDLE);
 
+        /// Begin the session.
+        void BeginSession();
+
         /// Restores the class instance to a pre-initialized state.
         void Shutdown();
 
@@ -601,6 +624,11 @@ namespace Conformance
             return environmentBlendModeVector;
         }
 
+        EventQueue& GetEventQueue() const
+        {
+            return *m_eventQueue;
+        }
+
         bool operator==(NullHandleType const& /*unused*/) const;
         bool operator!=(NullHandleType const& /*unused*/) const;
 
@@ -613,13 +641,15 @@ namespace Conformance
         int optionFlags{0};  //< Enum OptionFlags
 
         XrInstance instance{XR_NULL_HANDLE};
-        bool instanceOwned{false};  //< True if we created it and not the caller of us.
+        InstanceScoped instanceOwned;
 
         XrSystemId systemId{XR_NULL_SYSTEM_ID};
 
         XrSession session{XR_NULL_HANDLE};
         XrResult sessionCreateResult{XR_SUCCESS};
         XrSessionState sessionState{XR_SESSION_STATE_UNKNOWN};
+        std::unique_ptr<EventQueue> m_eventQueue;
+        std::unique_ptr<EventReader> m_privateEventReader;
 
         std::array<XrPath, 2> handSubactionArray;  // "/user/hand/left", "/user/hand/right"
 

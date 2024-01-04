@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2023, The Khronos Group Inc.
+// Copyright (c) 2019-2024, The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 
@@ -7,7 +7,7 @@
 #include "conformance_framework.h"
 #include "conformance_utils.h"
 #include "controller_animation_handler.h"
-#include "gltf.h"
+#include "cts_tinygltf.h"
 #include "graphics_plugin.h"
 #include "input_testinputdevice.h"
 #include "report.h"

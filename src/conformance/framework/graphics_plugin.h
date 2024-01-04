@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2023, The Khronos Group Inc.
+// Copyright (c) 2019-2024, The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -16,12 +16,12 @@
 
 #pragma once
 
+#include "gltf_helpers.h"
 #include "platform_plugin.h"
 #include "conformance_utils.h"
 #include "conformance_framework.h"
 #include "utilities/Geometry.h"
 #include "utilities/throw_helpers.h"
-#include "gltf.h"
 #include "RGBAImage.h"
 #include "pbr/PbrModel.h"
 
@@ -76,6 +76,12 @@
 #ifdef XR_USE_GRAPHICS_API_D3D12
 #include <d3d12.h>
 #endif
+
+namespace tinygltf
+{
+    class Model;
+    class TinyGLTF;
+}  // namespace tinygltf
 
 namespace Conformance
 {
@@ -155,28 +161,6 @@ namespace Conformance
         XrPosef pose;
         bool visible;
     };
-
-    static inline std::shared_ptr<tinygltf::Model> LoadGLTF(span<const uint8_t> data)
-    {
-        tinygltf::Model model;
-        tinygltf::TinyGLTF loader;
-        std::string err;
-        std::string warn;
-        bool loadedModel = loader.LoadBinaryFromMemory(&model, &err, &warn, data.data(), (unsigned int)data.size());
-        if (!warn.empty()) {
-            // ReportF("glTF WARN: %s", &warn);
-        }
-
-        if (!err.empty()) {
-            XRC_THROW("glTF ERR: " + err);
-        }
-
-        if (!loadedModel) {
-            XRC_THROW("Failed to load glTF model provided.");
-        }
-
-        return std::make_shared<tinygltf::Model>(std::move(model));
-    }
 
     /// A drawable GLTF model, consisting of a reference to plugin-specific data for a GLTF model, plus pose and scale.
     struct GLTFDrawable
@@ -360,7 +344,15 @@ namespace Conformance
 
         /// Create internal data for a glTF model, returning a handle to refer to it.
         /// This handle expires when the internal data is cleared in Shutdown() and ShutdownDevice().
-        virtual GLTFHandle LoadGLTF(span<const uint8_t> data) = 0;
+        GLTFHandle LoadGLTF(span<const uint8_t> data)
+        {
+            return LoadGLTF(Conformance::LoadGLTF(data));
+        }
+
+        /// Create internal data for a glTF model, returning a handle to refer to it.
+        /// This handle expires when the internal data is cleared in Shutdown() and ShutdownDevice().
+        /// It retains a reference to the tinygltf model passed here.
+        virtual GLTFHandle LoadGLTF(std::shared_ptr<tinygltf::Model> tinygltfModel) = 0;
 
         virtual std::shared_ptr<Pbr::Model> GetModel(GLTFHandle handle) const = 0;
 

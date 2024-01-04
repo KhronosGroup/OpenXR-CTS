@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2023, The Khronos Group Inc.
+// Copyright (c) 2019-2024, The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 
@@ -9,4 +9,4 @@
 #pragma warning(disable : 4189)
 #endif  // defined(_MSC_VER)
 
-#include "gltf.h"
+#include "cts_tinygltf.h"

@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2023, The Khronos Group Inc.
+// Copyright (c) 2017-2024, The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -15,9 +15,9 @@
 #include <unordered_map>
 #include "xr_dependencies.h"
 #include <openxr/openxr.h>
+#include <openxr/openxr_loader_negotiation.h>
 #include <openxr/openxr_platform.h>
 #include "xr_generated_dispatch_table.h"
-#include <loader_interfaces.h>
 
 // HandleState.h contains non-generated code.
 #include "HandleState.h"

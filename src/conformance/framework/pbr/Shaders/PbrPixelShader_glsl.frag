@@ -3,7 +3,7 @@ precision mediump float;
 precision highp int;
 // Copyright (c) 2016 - 2017 Mohamad Moneimne and Contributors
 // Copyright (C) Microsoft Corporation.  All Rights Reserved
-// Copyright 2023, The Khronos Group, Inc.
+// Copyright 2023-2024, The Khronos Group Inc.
 //
 // SPDX-License-Identifier: MIT
 

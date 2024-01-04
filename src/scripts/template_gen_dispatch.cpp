@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2023, The Khronos Group Inc.
+// Copyright (c) 2017-2024, The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -8,23 +8,23 @@
 
 #if defined(ANDROID)
 #include <android/log.h>
-#define LOG(...) __android_log_print(ANDROID_LOG_ERROR, "XrApiLayer_runtime_conformance", __VA_ARGS__)
+#define LOG_FATAL(...) __android_log_print(ANDROID_LOG_FATAL, "XrApiLayer_runtime_conformance", __VA_ARGS__)
 #else
 #include <cstdio>
-#define LOG(...) fprintf(stderr, __VA_ARGS__)
+#define LOG_FATAL(...) fprintf(stderr, __VA_ARGS__)
 #endif
 
 #include <exception>
 
 // Unhandled exception at ABI is a catastrophic error in the layer (a bug).
-#define ABI_CATCH                                                                                  \
-    catch (const std::exception& e) {                                                              \
-        LOG("Conformance Layer Bug: caught exception at ABI level with message = %s\n", e.what()); \
-        abort(); /* Something went wrong in the layer. */                                          \
-    }                                                                                              \
-    catch (...) {                                                                                  \
-        LOG("Conformance Layer Bug: caught exception at ABI level\n");                             \
-        abort(); /* Something went wrong in the layer. */                                          \
+#define ABI_CATCH                                                                                               \
+    catch (const std::exception& e) {                                                                           \
+        LOG_FATAL("FATAL: Conformance Layer Bug: caught exception at ABI level with message = %s\n", e.what()); \
+        abort(); /* Something went wrong in the layer. */                                                       \
+    }                                                                                                           \
+    catch (...) {                                                                                               \
+        LOG_FATAL("FATAL: Conformance Layer Bug: caught exception at ABI level\n");                             \
+        abort(); /* Something went wrong in the layer. */                                                       \
     }
 
 /*% macro checkExtCode(ext_code) %*/(handleState->enabledExtensions->/*{make_ext_variable_name(ext_code.extension)}*/ && result == /*{ ext_code.value }*/)/*% endmacro %*/

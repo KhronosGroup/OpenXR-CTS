@@ -2,7 +2,7 @@ OpenXR Conformance Test Suite
 =============================
 
 <!--
-Copyright (c) 2019-2023, The Khronos Group Inc.
+Copyright (c) 2019-2024, The Khronos Group Inc.
 
 SPDX-License-Identifier: CC-BY-4.0
 -->

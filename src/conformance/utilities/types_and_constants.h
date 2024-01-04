@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2023, The Khronos Group Inc.
+// Copyright (c) 2019-2024, The Khronos Group Inc.
 // Copyright (c) 2019 Collabora, Ltd.
 //
 // SPDX-License-Identifier: Apache-2.0
@@ -110,6 +110,26 @@ namespace Conformance
         MAKE_CONVERSION_FUNCTION(XrSwapchain)
         MAKE_CONVERSION_FUNCTION(XrActionSet)
         MAKE_CONVERSION_FUNCTION(XrDebugUtilsMessengerEXT)
+        MAKE_CONVERSION_FUNCTION(XrSpatialAnchorMSFT)
+        MAKE_CONVERSION_FUNCTION(XrSpatialGraphNodeBindingMSFT)
+        MAKE_CONVERSION_FUNCTION(XrHandTrackerEXT)
+        MAKE_CONVERSION_FUNCTION(XrBodyTrackerFB)
+        MAKE_CONVERSION_FUNCTION(XrSceneObserverMSFT)
+        MAKE_CONVERSION_FUNCTION(XrSceneMSFT)
+        MAKE_CONVERSION_FUNCTION(XrFacialTrackerHTC)
+        MAKE_CONVERSION_FUNCTION(XrFoveationProfileFB)
+        MAKE_CONVERSION_FUNCTION(XrTriangleMeshFB)
+        MAKE_CONVERSION_FUNCTION(XrPassthroughFB)
+        MAKE_CONVERSION_FUNCTION(XrPassthroughLayerFB)
+        MAKE_CONVERSION_FUNCTION(XrGeometryInstanceFB)
+        MAKE_CONVERSION_FUNCTION(XrSpatialAnchorStoreConnectionMSFT)
+        MAKE_CONVERSION_FUNCTION(XrSpaceUserFB)
+        MAKE_CONVERSION_FUNCTION(XrFaceTrackerFB)
+        MAKE_CONVERSION_FUNCTION(XrEyeTrackerFB)
+        MAKE_CONVERSION_FUNCTION(XrVirtualKeyboardMETA)
+        MAKE_CONVERSION_FUNCTION(XrPassthroughColorLutMETA)
+        MAKE_CONVERSION_FUNCTION(XrPassthroughHTC)
+        MAKE_CONVERSION_FUNCTION(XrPlaneDetectorEXT)
 #else
         // 32-bit, just a uint64_t
         operator uint64_t() const

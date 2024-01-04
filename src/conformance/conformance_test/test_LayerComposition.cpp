@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2023, The Khronos Group Inc.
+// Copyright (c) 2019-2024, The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -18,6 +18,7 @@
 #include "composition_utils.h"
 #include "conformance_framework.h"
 #include "utilities/throw_helpers.h"
+#include "utilities/types_and_constants.h"
 #include "utilities/utils.h"
 
 #include <catch2/catch_test_macros.hpp>
@@ -41,7 +42,9 @@ namespace Conformance
             compositionHelper, "quad_occlusion.png",
             "This test includes a blue and green quad at Z=-2 with opposite rotations on Y axis forming X. The green quad should be"
             " fully visible due to painter's algorithm. A red quad is facing away and should not be visible.");
-        compositionHelper.GetInteractionManager().AttachActionSets();
+        XrSession session = compositionHelper.GetSession();
+        InteractionManager& interactionManager = compositionHelper.GetInteractionManager();
+        interactionManager.AttachActionSets();
         compositionHelper.BeginSession();
 
         const XrSwapchain greenSwapchain = compositionHelper.CreateStaticSwapchainSolidColor(Colors::Green);
@@ -60,9 +63,7 @@ namespace Conformance
         const XrQuaternionf redRot = Quat::FromAxisAngle({0, 1, 0}, Math::DegToRad(180));
         interactiveLayerManager.AddLayer(compositionHelper.CreateQuadLayer(redSwapchain, viewSpace, 1.0f, XrPosef{redRot, {0, 0, -1}}));
 
-        RenderLoop(compositionHelper.GetSession(), [&](const XrFrameState& frameState) {
-            return interactiveLayerManager.EndFrame(frameState);
-        }).Loop();
+        RenderLoop(session, [&](const XrFrameState& frameState) { return interactiveLayerManager.EndFrame(frameState); }).Loop();
     }
 
     // Purpose: Verify order of transforms by exercising the two ways poses can be specified:
@@ -78,7 +79,9 @@ namespace Conformance
             " rotation around the Z axis on an XrSpace and then translate the quad out on the Z axis through the quad"
             " layer's pose. The purple/yellow quads apply the same translation on the XrSpace and the rotation on the"
             " quad layer's pose.");
-        compositionHelper.GetInteractionManager().AttachActionSets();
+        XrSession session = compositionHelper.GetSession();
+        InteractionManager& interactionManager = compositionHelper.GetInteractionManager();
+        interactionManager.AttachActionSets();
         compositionHelper.BeginSession();
 
         const XrSwapchain blueSwapchain = compositionHelper.CreateStaticSwapchainSolidColor(Colors::Blue);
@@ -108,9 +111,7 @@ namespace Conformance
             interactiveLayerManager.AddLayer(quad2);
         }
 
-        RenderLoop(compositionHelper.GetSession(), [&](const XrFrameState& frameState) {
-            return interactiveLayerManager.EndFrame(frameState);
-        }).Loop();
+        RenderLoop(session, [&](const XrFrameState& frameState) { return interactiveLayerManager.EndFrame(frameState); }).Loop();
     }
 
     // Purpose: Validates alpha blending (both premultiplied and unpremultiplied).
@@ -119,7 +120,9 @@ namespace Conformance
         CompositionHelper compositionHelper("Source Alpha Blending");
         InteractiveLayerManager interactiveLayerManager(compositionHelper, "source_alpha_blending.png",
                                                         "All three squares should have an identical blue-green gradient.");
-        compositionHelper.GetInteractionManager().AttachActionSets();
+        XrSession session = compositionHelper.GetSession();
+        InteractionManager& interactionManager = compositionHelper.GetInteractionManager();
+        interactionManager.AttachActionSets();
         compositionHelper.BeginSession();
 
         const XrSpace viewSpace = compositionHelper.CreateReferenceSpace(XR_REFERENCE_SPACE_TYPE_VIEW);
@@ -195,9 +198,7 @@ namespace Conformance
         createGradientTest(true, -1.02f, 0);  // Test premultiplied (left of center "answer")
         createGradientTest(false, 1.02f, 0);  // Test unpremultiplied (right of center "answer")
 
-        RenderLoop(compositionHelper.GetSession(), [&](const XrFrameState& frameState) {
-            return interactiveLayerManager.EndFrame(frameState);
-        }).Loop();
+        RenderLoop(session, [&](const XrFrameState& frameState) { return interactiveLayerManager.EndFrame(frameState); }).Loop();
     }
 
     // Purpose: Validate eye visibility flags.
@@ -206,7 +207,9 @@ namespace Conformance
         CompositionHelper compositionHelper("Eye Visibility");
         InteractiveLayerManager interactiveLayerManager(compositionHelper, "eye_visibility.png",
                                                         "A green quad is shown in the left eye and a blue quad is shown in the right eye.");
-        compositionHelper.GetInteractionManager().AttachActionSets();
+        XrSession session = compositionHelper.GetSession();
+        InteractionManager& interactionManager = compositionHelper.GetInteractionManager();
+        interactionManager.AttachActionSets();
 
         compositionHelper.BeginSession();
 
@@ -224,9 +227,7 @@ namespace Conformance
         quad2->eyeVisibility = XR_EYE_VISIBILITY_RIGHT;
         interactiveLayerManager.AddLayer(quad2);
 
-        RenderLoop(compositionHelper.GetSession(), [&](const XrFrameState& frameState) {
-            return interactiveLayerManager.EndFrame(frameState);
-        }).Loop();
+        RenderLoop(session, [&](const XrFrameState& frameState) { return interactiveLayerManager.EndFrame(frameState); }).Loop();
     }
 
     TEST_CASE("Subimage", "[composition][interactive][no_auto]")
@@ -235,7 +236,9 @@ namespace Conformance
         InteractiveLayerManager interactiveLayerManager(
             compositionHelper, "subimage.png",
             "Creates a 4x2 grid of quad layers testing subImage array index and imageRect. Red should not be visible except minor bleed in.");
-        compositionHelper.GetInteractionManager().AttachActionSets();
+        XrSession session = compositionHelper.GetSession();
+        InteractionManager& interactionManager = compositionHelper.GetInteractionManager();
+        interactionManager.AttachActionSets();
         compositionHelper.BeginSession();
 
         const XrSpace viewSpace = compositionHelper.CreateReferenceSpace(XR_REFERENCE_SPACE_TYPE_VIEW, XrPosef{Quat::Identity, {0, 0, -1}});
@@ -292,9 +295,7 @@ namespace Conformance
             }
         });
 
-        RenderLoop(compositionHelper.GetSession(), [&](const XrFrameState& frameState) {
-            return interactiveLayerManager.EndFrame(frameState);
-        }).Loop();
+        RenderLoop(session, [&](const XrFrameState& frameState) { return interactiveLayerManager.EndFrame(frameState); }).Loop();
     }
 
     TEST_CASE("ProjectionArraySwapchain", "[composition][interactive][no_auto]")
@@ -303,7 +304,9 @@ namespace Conformance
         InteractiveLayerManager interactiveLayerManager(
             compositionHelper, "projection_array.png",
             "Uses a single texture array for a projection layer (each view is a different slice and each slice has a unique color).");
-        compositionHelper.GetInteractionManager().AttachActionSets();
+        XrSession session = compositionHelper.GetSession();
+        InteractionManager& interactionManager = compositionHelper.GetInteractionManager();
+        interactionManager.AttachActionSets();
         compositionHelper.BeginSession();
 
         const XrSpace localSpace =
@@ -366,7 +369,7 @@ namespace Conformance
             return interactiveLayerManager.EndFrame(frameState, layers);
         };
 
-        RenderLoop(compositionHelper.GetSession(), updateLayers).Loop();
+        RenderLoop(session, updateLayers).Loop();
     }
 
     TEST_CASE("ProjectionWideSwapchain", "[composition][interactive][no_auto]")
@@ -374,7 +377,9 @@ namespace Conformance
         CompositionHelper compositionHelper("Projection Wide Swapchain");
         InteractiveLayerManager interactiveLayerManager(compositionHelper, "projection_wide.png",
                                                         "Uses a single wide texture for a projection layer.");
-        compositionHelper.GetInteractionManager().AttachActionSets();
+        XrSession session = compositionHelper.GetSession();
+        InteractionManager& interactionManager = compositionHelper.GetInteractionManager();
+        interactionManager.AttachActionSets();
         compositionHelper.BeginSession();
 
         const XrSpace localSpace =
@@ -433,7 +438,7 @@ namespace Conformance
             return interactiveLayerManager.EndFrame(frameState, layers);
         };
 
-        RenderLoop(compositionHelper.GetSession(), updateLayers).Loop();
+        RenderLoop(session, updateLayers).Loop();
     }
 
     TEST_CASE("ProjectionSeparateSwapchains", "[composition][interactive][no_auto]")
@@ -441,7 +446,9 @@ namespace Conformance
         CompositionHelper compositionHelper("Projection Separate Swapchains");
         InteractiveLayerManager interactiveLayerManager(compositionHelper, "projection_separate.png",
                                                         "Uses separate textures for each projection layer view.");
-        compositionHelper.GetInteractionManager().AttachActionSets();
+        XrSession session = compositionHelper.GetSession();
+        InteractionManager& interactionManager = compositionHelper.GetInteractionManager();
+        interactionManager.AttachActionSets();
         compositionHelper.BeginSession();
 
         SimpleProjectionLayerHelper simpleProjectionLayerHelper(compositionHelper);
@@ -454,7 +461,7 @@ namespace Conformance
             return interactiveLayerManager.EndFrame(frameState, layers);
         };
 
-        RenderLoop(compositionHelper.GetSession(), updateLayers).Loop();
+        RenderLoop(session, updateLayers).Loop();
     }
 
     TEST_CASE("QuadHands", "[composition][interactive][no_auto]")
@@ -462,6 +469,9 @@ namespace Conformance
         GlobalData& globalData = GetGlobalData();
 
         CompositionHelper compositionHelper("Quad Hands");
+        XrInstance instance = compositionHelper.GetInstance();
+        XrSession session = compositionHelper.GetSession();
+        InteractionManager& interactionManager = compositionHelper.GetInteractionManager();
         InteractiveLayerManager interactiveLayerManager(compositionHelper, "quad_hands.png",
                                                         "10x10cm Quads labeled \'L\' and \'R\' should appear 10cm along the grip "
                                                         "positive Z in front of the center of 10cm cubes rendered at the controller "
@@ -472,8 +482,7 @@ namespace Conformance
                                                         "that \'R\' is always rendered atop \'L\', "
                                                         "and both are atop the cubes when visible.");
 
-        const std::vector<XrPath> subactionPaths{StringToPath(compositionHelper.GetInstance(), "/user/hand/left"),
-                                                 StringToPath(compositionHelper.GetInstance(), "/user/hand/right")};
+        const std::vector<XrPath> subactionPaths{StringToPath(instance, "/user/hand/left"), StringToPath(instance, "/user/hand/right")};
 
         XrActionSet actionSet;
         XrAction gripPoseAction;
@@ -481,7 +490,7 @@ namespace Conformance
             XrActionSetCreateInfo actionSetInfo{XR_TYPE_ACTION_SET_CREATE_INFO};
             strcpy(actionSetInfo.actionSetName, "quad_hands");
             strcpy(actionSetInfo.localizedActionSetName, "Quad Hands");
-            XRC_CHECK_THROW_XRCMD(xrCreateActionSet(compositionHelper.GetInstance(), &actionSetInfo, &actionSet));
+            XRC_CHECK_THROW_XRCMD(xrCreateActionSet(instance, &actionSetInfo, &actionSet));
 
             XrActionCreateInfo actionInfo{XR_TYPE_ACTION_CREATE_INFO};
             actionInfo.actionType = XR_ACTION_TYPE_POSE_INPUT;
@@ -492,16 +501,15 @@ namespace Conformance
             XRC_CHECK_THROW_XRCMD(xrCreateAction(actionSet, &actionInfo, &gripPoseAction));
         }
 
-        compositionHelper.GetInteractionManager().AddActionSet(actionSet);
-        XrPath simpleInteractionProfile = StringToPath(compositionHelper.GetInstance(), "/interaction_profiles/khr/simple_controller");
-        compositionHelper.GetInteractionManager().AddActionBindings(
-            simpleInteractionProfile,
-            {{
-                {gripPoseAction, StringToPath(compositionHelper.GetInstance(), "/user/hand/left/input/grip/pose")},
-                {gripPoseAction, StringToPath(compositionHelper.GetInstance(), "/user/hand/right/input/grip/pose")},
-            }});
+        interactionManager.AddActionSet(actionSet);
+        XrPath simpleInteractionProfile = StringToPath(instance, "/interaction_profiles/khr/simple_controller");
+        interactionManager.AddActionBindings(simpleInteractionProfile,
+                                             {{
+                                                 {gripPoseAction, StringToPath(instance, "/user/hand/left/input/grip/pose")},
+                                                 {gripPoseAction, StringToPath(instance, "/user/hand/right/input/grip/pose")},
+                                             }});
 
-        compositionHelper.GetInteractionManager().AttachActionSets();
+        interactionManager.AttachActionSets();
         compositionHelper.BeginSession();
 
         SimpleProjectionLayerHelper simpleProjectionLayerHelper(compositionHelper);
@@ -517,12 +525,12 @@ namespace Conformance
                 spaceCreateInfo.action = gripPoseAction;
                 spaceCreateInfo.subactionPath = subactionPaths[i];
                 spaceCreateInfo.poseInActionSpace = {{0, 0, 0, 1}, {0, 0, 0}};
-                XRC_CHECK_THROW_XRCMD(xrCreateActionSpace(compositionHelper.GetSession(), &spaceCreateInfo, &space));
+                XRC_CHECK_THROW_XRCMD(xrCreateActionSpace(session, &spaceCreateInfo, &space));
             }
             else {
                 XrReferenceSpaceCreateInfo spaceCreateInfo{XR_TYPE_REFERENCE_SPACE_CREATE_INFO, nullptr, XR_REFERENCE_SPACE_TYPE_LOCAL,
                                                            XrPosefCPP()};
-                XRC_CHECK_THROW_XRCMD(xrCreateReferenceSpace(compositionHelper.GetSession(), &spaceCreateInfo, &space));
+                XRC_CHECK_THROW_XRCMD(xrCreateReferenceSpace(session, &spaceCreateInfo, &space));
             }
             gripSpaces.push_back(std::move(space));
         }
@@ -559,19 +567,20 @@ namespace Conformance
             return interactiveLayerManager.EndFrame(frameState, layers);
         };
 
-        RenderLoop(compositionHelper.GetSession(), updateLayers).Loop();
+        RenderLoop(session, updateLayers).Loop();
     }
 
     TEST_CASE("ProjectionMutableFieldOfView", "[composition][interactive][no_auto]")
     {
         CompositionHelper compositionHelper("Projection Mutable Field-of-View");
+        XrSession session = compositionHelper.GetSession();
+        InteractionManager& interactionManager = compositionHelper.GetInteractionManager();
         InteractiveLayerManager interactiveLayerManager(compositionHelper, "projection_mutable.png",
                                                         "Uses mutable field-of-views for each projection layer view.");
-        compositionHelper.GetInteractionManager().AttachActionSets();
+        interactionManager.AttachActionSets();
         compositionHelper.BeginSession();
 
-        const XrSpace localSpace =
-            compositionHelper.CreateReferenceSpace(XR_REFERENCE_SPACE_TYPE_LOCAL, XrPosef{Quat::Identity, {0, 0, 0}});
+        const XrSpace localSpace = compositionHelper.CreateReferenceSpace(XR_REFERENCE_SPACE_TYPE_LOCAL, XrPosefCPP{});
 
         if (!compositionHelper.GetViewConfigurationProperties().fovMutable) {
             SKIP("View configuration does not support mutable FoV");
@@ -651,7 +660,7 @@ namespace Conformance
             return interactiveLayerManager.EndFrame(frameState, layers);
         };
 
-        RenderLoop(compositionHelper.GetSession(), updateLayers).Loop();
+        RenderLoop(session, updateLayers).Loop();
     }
 
     TEST_CASE("StaleSwapchain", "[composition][interactive][no_auto]")

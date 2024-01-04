@@ -1,5 +1,5 @@
 #!/bin/sh
-# Copyright (c) 2019-2023, The Khronos Group Inc.
+# Copyright (c) 2019-2024, The Khronos Group Inc.
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -39,6 +39,10 @@ TARNAME=OpenXR-CTS
 makeSubset "$TARNAME" $(getConformanceFilenames)
 (
     cd github
+
+    # Add the shared public .mailmap used in all GitHub projects derived from the internal openxr repo
+    add_to_tar "$TARNAME" .mailmap
+
     # Add the shared COPYING.adoc used in all GitHub projects derived from the internal openxr repo
     add_to_tar "$TARNAME" COPYING.adoc
 

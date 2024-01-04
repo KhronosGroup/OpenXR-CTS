@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2023, The Khronos Group Inc.
+// Copyright (c) 2019-2024, The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -16,6 +16,7 @@
 
 #include "composition_utils.h"
 
+#include "RGBAImage.h"
 #include "conformance_framework.h"
 #include "swapchain_image_data.h"
 
@@ -39,7 +40,7 @@ using namespace std::chrono_literals;
 
 namespace Conformance
 {
-    RGBAImage CreateTextImage(int32_t width, int32_t height, const char* text, int32_t fontHeight)
+    RGBAImage CreateTextImage(int32_t width, int32_t height, const char* text, int32_t fontHeight, WordWrap wordWrap)
     {
         constexpr int FontPaddingPixels = 4;
         constexpr int BorderPixels = 2;
@@ -49,7 +50,7 @@ namespace Conformance
         image.DrawRect(0, 0, image.width, image.height, {0, 0, 0, 0.5f});
         image.DrawRectBorder(0, 0, image.width, image.height, BorderPixels, {1, 1, 1, 1});
         image.PutText(XrRect2Di{{InsetPixels, InsetPixels}, {image.width - InsetPixels * 2, image.height - InsetPixels * 2}}, text,
-                      fontHeight, {1, 1, 1, 1});
+                      fontHeight, {1, 1, 1, 1}, wordWrap);
         return image;
     }
 
@@ -137,15 +138,21 @@ namespace Conformance
 
     void InteractionManager::SyncActions(XrPath subactionPath)
     {
-        std::vector<XrActiveActionSet> activeActionSet;
-        for (auto& actionSet : m_actionSets) {
-            XrActiveActionSet activeSet{actionSet, subactionPath};
-            activeActionSet.emplace_back(activeSet);
-        }
+        SyncActions({subactionPath});
+    }
 
+    void InteractionManager::SyncActions(const std::initializer_list<XrPath>& subactionPaths)
+    {
+        std::vector<XrActiveActionSet> activeActionSets;
+        for (XrPath subactionPath : subactionPaths) {
+            for (auto& actionSet : m_actionSets) {
+                XrActiveActionSet activeSet{actionSet, subactionPath};
+                activeActionSets.emplace_back(activeSet);
+            }
+        }
         XrActionsSyncInfo syncInfo{XR_TYPE_ACTIONS_SYNC_INFO};
-        syncInfo.countActiveActionSets = uint32_t(m_actionSets.size());
-        syncInfo.activeActionSets = activeActionSet.data();
+        syncInfo.countActiveActionSets = uint32_t(activeActionSets.size());
+        syncInfo.activeActionSets = activeActionSets.data();
         XRC_CHECK_THROW_XRCMD(xrSyncActions(m_session, &syncInfo));
     }
 
@@ -190,7 +197,7 @@ namespace Conformance
 
         {
             constexpr int TitleFontHeightPixels = 32;
-            RGBAImage image = CreateTextImage(512, 44, testName, TitleFontHeightPixels);
+            RGBAImage image = CreateTextImage(512, 44, testName, TitleFontHeightPixels, WordWrap::Disabled);
 
             m_testNameQuad.layerFlags |= XR_COMPOSITION_LAYER_BLEND_TEXTURE_SOURCE_ALPHA_BIT;
             m_testNameQuad.size.width = 0.75f;
@@ -331,6 +338,7 @@ namespace Conformance
                     FAIL("Unexpected transition to session state " << sessionState->state);
                     return false;  // Stop running.
                 }
+                m_sessionState = sessionState->state;
             }
         }
 

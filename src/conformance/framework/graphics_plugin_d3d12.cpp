@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2023, The Khronos Group Inc.
+// Copyright (c) 2019-2024, The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -17,7 +17,7 @@
 #if defined(XR_USE_GRAPHICS_API_D3D12)
 
 #include "conformance_framework.h"
-#include "gltf.h"
+#include "gltf_helpers.h"
 #include "graphics_plugin.h"
 #include "graphics_plugin_d3d12_gltf.h"
 #include "graphics_plugin_impl_helpers.h"
@@ -357,7 +357,7 @@ namespace Conformance
 
         MeshHandle MakeSimpleMesh(span<const uint16_t> idx, span<const Geometry::Vertex> vtx) override;
 
-        GLTFHandle LoadGLTF(span<const uint8_t> data) override;
+        GLTFHandle LoadGLTF(std::shared_ptr<tinygltf::Model> tinygltfModel) override;
 
         std::shared_ptr<Pbr::Model> GetModel(GLTFHandle handle) const override;
 
@@ -396,7 +396,7 @@ namespace Conformance
         MeshHandle m_cubeMesh;
         VectorWithGenerationCountedHandles<D3D12Mesh, MeshHandle> m_meshes;
         VectorWithGenerationCountedHandles<D3D12GLTF, GLTFHandle> m_gltfs;
-        std::unique_ptr<Pbr::D3D12Resources> pbrResources;
+        std::unique_ptr<Pbr::D3D12Resources> m_pbrResources;
     };
 
     D3D12GraphicsPlugin::D3D12GraphicsPlugin(std::shared_ptr<IPlatformPlugin>)
@@ -553,14 +553,14 @@ namespace Conformance
 
             D3D12_GRAPHICS_PIPELINE_STATE_DESC pipelineStateDesc{};
             SetupBasePipelineStateDesc(pipelineStateDesc);
-            pbrResources = std::make_unique<Pbr::D3D12Resources>(d3d12Device.Get(), pipelineStateDesc);
-            pbrResources->SetLight({0.0f, 0.7071067811865475f, 0.7071067811865475f}, Pbr::RGB::White);
+            m_pbrResources = std::make_unique<Pbr::D3D12Resources>(d3d12Device.Get(), pipelineStateDesc);
+            m_pbrResources->SetLight({0.0f, 0.7071067811865475f, 0.7071067811865475f}, Pbr::RGB::White);
 
             // Read the BRDF Lookup Table used by the PBR system into a DirectX texture.
             std::vector<byte> brdfLutFileData = ReadFileBytes("brdf_lut.png");
             D3D12ResourceWithSRVDesc brdLutResourceView =
-                Pbr::D3D12Texture::LoadTextureImage(*pbrResources, brdfLutFileData.data(), (uint32_t)brdfLutFileData.size());
-            pbrResources->SetBrdfLut(brdLutResourceView);
+                Pbr::D3D12Texture::LoadTextureImage(*m_pbrResources, brdfLutFileData.data(), (uint32_t)brdfLutFileData.size());
+            m_pbrResources->SetBrdfLut(brdLutResourceView);
 
             graphicsBinding.device = d3d12Device.Get();
             graphicsBinding.queue = m_queueWrapper->GetCommandQueue().Get();
@@ -594,7 +594,7 @@ namespace Conformance
         dsvHeap.Reset();
         m_swapchainImageDataMap.Reset();
 
-        pbrResources.reset();
+        m_pbrResources.reset();
         d3d12Device.Reset();
         lastSwapchainImage = nullptr;
     }
@@ -962,9 +962,9 @@ namespace Conformance
         return handle;
     }
 
-    inline GLTFHandle D3D12GraphicsPlugin::LoadGLTF(span<const uint8_t> data)
+    GLTFHandle D3D12GraphicsPlugin::LoadGLTF(std::shared_ptr<tinygltf::Model> tinygltfModel)
     {
-        auto handle = m_gltfs.emplace_back(*pbrResources, Conformance::LoadGLTF(data));
+        auto handle = m_gltfs.emplace_back(*m_pbrResources, std::move(tinygltfModel));
         return handle;
     }
 
@@ -1118,14 +1118,14 @@ namespace Conformance
             XrMatrix4x4f_CreateTranslationRotationScale(&viewMatrix, &layerView.pose.position, &layerView.pose.orientation, &unitScale);
             XrMatrix4x4f viewMatrixInverse;
             XrMatrix4x4f_Invert(&viewMatrixInverse, &viewMatrix);
-            pbrResources->SetViewProjection(LoadXrMatrix(viewMatrixInverse), LoadXrMatrix(projectionMatrix));
+            m_pbrResources->SetViewProjection(LoadXrMatrix(viewMatrixInverse), LoadXrMatrix(projectionMatrix));
 
             DXGI_FORMAT depthSwapchainFormatDX = GetDepthStencilFormatOrDefault(depthCreateInfo);
 
-            gltf.Render(cmdList, *pbrResources, modelToWorld, (DXGI_FORMAT)swapchainData->GetCreateInfo().format, depthSwapchainFormatDX);
+            gltf.Render(cmdList, *m_pbrResources, modelToWorld, (DXGI_FORMAT)swapchainData->GetCreateInfo().format, depthSwapchainFormatDX);
 
             // wait in the direct queue for resources' internal copy queue to complete
-            m_queueWrapper->GPUWaitOnOtherFence(pbrResources->GetFenceAndValue());
+            m_queueWrapper->GPUWaitOnOtherFence(m_pbrResources->GetFenceAndValue());
         }
 
         XRC_CHECK_THROW_HRCMD(cmdList->Close());

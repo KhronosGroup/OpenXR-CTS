@@ -1,4 +1,4 @@
-// Copyright 2022-2023, The Khronos Group, Inc.
+// Copyright 2022-2024, The Khronos Group Inc.
 //
 // Based in part on code that is:
 // Copyright (C) Microsoft Corporation.  All Rights Reserved

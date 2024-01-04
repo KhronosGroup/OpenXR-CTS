@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2023, The Khronos Group Inc.
+// Copyright (c) 2019-2024, The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -23,12 +23,14 @@
 #include "two_call_util.h"
 #include "utilities/throw_helpers.h"
 #include "utilities/utils.h"
+#include "utilities/uuid_utils.h"
 
 #include <openxr/openxr.h>
 
 #include <algorithm>
 #include <exception>
 #include <mutex>
+#include <sstream>
 #include <thread>
 #include <unordered_map>
 #include <utility>
@@ -508,3 +510,32 @@ namespace Conformance
         }
     }
 }  // namespace Conformance
+
+std::string Catch::StringMaker<XrUuidEXT>::convert(XrUuidEXT const& value)
+{
+    return to_string(value);
+}
+
+std::string Catch::StringMaker<XrVector3f>::convert(XrVector3f const& value)
+{
+    std::ostringstream oss;
+    oss << "(" << value.x;
+    oss << ", " << value.y;
+    oss << ", " << value.z;
+    oss << ")";
+    return oss.str();
+}
+
+std::string Catch::StringMaker<XrPosef>::convert(XrPosef const& value)
+{
+    std::ostringstream oss;
+    oss << "[pos = (" << value.position.x;
+    oss << ", " << value.position.y;
+    oss << ", " << value.position.z;
+    oss << ") ori = (w=" << value.orientation.w;
+    oss << ", xyz=(" << value.orientation.x;
+    oss << ", " << value.orientation.y;
+    oss << ", " << value.orientation.z;
+    oss << ")]";
+    return oss.str();
+}

@@ -1,9 +1,9 @@
-// Copyright (c) 2022-2023, The Khronos Group Inc.
+// Copyright (c) 2022-2024, The Khronos Group Inc.
 //
 // SPDX-License-Identifier: MIT
 #pragma once
 
-#include "gltf.h"
+#include "cts_tinygltf.h"
 
 #include "gltf/GltfHelper.h"
 #include "pbr/GltfLoader.h"

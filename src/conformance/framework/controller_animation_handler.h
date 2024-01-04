@@ -1,5 +1,5 @@
 
-// Copyright 2023, The Khronos Group, Inc.
+// Copyright 2023-2024, The Khronos Group Inc.
 //
 // Based in part on code that is:
 //

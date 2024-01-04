@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2023, The Khronos Group Inc.
+// Copyright (c) 2019-2024, The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -207,7 +207,7 @@ namespace Conformance
 
         MeshHandle MakeSimpleMesh(span<const uint16_t> idx, span<const Geometry::Vertex> vtx) override;
 
-        GLTFHandle LoadGLTF(span<const uint8_t> data) override;
+        GLTFHandle LoadGLTF(std::shared_ptr<tinygltf::Model> tinygltfModel) override;
 
         std::shared_ptr<Pbr::Model> GetModel(GLTFHandle handle) const override;
 
@@ -236,7 +236,7 @@ namespace Conformance
         VectorWithGenerationCountedHandles<D3D11Mesh, MeshHandle> m_meshes;
         VectorWithGenerationCountedHandles<D3D11GLTF, GLTFHandle> m_gltfs;
 
-        std::unique_ptr<Pbr::D3D11Resources> pbrResources;
+        std::unique_ptr<Pbr::D3D11Resources> m_pbrResources;
 
         SwapchainImageDataMap<D3D11SwapchainImageData> m_swapchainImageDataMap;
     };
@@ -384,14 +384,14 @@ namespace Conformance
 
                 m_cubeMesh = MakeCubeMesh();
 
-                pbrResources = std::make_unique<Pbr::D3D11Resources>(d3d11Device.Get());
-                pbrResources->SetLight({0.0f, 0.7071067811865475f, 0.7071067811865475f}, Pbr::RGB::White);
+                m_pbrResources = std::make_unique<Pbr::D3D11Resources>(d3d11Device.Get());
+                m_pbrResources->SetLight({0.0f, 0.7071067811865475f, 0.7071067811865475f}, Pbr::RGB::White);
 
                 // Read the BRDF Lookup Table used by the PBR system into a DirectX texture.
                 std::vector<byte> brdfLutFileData = ReadFileBytes("brdf_lut.png");
                 Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> brdfLutResourceView =
                     Pbr::D3D11Texture::LoadTextureImage(d3d11Device.Get(), brdfLutFileData.data(), (uint32_t)brdfLutFileData.size());
-                pbrResources->SetBrdfLut(brdfLutResourceView.Get());
+                m_pbrResources->SetBrdfLut(brdfLutResourceView.Get());
             }
 
             return true;
@@ -429,7 +429,7 @@ namespace Conformance
         m_cubeMesh = {};
         m_meshes.clear();
         m_gltfs.clear();
-        pbrResources.reset();
+        m_pbrResources.reset();
 
         d3d11DeviceContext.Reset();
         d3d11Device.Reset();
@@ -689,9 +689,9 @@ namespace Conformance
         return handle;
     }
 
-    inline GLTFHandle D3D11GraphicsPlugin::LoadGLTF(span<const uint8_t> data)
+    GLTFHandle D3D11GraphicsPlugin::LoadGLTF(std::shared_ptr<tinygltf::Model> tinygltfModel)
     {
-        auto handle = m_gltfs.emplace_back(*pbrResources, Conformance::LoadGLTF(data));
+        auto handle = m_gltfs.emplace_back(*m_pbrResources, std::move(tinygltfModel));
         return handle;
     }
 
@@ -788,9 +788,9 @@ namespace Conformance
             XrMatrix4x4f_CreateTranslationRotationScale(&viewMatrix, &layerView.pose.position, &layerView.pose.orientation, &unitScale);
             XrMatrix4x4f viewMatrixInverse;
             XrMatrix4x4f_Invert(&viewMatrixInverse, &viewMatrix);
-            pbrResources->SetViewProjection(LoadXrMatrix(viewMatrixInverse), LoadXrMatrix(projectionMatrix));
+            m_pbrResources->SetViewProjection(LoadXrMatrix(viewMatrixInverse), LoadXrMatrix(projectionMatrix));
 
-            gltf.Render(d3d11DeviceContext, *pbrResources, modelToWorld);
+            gltf.Render(d3d11DeviceContext, *m_pbrResources, modelToWorld);
         }
     }
 
