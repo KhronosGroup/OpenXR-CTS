@@ -187,7 +187,7 @@ namespace Conformance
         syncInfo.countActiveActionSets = 1;
 
         XrActionSpaceCreateInfo actionSpaceCreateInfo{XR_TYPE_ACTION_SPACE_CREATE_INFO};
-        actionSpaceCreateInfo.poseInActionSpace = XrPosef{Quat::Identity, {0, 0, 0}};
+        actionSpaceCreateInfo.poseInActionSpace = XrPosefCPP();
 
         std::vector<XrSpace> gripSpaces;
         for (std::shared_ptr<IInputTestDevice> controller : {leftHandInputDevice, rightHandInputDevice}) {
@@ -309,6 +309,13 @@ namespace Conformance
 
     TEST_CASE("XR_MSFT_controller_model_interactive", "[scenario][interactive][no_auto]")
     {
+
+        GlobalData& globalData = GetGlobalData();
+
+        if (!globalData.IsInstanceExtensionSupported(XR_MSFT_CONTROLLER_MODEL_EXTENSION_NAME)) {
+            SKIP(XR_MSFT_CONTROLLER_MODEL_EXTENSION_NAME " not supported");
+        }
+
         const char* instructions =
             "Ensure the controller model is positioned in the same position as the physical controller. "
             "Press menu to complete the validation.";
@@ -338,7 +345,8 @@ namespace Conformance
             XrPath subactionPath;
             XrSpace space;
             XrControllerModelKeyMSFT modelKey;
-            GLTFHandle controllerModel;
+            GLTFModelHandle controllerModel;
+            GLTFModelInstanceHandle controllerModelInstance;
             ControllerAnimationHandler animationHandler;
         };
 
@@ -394,6 +402,7 @@ namespace Conformance
 
         compositionHelper.BeginSession();
         XrSession session = compositionHelper.GetSession();
+        auto& graphicsPlugin = GetGlobalData().graphicsPlugin;
 
         // Create the instructional quad layer placed to the left.
         XrCompositionLayerQuad* const instructionsQuad =
@@ -450,6 +459,7 @@ namespace Conformance
                         ext.xrLoadControllerModelMSFT_(session, hand.modelKey, modelBufferSize, &modelBufferSize, modelBuffer.data()));
 
                     hand.controllerModel = GetGlobalData().graphicsPlugin->LoadGLTF(modelBuffer);
+                    hand.controllerModelInstance = GetGlobalData().graphicsPlugin->CreateGLTFModelInstance(hand.controllerModel);
 
                     XrControllerModelPropertiesMSFT modelProperties{XR_TYPE_CONTROLLER_MODEL_PROPERTIES_MSFT};
                     REQUIRE_RESULT_UNQUALIFIED_SUCCESS(ext.xrGetControllerModelPropertiesMSFT_(session, hand.modelKey, &modelProperties));
@@ -458,8 +468,8 @@ namespace Conformance
                     modelProperties.nodeProperties = nodePropertiesBuffer.data();
                     REQUIRE_RESULT_UNQUALIFIED_SUCCESS(ext.xrGetControllerModelPropertiesMSFT_(session, hand.modelKey, &modelProperties));
 
-                    hand.animationHandler =
-                        ControllerAnimationHandler(GetGlobalData().graphicsPlugin->GetModel(hand.controllerModel), nodePropertiesBuffer);
+                    hand.animationHandler = ControllerAnimationHandler{*GetGlobalData().graphicsPlugin->GetPbrModel(hand.controllerModel),
+                                                                       std::move(nodePropertiesBuffer)};
 
                     ReportF("Loaded model for key");
                 }
@@ -481,9 +491,10 @@ namespace Conformance
                         modelState.nodeStates = nodeStateBuffer.data();
                         REQUIRE_RESULT_UNQUALIFIED_SUCCESS(ext.xrGetControllerModelStateMSFT_(session, hand.modelKey, &modelState));
 
-                        hand.animationHandler.UpdateControllerParts(nodeStateBuffer);
+                        hand.animationHandler.UpdateControllerParts(nodeStateBuffer,
+                                                                    graphicsPlugin->GetModelInstance(hand.controllerModelInstance));
 
-                        renderedGLTFs.push_back(GLTFDrawable{hand.controllerModel, spaceLocation.pose});
+                        renderedGLTFs.push_back(GLTFDrawable{hand.controllerModelInstance, spaceLocation.pose});
                     }
                 }
             }

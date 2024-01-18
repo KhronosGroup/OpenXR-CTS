@@ -19,7 +19,6 @@
 
 #include "utilities/event_reader.h"
 #include "utilities/types_and_constants.h"
-#include "utilities/xrduration_literals.h"
 
 #include <openxr/openxr.h>
 
@@ -30,7 +29,6 @@
 #include <functional>
 #include <memory>
 #include <string>
-#include <type_traits>
 #include <unordered_map>
 #include <vector>
 

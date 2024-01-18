@@ -21,7 +21,6 @@
 #include "conformance_utils.h"
 #include "conformance_framework.h"
 #include "utilities/Geometry.h"
-#include "utilities/throw_helpers.h"
 #include "RGBAImage.h"
 #include "pbr/PbrModel.h"
 
@@ -30,10 +29,8 @@
 #include <nonstd/type.hpp>
 #include <cstdint>
 #include <memory>
-#include <functional>
 #include <vector>
 #include <string>
-#include <stdexcept>
 
 // We #include all the possible graphics system headers here because openxr_platform.h assumes that
 // they are all visible when it is compiled.
@@ -146,14 +143,25 @@ namespace Conformance
         }
     };
 
-    /// Handle returned by a graphics plugin, used to reference plugin-internal data for a loaded GLTF model.
+    /// Handle returned by a graphics plugin, used to reference plugin-internal data for a loaded glTF (PBR) model.
     ///
     /// They expire at IGraphicsPlugin::Shutdown() and IGraphicsPlugin::ShutdownDevice() calls,
     /// so must not be persisted past those calls.
     ///
     /// They are "null" by default, so may be tested for validity by comparison against a default-constructed instance.
-    using GLTFHandle = nonstd::equality<uint64_t, struct GLTFHandleTag, detail::custom_default_max_uint64>;
+    using GLTFModelHandle = nonstd::equality<uint64_t, struct GLTFModelHandleTag, detail::custom_default_max_uint64>;
 
+    /// Handle returned by a graphics plugin, used to reference plugin-internal data for a renderable instance of a glTF (PBR) model.
+    ///
+    /// They expire at IGraphicsPlugin::Shutdown() and IGraphicsPlugin::ShutdownDevice() calls,
+    /// so must not be persisted past those calls.
+    ///
+    /// They are "null" by default, so may be tested for validity by comparison against a default-constructed instance.
+    using GLTFModelInstanceHandle = nonstd::equality<uint64_t, struct GLTFModelInstanceHandleTag, detail::custom_default_max_uint64>;
+
+    /// A handle referring to a node in a loaded PBR (glTF) model.
+    /// Only useful in the context of the GLTFModelHandle it came from:
+    /// it is internally just an index.
     using NodeHandle = nonstd::ordered<uint64_t, struct NodeHandleTag, detail::custom_default_max_uint64>;
 
     struct NodeParams
@@ -162,16 +170,16 @@ namespace Conformance
         bool visible;
     };
 
-    /// A drawable GLTF model, consisting of a reference to plugin-specific data for a GLTF model, plus pose and scale.
+    /// A drawable GLTF model, consisting of a reference to plugin-specific data for a glTF (PBR) model instance, pose, scale, and node/parameter pairs.
     struct GLTFDrawable
     {
-        GLTFHandle handle;
+        GLTFModelInstanceHandle handle;
         DrawableParams params;
 
         // or unordered_map, probably not significant
         std::map<NodeHandle, NodeParams> nodesAndParams;
 
-        GLTFDrawable(GLTFHandle handle, XrPosef pose = XrPosefCPP{}, XrVector3f scale = {1.0, 1.0, 1.0})
+        GLTFDrawable(GLTFModelInstanceHandle handle, XrPosef pose = XrPosefCPP{}, XrVector3f scale = {1.0, 1.0, 1.0})
             : handle(handle), params(pose, scale)
         {
         }
@@ -344,7 +352,7 @@ namespace Conformance
 
         /// Create internal data for a glTF model, returning a handle to refer to it.
         /// This handle expires when the internal data is cleared in Shutdown() and ShutdownDevice().
-        GLTFHandle LoadGLTF(span<const uint8_t> data)
+        GLTFModelHandle LoadGLTF(span<const uint8_t> data)
         {
             return LoadGLTF(Conformance::LoadGLTF(data));
         }
@@ -352,9 +360,15 @@ namespace Conformance
         /// Create internal data for a glTF model, returning a handle to refer to it.
         /// This handle expires when the internal data is cleared in Shutdown() and ShutdownDevice().
         /// It retains a reference to the tinygltf model passed here.
-        virtual GLTFHandle LoadGLTF(std::shared_ptr<tinygltf::Model> tinygltfModel) = 0;
+        virtual GLTFModelHandle LoadGLTF(std::shared_ptr<tinygltf::Model> tinygltfModel) = 0;
 
-        virtual std::shared_ptr<Pbr::Model> GetModel(GLTFHandle handle) const = 0;
+        /// Get the underlying Pbr::Model associated with the supplied handle.
+        virtual std::shared_ptr<Pbr::Model> GetPbrModel(GLTFModelHandle handle) const = 0;
+
+        virtual GLTFModelInstanceHandle CreateGLTFModelInstance(GLTFModelHandle handle) = 0;
+
+        /// Get a reference to the base interface for a given ModelInstance from its handle
+        virtual Pbr::ModelInstance& GetModelInstance(GLTFModelInstanceHandle handle) = 0;
 
         /// Convenience helper function to make a mesh that is our standard cube (with R, G, B faces along X, Y, Z, respectively)
         MeshHandle MakeCubeMesh()
@@ -366,7 +380,7 @@ namespace Conformance
         MeshHandle MakeGnomonMesh()
         {
             return MakeSimpleMesh(Geometry::AxisIndicator::GetInstance().indices, Geometry::AxisIndicator::GetInstance().vertices);
-        };
+        }
 
         virtual void RenderView(const XrCompositionLayerProjectionView& layerView, const XrSwapchainImageBaseHeader* colorSwapchainImage,
                                 const RenderParams& params) = 0;

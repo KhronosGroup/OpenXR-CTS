@@ -11,19 +11,15 @@
 
 #include "common/xr_linear.h"
 
-#include <atomic>
-#include <memory>
 #include <stdexcept>
 
 namespace Pbr
 {
-    Model::Model(bool createRootNode /*= true*/)
+    Model::Model()
     {
-        if (createRootNode) {
-            XrMatrix4x4f identityMatrix;
-            XrMatrix4x4f_CreateIdentity(&identityMatrix);
-            AddNode(identityMatrix, RootParentNodeIndex, "root");
-        }
+        XrMatrix4x4f identityMatrix;
+        XrMatrix4x4f_CreateIdentity(&identityMatrix);
+        AddNode(identityMatrix, RootParentNodeIndex, "root");
     }
 
     NodeIndex_t Model::AddNode(const XrMatrix4x4f& transform, Pbr::NodeIndex_t parentIndex, std::string name)
@@ -34,14 +30,7 @@ namespace Pbr
         }
 
         m_nodes.emplace_back(transform, std::move(name), newNodeIndex, parentIndex);
-        // m_modelTransformsStructuredBuffer = nullptr;  // Structured buffer will need to be recreated.
-        InvalidateBuffer();  // Structured buffer will need to be recreated.
-        return m_nodes.back().Index;
-    }
-
-    void Model::Clear()
-    {
-        m_primitives.clear();
+        return m_nodes.back().GetNodeIndex();
     }
 
     bool Model::FindFirstNode(NodeIndex_t* outNodeIndex, const char* name, const NodeIndex_t* parentNodeIndex) const
@@ -50,42 +39,22 @@ namespace Pbr
         const NodeIndex_t startIndex = parentNodeIndex ? *parentNodeIndex + 1 : Pbr::RootNodeIndex;
         for (NodeIndex_t i = startIndex; i < m_nodes.size(); ++i) {
             const Pbr::Node& node = m_nodes[i];
-            if ((!parentNodeIndex || node.ParentNodeIndex == *parentNodeIndex) && (node.Name.compare(name) == 0)) {
-                *outNodeIndex = node.Index;
+            if ((!parentNodeIndex || node.GetParentNodeIndex() == *parentNodeIndex) && (node.CompareName(name) == 0)) {
+                *outNodeIndex = node.GetNodeIndex();
                 return true;
             }
         }
         return false;
     }
 
-    XrMatrix4x4f Model::GetNodeToModelRootTransform(NodeIndex_t nodeIndex) const
-    {
-        const Pbr::Node& node = GetNode(nodeIndex);
-
-        // Compute the transform recursively.
-        XrMatrix4x4f identityMatrix;
-        XrMatrix4x4f_CreateIdentity(&identityMatrix);
-        const XrMatrix4x4f parentTransform =
-            node.ParentNodeIndex == Pbr::RootNodeIndex ? identityMatrix : GetNodeToModelRootTransform(node.ParentNodeIndex);
-        XrMatrix4x4f nodeTransform = node.GetTransform();
-        XrMatrix4x4f result;
-        XrMatrix4x4f_Multiply(&result, &nodeTransform, &parentTransform);
-        return result;
-    }
-
     void Model::AddPrimitive(PrimitiveHandle primitive)
     {
-        m_primitives.push_back(primitive);
+        m_primitiveHandles.push_back(primitive);
     }
 
     Node::Node(Node&& other) noexcept
     {
-        using std::swap;
-        swap(Name, other.Name);
-        swap(Index, other.Index);
-        swap(ParentNodeIndex, other.ParentNodeIndex);
-        m_modifyCount.store(other.m_modifyCount);
-        swap(m_localTransform, other.m_localTransform);
+        *this = std::move(other);
     }
 
     Node& Node::operator=(Node&& other) noexcept
@@ -97,7 +66,6 @@ namespace Pbr
         swap(Name, other.Name);
         swap(Index, other.Index);
         swap(ParentNodeIndex, other.ParentNodeIndex);
-        m_modifyCount.store(other.m_modifyCount);
         swap(m_localTransform, other.m_localTransform);
         return *this;
     }

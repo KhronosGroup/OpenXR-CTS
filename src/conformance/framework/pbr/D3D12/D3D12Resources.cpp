@@ -58,13 +58,6 @@ namespace
     static_assert(offsetof(SceneConstantBuffer, LightDiffuseColor) == 96, "Offsets must match shader");
     static_assert(offsetof(SceneConstantBuffer, NumSpecularMipLevels) == 112, "Offsets must match shader");
 
-    struct ModelConstantBuffer
-    {
-        DirectX::XMFLOAT4X4 ModelToWorld;
-    };
-
-    static_assert((sizeof(ModelConstantBuffer) % 16) == 0, "Constant Buffer must be divisible by 16 bytes");
-
     const D3D12_INPUT_ELEMENT_DESC s_vertexDesc[6] = {
         {"POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0},
         {"NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0},
@@ -158,12 +151,9 @@ namespace Pbr
             Resources.PipelineStates = std::make_unique<D3D12PipelineStates>(Resources.RootSignature, basePipelineStateDesc, s_vertexDesc,
                                                                              g_PbrVertexShader, g_PbrPixelShader);
 
-            // Set up the constant buffers.
+            // Set up the scene constant buffer.
             static_assert((sizeof(SceneConstantBuffer) % 16) == 0, "Constant Buffer must be divisible by 16 bytes");
             Resources.SceneConstantBuffer.Allocate(device);
-
-            static_assert((sizeof(ModelConstantBuffer) % 16) == 0, "Constant Buffer must be divisible by 16 bytes");
-            Resources.ModelConstantBuffer.Allocate(device);
 
             D3D12_DESCRIPTOR_HEAP_DESC transformHeapDesc;
             transformHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
@@ -176,32 +166,32 @@ namespace Pbr
             D3D12_DESCRIPTOR_HEAP_DESC textureHeapDesc;
             textureHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
             textureHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
-            textureHeapDesc.NumDescriptors = ShaderSlots::NumTextures - ShaderSlots::NumMaterialSlots;
+            textureHeapDesc.NumDescriptors = (int)ShaderSlots::NumTextures - (int)ShaderSlots::NumMaterialSlots;
             textureHeapDesc.NodeMask = 1;
 
             XRC_CHECK_THROW_HRCMD(device->CreateDescriptorHeap(&textureHeapDesc, IID_PPV_ARGS(&Resources.TextureHeap)));
             UINT textureDescriptorSize = device->GetDescriptorHandleIncrementSize(textureHeapDesc.Type);
             CD3DX12_CPU_DESCRIPTOR_HANDLE textureBaseHandle(Resources.TextureHeap->GetCPUDescriptorHandleForHeapStart());
             Resources.BrdfLutTextureDescriptor = CD3DX12_CPU_DESCRIPTOR_HANDLE(  //
-                textureBaseHandle, ShaderSlots::Brdf - ShaderSlots::NumMaterialSlots, textureDescriptorSize);
+                textureBaseHandle, (int)ShaderSlots::Brdf - (int)ShaderSlots::NumMaterialSlots, textureDescriptorSize);
             Resources.SpecularEnvMapTextureDescriptor = CD3DX12_CPU_DESCRIPTOR_HANDLE(  //
-                textureBaseHandle, ShaderSlots::SpecularTexture - ShaderSlots::NumMaterialSlots, textureDescriptorSize);
+                textureBaseHandle, (int)ShaderSlots::SpecularTexture - (int)ShaderSlots::NumMaterialSlots, textureDescriptorSize);
             Resources.DiffuseEnvMapTextureDescriptor = CD3DX12_CPU_DESCRIPTOR_HANDLE(  //
-                textureBaseHandle, ShaderSlots::DiffuseTexture - ShaderSlots::NumMaterialSlots, textureDescriptorSize);
+                textureBaseHandle, (int)ShaderSlots::DiffuseTexture - (int)ShaderSlots::NumMaterialSlots, textureDescriptorSize);
 
             D3D12_DESCRIPTOR_HEAP_DESC samplerHeapDesc;
             samplerHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER;
             samplerHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
-            samplerHeapDesc.NumDescriptors = ShaderSlots::NumSamplers - ShaderSlots::NumMaterialSlots;
+            samplerHeapDesc.NumDescriptors = (int)ShaderSlots::NumSamplers - (int)ShaderSlots::NumMaterialSlots;
             samplerHeapDesc.NodeMask = 1;
 
             XRC_CHECK_THROW_HRCMD(device->CreateDescriptorHeap(&samplerHeapDesc, IID_PPV_ARGS(&Resources.SamplerHeap)));
             UINT samplerDescriptorSize = device->GetDescriptorHandleIncrementSize(samplerHeapDesc.Type);
             CD3DX12_CPU_DESCRIPTOR_HANDLE samplerBaseHandle(Resources.SamplerHeap->GetCPUDescriptorHandleForHeapStart());
             Resources.BrdfSamplerDescriptor = CD3DX12_CPU_DESCRIPTOR_HANDLE(  //
-                samplerBaseHandle, ShaderSlots::Brdf - ShaderSlots::NumMaterialSlots, samplerDescriptorSize);
+                samplerBaseHandle, (int)ShaderSlots::Brdf - (int)ShaderSlots::NumMaterialSlots, samplerDescriptorSize);
             Resources.EnvironmentMapSamplerDescriptor = CD3DX12_CPU_DESCRIPTOR_HANDLE(  //
-                samplerBaseHandle, ShaderSlots::EnvironmentMapSampler - ShaderSlots::NumMaterialSlots, samplerDescriptorSize);
+                samplerBaseHandle, (int)ShaderSlots::EnvironmentMapSampler - (int)ShaderSlots::NumMaterialSlots, samplerDescriptorSize);
 
             D3D12Texture::CreateSampler(device, Resources.BrdfSamplerDescriptor);
             D3D12Texture::CreateSampler(device, Resources.EnvironmentMapSamplerDescriptor);
@@ -241,7 +231,6 @@ namespace Pbr
             D3D12_CPU_DESCRIPTOR_HANDLE EnvironmentMapSamplerDescriptor;
             Microsoft::WRL::ComPtr<ID3D12RootSignature> RootSignature;
             Conformance::D3D12BufferWithUpload<SceneConstantBuffer> SceneConstantBuffer;
-            Conformance::D3D12BufferWithUpload<ModelConstantBuffer> ModelConstantBuffer;
             std::unique_ptr<D3D12PipelineStates> PipelineStates{};
             mutable D3D12TextureCache SolidColorTextureCache;
         };
@@ -250,7 +239,6 @@ namespace Pbr
         D3D12_GRAPHICS_PIPELINE_STATE_DESC BasePipelineStateDesc;
         DeviceResources Resources;
         SceneConstantBuffer SceneBuffer;
-        ModelConstantBuffer ModelBuffer;
 
         struct LoaderResources
         {
@@ -338,7 +326,7 @@ namespace Pbr
         return filter;
     }
 
-    // Create a DirectX sampler state from a tinygltf Sampler.
+    /// Create a DirectX sampler state from a tinygltf Sampler.
     static D3D12_SAMPLER_DESC CreateGLTFSampler(_In_ ID3D12Device* /*device*/, const tinygltf::Sampler& sampler)
     {
         D3D12_SAMPLER_DESC samplerDesc{};
@@ -392,6 +380,7 @@ namespace Pbr
 
         pbrMaterial->SetTexture(GetDevice().Get(), slot, *textureView, samplerState.get());
     }
+
     void D3D12Resources::DropLoaderCaches()
     {
         m_impl->loaderResources = {};
@@ -455,10 +444,10 @@ namespace Pbr
     void D3D12Resources::GetGlobalTexturesAndSamplers(D3D12_CPU_DESCRIPTOR_HANDLE destTextureDescriptors,
                                                       D3D12_CPU_DESCRIPTOR_HANDLE destSamplerDescriptors)
     {
-        GetDevice()->CopyDescriptorsSimple(ShaderSlots::NumTextures - ShaderSlots::NumMaterialSlots, destTextureDescriptors,
+        GetDevice()->CopyDescriptorsSimple((int)ShaderSlots::NumTextures - (int)ShaderSlots::NumMaterialSlots, destTextureDescriptors,
                                            m_impl->Resources.TextureHeap->GetCPUDescriptorHandleForHeapStart(),
                                            D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-        GetDevice()->CopyDescriptorsSimple(ShaderSlots::NumSamplers - ShaderSlots::NumMaterialSlots, destSamplerDescriptors,
+        GetDevice()->CopyDescriptorsSimple((int)ShaderSlots::NumSamplers - (int)ShaderSlots::NumMaterialSlots, destSamplerDescriptors,
                                            m_impl->Resources.SamplerHeap->GetCPUDescriptorHandleForHeapStart(),
                                            D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER);
     }
@@ -476,13 +465,6 @@ namespace Pbr
     {
         m_impl->SceneBuffer.LightDirection = direction;
         m_impl->SceneBuffer.LightDiffuseColor = {diffuseColor.x, diffuseColor.y, diffuseColor.z};
-    }
-
-    void XM_CALLCONV D3D12Resources::SetModelToWorld(DirectX::FXMMATRIX modelToWorld) const
-    {
-        XMStoreFloat4x4(&m_impl->ModelBuffer.ModelToWorld, XMMatrixTranspose(modelToWorld));
-        WithCopyCommandList(
-            [&](ID3D12GraphicsCommandList* cmdList) { m_impl->Resources.ModelConstantBuffer.AsyncUpload(cmdList, &m_impl->ModelBuffer); });
     }
 
     void XM_CALLCONV D3D12Resources::SetViewProjection(DirectX::FXMMATRIX view, DirectX::CXMMATRIX projection) const
@@ -523,11 +505,14 @@ namespace Pbr
 
         WithCopyCommandList(
             [&](ID3D12GraphicsCommandList* cmdList) { m_impl->Resources.SceneConstantBuffer.AsyncUpload(cmdList, &m_impl->SceneBuffer); });
+    }
 
+    void D3D12Resources::BindConstantBufferViews(_In_ ID3D12GraphicsCommandList* directCommandList,
+                                                 D3D12_GPU_VIRTUAL_ADDRESS modelConstantBufferAddress) const
+    {
         directCommandList->SetGraphicsRootConstantBufferView(ShaderSlots::ConstantBuffers::Scene,
                                                              m_impl->Resources.SceneConstantBuffer.GetResource()->GetGPUVirtualAddress());
-        directCommandList->SetGraphicsRootConstantBufferView(ShaderSlots::ConstantBuffers::Model,
-                                                             m_impl->Resources.ModelConstantBuffer.GetResource()->GetGPUVirtualAddress());
+        directCommandList->SetGraphicsRootConstantBufferView(ShaderSlots::ConstantBuffers::Model, modelConstantBufferAddress);
     }
 
     void D3D12Resources::BindDescriptorHeaps(_In_ ID3D12GraphicsCommandList* directCommandList, ID3D12DescriptorHeap* srvDescriptorHeap,

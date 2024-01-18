@@ -42,7 +42,7 @@ namespace Pbr
         bool samplerSet;
     };
 
-    // Global PBR resources required for rendering a scene.
+    /// Global PBR resources required for rendering a scene.
     struct D3D12Resources final : public IResources
     {
         D3D12Resources(_In_ ID3D12Device* device, const D3D12_GRAPHICS_PIPELINE_STATE_DESC& basePipelineStateDesc);
@@ -61,23 +61,23 @@ namespace Pbr
                                       const std::shared_ptr<Pbr::Material>& material) override;
         void DropLoaderCaches() override;
 
-        // Sets the Bidirectional Reflectance Distribution Function Lookup Table texture, required by the shader to compute surface
-        // reflectance from the IBL.
+        /// Sets the Bidirectional Reflectance Distribution Function Lookup Table texture, required by the shader to compute surface
+        /// reflectance from the IBL.
         void SetBrdfLut(_In_ Conformance::D3D12ResourceWithSRVDesc brdfLut);
 
-        // Create device-dependent resources.
+        /// Create device-dependent resources.
         void CreateDeviceDependentResources(_In_ ID3D12Device* device);
 
-        // Release device-dependent resources.
+        /// Release device-dependent resources.
         void ReleaseDeviceDependentResources();
 
-        // Get the D3D12Device that the PBR resources are associated with.
+        /// Get the D3D12Device that the PBR resources are associated with.
         Microsoft::WRL::ComPtr<ID3D12Device> GetDevice() const;
 
-        // Create a new copy command list, which can later be executed with ExecuteCopyCommandList
+        /// Create a new copy command list, which can later be executed with ExecuteCopyCommandList
         Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> CreateCopyCommandList() const;
 
-        // Execute a copy command list on the internal copy queue, which can be waited on using GetFenceAndValue
+        /// Execute a copy command list on the internal copy queue, which can be waited on using GetFenceAndValue
         void ExecuteCopyCommandList(ID3D12GraphicsCommandList* cmdList,
                                     std::vector<Microsoft::WRL::ComPtr<ID3D12Resource>> destroyAfterCopy = {}) const;
 
@@ -94,35 +94,35 @@ namespace Pbr
             ExecuteCopyCommandList(cmdList.Get());
         }
 
-        // Get a pipeline state matching some parameters as well as the current settings inside D3D12Resources.
+        /// Get a pipeline state matching some parameters as well as the current settings inside D3D12Resources.
         Microsoft::WRL::ComPtr<ID3D12PipelineState> GetOrCreatePipelineState(DXGI_FORMAT colorRenderTargetFormat,
                                                                              DXGI_FORMAT depthRenderTargetFormat, BlendState blendState,
                                                                              DoubleSided doubleSided);
 
-        // Set the directional light.
+        /// Set the directional light.
         void SetLight(DirectX::XMFLOAT3 direction, RGBColor diffuseColor);
 
-        // Set the specular and diffuse image-based lighting (IBL) maps. ShaderResourceViews must be TextureCubes.
+        /// Set the specular and diffuse image-based lighting (IBL) maps. ShaderResourceViews must be TextureCubes.
         void SetEnvironmentMap(_In_ Conformance::D3D12ResourceWithSRVDesc specularEnvironmentMap,
                                _In_ Conformance::D3D12ResourceWithSRVDesc diffuseEnvironmentMap);
 
-        // Set the current view and projection matrices.
+        /// Set the current view and projection matrices.
         void XM_CALLCONV SetViewProjection(DirectX::FXMMATRIX view, DirectX::CXMMATRIX projection) const;
 
-        // Many 1x1 pixel colored textures are used in the PBR system. This is used to create textures backed by a cache to reduce the
-        // number of textures created.
+        /// Many 1x1 pixel colored textures are used in the PBR system. This is used to create textures backed by a cache to reduce the
+        /// number of textures created.
         Conformance::D3D12ResourceWithSRVDesc CreateTypedSolidColorTexture(RGBAColor color);
 
-        // Bind the the PBR resources to the current context.
+        /// Bind the the PBR resources to the current context.
         void Bind(_In_ ID3D12GraphicsCommandList* directCommandList) const;
 
-        // Get the fence to wait on before executing any command list built on this Resources.
+        /// Get the fence to wait on before executing any command list built on this Resources.
         std::pair<ID3D12Fence*, uint64_t> GetFenceAndValue() const;
 
-        // Set and update the model to world constant buffer value.
-        void XM_CALLCONV SetModelToWorld(DirectX::FXMMATRIX modelToWorld) const;
-
+        /// Get the D3D12Primitive from a primitive handle.
         D3D12Primitive& GetPrimitive(PrimitiveHandle p);
+
+        /// Get the D3D12Primitive from a primitive handle, const overload.
         const D3D12Primitive& GetPrimitive(PrimitiveHandle p) const;
 
         // Set or get the shading and fill modes.
@@ -137,12 +137,15 @@ namespace Pbr
         void GetTransforms(D3D12_CPU_DESCRIPTOR_HANDLE destTransformDescriptor);
         void GetGlobalTexturesAndSamplers(D3D12_CPU_DESCRIPTOR_HANDLE destTextureDescriptors,
                                           D3D12_CPU_DESCRIPTOR_HANDLE destSamplerDescriptors);
-        // Bind a material's descriptors according to the root signature.
+        // Bind the scene constant buffer as well as a provided model constant buffer.
+        void BindConstantBufferViews(_In_ ID3D12GraphicsCommandList* directCommandList,
+                                     D3D12_GPU_VIRTUAL_ADDRESS modelConstantBufferAddress) const;
+        /// Bind a material's descriptors according to the root signature.
         void BindDescriptorHeaps(_In_ ID3D12GraphicsCommandList* directCommandList, ID3D12DescriptorHeap* srvDescriptorHeap,
                                  ID3D12DescriptorHeap* samplerDescriptorHeap) const;
 
         friend struct D3D12Material;
-        friend class D3D12Model;
+        friend class D3D12ModelInstance;
         friend struct D3D12Primitive;
 
         struct Impl;

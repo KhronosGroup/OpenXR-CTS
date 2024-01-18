@@ -7,6 +7,8 @@
 //
 // SPDX-License-Identifier: MIT AND Apache-2.0
 
+#if defined(XR_USE_GRAPHICS_API_VULKAN)
+
 #include "VkTexture.h"
 
 #include "VkCommon.h"
@@ -21,6 +23,7 @@
 #include "utilities/vulkan_utils.h"
 
 #include <assert.h>
+#include <cstddef>
 #include <cstdint>
 #include <memory>
 #include <stdexcept>
@@ -58,53 +61,6 @@ namespace Pbr
                                                      const uint8_t* rgba, uint32_t elemSize, uint32_t width, uint32_t height, bool cubemap,
                                                      VkFormat format)
         {
-            // Microsoft::WRL::ComPtr<IVulkanDevice> device = pbrResources.GetDevice();
-
-            // Microsoft::WRL::ComPtr<IVulkanGraphicsCommandList> cmdList = pbrResources.CreateCopyCommandList();
-
-            // std::vector<Microsoft::WRL::ComPtr<IVulkanResource>> imageUploadBuffers;
-            // Microsoft::WRL::ComPtr<IVulkanResource> image =
-            //     Conformance::VulkanCreateImage(device.get(), width, height, arraySize, format, Vulkan_HEAP_TYPE_DEFAULT);
-
-            // Vulkan_RESOURCE_DESC imageDesc = image->GetDesc();
-            // assert(imageDesc.DepthOrArraySize == arraySize);
-            // imageUploadBuffers.reserve(arraySize);
-            // // TODO: maybe call GetCopyableFootprints only once, as all out fields accept arrays
-            // // TODO: put the upload buffer in a staging resources vector and make async
-            // for (int arrayIndex = 0; arrayIndex < arraySize; arrayIndex++) {
-            //     UINT subresourceIndex = VulkanCalcSubresource(0, arrayIndex, 0, imageDesc.MipLevels, arraySize);
-
-            //     Vulkan_PLACED_SUBRESOURCE_FOOTPRINT footprint;
-            //     UINT rowCount;
-            //     UINT64 rowSize;
-            //     UINT64 uploadBufferSize;
-            //     device->GetCopyableFootprints(&imageDesc, subresourceIndex, 1, 0, &footprint, &rowCount, &rowSize, &uploadBufferSize);
-
-            //     assert(
-            //         rowCount ==
-            //         height);  // doesn't hold for compressed textures, see: https://www.gamedev.net/forums/topic/677932-getcopyablefootprints-question/
-            //     assert(rowSize == width * elemSize);  // assert this for now, probably doesn't hold for e.g. compressed textures
-
-            //     Microsoft::WRL::ComPtr<IVulkanResource> imageUpload =
-            //         Conformance::VulkanCreateBuffer(device.get(), (uint32_t)uploadBufferSize, Vulkan_HEAP_TYPE_UPLOAD);
-            //     imageUploadBuffers.push_back(imageUpload);
-
-            //     Vulkan_SUBRESOURCE_DATA initData{};
-            //     initData.pData = rgba;
-            //     initData.RowPitch = elemSize * width;
-            //     initData.SlicePitch = elemSize * width * height;
-
-            //     // this does a row-by-row memcpy internally or we would have used our own CopyWithStride
-            //     Internal::ThrowIf(!UpdateSubresources(cmdList.get(), image.get(), imageUpload.get(), 0, 1, uploadBufferSize, &footprint,
-            //                                           &rowCount, &rowSize, &initData),
-            //                       "Call to UpdateSubresources helper failed");
-            // }
-
-            // XRC_CHECK_THROW_HRCMD(cmdList->Close());
-            // pbrResources.ExecuteCopyCommandList(cmdList.get(), std::move(imageUploadBuffers));
-
-            // return image;
-
             VkDevice device = pbrResources.GetDevice();
             const Conformance::MemoryAllocator& memAllocator = pbrResources.GetMemoryAllocator();
             const Conformance::CmdBuffer& copyCmdBuffer = pbrResources.GetCopyCommandBuffer();
@@ -121,11 +77,11 @@ namespace Pbr
             // Create a staging buffer
             VkBufferCreateInfo bufferCreateInfo{VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO};
             bufferCreateInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
-            bufferCreateInfo.size = width * height * elemSize;
+            bufferCreateInfo.size = static_cast<VkDeviceSize>(width) * height * elemSize;
 
             Conformance::BufferAndMemory stagingBuffer;
             stagingBuffer.Create(device, memAllocator, bufferCreateInfo);
-            stagingBuffer.Update<uint8_t>(device, {rgba, width * height * elemSize}, 0);
+            stagingBuffer.Update<uint8_t>(device, {rgba, static_cast<size_t>(bufferCreateInfo.size)}, 0);
 
             // create image
             VkImage image{VK_NULL_HANDLE};
@@ -156,24 +112,6 @@ namespace Pbr
             XRC_CHECK_THROW_VKCMD(vkBindImageMemory(device, bundle.image.get(), imageMemory, 0));
 
             bundle.deviceMemory = Conformance::ScopedVkDeviceMemory(imageMemory, device);
-
-            // // Switch the source buffer to TRANSFER_DST_OPTIMAL
-            // VkBufferMemoryBarrier bufferBarrier{VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER};
-            // // VkAccessFlags      srcAccessMask;
-            // // VkAccessFlags      dstAccessMask;
-            // // uint32_t           srcQueueFamilyIndex;
-            // // uint32_t           dstQueueFamilyIndex;
-            // // VkBuffer           buffer;
-            // // VkDeviceSize       offset;
-            // // VkDeviceSize       size;
-            // bufferBarrier.srcAccessMask = 0;
-            // bufferBarrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
-            // bufferBarrier.oldLayout = VK_BUFFER_;
-            // bufferBarrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-            // bufferBarrier.= stagingBuffer.buf;
-            // bufferBarrier.subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, layerCount};
-            // vkCmdPipelineBarrier(copyCmdBuffer.buf, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0,
-            //                      nullptr, 1, &bufferBarrier);
 
             // Switch the destination image to TRANSFER_DST_OPTIMAL
             VkImageMemoryBarrier imgBarrier{VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
@@ -313,3 +251,5 @@ namespace Pbr
         }
     }  // namespace VulkanTexture
 }  // namespace Pbr
+
+#endif  // defined(XR_USE_GRAPHICS_API_VULKAN)

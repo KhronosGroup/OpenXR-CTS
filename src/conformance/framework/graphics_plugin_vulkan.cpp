@@ -32,6 +32,7 @@
 #include "pbr/Vulkan/VkCommon.h"
 #include "pbr/Vulkan/VkResources.h"
 #include "pbr/Vulkan/VkTexture.h"
+#include "pbr/Vulkan/VkModel.h"
 #include "utilities/Geometry.h"
 #include "utilities/swapchain_format_data.h"
 #include "utilities/swapchain_parameters.h"
@@ -653,9 +654,10 @@ namespace Conformance
 
         MeshHandle MakeSimpleMesh(span<const uint16_t> idx, span<const Geometry::Vertex> vtx) override;
 
-        GLTFHandle LoadGLTF(std::shared_ptr<tinygltf::Model> tinygltfModel) override;
-
-        std::shared_ptr<Pbr::Model> GetModel(GLTFHandle handle) const override;
+        GLTFModelHandle LoadGLTF(std::shared_ptr<tinygltf::Model> tinygltfModel) override;
+        std::shared_ptr<Pbr::Model> GetPbrModel(GLTFModelHandle handle) const override;
+        GLTFModelInstanceHandle CreateGLTFModelInstance(GLTFModelHandle handle) override;
+        Pbr::ModelInstance& GetModelInstance(GLTFModelInstanceHandle handle) override;
 
         void RenderView(const XrCompositionLayerProjectionView& layerView, const XrSwapchainImageBaseHeader* colorSwapchainImage,
                         const RenderParams& params) override;
@@ -710,7 +712,9 @@ namespace Conformance
         PipelineLayout m_pipelineLayout{};
         MeshHandle m_cubeMesh{};
         VectorWithGenerationCountedHandles<VulkanMesh, MeshHandle> m_meshes;
-        VectorWithGenerationCountedHandles<VulkanGLTF, GLTFHandle> m_gltfs;
+        // This is fine to be a shared_ptr because Model doesn't directly hold any graphics state.
+        VectorWithGenerationCountedHandles<std::shared_ptr<Pbr::Model>, GLTFModelHandle> m_gltfModels;
+        VectorWithGenerationCountedHandles<VulkanGLTF, GLTFModelInstanceHandle> m_gltfInstances;
         std::unique_ptr<Pbr::VulkanResources> m_pbrResources;
 
 #if defined(USE_MIRROR_WINDOW)
@@ -1373,7 +1377,9 @@ namespace Conformance
             m_swapchainImageDataMap.Reset();
             m_cubeMesh = {};
             m_meshes.clear();
-            m_gltfs.clear();
+            m_gltfInstances.clear();
+            m_gltfModels.clear();
+            m_pbrResources.reset();
 
             m_queueFamilyIndex = 0;
             m_vkQueue = VK_NULL_HANDLE;
@@ -1950,15 +1956,28 @@ namespace Conformance
         return handle;
     }
 
-    GLTFHandle VulkanGraphicsPlugin::LoadGLTF(std::shared_ptr<tinygltf::Model> tinygltfModel)
+    GLTFModelHandle VulkanGraphicsPlugin::LoadGLTF(std::shared_ptr<tinygltf::Model> tinygltfModel)
     {
-        auto handle = m_gltfs.emplace_back(*m_pbrResources, std::move(tinygltfModel));
+        std::shared_ptr<Pbr::Model> pbrModel = Gltf::FromGltfObject(*m_pbrResources, *tinygltfModel);
+        auto handle = m_gltfModels.emplace_back(std::move(pbrModel));
         return handle;
     }
 
-    inline std::shared_ptr<Pbr::Model> VulkanGraphicsPlugin::GetModel(GLTFHandle handle) const
+    std::shared_ptr<Pbr::Model> VulkanGraphicsPlugin::GetPbrModel(GLTFModelHandle handle) const
     {
-        return m_gltfs[handle].GetModel();
+        return m_gltfModels[handle];
+    }
+
+    GLTFModelInstanceHandle VulkanGraphicsPlugin::CreateGLTFModelInstance(GLTFModelHandle handle)
+    {
+        auto pbrModelInstance = Pbr::VulkanModelInstance(*m_pbrResources, GetPbrModel(handle));
+        auto instanceHandle = m_gltfInstances.emplace_back(std::move(pbrModelInstance));
+        return instanceHandle;
+    }
+
+    Pbr::ModelInstance& VulkanGraphicsPlugin::GetModelInstance(GLTFModelInstanceHandle handle)
+    {
+        return m_gltfInstances[handle].GetModelInstance();
     }
 
     void VulkanGraphicsPlugin::RenderView(const XrCompositionLayerProjectionView& layerView,
@@ -2056,13 +2075,13 @@ namespace Conformance
         }
 
         // Render each gltf
-        for (const auto& gltfHandle : params.glTFs) {
-            VulkanGLTF& gltf = m_gltfs[gltfHandle.handle];
+        for (const auto& gltfDrawable : params.glTFs) {
+            VulkanGLTF& gltf = m_gltfInstances[gltfDrawable.handle];
             // Compute and update the model transform.
 
             XrMatrix4x4f modelToWorld;
-            XrMatrix4x4f_CreateTranslationRotationScale(&modelToWorld, &gltfHandle.params.pose.position,
-                                                        &gltfHandle.params.pose.orientation, &gltfHandle.params.scale);
+            XrMatrix4x4f_CreateTranslationRotationScale(&modelToWorld, &gltfDrawable.params.pose.position,
+                                                        &gltfDrawable.params.pose.orientation, &gltfDrawable.params.scale);
             // XrMatrix4x4f viewMatrix;
             // XrVector3f unitScale = {1, 1, 1};
             // XrMatrix4x4f_CreateTranslationRotationScale(&viewMatrix, &layerView.pose.position, &layerView.pose.orientation, &unitScale);

@@ -7,9 +7,10 @@
 //
 // SPDX-License-Identifier: MIT AND Apache-2.0
 
+#if defined(XR_USE_GRAPHICS_API_VULKAN)
+
 #include "VkResources.h"
 
-#include "GlslBuffers.h"
 #include "VkCommon.h"
 #include "VkMaterial.h"
 #include "VkPipelineStates.h"
@@ -18,6 +19,7 @@
 #include "VkTextureCache.h"
 
 #include "../../gltf/GltfHelper.h"
+#include "../GlslBuffers.h"
 #include "../PbrCommon.h"
 #include "../PbrHandles.h"
 #include "../PbrSharedState.h"
@@ -30,7 +32,6 @@
 #include <tinygltf/tiny_gltf.h>
 #include <vulkan/vulkan_core.h>
 
-#include <algorithm>
 #include <cassert>
 #include <map>
 #include <stdexcept>
@@ -255,7 +256,7 @@ namespace Pbr
                                       VK_SHADER_STAGE_FRAGMENT_BIT);
 
             // transform buffer
-            layoutBuilder.SetBindings(TransformsBuffer, ShaderSlots::GLSL::VSResourceViewsOffset + ShaderSlots::Transforms,
+            layoutBuilder.SetBindings(TransformsBuffer, (int)ShaderSlots::GLSL::VSResourceViewsOffset + (int)ShaderSlots::Transforms,
                                       VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT,  //
                                       ShaderSlots::NumVSResourceViews);
 
@@ -265,7 +266,7 @@ namespace Pbr
                                       ShaderSlots::NumMaterialSlots);
             layoutBuilder.SetBindings(GlobalTextures, ShaderSlots::GLSL::GlobalTexturesOffset,                  //
                                       VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT,  //
-                                      ShaderSlots::NumTextures - ShaderSlots::NumMaterialSlots);
+                                      (int)ShaderSlots::NumTextures - (int)ShaderSlots::NumMaterialSlots);
         }
 
         // very basic for now, can grow if needed
@@ -304,13 +305,9 @@ namespace Pbr
             Resources.Pipelines = std::make_unique<VulkanPipelines>(device, Resources.PipelineLayout, c_attrDesc, c_bindingDesc,
                                                                     g_PbrVertexShader, g_PbrPixelShader);
 
-            // Set up the constant buffers.
-
+            // Set up the scene constant buffer.
             Resources.SceneBuffer.Init(device, allocator);
             Resources.SceneBuffer.Create(1, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT);
-
-            Resources.ModelBuffer.Init(device, allocator);
-            Resources.ModelBuffer.Create(1, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT);
 
             Resources.BrdfSampler.adopt(VulkanTexture::CreateSampler(device), device);
             Resources.EnvironmentMapSampler.adopt(VulkanTexture::CreateSampler(device), device);
@@ -338,7 +335,6 @@ namespace Pbr
             mutable VulkanTextureCache SolidColorTextureCache;
 
             Conformance::StructuredBuffer<Glsl::SceneConstantBuffer> SceneBuffer;
-            Conformance::StructuredBuffer<Glsl::ModelConstantBuffer> ModelBuffer;
             Conformance::ScopedVkSampler BrdfSampler;
             Conformance::ScopedVkSampler EnvironmentMapSampler;
             std::shared_ptr<Conformance::ScopedVkDescriptorSetLayout> DescriptorSetLayout;
@@ -357,7 +353,6 @@ namespace Pbr
 
         DeviceResources Resources;
         Glsl::SceneConstantBuffer SceneBuffer;
-        Glsl::ModelConstantBuffer ModelBuffer;
         PipelineLayout::VulkanDescriptorSetLayout VulkanLayout{};
 
         struct LoaderResources
@@ -442,7 +437,7 @@ namespace Pbr
                    : glMagFilter == TINYGLTF_TEXTURE_FILTER_LINEAR ? VK_FILTER_LINEAR : VK_FILTER_NEAREST;
     }
 
-    // Create a Vulkan sampler from a tinygltf Sampler.
+    /// Create a Vulkan sampler from a tinygltf Sampler.
     static VkSampler CreateGLTFSampler(VkDevice device, const tinygltf::Sampler& sampler)
     {
         VkSamplerCreateInfo info{VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO};
@@ -512,9 +507,9 @@ namespace Pbr
         m_impl->Resources.BrdfLut = std::move(brdfLut);
     }
 
-    std::unique_ptr<VulkanWriteDescriptorSets>
-    VulkanResources::BuildWriteDescriptorSets(VkDescriptorBufferInfo materialConstantBuffer, VkDescriptorBufferInfo transformBuffer,
-                                              nonstd::span<VkDescriptorImageInfo> materialCombinedImageSamplers, VkDescriptorSet dstSet)
+    std::unique_ptr<VulkanWriteDescriptorSets> VulkanResources::BuildWriteDescriptorSets(
+        VkDescriptorBufferInfo modelConstantBuffer, VkDescriptorBufferInfo materialConstantBuffer, VkDescriptorBufferInfo transformBuffer,
+        nonstd::span<VkDescriptorImageInfo> materialCombinedImageSamplers, VkDescriptorSet dstSet)
     {
         PipelineLayout::VulkanWriteDescriptorSetsBuilder builder(m_impl->VulkanLayout, dstSet);
 
@@ -525,10 +520,7 @@ namespace Pbr
         builder.BindBuffers(PipelineLayout::SceneConstantBuffer, sceneConstantBuffer);
 
         // ModelConstantBuffer
-        VkDescriptorBufferInfo modelConstantBuffer[] = {
-            m_impl->Resources.ModelBuffer.MakeDescriptor(),
-        };
-        builder.BindBuffers(PipelineLayout::ModelConstantBuffer, modelConstantBuffer);
+        builder.BindBuffers(PipelineLayout::ModelConstantBuffer, {&modelConstantBuffer, 1});
 
         // MaterialConstantBuffer
         builder.BindBuffers(PipelineLayout::MaterialConstantBuffer, {&materialConstantBuffer, 1});
@@ -565,12 +557,6 @@ namespace Pbr
     {
         m_impl->SceneBuffer.LightDirection = direction;
         m_impl->SceneBuffer.LightDiffuseColor = diffuseColor;
-    }
-
-    void VulkanResources::SetModelToWorld(XrMatrix4x4f modelToWorld) const
-    {
-        m_impl->ModelBuffer.ModelToWorld = modelToWorld;
-        m_impl->Resources.ModelBuffer.Update({&m_impl->ModelBuffer, 1});
     }
 
     void VulkanResources::SetViewProjection(XrMatrix4x4f view, XrMatrix4x4f projection) const
@@ -704,3 +690,5 @@ namespace Pbr
     }
 
 }  // namespace Pbr
+
+#endif  // defined(XR_USE_GRAPHICS_API_VULKAN)

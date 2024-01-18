@@ -27,12 +27,12 @@ namespace Pbr
 namespace Conformance
 {
 
-    class GLGLTF : public GltfModelBase<Pbr::GLModel, Pbr::GLResources>
+    class GLGLTF : public RenderableGltfModelInstanceBase<Pbr::GLModelInstance, Pbr::GLResources>
     {
     public:
-        using GltfModelBase::GltfModelBase;
+        using RenderableGltfModelInstanceBase::RenderableGltfModelInstanceBase;
 
-        void Render(Pbr::GLResources& resources, XrMatrix4x4f& modelToWorld) const;
+        void Render(Pbr::GLResources& resources, XrMatrix4x4f& modelToWorld);
     };
 }  // namespace Conformance
 #endif

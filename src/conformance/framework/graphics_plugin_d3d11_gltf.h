@@ -26,13 +26,14 @@ using Microsoft::WRL::ComPtr;
 
 namespace Conformance
 {
+    struct CmdBuffer;
 
-    class D3D11GLTF : public GltfModelBase<Pbr::D3D11Model, Pbr::D3D11Resources>
+    class D3D11GLTF : public RenderableGltfModelInstanceBase<Pbr::D3D11ModelInstance, Pbr::D3D11Resources>
     {
     public:
-        using GltfModelBase::GltfModelBase;
+        using RenderableGltfModelInstanceBase::RenderableGltfModelInstanceBase;
 
-        void Render(ComPtr<ID3D11DeviceContext> deviceContext, Pbr::D3D11Resources& resources, XrMatrix4x4f& modelToWorld) const;
+        void Render(ComPtr<ID3D11DeviceContext> deviceContext, Pbr::D3D11Resources& resources, XrMatrix4x4f& modelToWorld);
     };
 }  // namespace Conformance
 #endif

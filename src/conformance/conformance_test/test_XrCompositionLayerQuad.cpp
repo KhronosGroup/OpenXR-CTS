@@ -20,13 +20,13 @@
 #include "utilities/generator.h"
 #include "utilities/throw_helpers.h"
 #include "utilities/types_and_constants.h"
+#include "utilities/xrduration_literals.h"
 
 #include <openxr/openxr.h>
 #include <catch2/catch_test_macros.hpp>
 
 #include <algorithm>
 #include <cstdint>
-#include <initializer_list>
 #include <iterator>
 #include <memory>
 #include <vector>

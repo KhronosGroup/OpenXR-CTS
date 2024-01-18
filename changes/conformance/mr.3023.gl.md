@@ -1,3 +1,0 @@
-- Improvement: Simplify how some tests refer to the main OpenXR handles.
-- Improvement: Make `AutoBasicSession` use `EventReader` to support event multiplexing.
-- Improvement: Miscellaneous code cleanups and refactoring to improve flexibility and maintainability.

@@ -176,4 +176,4 @@ namespace Pbr
     }
 }  // namespace Pbr
 
-#endif
+#endif  // defined(XR_USE_GRAPHICS_API_OPENGL) || defined(XR_USE_GRAPHICS_API_OPENGL_ES)

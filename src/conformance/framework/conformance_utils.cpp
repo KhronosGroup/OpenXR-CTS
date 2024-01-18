@@ -21,6 +21,7 @@
 #include "two_call_util.h"
 #include "utilities/throw_helpers.h"
 #include "utilities/utils.h"
+#include "utilities/xrduration_literals.h"
 
 #include <openxr/openxr.h>
 #include <openxr/openxr_reflection.h>

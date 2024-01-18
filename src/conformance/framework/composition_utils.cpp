@@ -54,10 +54,10 @@ namespace Conformance
         return image;
     }
 
-    XrPath StringToPath(XrInstance instance, const char* pathStr)
+    XrPath StringToPath(XrInstance instance, const std::string& pathStr)
     {
         XrPath path;
-        XRC_CHECK_THROW_XRCMD(xrStringToPath(instance, pathStr, &path));
+        XRC_CHECK_THROW_XRCMD(xrStringToPath(instance, pathStr.c_str(), &path));
         return path;
     }
 

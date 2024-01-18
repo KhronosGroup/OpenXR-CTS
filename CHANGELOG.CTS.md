@@ -17,6 +17,55 @@ particular, since it is primarily software, pull requests may be integrated as
 they are accepted even between periodic updates. However, versions that are not
 signed tags on the `approved` branch are not valid for conformance submission.
 
+## OpenXR CTS 1.0.33.0 (2024-01-18)
+
+- Conformance Tests
+  - Fix: Refactor Pbr::Model into an immutable Pbr::Model and Pbr::Instance that
+    holds the state for one drawn instance of the model. This corrects the known
+    issue in the self-tests mentioned in a previous changelog.
+    ([internal MR 3079](https://gitlab.khronos.org/openxr/openxr/merge_requests/3079),
+    [internal issue 2139](https://gitlab.khronos.org/openxr/openxr/issues/2139),
+    [internal MR 3141](https://gitlab.khronos.org/openxr/openxr/merge_requests/3141))
+  - Fix: Avoid artificial error precedence requirement in test for
+    `XR_ERROR_GRAPHICS_DEVICE_INVALID`, by making sure to call the "check graphics
+    requirements" function if applicable.
+    ([internal MR 3093](https://gitlab.khronos.org/openxr/openxr/merge_requests/3093),
+    [internal issue 2155](https://gitlab.khronos.org/openxr/openxr/issues/2155))
+  - Fix: Remove extra `xrSyncActions` call in `test_glTFRendering` to resolve
+    interaction issue.
+    ([internal MR 3107](https://gitlab.khronos.org/openxr/openxr/merge_requests/3107),
+    [internal issue 2163](https://gitlab.khronos.org/openxr/openxr/issues/2163))
+  - Fix: Skip `XR_MSFT_controller_model` interactive test if extension is not
+    supported.
+    ([internal MR 3146](https://gitlab.khronos.org/openxr/openxr/merge_requests/3146),
+    [internal issue 2187](https://gitlab.khronos.org/openxr/openxr/issues/2187))
+  - Improvement: Adjust `StringToPath` utility function to be easier to use.
+    ([internal MR 2076](https://gitlab.khronos.org/openxr/openxr/merge_requests/2076))
+  - Improvement: Simplify how some tests refer to the main OpenXR handles.
+    ([internal MR 3023](https://gitlab.khronos.org/openxr/openxr/merge_requests/3023))
+  - Improvement: Make `AutoBasicSession` use `EventReader` to support event
+    multiplexing.
+    ([internal MR 3023](https://gitlab.khronos.org/openxr/openxr/merge_requests/3023))
+  - Improvement: Do not require system support for `XR_EXT_eye_gaze_interaction`
+    before running XrPath and interaction profile related tests. Paths are valid as
+    long as the extension is offered and enabled, regardless of whether there is
+    system support for eye tracking.
+    ([internal MR 3055](https://gitlab.khronos.org/openxr/openxr/merge_requests/3055))
+  - Improvement: General code cleanup, warning fixes, clang-tidy fixes, and
+    refactoring to improve flexibility and maintainability.
+    ([internal MR 3082](https://gitlab.khronos.org/openxr/openxr/merge_requests/3082),
+    [internal MR 3023](https://gitlab.khronos.org/openxr/openxr/merge_requests/3023))
+  - Improvement: On Android, log using the "FATAL" severity before triggering an
+    abort from the conformance layer.
+    ([internal MR 3087](https://gitlab.khronos.org/openxr/openxr/merge_requests/3087))
+  - Improvement: Exclude loader negotiation functions (added to XML and ratified
+    spec in 1.0.33) from the list of functions automatically tested by the
+    conformance suite.
+    ([internal MR 3113](https://gitlab.khronos.org/openxr/openxr/merge_requests/3113))
+  - New test: Check behavior for actions created without subaction paths, but
+    queried using subaction paths.
+    ([internal MR 3068](https://gitlab.khronos.org/openxr/openxr/merge_requests/3068))
+
 ## OpenXR CTS 1.0.32.1 (2023-12-14)
 
 A notable change in this release, is that the build system now checks for git

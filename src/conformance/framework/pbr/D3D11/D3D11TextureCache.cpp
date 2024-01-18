@@ -18,6 +18,7 @@
 #include <array>
 #include <memory>
 #include <mutex>
+#include <stdexcept>
 
 namespace Pbr
 {

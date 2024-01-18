@@ -12,9 +12,6 @@
 
 #include "common/xr_linear.h"
 
-#include <atomic>
-#include <iomanip>
-#include <iostream>
 #include <memory>
 #include <stdint.h>
 #include <string>
@@ -29,39 +26,42 @@ namespace Pbr
         using Collection = std::vector<Node>;
 
         Node(const XrMatrix4x4f& localTransform, std::string name, NodeIndex_t index, NodeIndex_t parentNodeIndex)
-            : Name(std::move(name)), Index(index), ParentNodeIndex(parentNodeIndex)
+            : Name(std::move(name)), Index(index), ParentNodeIndex(parentNodeIndex), m_localTransform(localTransform)
         {
-            SetTransform(localTransform);
         }
 
         Node(Node&& other) noexcept;
         Node& operator=(Node&& other) noexcept;
 
-        // Set the local transform for this node.
-        void SetTransform(const XrMatrix4x4f& transform)
+        // Compare this node's name to a given name.
+        int CompareName(const char* value) const
         {
-            m_localTransform = transform;
-            ++m_modifyCount;
+            return Name.compare(value);
         }
 
         // Get the local transform for this node.
-        XrMatrix4x4f GetTransform() const
+        const XrMatrix4x4f& GetLocalTransform() const
         {
             return m_localTransform;
         }
-        uint32_t GetModifyCount() const
+
+        // Get the index of this node.
+        NodeIndex_t GetNodeIndex() const
         {
-            return m_modifyCount;
+            return Index;
         }
 
+        // Get the index of the parent node of this node.
+        NodeIndex_t GetParentNodeIndex() const
+        {
+            return ParentNodeIndex;
+        }
+
+    private:
+        // All immutable, but we need copy-assign for vector
         std::string Name;
         NodeIndex_t Index;
         NodeIndex_t ParentNodeIndex;
-
-    private:
-        friend class Model;
-        // TODO std::atomic_uint32_t
-        std::atomic_uint32_t m_modifyCount{0};
         XrMatrix4x4f m_localTransform;
     };
 
@@ -69,18 +69,13 @@ namespace Pbr
     class Model
     {
     public:
-        std::string Name;
-
-        Model(bool createRootNode = true);
+        Model();
 
         /// Add a node to the model.
         NodeIndex_t AddNode(const XrMatrix4x4f& transform, NodeIndex_t parentIndex, std::string name = "");
 
         /// Add a primitive to the model.
         void AddPrimitive(PrimitiveHandle primitive);
-
-        // Remove all primitives.
-        void Clear();
 
         NodeIndex_t GetNodeCount() const
         {
@@ -95,29 +90,24 @@ namespace Pbr
             return m_nodes[nodeIndex];
         }
 
+        /// Get the number of primitives used in this model
         uint32_t GetPrimitiveCount() const
         {
-            return (uint32_t)m_primitives.size();
+            return (uint32_t)m_primitiveHandles.size();
         }
-        PrimitiveHandle GetPrimitive(uint32_t index) const
+
+        /// Get a primitive handle by index of primitives used in this model.
+        PrimitiveHandle GetPrimitiveHandle(uint32_t index) const
         {
-            return m_primitives[index];
+            return m_primitiveHandles[index];
         }
 
         /// Find the first node (after an optional parent node) which matches a given name.
         bool FindFirstNode(NodeIndex_t* outNodeIndex, const char* name, const NodeIndex_t* parentNodeIndex = nullptr) const;
 
-    protected:
-        // Invalidate buffers associated with model transforms
-        bool m_modelTransformsStructuredBufferInvalid{true};
-        void InvalidateBuffer()
+        const std::vector<PrimitiveHandle>& GetPrimitiveHandles() const
         {
-            m_modelTransformsStructuredBufferInvalid = true;
-        }
-
-        const std::vector<PrimitiveHandle>& GetPrimitives() const
-        {
-            return m_primitives;
+            return m_primitiveHandles;
         }
 
         const Node::Collection& GetNodes() const
@@ -127,19 +117,105 @@ namespace Pbr
         static constexpr Pbr::NodeIndex_t RootParentNodeIndex = (Pbr::NodeIndex_t)-1;
 
     private:
-        // Compute the transform relative to the root of the model for a given node.
-        XrMatrix4x4f GetNodeToModelRootTransform(NodeIndex_t nodeIndex) const;
-
-        // Updated the transforms used to render the model. This needs to be called any time a node transform is changed.
-        // void UpdateTransforms(Pbr::D3D11Resources const& pbrResources, std::runtime_error ID3D11DeviceContext* context) const;
-
-    private:
         // A model is made up of one or more Primitives. Each Primitive has a unique material.
         // Ideally primitives with the same material should be merged to reduce draw calls.
-        std::vector<PrimitiveHandle> m_primitives;
+        std::vector<PrimitiveHandle> m_primitiveHandles;
 
         // A model contains one or more nodes. Each vertex of a primitive references a node to have the
         // node's transform applied.
         Node::Collection m_nodes;
+    };
+
+    /// A model instance is a collection of node transforms for an instance of a model.
+    /// A model instance can only have its transforms updated once per command queue.
+    /// A model instance holds a strong shared reference to its corresponding model.
+    class ModelInstance
+    {
+    protected:
+        ModelInstance(std::shared_ptr<const Model> model) : m_model(std::move(model))
+        {
+            const auto nodeCount = m_model->GetNodeCount();
+
+            m_nodeLocalTransforms.reserve(m_model->GetNodeCount());
+            for (const Node& node : m_model->GetNodes()) {
+                m_nodeLocalTransforms.push_back(node.GetLocalTransform());
+            }
+            XrMatrix4x4f identityMatrix;
+            XrMatrix4x4f_CreateIdentity(&identityMatrix);  // or better yet poison it
+            m_resolvedTransforms.resize(nodeCount, identityMatrix);
+        }
+
+    public:
+        /// Overrides the local transform of a node
+        void SetNodeTransform(NodeIndex_t nodeIndex, const XrMatrix4x4f& transform)
+        {
+            m_nodeLocalTransforms[nodeIndex] = transform;
+            m_nodeLocalTransformsUpdated = true;
+        }
+
+        /// Combine a transform with the original transform from the asset
+        void SetAdditionalNodeTransform(NodeIndex_t nodeIndex, const XrMatrix4x4f& transform)
+        {
+            XrMatrix4x4f compositeTransform;
+            // Node transform is the immutable original transform
+            const XrMatrix4x4f& originalNodeTransform = m_model->GetNode(nodeIndex).GetLocalTransform();
+            XrMatrix4x4f_Multiply(&compositeTransform, &originalNodeTransform, &transform);
+            SetNodeTransform(nodeIndex, compositeTransform);
+        }
+
+    protected:
+        bool WereNodeLocalTransformsUpdated() const noexcept
+        {
+            return m_nodeLocalTransformsUpdated;
+        }
+        void ClearTransformsUpdatedFlag() noexcept
+        {
+            m_nodeLocalTransformsUpdated = false;
+        }
+        void ResolveTransforms(bool transpose)
+        {
+            const auto& nodes = m_model->GetNodes();
+
+            // Nodes are guaranteed to come after their parents, so each node transform can be multiplied by its parent transform in a single pass.
+            assert(nodes.size() == m_nodeLocalTransforms.size());
+            assert(nodes.size() == m_resolvedTransforms.size());
+            XrMatrix4x4f identityMatrix;
+            XrMatrix4x4f_CreateIdentity(&identityMatrix);
+            for (const auto& node : nodes) {
+                assert(node.GetParentNodeIndex() == Model::RootParentNodeIndex || node.GetParentNodeIndex() < node.GetNodeIndex());
+                const XrMatrix4x4f& parentTransform = (node.GetParentNodeIndex() == Model::RootParentNodeIndex)
+                                                          ? identityMatrix
+                                                          : m_resolvedTransforms[node.GetParentNodeIndex()];
+                const XrMatrix4x4f& nodeTransform = m_nodeLocalTransforms[node.GetNodeIndex()];
+                if (transpose) {
+                    XrMatrix4x4f nodeTransformTranspose;
+                    XrMatrix4x4f_Transpose(&nodeTransformTranspose, &nodeTransform);
+                    XrMatrix4x4f_Multiply(&m_resolvedTransforms[node.GetNodeIndex()], &nodeTransformTranspose, &parentTransform);
+                }
+                else {
+                    XrMatrix4x4f_Multiply(&m_resolvedTransforms[node.GetNodeIndex()], &parentTransform, &nodeTransform);
+                }
+            }
+        }
+
+        const Model& GetModel() const
+        {
+            return *m_model;
+        }
+
+        const std::vector<XrMatrix4x4f>& GetResolvedTransforms() const noexcept
+        {
+            return m_resolvedTransforms;
+        }
+
+    private:
+        bool m_nodeLocalTransformsUpdated{true};
+
+        // Derived classes may depend on this being immutable.
+        std::shared_ptr<const Model> m_model;
+        // This is initialized to the local transform of every node,
+        // but can be updated for this instance.
+        std::vector<XrMatrix4x4f> m_nodeLocalTransforms;
+        std::vector<XrMatrix4x4f> m_resolvedTransforms;
     };
 }  // namespace Pbr

@@ -72,8 +72,8 @@ namespace Pbr
             enum BindingOffsets
             {
                 VSResourceViewsOffset = NumConstantBuffers,
-                MaterialTexturesOffset = VSResourceViewsOffset + NumVSResourceViews,
-                GlobalTexturesOffset = MaterialTexturesOffset + NumMaterialSlots,
+                MaterialTexturesOffset = (int)VSResourceViewsOffset + (int)NumVSResourceViews,
+                GlobalTexturesOffset = (int)MaterialTexturesOffset + (int)NumMaterialSlots,
             };
         }
     }  // namespace ShaderSlots

@@ -50,7 +50,7 @@ namespace Conformance
 
     RGBAImage CreateTextImage(int32_t width, int32_t height, const char* text, int32_t fontHeight, WordWrap wordWrap = WordWrap::Enabled);
 
-    XrPath StringToPath(XrInstance instance, const char* pathStr);
+    XrPath StringToPath(XrInstance instance, const std::string& pathStr);
 
     using UpdateLayers = std::function<void(const XrFrameState&)>;
     using EndFrame = std::function<bool(const XrFrameState&)>;  // Return false to stop the loop.

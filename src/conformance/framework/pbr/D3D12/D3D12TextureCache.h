@@ -23,7 +23,6 @@ namespace Pbr
 {
     template <typename T>
     using ComPtr = Microsoft::WRL::ComPtr<T>;
-    // using Microsoft::WRL::ComPtr;
 
     /// Cache of single-color textures.
     ///
@@ -33,9 +32,6 @@ namespace Pbr
     public:
         /// Default constructor makes an invalid cache.
         D3D12TextureCache() = default;
-
-        // D3D12TextureCache(const D3D12TextureCache&) = default;
-        // D3D12TextureCache& operator=(const D3D12TextureCache&) = default;
 
         D3D12TextureCache(D3D12TextureCache&&) = default;
         D3D12TextureCache& operator=(D3D12TextureCache&&) = default;

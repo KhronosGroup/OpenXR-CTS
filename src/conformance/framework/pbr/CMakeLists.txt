@@ -198,6 +198,16 @@ if(XR_USE_GRAPHICS_API_VULKAN)
             Vulkan/VkModel.cpp
             Vulkan/VkPrimitive.cpp
     )
+    if(GLSLANG_VALIDATOR)
+        # If we can, run this check of shader structure offsets in the unit test suite.
+        add_test(
+            NAME pbr_glsl_offsets
+            COMMAND
+                "${PYTHON_EXECUTABLE}"
+                "${CMAKE_CURRENT_SOURCE_DIR}/check-offsets.py"
+                "${GLSLANG_VALIDATOR}"
+        )
+    endif()
 endif()
 
 target_include_directories(

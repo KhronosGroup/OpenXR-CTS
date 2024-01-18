@@ -21,7 +21,7 @@
 
 namespace Pbr
 {
-    class VulkanModel;
+    class Model;
     struct VulkanResources;
 }  // namespace Pbr
 
@@ -29,13 +29,13 @@ namespace Conformance
 {
     struct CmdBuffer;
 
-    class VulkanGLTF : public GltfModelBase<Pbr::VulkanModel, Pbr::VulkanResources>
+    class VulkanGLTF : public RenderableGltfModelInstanceBase<Pbr::VulkanModelInstance, Pbr::VulkanResources>
     {
     public:
-        using GltfModelBase::GltfModelBase;
+        using RenderableGltfModelInstanceBase::RenderableGltfModelInstanceBase;
 
-        void Render(CmdBuffer& directCommandBuffer, Pbr::VulkanResources& resources, XrMatrix4x4f& modelToWorld, VkRenderPass renderPass,
-                    VkSampleCountFlagBits sampleCount) const;
+        void Render(CmdBuffer& directCommandBuffer, Pbr::VulkanResources& resources, const XrMatrix4x4f& modelToWorld,
+                    VkRenderPass renderPass, VkSampleCountFlagBits sampleCount);
     };
 }  // namespace Conformance
 #endif

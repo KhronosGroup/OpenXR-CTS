@@ -7,6 +7,8 @@
 //
 // SPDX-License-Identifier: MIT AND Apache-2.0
 
+#if defined(XR_USE_GRAPHICS_API_VULKAN)
+
 #include "VkTextureCache.h"
 
 #include "VkCommon.h"
@@ -56,3 +58,5 @@ namespace Pbr
         return m_solidColorTextureCache.emplace(colorKey, texture).first->second;
     }
 }  // namespace Pbr
+
+#endif  // defined(XR_USE_GRAPHICS_API_VULKAN)

@@ -6,6 +6,9 @@
 // Licensed under the MIT License. See License.txt in the project root for license information.
 //
 // SPDX-License-Identifier: MIT AND Apache-2.0
+
+#if defined(XR_USE_GRAPHICS_API_VULKAN)
+
 #include "VkMaterial.h"
 
 #include "VkCommon.h"
@@ -16,6 +19,8 @@
 
 #include "utilities/vulkan_scoped_handle.h"
 #include "utilities/vulkan_utils.h"
+
+#include <utility>
 
 namespace Pbr
 {
@@ -72,20 +77,18 @@ namespace Pbr
     void VulkanMaterial::SetTexture(ShaderSlots::PSMaterial slot, std::shared_ptr<VulkanTextureBundle> textureView,
                                     std::shared_ptr<Conformance::ScopedVkSampler> sampler)
     {
-        m_textures[slot] = textureView;
+        m_textures[slot] = std::move(textureView);
 
         if (sampler) {
-            m_samplers[slot] = sampler;
+            m_samplers[slot] = std::move(sampler);
         }
     }
 
-    // Get the material constant buffer for binding
     VkDescriptorBufferInfo VulkanMaterial::GetMaterialConstantBuffer()
     {
         return m_constantBuffer.MakeDescriptor();
     }
 
-    // Get the combined image sampler descriptors for binding
     std::vector<VkDescriptorImageInfo> VulkanMaterial::GetTextureDescriptors()
     {
         std::vector<VkDescriptorImageInfo> ret(TextureCount);
@@ -108,3 +111,5 @@ namespace Pbr
         }
     }
 }  // namespace Pbr
+
+#endif  // defined(XR_USE_GRAPHICS_API_VULKAN)

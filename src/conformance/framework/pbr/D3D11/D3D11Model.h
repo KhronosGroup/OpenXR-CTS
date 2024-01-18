@@ -14,24 +14,33 @@
 
 namespace Pbr
 {
-
     struct D3D11Primitive;
+    struct D3D11Resources;
 
-    class D3D11Model final : public Model
+    struct ModelConstantBuffer
+    {
+        DirectX::XMFLOAT4X4 ModelToWorld;
+    };
+
+    static_assert((sizeof(ModelConstantBuffer) % 16) == 0, "Constant Buffer must be divisible by 16 bytes");
+
+    class D3D11ModelInstance final : public ModelInstance
     {
     public:
-        // Render the model.
-        void Render(Pbr::D3D11Resources const& pbrResources, _In_ ID3D11DeviceContext* context);
+        D3D11ModelInstance(Pbr::D3D11Resources& pbrResources, std::shared_ptr<const Model> model);
+
+        /// Render the model.
+        void Render(Pbr::D3D11Resources const& pbrResources, _In_ ID3D11DeviceContext* context, DirectX::FXMMATRIX modelToWorld);
 
     private:
-        // Updated the transforms used to render the model. This needs to be called any time a node transform is changed.
+        void AllocateDescriptorSets(Pbr::D3D11Resources& pbrResources, uint32_t numSets);
+        /// Update the transforms used to render the model. This needs to be called any time a node transform is changed.
         void UpdateTransforms(Pbr::D3D11Resources const& pbrResources, _In_ ID3D11DeviceContext* context);
 
-        // Temporary buffer holds the world transforms, computed from the node's local transforms.
-        mutable std::vector<XrMatrix4x4f> m_modelTransforms;
-        mutable Microsoft::WRL::ComPtr<ID3D11Buffer> m_modelTransformsStructuredBuffer;
-        mutable Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> m_modelTransformsResourceView;
+        ModelConstantBuffer m_modelBuffer;
+        Microsoft::WRL::ComPtr<ID3D11Buffer> m_modelConstantBuffer;
 
-        mutable uint32_t TotalModifyCount{0};
+        Microsoft::WRL::ComPtr<ID3D11Buffer> m_modelTransformsStructuredBuffer;
+        Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> m_modelTransformsResourceView;
     };
 }  // namespace Pbr

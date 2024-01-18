@@ -62,6 +62,9 @@ namespace Conformance
 
         SECTION("Missing graphics binding implies XR_ERROR_GRAPHICS_DEVICE_INVALID")
         {
+            if (graphicsPlugin) {
+                REQUIRE(graphicsPlugin->InitializeDevice(instance, systemId, true /* checkGraphicsRequirements */));
+            }
             sessionCreateInfo.next = nullptr;
             XrResult result;
             CAPTURE(result = xrCreateSession(instance, &sessionCreateInfo, &session));

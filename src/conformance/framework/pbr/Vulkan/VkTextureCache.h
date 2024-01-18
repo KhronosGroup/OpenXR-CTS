@@ -34,9 +34,6 @@ namespace Pbr
         /// Default constructor makes an invalid cache.
         VulkanTextureCache() = default;
 
-        // VulkanTextureCache(const VulkanTextureCache&) = default;
-        // VulkanTextureCache& operator=(const VulkanTextureCache&) = default;
-
         VulkanTextureCache(VulkanTextureCache&&) = default;
         VulkanTextureCache& operator=(VulkanTextureCache&&) = default;
 

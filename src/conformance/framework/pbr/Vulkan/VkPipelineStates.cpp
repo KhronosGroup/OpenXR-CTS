@@ -7,6 +7,8 @@
 //
 // SPDX-License-Identifier: MIT AND Apache-2.0
 
+#if defined(XR_USE_GRAPHICS_API_VULKAN)
+
 #include "VkPipelineStates.h"
 
 #include "../PbrSharedState.h"
@@ -150,3 +152,5 @@ namespace Pbr
         return pipeline;
     }
 }  // namespace Pbr
+
+#endif  // defined(XR_USE_GRAPHICS_API_VULKAN)

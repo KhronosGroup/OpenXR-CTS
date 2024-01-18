@@ -16,6 +16,7 @@
 
 #ifdef XR_USE_PLATFORM_WIN32
 #include "utilities/utils.h"
+#include "utilities/xrduration_literals.h"
 #include "conformance_utils.h"
 #include "conformance_framework.h"
 #include <catch2/catch_test_macros.hpp>

@@ -23,7 +23,6 @@
 #include <memory>
 #include <mutex>
 #include <stdexcept>
-#include <utility>
 
 namespace Pbr
 {

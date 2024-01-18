@@ -45,7 +45,6 @@ add_library(
     XrApiLayer_runtime_conformance MODULE
     ${LOCAL_SOURCE}
     ${LOCAL_HEADERS}
-    XrApiLayer_conformance_layer.def
     ${PROJECT_BINARY_DIR}/src/xr_generated_dispatch_table.c
     ${CMAKE_CURRENT_BINARY_DIR}/gen_dispatch.cpp
     ${CMAKE_CURRENT_BINARY_DIR}/gen_dispatch.h
@@ -107,17 +106,33 @@ if(ANDROID)
     )
 endif()
 
-if(APPLE)
+# Dynamic Library:
+#  - Make build depend on the module definition/version script/export map
+#  - Add the linker flag (except windows)
+if(WIN32)
+    target_sources(
+        XrApiLayer_runtime_conformance
+        PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/XrApiLayer_conformance_layer.def"
+    )
+elseif(APPLE)
     set_target_properties(
         XrApiLayer_runtime_conformance
         PROPERTIES
             LINK_FLAGS
             "-Wl,-exported_symbols_list,${CMAKE_CURRENT_SOURCE_DIR}/XrApiLayer_conformance_layer.expsym"
     )
-elseif(NOT WIN32)
+    target_sources(
+        XrApiLayer_runtime_conformance
+        PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/XrApiLayer_conformance_layer.expsym"
+    )
+else()
     set_target_properties(
         XrApiLayer_runtime_conformance
-        PROPERTIES LINK_FLAGS "-Wl,-Bsymbolic,--exclude-libs,ALL"
+        PROPERTIES LINK_FLAGS "-Wl,--version-script=\"${CMAKE_CURRENT_SOURCE_DIR}/XrApiLayer_conformance_layer.map\""
+    )
+    target_sources(
+        XrApiLayer_runtime_conformance
+        PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/XrApiLayer_conformance_layer.map"
     )
 endif()
 

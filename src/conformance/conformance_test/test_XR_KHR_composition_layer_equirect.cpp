@@ -19,15 +19,13 @@
 #include "utilities/bitmask_generator.h"
 #include "utilities/bitmask_to_string.h"
 #include "utilities/generator.h"
+#include "utilities/xrduration_literals.h"
 
 #include <catch2/catch_test_macros.hpp>
 #include <openxr/openxr.h>
 
 #include <array>
-#include <chrono>
 #include <memory>
-#include <ostream>
-#include <ratio>
 #include <vector>
 
 namespace Conformance

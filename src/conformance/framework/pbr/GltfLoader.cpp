@@ -101,9 +101,6 @@ namespace Gltf
 {
     void PopulateFromGltfObject(Pbr::Model& model, Pbr::IResources& pbrResources, const tinygltf::Model& gltfModel)
     {
-        // Empty the model to ensure we're starting from scratch
-        model.Clear();
-
         // Read and transform mesh/node data. Primitives with the same material are merged to reduce draw calls.
         PrimitiveBuilderMap primitiveBuilderMap;
         GltfHelper::PrimitiveCache primitiveCache{gltfModel};

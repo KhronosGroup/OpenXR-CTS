@@ -5,6 +5,7 @@
 // Licensed under the MIT License. See License.txt in the project root for license information.
 //
 // SPDX-License-Identifier: MIT AND Apache-2.0
+
 #pragma once
 
 #include "D3D12Material.h"
@@ -12,11 +13,12 @@
 #include <d3d12.h>
 #include <wrl/client.h>  // For Microsoft::WRL::ComPtr
 
+#include <memory>
 #include <vector>
 
 namespace Pbr
 {
-    // A primitive holds a vertex buffer, index buffer, and a pointer to a PBR material.
+    /// A primitive holds a vertex buffer, index buffer, and a pointer to a PBR material.
     struct D3D12Primitive final
     {
         using Collection = std::vector<D3D12Primitive>;
@@ -29,25 +31,20 @@ namespace Pbr
 
         void UpdateBuffers(Pbr::D3D12Resources& pbrResources, const Pbr::PrimitiveBuilder& primitiveBuilder);
 
-        // Get the material for the primitive.
-        std::shared_ptr<D3D12Material>& GetMaterial()
-        {
-            return m_material;
-        }
+        /// Get the material for the primitive.
         const std::shared_ptr<D3D12Material>& GetMaterial() const
         {
             return m_material;
         }
 
-        // Replace the material for the primitive
+        /// Replace the material for the primitive
         void SetMaterial(std::shared_ptr<D3D12Material> material)
         {
             m_material = std::move(material);
         }
 
     protected:
-        // friend class Model;
-        friend class D3D12Model;
+        friend class D3D12ModelInstance;
         void Render(_In_ ID3D12GraphicsCommandList* directCommandList, D3D12Resources& pbrResources, DXGI_FORMAT colorRenderTargetFormat,
                     DXGI_FORMAT depthRenderTargetFormat) const;
 

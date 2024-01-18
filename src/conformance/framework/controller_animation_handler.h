@@ -29,11 +29,13 @@ namespace Conformance
     {
     public:
         ControllerAnimationHandler() = default;
-        ControllerAnimationHandler(std::shared_ptr<Pbr::Model> model, std::vector<XrControllerModelNodePropertiesMSFT> properties);
-        void UpdateControllerParts(std::vector<XrControllerModelNodeStateMSFT> nodeStates);
+        ControllerAnimationHandler(const Pbr::Model& model, std::vector<XrControllerModelNodePropertiesMSFT>&& properties);
+
+        void Init(const Pbr::Model& model, std::vector<XrControllerModelNodePropertiesMSFT>&& properties);
+        void UpdateControllerParts(const std::vector<XrControllerModelNodeStateMSFT>& nodeStates, Pbr::ModelInstance& pbrModelInstance);
 
     private:
-        std::shared_ptr<Pbr::Model> m_pbrModel;
+        static Pbr::NodeIndex_t FindPbrNodeIndex(const Pbr::Model& model, const char* parentNodeName, const char* nodeName);
         std::vector<Pbr::NodeIndex_t> m_nodeIndices;
         std::vector<XrControllerModelNodePropertiesMSFT> m_nodeProperties;
         std::vector<XrControllerModelNodeStateMSFT> m_nodeStates;

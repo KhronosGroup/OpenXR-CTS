@@ -1,13 +1,11 @@
 // Copyright 2022-2024, The Khronos Group Inc.
 //
 // Based in part on code that is:
+//
 // Copyright (C) Microsoft Corporation.  All Rights Reserved
 // Licensed under the MIT License. See License.txt in the project root for license information.
 //
 // SPDX-License-Identifier: MIT AND Apache-2.0
-//
-// Shared data types and functions used throughout the Pbr rendering library.
-//
 
 #pragma once
 
@@ -22,7 +20,6 @@
 #include <wrl/client.h>  // For Microsoft::WRL::ComPtr
 
 #include <array>
-#include <vector>
 
 namespace Pbr
 {

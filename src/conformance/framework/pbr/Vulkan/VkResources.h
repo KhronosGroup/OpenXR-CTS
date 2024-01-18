@@ -22,15 +22,12 @@
 #include <nonstd/span.hpp>
 #include <openxr/openxr.h>
 #include <vulkan/vulkan.h>
-#include <vulkan/vulkan_core.h>
 
 #include <array>
 #include <chrono>
-#include <map>
 #include <memory>
 #include <stddef.h>
 #include <stdint.h>
-#include <vector>
 
 class VulkanDebugObjectNamer;
 
@@ -47,10 +44,6 @@ namespace tinygltf
     struct Sampler;
 }  // namespace tinygltf
 
-// namespace Conformance
-// {
-//     struct MemoryAllocator;
-// }
 namespace Pbr
 {
     struct Primitive;
@@ -64,15 +57,12 @@ namespace Pbr
     struct VulkanTextureAndSampler : public ITexture
     {
         ~VulkanTextureAndSampler() override = default;
-        /// Required
-        // Microsoft::WRL::ComPtr<IVulkanResource> texture;
 
-        /// Optional
-        // Vulkan_SAMPLER_DESC sampler;
         bool samplerSet;
     };
 
     static constexpr size_t BindingCount = ShaderSlots::NumConstantBuffers + ShaderSlots::NumVSResourceViews + ShaderSlots::NumTextures;
+
     class VulkanWriteDescriptorSets
     {
     public:
@@ -103,7 +93,7 @@ namespace Pbr
         VulkanWriteDescriptorSets& operator=(VulkanWriteDescriptorSets&&) = delete;
     };
 
-    // Global PBR resources required for rendering a scene.
+    /// Global PBR resources required for rendering a scene.
     struct VulkanResources final : public IResources
     {
         VulkanResources(const VulkanDebugObjectNamer& namer, VkPhysicalDevice physicalDevice, VkDevice device, uint32_t queueFamilyIndex);
@@ -122,38 +112,35 @@ namespace Pbr
                                       const std::shared_ptr<Pbr::Material>& material) override;
         void DropLoaderCaches() override;
 
-        // Sets the Bidirectional Reflectance Distribution Function Lookup Table texture, required by the shader to compute surface
-        // reflectance from the IBL.
+        /// Sets the Bidirectional Reflectance Distribution Function Lookup Table texture, required by the shader to compute surface
+        /// reflectance from the IBL.
         void SetBrdfLut(std::shared_ptr<VulkanTextureBundle> brdfLut);
 
-        // Get a pipeline state matching some parameters as well as the current settings inside VkResources
+        /// Get a pipeline state matching some parameters as well as the current settings inside VkResources
         Conformance::Pipeline& GetOrCreatePipeline(VkRenderPass renderPass, VkSampleCountFlagBits sampleCount, BlendState blendState,
                                                    DoubleSided doubleSided);
 
-        // Set the directional light.
+        /// Set the directional light.
         void SetLight(XrVector3f direction, RGBColor diffuseColor);
 
-        // Set the specular and diffuse image-based lighting (IBL) maps. ShaderResourceViews must be TextureCubes.
+        /// Set the specular and diffuse image-based lighting (IBL) maps. ShaderResourceViews must be TextureCubes.
         void SetEnvironmentMap(std::shared_ptr<VulkanTextureBundle> specularEnvironmentMap,
                                std::shared_ptr<VulkanTextureBundle> diffuseEnvironmentMap);
 
-        // Set the current view and projection matrices.
+        /// Set the current view and projection matrices.
         void SetViewProjection(XrMatrix4x4f view, XrMatrix4x4f projection) const;
 
-        // Many 1x1 pixel colored textures are used in the PBR system. This is used to create textures backed by a cache to reduce the
-        // number of textures created.
+        /// Many 1x1 pixel colored textures are used in the PBR system. This is used to create textures backed by a cache to reduce the
+        /// number of textures created.
         std::shared_ptr<VulkanTextureBundle> CreateTypedSolidColorTexture(RGBAColor color);
 
-        // Update the scene buffer in GPU memory.
+        /// Update the scene buffer in GPU memory.
         void UpdateBuffer() const;
 
-        // Get the fence to wait on before executing any command list built on this Resources.
-        // std::pair<IVulkanFence*, uint64_t> GetFenceAndValue() const;
-
-        // Set and update the model to world constant buffer value.
-        void SetModelToWorld(XrMatrix4x4f modelToWorld) const;
-
+        /// Get the VulkanPrimitive from a primitive handle.
         VulkanPrimitive& GetPrimitive(PrimitiveHandle p);
+
+        /// Get the VulkanPrimitive from a primitive handle, const overload.
         const VulkanPrimitive& GetPrimitive(PrimitiveHandle p) const;
 
         // Set or get the shading and fill modes.
@@ -176,13 +163,13 @@ namespace Pbr
 
     private:
         std::unique_ptr<VulkanWriteDescriptorSets>
-        BuildWriteDescriptorSets(VkDescriptorBufferInfo materialConstantBuffer, VkDescriptorBufferInfo transformBuffer,
-                                 nonstd::span<VkDescriptorImageInfo> materialCombinedImageSamplers, VkDescriptorSet dstSet);
+        BuildWriteDescriptorSets(VkDescriptorBufferInfo modelConstantBuffer, VkDescriptorBufferInfo materialConstantBuffer,
+                                 VkDescriptorBufferInfo transformBuffer, nonstd::span<VkDescriptorImageInfo> materialCombinedImageSamplers,
+                                 VkDescriptorSet dstSet);
         friend struct VulkanMaterial;
         friend struct VulkanPrimitive;
 
         struct Impl;
-
         std::unique_ptr<Impl> m_impl;
 
         SharedState m_sharedState;

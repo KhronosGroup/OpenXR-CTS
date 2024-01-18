@@ -19,7 +19,7 @@
 #include "conformance_framework.h"
 #include "utilities/throw_helpers.h"
 #include "utilities/types_and_constants.h"
-#include "utilities/utils.h"
+#include "utilities/xrduration_literals.h"
 
 #include <catch2/catch_test_macros.hpp>
 #include <openxr/openxr.h>
@@ -309,8 +309,7 @@ namespace Conformance
         interactionManager.AttachActionSets();
         compositionHelper.BeginSession();
 
-        const XrSpace localSpace =
-            compositionHelper.CreateReferenceSpace(XR_REFERENCE_SPACE_TYPE_LOCAL, XrPosef{Quat::Identity, {0, 0, 0}});
+        const XrSpace localSpace = compositionHelper.CreateReferenceSpace(XR_REFERENCE_SPACE_TYPE_LOCAL, XrPosefCPP());
 
         const std::vector<XrViewConfigurationView> viewProperties = compositionHelper.EnumerateConfigurationViews();
 
@@ -382,8 +381,7 @@ namespace Conformance
         interactionManager.AttachActionSets();
         compositionHelper.BeginSession();
 
-        const XrSpace localSpace =
-            compositionHelper.CreateReferenceSpace(XR_REFERENCE_SPACE_TYPE_LOCAL, XrPosef{Quat::Identity, {0, 0, 0}});
+        const XrSpace localSpace = compositionHelper.CreateReferenceSpace(XR_REFERENCE_SPACE_TYPE_LOCAL, XrPosefCPP());
 
         const std::vector<XrViewConfigurationView> viewProperties = compositionHelper.EnumerateConfigurationViews();
 
@@ -524,7 +522,7 @@ namespace Conformance
                 XrActionSpaceCreateInfo spaceCreateInfo{XR_TYPE_ACTION_SPACE_CREATE_INFO};
                 spaceCreateInfo.action = gripPoseAction;
                 spaceCreateInfo.subactionPath = subactionPaths[i];
-                spaceCreateInfo.poseInActionSpace = {{0, 0, 0, 1}, {0, 0, 0}};
+                spaceCreateInfo.poseInActionSpace = XrPosefCPP();
                 XRC_CHECK_THROW_XRCMD(xrCreateActionSpace(session, &spaceCreateInfo, &space));
             }
             else {
