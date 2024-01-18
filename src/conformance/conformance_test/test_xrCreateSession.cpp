@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2023, The Khronos Group Inc.
+// Copyright (c) 2019-2024, The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -62,6 +62,9 @@ namespace Conformance
 
         SECTION("Missing graphics binding implies XR_ERROR_GRAPHICS_DEVICE_INVALID")
         {
+            if (graphicsPlugin) {
+                REQUIRE(graphicsPlugin->InitializeDevice(instance, systemId, true /* checkGraphicsRequirements */));
+            }
             sessionCreateInfo.next = nullptr;
             XrResult result;
             CAPTURE(result = xrCreateSession(instance, &sessionCreateInfo, &session));

@@ -1,4 +1,4 @@
-// Copyright 2022-2023, The Khronos Group, Inc.
+// Copyright 2022-2024, The Khronos Group Inc.
 //
 // Based in part on code that is:
 // Copyright (C) Microsoft Corporation.  All Rights Reserved
@@ -19,17 +19,14 @@
 
 #include <openxr/openxr.h>
 
+#include <chrono>
+#include <memory>
+
 namespace tinygltf
 {
     struct Image;
     struct Sampler;
 }  // namespace tinygltf
-
-#include <chrono>
-#include <map>
-#include <memory>
-#include <stdint.h>
-#include <vector>
 
 namespace Pbr
 {
@@ -50,7 +47,7 @@ namespace Pbr
         std::shared_ptr<ScopedGLSampler> sampler;
     };
 
-    // Global PBR resources required for rendering a scene.
+    /// Global PBR resources required for rendering a scene.
     struct GLResources final : public IResources
     {
         explicit GLResources();
@@ -62,37 +59,38 @@ namespace Pbr
                                                      RGBColor emissiveFactor = RGB::Black) override;
         std::shared_ptr<Material> CreateMaterial() override;
         std::shared_ptr<ITexture> CreateSolidColorTexture(RGBAColor color);
+
         void LoadTexture(const std::shared_ptr<Material>& pbrMaterial, Pbr::ShaderSlots::PSMaterial slot, const tinygltf::Image* image,
                          const tinygltf::Sampler* sampler, bool sRGB, Pbr::RGBAColor defaultRGBA) override;
         PrimitiveHandle MakePrimitive(const Pbr::PrimitiveBuilder& primitiveBuilder,
                                       const std::shared_ptr<Pbr::Material>& material) override;
         void DropLoaderCaches() override;
 
-        // Sets the Bidirectional Reflectance Distribution Function Lookup Table texture, required by the shader to compute surface
-        // reflectance from the IBL.
+        /// Sets the Bidirectional Reflectance Distribution Function Lookup Table texture, required by the shader to compute surface
+        /// reflectance from the IBL.
         void SetBrdfLut(std::shared_ptr<ScopedGLTexture> brdfLut);
 
-        // Set the directional light.
+        /// Set the directional light.
         void SetLight(XrVector3f direction, RGBColor diffuseColor);
 
-        // Set the specular and diffuse image-based lighting (IBL) maps. ShaderResourceViews must be TextureCubes.
+        /// Set the specular and diffuse image-based lighting (IBL) maps. ShaderResourceViews must be TextureCubes.
         void SetEnvironmentMap(std::shared_ptr<ScopedGLTexture> specularEnvironmentMap,
                                std::shared_ptr<ScopedGLTexture> diffuseEnvironmentMap);
 
-        // Set the current view and projection matrices.
+        /// Set the current view and projection matrices.
         void SetViewProjection(XrMatrix4x4f view, XrMatrix4x4f projection) const;
 
-        // Many 1x1 pixel colored textures are used in the PBR system. This is used to create textures backed by a cache to reduce the
-        // number of textures created.
+        /// Many 1x1 pixel colored textures are used in the PBR system. This is used to create textures backed by a cache to reduce the
+        /// number of textures created.
         std::shared_ptr<ScopedGLTexture> CreateTypedSolidColorTexture(RGBAColor color) const;
 
-        // Bind the the PBR resources to the current context.
+        /// Bind the the PBR resources to the current context.
         void Bind() const;
 
-        // Set and update the model to world constant buffer value.
-        void SetModelToWorld(XrMatrix4x4f modelToWorld) const;
-
+        /// Get the GLPrimitive from a primitive handle.
         GLPrimitive& GetPrimitive(PrimitiveHandle p);
+
+        /// Get the GLPrimitive from a primitive handle, const overload
         const GLPrimitive& GetPrimitive(PrimitiveHandle p) const;
 
         // Set or get the shading and fill modes.
@@ -110,7 +108,6 @@ namespace Pbr
         friend struct GLMaterial;
 
         struct Impl;
-
         std::unique_ptr<Impl> m_impl;
 
         SharedState m_sharedState;

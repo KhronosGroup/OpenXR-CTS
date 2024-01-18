@@ -1,4 +1,4 @@
-// Copyright 2023, The Khronos Group, Inc.
+// Copyright 2023-2024, The Khronos Group Inc.
 //
 // Based in part on code that is:
 //
@@ -23,7 +23,6 @@
 #include <memory>
 #include <mutex>
 #include <stdexcept>
-#include <utility>
 
 namespace Pbr
 {

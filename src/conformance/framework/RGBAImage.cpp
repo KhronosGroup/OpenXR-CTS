@@ -1,10 +1,11 @@
-// Copyright (c) 2017-2023, The Khronos Group Inc.
+// Copyright (c) 2017-2024, The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 
 #include "RGBAImage.h"
 
 #include "conformance_framework.h"
+#include "report.h"
 
 #ifdef XR_USE_PLATFORM_ANDROID
 #include "common/unique_asset.h"
@@ -160,6 +161,7 @@ namespace Conformance
             uc = stbi_load_from_memory((const stbi_uc*)buf, length, &width, &height, nullptr, RequiredComponents);
         }
 #else
+
         stbi_uc* const uc = stbi_load(path, &width, &height, nullptr, RequiredComponents);
 #endif
         if (uc == nullptr) {
@@ -177,7 +179,7 @@ namespace Conformance
         return image;
     }
 
-    void RGBAImage::PutText(const XrRect2Di& rect, const char* text, int pixelHeight, XrColor4f color)
+    void RGBAImage::PutText(const XrRect2Di& rect, const char* text, int pixelHeight, XrColor4f color, WordWrap wordWrap)
     {
         const std::shared_ptr<const BakedFont> font = BakedFont::GetOrCreate(pixelHeight);
         if (!font)
@@ -186,6 +188,8 @@ namespace Conformance
         float xadvance = (float)rect.offset.x;
         int yadvance =
             rect.offset.y + (int)(pixelHeight * 0.8f);  // Adjust down because glyphs are relative to the font baseline. This is hacky.
+
+        const char* const fullText = text;
 
         // Loop through each character and copy over the chracters' glyphs.
         for (; *text; text++) {
@@ -207,8 +211,14 @@ namespace Conformance
                 if (xadvance + remainingWordWidth > rect.offset.x + rect.extent.width) {
                     // But only if the word isn't longer than the destination.
                     if (remainingWordWidth <= (rect.extent.width - rect.offset.x)) {
-                        xadvance = (float)rect.offset.x;
-                        yadvance += pixelHeight;
+                        if (wordWrap == WordWrap::Enabled) {
+                            xadvance = (float)rect.offset.x;
+                            yadvance += pixelHeight;
+                        }
+                        else {
+                            ReportConsoleOnlyF("CTS dev warning: Would have wrapped this text but told to disable word wrap! Text: %s",
+                                               fullText);
+                        }
                     }
                 }
             }
@@ -217,10 +227,16 @@ namespace Conformance
             const int characterWidth = (int)(bakedChar.x1 - bakedChar.x0);
             const int characterHeight = (int)(bakedChar.y1 - bakedChar.y0);
 
-            if (xadvance + characterWidth > rect.offset.x + rect.extent.width) {
-                // Wrap to new line if there isn't enough room for this char.
-                xadvance = (float)rect.offset.x;
-                yadvance += pixelHeight;
+            if ((xadvance + characterWidth) > (rect.offset.x + rect.extent.width)) {
+                if (wordWrap == WordWrap::Enabled) {
+
+                    // Wrap to new line if there isn't enough room for this char.
+                    xadvance = (float)rect.offset.x;
+                    yadvance += pixelHeight;
+                }
+                else {
+                    ReportConsoleOnlyF("CTS dev warning: Would have wrapped this text but told to disable word wrap! Text: %s", fullText);
+                }
             }
 
             // For each row of the glyph bitmap
@@ -328,6 +344,35 @@ namespace Conformance
     {
         Conformance::CopyWithStride(reinterpret_cast<const uint8_t*>(pixels.data()), data + offset, width * sizeof(RGBA8Color), height,
                                     rowPitch);
+    }
+
+    void RGBAImageCache::Init()
+    {
+        m_cacheMutex = std::make_unique<std::mutex>();
+    }
+
+    std::shared_ptr<RGBAImage> RGBAImageCache::Load(const char* path)
+    {
+        if (!IsValid()) {
+            throw std::logic_error("RGBAImageCache accessed before initialization");
+        }
+
+        // Check cache to see if this image already exists.
+        {
+            std::lock_guard<std::mutex> guard(*m_cacheMutex);
+            auto imageIt = m_imageCache.find(path);
+            if (imageIt != m_imageCache.end()) {
+                return imageIt->second;
+            }
+        }
+
+        ReportConsoleOnlyF("Loading and caching image: %s", path);
+
+        auto image = std::make_shared<RGBAImage>(RGBAImage::Load(path));
+
+        std::lock_guard<std::mutex> guard(*m_cacheMutex);
+        // If the key already exists then the existing image will be returned.
+        return m_imageCache.emplace(path, image).first->second;
     }
 
     void CopyWithStride(const uint8_t* source, uint8_t* dest, uint32_t rowSize, uint32_t rows, uint32_t rowPitch)

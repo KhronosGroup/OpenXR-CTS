@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2023, The Khronos Group Inc.
+// Copyright (c) 2019-2024, The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 
@@ -18,6 +18,7 @@
 #include <cstdint>
 #include <fstream>
 #include <memory>
+#include <sstream>
 #include <string>
 #include <tuple>
 #include <utility>
@@ -30,6 +31,10 @@ namespace Conformance
         GlobalData& globalData = GetGlobalData();
 
         CompositionHelper compositionHelper("glTF rendering");
+        XrInstance instance = compositionHelper.GetInstance();
+        XrSession session = compositionHelper.GetSession();
+        InteractionManager& interactionManager = compositionHelper.GetInteractionManager();
+
         // Each test case will configure the layer manager with its own instructions and image
         InteractiveLayerManager interactiveLayerManager(compositionHelper, nullptr, "glTF rendering");
 
@@ -48,8 +53,7 @@ namespace Conformance
             }
         }
 
-        const std::vector<XrPath> subactionPaths{StringToPath(compositionHelper.GetInstance(), "/user/hand/left"),
-                                                 StringToPath(compositionHelper.GetInstance(), "/user/hand/right")};
+        const std::vector<XrPath> subactionPaths{StringToPath(instance, "/user/hand/left"), StringToPath(instance, "/user/hand/right")};
 
         XrActionSet actionSet;
         XrAction gripPoseAction;
@@ -57,7 +61,7 @@ namespace Conformance
             XrActionSetCreateInfo actionSetInfo{XR_TYPE_ACTION_SET_CREATE_INFO};
             strcpy(actionSetInfo.actionSetName, "gltf_rendering");
             strcpy(actionSetInfo.localizedActionSetName, "glTF rendering");
-            XRC_CHECK_THROW_XRCMD(xrCreateActionSet(compositionHelper.GetInstance(), &actionSetInfo, &actionSet));
+            XRC_CHECK_THROW_XRCMD(xrCreateActionSet(instance, &actionSetInfo, &actionSet));
 
             XrActionCreateInfo actionInfo{XR_TYPE_ACTION_CREATE_INFO};
             actionInfo.actionType = XR_ACTION_TYPE_POSE_INPUT;
@@ -68,16 +72,15 @@ namespace Conformance
             XRC_CHECK_THROW_XRCMD(xrCreateAction(actionSet, &actionInfo, &gripPoseAction));
         }
 
-        compositionHelper.GetInteractionManager().AddActionSet(actionSet);
-        XrPath simpleInteractionProfile = StringToPath(compositionHelper.GetInstance(), "/interaction_profiles/khr/simple_controller");
-        compositionHelper.GetInteractionManager().AddActionBindings(
-            simpleInteractionProfile,
-            {{
-                {gripPoseAction, StringToPath(compositionHelper.GetInstance(), "/user/hand/left/input/grip/pose")},
-                {gripPoseAction, StringToPath(compositionHelper.GetInstance(), "/user/hand/right/input/grip/pose")},
-            }});
+        interactionManager.AddActionSet(actionSet);
+        XrPath simpleInteractionProfile = StringToPath(instance, "/interaction_profiles/khr/simple_controller");
+        interactionManager.AddActionBindings(simpleInteractionProfile,
+                                             {{
+                                                 {gripPoseAction, StringToPath(instance, "/user/hand/left/input/grip/pose")},
+                                                 {gripPoseAction, StringToPath(instance, "/user/hand/right/input/grip/pose")},
+                                             }});
 
-        compositionHelper.GetInteractionManager().AttachActionSets();
+        interactionManager.AttachActionSets();
         compositionHelper.BeginSession();
 
         // Spaces where we will draw the active gltf. Default to one on each controller.
@@ -90,9 +93,9 @@ namespace Conformance
                 XrActionSpaceCreateInfo spaceCreateInfo{XR_TYPE_ACTION_SPACE_CREATE_INFO};
                 spaceCreateInfo.action = gripPoseAction;
                 spaceCreateInfo.subactionPath = subactionPaths[i];
-                spaceCreateInfo.poseInActionSpace = {{0, 0, 0, 1}, {0, 0, 0}};
-                XRC_CHECK_THROW_XRCMD(xrCreateActionSpace(compositionHelper.GetSession(), &spaceCreateInfo, &space));
-                gripSpaces.push_back(std::move(space));
+                spaceCreateInfo.poseInActionSpace = XrPosefCPP{};
+                XRC_CHECK_THROW_XRCMD(xrCreateActionSpace(session, &spaceCreateInfo, &space));
+                gripSpaces.emplace_back(std::move(space));
             }
         }
 
@@ -164,7 +167,9 @@ namespace Conformance
         auto testCase = testCases[testCaseIdx];
 
         bool testCaseInitialized = false;
-        GLTFHandle gltfModel;
+        GLTFModelHandle gltfModel;
+        std::vector<GLTFModelInstanceHandle> gltfModelInstances;
+        gltfModelInstances.reserve(gripSpaces.size());
 
         auto setupTest = [&]() {
             // Load the model file into memory
@@ -173,6 +178,12 @@ namespace Conformance
             // Load the model
             gltfModel = GetGlobalData().graphicsPlugin->LoadGLTF(modelData);
 
+            gltfModelInstances.clear();
+
+            for (const auto& space : gripSpaces) {
+                (void)space;
+                gltfModelInstances.push_back(GetGlobalData().graphicsPlugin->CreateGLTFModelInstance(gltfModel));
+            }
             // Configure the interactive layer manager with the corresponding description and image
             std::ostringstream oss;
             oss << "Subtest " << (testCaseIdx + 1) << "/" << ArraySize(testCases) << ": " << testCase.name << std::endl;
@@ -189,9 +200,6 @@ namespace Conformance
             auto viewData = compositionHelper.LocateViews(localSpace, frameState.predictedDisplayTime);
             const auto& viewState = std::get<XrViewState>(viewData);
 
-            // want our standard action sets on all subaction paths
-            compositionHelper.GetInteractionManager().SyncActions(XR_NULL_PATH);
-
             if (!testCaseInitialized) {
                 testCase = testCases[testCaseIdx];
                 setupTest();
@@ -199,7 +207,8 @@ namespace Conformance
 
             std::vector<GLTFDrawable> renderedGLTFs;
 
-            for (const auto& space : gripSpaces) {
+            for (size_t i = 0; i < gripSpaces.size(); ++i) {
+                const auto& space = gripSpaces[i];
                 XrSpaceLocation location{XR_TYPE_SPACE_LOCATION};
                 if (XR_SUCCEEDED(xrLocateSpace(space, localSpace, frameState.predictedDisplayTime, &location))) {
                     if ((location.locationFlags & XR_SPACE_LOCATION_POSITION_VALID_BIT) &&
@@ -207,7 +216,8 @@ namespace Conformance
 
                         XrPosef adjustedPose;
                         XrPosef_Multiply(&adjustedPose, &location.pose, &testCase.poseInGripSpace);
-                        renderedGLTFs.push_back(GLTFDrawable{gltfModel, adjustedPose, {testCase.scale, testCase.scale, testCase.scale}});
+                        renderedGLTFs.push_back(
+                            GLTFDrawable{gltfModelInstances[i], adjustedPose, {testCase.scale, testCase.scale, testCase.scale}});
                     }
                 }
             }
@@ -239,6 +249,6 @@ namespace Conformance
             }
             return true;
         };
-        RenderLoop(compositionHelper.GetSession(), updateLayers).Loop();
+        RenderLoop(session, updateLayers).Loop();
     }
 }  // namespace Conformance

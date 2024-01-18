@@ -1,11 +1,10 @@
-// Copyright (c) 2022-2023, The Khronos Group Inc.
+// Copyright (c) 2022-2024, The Khronos Group Inc.
 //
 // SPDX-License-Identifier: MIT
 
 #pragma once
 
 #if defined(XR_USE_GRAPHICS_API_D3D11) && !defined(MISSING_DIRECTX_COLORS)
-#include "gltf.h"
 #include "gltf_model.h"
 
 #include "gltf/GltfHelper.h"
@@ -27,13 +26,14 @@ using Microsoft::WRL::ComPtr;
 
 namespace Conformance
 {
+    struct CmdBuffer;
 
-    class D3D11GLTF : public GltfModelBase<Pbr::D3D11Model, Pbr::D3D11Resources>
+    class D3D11GLTF : public RenderableGltfModelInstanceBase<Pbr::D3D11ModelInstance, Pbr::D3D11Resources>
     {
     public:
-        using GltfModelBase::GltfModelBase;
+        using RenderableGltfModelInstanceBase::RenderableGltfModelInstanceBase;
 
-        void Render(ComPtr<ID3D11DeviceContext> deviceContext, Pbr::D3D11Resources& resources, XrMatrix4x4f& modelToWorld) const;
+        void Render(ComPtr<ID3D11DeviceContext> deviceContext, Pbr::D3D11Resources& resources, XrMatrix4x4f& modelToWorld);
     };
 }  // namespace Conformance
 #endif

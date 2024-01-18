@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2023, The Khronos Group Inc.
+// Copyright (c) 2019-2024, The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -43,7 +43,7 @@ namespace Conformance
         MakeSystemPropertiesBoolChecker(XrSystemEyeGazeInteractionPropertiesEXT{XR_TYPE_SYSTEM_EYE_GAZE_INTERACTION_PROPERTIES_EXT},
                                         &XrSystemEyeGazeInteractionPropertiesEXT::supportsEyeGazeInteraction);
 
-    TEST_CASE("XR_EXT_eye_gaze_interaction", "[scenario][interactive][no_auto][XR_EXT_eye_gaze_interaction]")
+    TEST_CASE("XR_EXT_eye_gaze_interaction-system_support_optional", "[XR_EXT_eye_gaze_interaction]")
     {
         GlobalData& globalData = GetGlobalData();
         if (!globalData.IsInstanceExtensionSupported(XR_EXT_EYE_GAZE_INTERACTION_EXTENSION_NAME)) {
@@ -70,12 +70,7 @@ namespace Conformance
 
         SECTION("Extension enabled")
         {
-            AutoBasicInstance instance({XR_EXT_EYE_GAZE_INTERACTION_EXTENSION_NAME}, AutoBasicInstance::createSystemId);
-            XrSystemId systemId = instance.systemId;
-            if (!SystemSupportsEyeGazeInteraction(instance, systemId)) {
-                // This runtime does support eye gaze, but this headset does not which is fine.
-                SKIP("System does not support eye gaze interaction");
-            }
+            AutoBasicInstance instance({XR_EXT_EYE_GAZE_INTERACTION_EXTENSION_NAME});
 
             SECTION("Create and destroy eye gaze actions")
             {
@@ -206,14 +201,7 @@ namespace Conformance
             // Verify that eye gaze interaction input can be combined with other input sources.
             // Use Simple Controller profile as opposed to vendor-specific inputs for broader coverage.
 
-            AutoBasicInstance instance({XR_EXT_EYE_GAZE_INTERACTION_EXTENSION_NAME}, AutoBasicInstance::createSystemId);
-            XrSystemId systemId = instance.systemId;
-            if (!SystemSupportsEyeGazeInteraction(instance, systemId)) {
-                // This runtime does support eye gaze, but this headset does not which is fine.
-                WARN("System does not support eye gaze interaction");
-                return;
-            }
-
+            AutoBasicInstance instance({XR_EXT_EYE_GAZE_INTERACTION_EXTENSION_NAME});
             AutoBasicSession session(AutoBasicSession::beginSession, instance);
 
             // Create action set
@@ -279,6 +267,14 @@ namespace Conformance
             createActionSpaceInfo.poseInActionSpace = kPoseIdentity;
             XrSpace gazeActionSpace{XR_NULL_HANDLE};
             REQUIRE_RESULT(xrCreateActionSpace(session, &createActionSpaceInfo, &gazeActionSpace), XR_SUCCESS);
+        }
+    }
+
+    TEST_CASE("XR_EXT_eye_gaze_interaction", "[scenario][interactive][no_auto][XR_EXT_eye_gaze_interaction]")
+    {
+        GlobalData& globalData = GetGlobalData();
+        if (!globalData.IsInstanceExtensionSupported(XR_EXT_EYE_GAZE_INTERACTION_EXTENSION_NAME)) {
+            SKIP(XR_EXT_EYE_GAZE_INTERACTION_EXTENSION_NAME " not supported");
         }
 
         SECTION("Localize eye gaze paths")

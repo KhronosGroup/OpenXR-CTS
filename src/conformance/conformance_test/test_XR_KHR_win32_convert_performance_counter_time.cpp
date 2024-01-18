@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2023, The Khronos Group Inc.
+// Copyright (c) 2019-2024, The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -16,6 +16,7 @@
 
 #ifdef XR_USE_PLATFORM_WIN32
 #include "utilities/utils.h"
+#include "utilities/xrduration_literals.h"
 #include "conformance_utils.h"
 #include "conformance_framework.h"
 #include <catch2/catch_test_macros.hpp>

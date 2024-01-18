@@ -1,4 +1,4 @@
-// Copyright 2022-2023, The Khronos Group, Inc.
+// Copyright 2022-2024, The Khronos Group Inc.
 //
 // Based in part on code that is:
 // Copyright (C) Microsoft Corporation.  All Rights Reserved
@@ -52,13 +52,6 @@ namespace
     static_assert(offsetof(SceneConstantBuffer, LightDiffuseColor) == 96, "Offsets must match shader");
     static_assert(offsetof(SceneConstantBuffer, NumSpecularMipLevels) == 112, "Offsets must match shader");
 
-    struct ModelConstantBuffer
-    {
-        DirectX::XMFLOAT4X4 ModelToWorld;
-    };
-
-    static_assert((sizeof(ModelConstantBuffer) % 16) == 0, "Constant Buffer must be divisible by 16 bytes");
-
     const D3D11_INPUT_ELEMENT_DESC s_vertexDesc[6] = {
         {"POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0},
         {"NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0},
@@ -87,14 +80,10 @@ namespace Pbr
             XRC_CHECK_THROW_HRCMD(device->CreateVertexShader(g_PbrVertexShader, sizeof(g_PbrVertexShader), nullptr,
                                                              Resources.PbrVertexShader.ReleaseAndGetAddressOf()));
 
-            // Set up the constant buffers.
+            // Set up the scene constant buffer.
             const CD3D11_BUFFER_DESC pbrConstantBufferDesc(sizeof(SceneConstantBuffer), D3D11_BIND_CONSTANT_BUFFER);
             XRC_CHECK_THROW_HRCMD(
                 device->CreateBuffer(&pbrConstantBufferDesc, nullptr, Resources.SceneConstantBuffer.ReleaseAndGetAddressOf()));
-
-            const CD3D11_BUFFER_DESC modelConstantBufferDesc(sizeof(ModelConstantBuffer), D3D11_BIND_CONSTANT_BUFFER);
-            XRC_CHECK_THROW_HRCMD(
-                device->CreateBuffer(&modelConstantBufferDesc, nullptr, Resources.ModelConstantBuffer.ReleaseAndGetAddressOf()));
 
             // Samplers for environment map and BRDF.
             Resources.EnvironmentMapSampler = D3D11Texture::CreateSampler(device);
@@ -152,7 +141,6 @@ namespace Pbr
             Microsoft::WRL::ComPtr<ID3D11VertexShader> PbrVertexShader;
             Microsoft::WRL::ComPtr<ID3D11PixelShader> PbrPixelShader;
             Microsoft::WRL::ComPtr<ID3D11Buffer> SceneConstantBuffer;
-            Microsoft::WRL::ComPtr<ID3D11Buffer> ModelConstantBuffer;
             Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> BrdfLut;
             Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> SpecularEnvironmentMap;
             Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> DiffuseEnvironmentMap;
@@ -167,7 +155,6 @@ namespace Pbr
 
         DeviceResources Resources;
         SceneConstantBuffer SceneBuffer;
-        ModelConstantBuffer ModelBuffer;
 
         struct LoaderResources
         {
@@ -348,12 +335,6 @@ namespace Pbr
         m_impl->SceneBuffer.LightDiffuseColor = {diffuseColor.x, diffuseColor.y, diffuseColor.z};
     }
 
-    void XM_CALLCONV D3D11Resources::SetModelToWorld(DirectX::FXMMATRIX modelToWorld, _In_ ID3D11DeviceContext* context) const
-    {
-        XMStoreFloat4x4(&m_impl->ModelBuffer.ModelToWorld, XMMatrixTranspose(modelToWorld));
-        context->UpdateSubresource(m_impl->Resources.ModelConstantBuffer.Get(), 0, nullptr, &m_impl->ModelBuffer, 0, 0);
-    }
-
     void XM_CALLCONV D3D11Resources::SetViewProjection(DirectX::FXMMATRIX view, DirectX::CXMMATRIX projection)
     {
         XMStoreFloat4x4(&m_impl->SceneBuffer.ViewProjection, XMMatrixTranspose(XMMatrixMultiply(view, projection)));
@@ -391,10 +372,9 @@ namespace Pbr
         context->VSSetShader(m_impl->Resources.PbrVertexShader.Get(), nullptr, 0);
         context->PSSetShader(m_impl->Resources.PbrPixelShader.Get(), nullptr, 0);
 
-        ID3D11Buffer* vsBuffers[] = {m_impl->Resources.SceneConstantBuffer.Get(), m_impl->Resources.ModelConstantBuffer.Get()};
-        context->VSSetConstantBuffers(Pbr::ShaderSlots::ConstantBuffers::Scene, _countof(vsBuffers), vsBuffers);
         ID3D11Buffer* psBuffers[] = {m_impl->Resources.SceneConstantBuffer.Get()};
         context->PSSetConstantBuffers(Pbr::ShaderSlots::ConstantBuffers::Scene, _countof(psBuffers), psBuffers);
+
         context->IASetInputLayout(m_impl->Resources.InputLayout.Get());
 
         static_assert(ShaderSlots::DiffuseTexture == ShaderSlots::SpecularTexture + 1, "Diffuse must follow Specular slot");
@@ -404,6 +384,13 @@ namespace Pbr
         context->PSSetShaderResources(Pbr::ShaderSlots::Brdf, _countof(shaderResources), shaderResources);
         ID3D11SamplerState* samplers[] = {m_impl->Resources.BrdfSampler.Get(), m_impl->Resources.EnvironmentMapSampler.Get()};
         context->PSSetSamplers(ShaderSlots::Brdf, _countof(samplers), samplers);
+    }
+
+    void D3D11Resources::BindConstantBuffers(_In_ ID3D11DeviceContext* context, ID3D11Buffer* modelConstantBuffer) const
+    {
+        ID3D11Buffer* vsBuffers[] = {m_impl->Resources.SceneConstantBuffer.Get(), modelConstantBuffer};
+        context->VSSetConstantBuffers(Pbr::ShaderSlots::ConstantBuffers::Scene, _countof(vsBuffers), vsBuffers);
+        // PSSetConstantBuffers is done in Bind because it is not model-dependent
     }
 
     PrimitiveHandle D3D11Resources::MakePrimitive(const Pbr::PrimitiveBuilder& primitiveBuilder,

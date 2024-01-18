@@ -1,4 +1,4 @@
-// Copyright 2022-2023, The Khronos Group, Inc.
+// Copyright 2022-2024, The Khronos Group Inc.
 //
 // Based in part on code that is:
 // Copyright (C) Microsoft Corporation.  All Rights Reserved
@@ -23,7 +23,7 @@ namespace Pbr
     struct GLMaterial;
     struct PrimitiveBuilder;
 
-    // A primitive holds a vertex buffer, index buffer, and a pointer to a PBR material.
+    /// A primitive holds a vertex buffer, index buffer, and a pointer to a PBR material.
     struct GLPrimitive final
     {
         using Collection = std::vector<GLPrimitive>;
@@ -35,25 +35,20 @@ namespace Pbr
 
         void UpdateBuffers(const Pbr::PrimitiveBuilder& primitiveBuilder);
 
-        // Get the material for the primitive.
-        std::shared_ptr<GLMaterial>& GetMaterial()
-        {
-            return m_material;
-        }
+        /// Get the material for the primitive.
         const std::shared_ptr<GLMaterial>& GetMaterial() const
         {
             return m_material;
         }
 
-        // Replace the material for the primitive
+        /// Replace the material for the primitive
         void SetMaterial(std::shared_ptr<GLMaterial> material)
         {
             m_material = std::move(material);
         }
 
     protected:
-        // friend class Model;
-        friend class GLModel;
+        friend class GLModelInstance;
         void Render(FillMode fillMode) const;
 
     private:

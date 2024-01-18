@@ -1,21 +1,18 @@
-// Copyright 2022-2023, The Khronos Group, Inc.
+// Copyright 2022-2024, The Khronos Group Inc.
 //
 // Based in part on code that is:
 // Copyright (C) Microsoft Corporation.  All Rights Reserved
 // Licensed under the MIT License. See License.txt in the project root for license information.
 //
 // SPDX-License-Identifier: MIT AND Apache-2.0
+
 #pragma once
 #include "GLCommon.h"
 #include "GLResources.h"
 
+#include "../GlslBuffers.h"
 #include "../PbrHandles.h"
 #include "../PbrModel.h"
-
-#include "common/xr_linear.h"
-
-#include <stdint.h>
-#include <vector>
 
 namespace Pbr
 {
@@ -23,20 +20,21 @@ namespace Pbr
     struct GLPrimitive;
     struct GLResources;
 
-    class GLModel final : public Model
+    class GLModelInstance final : public ModelInstance
     {
     public:
-        // Render the model.
-        void Render(Pbr::GLResources const& pbrResources);
+        GLModelInstance(Pbr::GLResources& pbrResources, std::shared_ptr<const Model> model);
+
+        /// Render the model.
+        void Render(Pbr::GLResources const& pbrResources, XrMatrix4x4f modelToWorld);
 
     private:
-        // Updated the transforms used to render the model. This needs to be called any time a node transform is changed.
+        /// Update the transforms used to render the model. This needs to be called any time a node transform is changed.
         void UpdateTransforms(Pbr::GLResources const& pbrResources);
 
-        // Temporary buffer holds the world transforms, computed from the node's local transforms.
-        mutable std::vector<XrMatrix4x4f> m_modelTransforms;
-        mutable ScopedGLBuffer m_modelTransformsStructuredBuffer;
+        Glsl::ModelConstantBuffer m_modelBuffer;
+        ScopedGLBuffer m_modelConstantBuffer;
 
-        mutable uint32_t TotalModifyCount{0};
+        ScopedGLBuffer m_modelTransformsStructuredBuffer;
     };
 }  // namespace Pbr

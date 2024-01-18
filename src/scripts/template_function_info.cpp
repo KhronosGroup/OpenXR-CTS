@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2023, The Khronos Group Inc.
+// Copyright (c) 2017-2024, The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -11,6 +11,7 @@ namespace Conformance {
 // This is a generated list of information about functions.
 static const FunctionInfoMap functionInfoMapInternal{
 //# for cur_cmd in sorted_cmds
+//# if cur_cmd.ext_name != "XR_LOADER_VERSION_1_0"
     {/*{ cur_cmd.name | quote_string }*/,
      FunctionInfo(PFN_xrVoidFunction(nullptr),
 //# if cur_cmd.name in null_instance_ok
@@ -24,6 +25,7 @@ static const FunctionInfoMap functionInfoMapInternal{
      nullptr,
 //# endif
      {/*{ gen.allReturnCodesForCommand(cur_cmd) | join(', ') }*/})},
+//# endif
 //# endfor
 };
 

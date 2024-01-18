@@ -1,4 +1,4 @@
-// Copyright 2022-2023, The Khronos Group, Inc.
+// Copyright 2022-2024, The Khronos Group Inc.
 //
 // Based in part on code that is:
 // Copyright (C) Microsoft Corporation.  All Rights Reserved
@@ -15,7 +15,7 @@
 #include "GLPrimitive.h"
 #include "GLTexture.h"
 #include "GLTextureCache.h"
-#include "GlslBuffers.h"
+#include "../GlslBuffers.h"
 
 #include "../../gltf/GltfHelper.h"
 #include "../PbrCommon.h"
@@ -24,17 +24,14 @@
 
 #include "common/gfxwrapper_opengl.h"
 #include "utilities/opengl_utils.h"
-#include "utilities/throw_helpers.h"
 
 #include <nonstd/type.hpp>
 #include <tinygltf/tiny_gltf.h>
 
-#include <algorithm>
 #include <map>
 #include <stdexcept>
 #include <stdint.h>
 #include <tuple>
-#include <type_traits>
 #include <utility>
 #include <vector>
 
@@ -111,10 +108,6 @@ namespace Pbr
             XRC_CHECK_THROW_GLCMD(glBindBuffer(GL_UNIFORM_BUFFER, Resources.SceneConstantBuffer.get()));
             XRC_CHECK_THROW_GLCMD(glBufferData(GL_UNIFORM_BUFFER, sizeof(Glsl::SceneConstantBuffer), nullptr, GL_DYNAMIC_DRAW));
 
-            XRC_CHECK_THROW_GLCMD(glGenBuffers(1, Resources.ModelConstantBuffer.resetAndPut()));
-            XRC_CHECK_THROW_GLCMD(glBindBuffer(GL_UNIFORM_BUFFER, Resources.ModelConstantBuffer.get()));
-            XRC_CHECK_THROW_GLCMD(glBufferData(GL_UNIFORM_BUFFER, sizeof(Glsl::ModelConstantBuffer), nullptr, GL_DYNAMIC_DRAW));
-
             // Samplers for environment map and BRDF.
             Resources.BrdfSampler = GLTexture::CreateSampler();
             Resources.EnvironmentMapSampler = GLTexture::CreateSampler();
@@ -128,7 +121,6 @@ namespace Pbr
             ScopedGLSampler BrdfSampler;
             ScopedGLSampler EnvironmentMapSampler;
             ScopedGLBuffer SceneConstantBuffer;
-            ScopedGLBuffer ModelConstantBuffer;
             std::shared_ptr<ScopedGLTexture> BrdfLut;
             std::shared_ptr<ScopedGLTexture> SpecularEnvironmentMap;
             std::shared_ptr<ScopedGLTexture> DiffuseEnvironmentMap;
@@ -138,7 +130,6 @@ namespace Pbr
 
         DeviceResources Resources;
         Glsl::SceneConstantBuffer SceneBuffer;
-        Glsl::ModelConstantBuffer ModelBuffer;
 
         struct LoaderResources
         {
@@ -283,13 +274,6 @@ namespace Pbr
         m_impl->SceneBuffer.LightDiffuseColor = diffuseColor;
     }
 
-    void GLResources::SetModelToWorld(XrMatrix4x4f modelToWorld) const
-    {
-        m_impl->ModelBuffer.ModelToWorld = modelToWorld;
-        XRC_CHECK_THROW_GLCMD(glBindBuffer(GL_UNIFORM_BUFFER, m_impl->Resources.ModelConstantBuffer.get()));
-        XRC_CHECK_THROW_GLCMD(glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(Glsl::ModelConstantBuffer), &m_impl->ModelBuffer));
-    }
-
     void GLResources::SetViewProjection(XrMatrix4x4f view, XrMatrix4x4f projection) const
     {
         XrMatrix4x4f_Multiply(&m_impl->SceneBuffer.ViewProjection, &projection, &view);
@@ -316,7 +300,6 @@ namespace Pbr
 
     void GLResources::Bind() const
     {
-        // SetModelToWorld must always be called before this, populating the ModelConstantBuffer.
         XRC_CHECK_THROW_GLCMD(glBindBuffer(GL_UNIFORM_BUFFER, m_impl->Resources.SceneConstantBuffer.get()));
         XRC_CHECK_THROW_GLCMD(glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(Glsl::SceneConstantBuffer), &m_impl->SceneBuffer));
 
@@ -324,8 +307,7 @@ namespace Pbr
 
         XRC_CHECK_THROW_GLCMD(
             glBindBufferBase(GL_UNIFORM_BUFFER, ShaderSlots::ConstantBuffers::Scene, m_impl->Resources.SceneConstantBuffer.get()));
-        XRC_CHECK_THROW_GLCMD(
-            glBindBufferBase(GL_UNIFORM_BUFFER, ShaderSlots::ConstantBuffers::Model, m_impl->Resources.ModelConstantBuffer.get()));
+        // ModelConstantBuffer is bound in GLModelInstance::Render
 
         XRC_CHECK_THROW_GLCMD(  //
             glActiveTexture(GL_TEXTURE0 + ShaderSlots::GLSL::MaterialTexturesOffset + ShaderSlots::Brdf));
@@ -425,4 +407,4 @@ namespace Pbr
     }
 }  // namespace Pbr
 
-#endif
+#endif  // defined(XR_USE_GRAPHICS_API_OPENGL) || defined(XR_USE_GRAPHICS_API_OPENGL_ES)

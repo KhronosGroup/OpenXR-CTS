@@ -1,4 +1,4 @@
-// Copyright 2023, The Khronos Group, Inc.
+// Copyright 2023-2024, The Khronos Group Inc.
 //
 // Based in part on code that is:
 //
@@ -33,9 +33,6 @@ namespace Pbr
     public:
         /// Default constructor makes an invalid cache.
         VulkanTextureCache() = default;
-
-        // VulkanTextureCache(const VulkanTextureCache&) = default;
-        // VulkanTextureCache& operator=(const VulkanTextureCache&) = default;
 
         VulkanTextureCache(VulkanTextureCache&&) = default;
         VulkanTextureCache& operator=(VulkanTextureCache&&) = default;

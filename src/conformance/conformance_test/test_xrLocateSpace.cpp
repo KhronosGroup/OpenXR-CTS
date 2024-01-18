@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2023, The Khronos Group Inc.
+// Copyright (c) 2019-2024, The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -14,21 +14,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "composition_utils.h"
 #include "conformance_framework.h"
 #include "conformance_utils.h"
 #include "utilities/bitmask_to_string.h"
 #include "utilities/types_and_constants.h"
+#include "utilities/xrduration_literals.h"
 
 #include <catch2/catch_test_macros.hpp>
 #include <openxr/openxr.h>
 
 #include <algorithm>
-#include <chrono>
 #include <cmath>
-#include <ostream>
-#include <ratio>
-#include <thread>
-#include <vector>
 
 namespace Conformance
 {
@@ -176,20 +173,17 @@ namespace Conformance
                 CHECK(XR_SUCCESS == xrCreateReferenceSpace(sessionHandle, &spaceCreateInfo, &spaceB));
 
                 XrResult result = xrLocateSpace(spaceA, spaceB, time, &location);
-                CHECK(XR_SUCCESS == result);
+                {
+                    INFO("xrLocateSpace");
+                    CHECK(XR_SUCCESS == result);
+                }
 
                 // the main test:
                 if (XR_SUCCESS == result) {
                     // Capture the three poses and the result to generate useful error messages in case the result is not
                     // identical to the expected values.
-                    CAPTURE(poseSpaceA.orientation.x, poseSpaceA.orientation.y, poseSpaceA.orientation.z, poseSpaceA.orientation.w,
-                            poseSpaceA.position.x, poseSpaceA.position.y, poseSpaceA.position.z, poseSpaceB.orientation.x,
-                            poseSpaceB.orientation.y, poseSpaceB.orientation.z, poseSpaceB.orientation.w, poseSpaceB.position.x,
-                            poseSpaceB.position.y, poseSpaceB.position.z, expectedResult.orientation.x, expectedResult.orientation.y,
-                            expectedResult.orientation.z, expectedResult.orientation.w, expectedResult.position.x,
-                            expectedResult.position.y, expectedResult.position.z, location.pose.orientation.x, location.pose.orientation.y,
-                            location.pose.orientation.z, location.pose.orientation.w, location.pose.position.x, location.pose.position.y,
-                            location.pose.position.z);
+                    CAPTURE(poseSpaceA.orientation, poseSpaceA.position, poseSpaceB.orientation, poseSpaceB.position,
+                            expectedResult.orientation, expectedResult.position, location.pose.orientation, location.pose.position);
                     ValidateSpaceLocation(location, expectedResult);
                 }
 
@@ -205,7 +199,7 @@ namespace Conformance
             LocateAndTest(identity, identity, identity);
 
             // Exercise identical spaces which are not located at the origin of the reference space.
-            XrPosef space = {{0, 0, 0, 1}, {1, 2, 3}};
+            XrPosef space = {Quat::Identity, {1, 2, 3}};
             LocateAndTest(space, space, identity);
 
             // Exercise identical spaces which also have a rotation.
@@ -213,10 +207,10 @@ namespace Conformance
             LocateAndTest(space, space, identity);
 
             // Exercise different spaces without a rotation.
-            LocateAndTest({{0, 0, 0, 1}, {1, 2, 3}}, {{0, 0, 0, 1}, {-1, -2, -3}}, {{0, 0, 0, 1}, {2, 4, 6}});
+            LocateAndTest({Quat::Identity, {1, 2, 3}}, {Quat::Identity, {-1, -2, -3}}, {Quat::Identity, {2, 4, 6}});
 
             // Another test with different spaces.
-            LocateAndTest({{0, 0, 0, 1}, {-1, -2, -3}}, {{0, 0, 0, 1}, {1, 2, 3}}, {{0, 0, 0, 1}, {-2, -4, -6}});
+            LocateAndTest({Quat::Identity, {-1, -2, -3}}, {Quat::Identity, {1, 2, 3}}, {Quat::Identity, {-2, -4, -6}});
 
             const float pi = std::acos(-1.0f);
             float deg90 = pi / 2.0f;

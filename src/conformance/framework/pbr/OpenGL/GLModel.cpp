@@ -1,4 +1,4 @@
-// Copyright 2022-2023, The Khronos Group, Inc.
+// Copyright 2022-2024, The Khronos Group Inc.
 //
 // Based in part on code that is:
 // Copyright (C) Microsoft Corporation.  All Rights Reserved
@@ -15,6 +15,7 @@
 #include "GLPrimitive.h"
 #include "GLResources.h"
 
+#include "../GlslBuffers.h"
 #include "../PbrHandles.h"
 #include "../PbrModel.h"
 #include "../PbrSharedState.h"
@@ -22,22 +23,27 @@
 #include "common/gfxwrapper_opengl.h"
 #include "utilities/opengl_utils.h"
 
-#include <algorithm>
-#include <assert.h>
-#include <numeric>
 #include <stddef.h>
 
 namespace Pbr
 {
 
-    void GLModel::Render(Pbr::GLResources const& pbrResources)
+    void GLModelInstance::Render(Pbr::GLResources const& pbrResources, XrMatrix4x4f modelToWorld)
     {
+        // Update model buffer
+        m_modelBuffer.ModelToWorld = modelToWorld;
+        XRC_CHECK_THROW_GLCMD(glBindBuffer(GL_UNIFORM_BUFFER, m_modelConstantBuffer.get()));
+        XRC_CHECK_THROW_GLCMD(glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(Glsl::ModelConstantBuffer), &m_modelBuffer));
+        // Bind model buffer
+        XRC_CHECK_THROW_GLCMD(glBindBufferBase(GL_UNIFORM_BUFFER, ShaderSlots::ConstantBuffers::Model, m_modelConstantBuffer.get()));
+
         UpdateTransforms(pbrResources);
 
-        XRC_CHECK_THROW_GLCMD(glBindBufferBase(GL_SHADER_STORAGE_BUFFER, ShaderSlots::GLSL::VSResourceViewsOffset + ShaderSlots::Transforms,
+        XRC_CHECK_THROW_GLCMD(glBindBufferBase(GL_SHADER_STORAGE_BUFFER,
+                                               (int)ShaderSlots::GLSL::VSResourceViewsOffset + (int)ShaderSlots::Transforms,
                                                m_modelTransformsStructuredBuffer.get()));
 
-        for (PrimitiveHandle primitiveHandle : GetPrimitives()) {
+        for (PrimitiveHandle primitiveHandle : GetModel().GetPrimitiveHandles()) {
             const Pbr::GLPrimitive& primitive = pbrResources.GetPrimitive(primitiveHandle);
             if (primitive.GetMaterial()->Hidden)
                 continue;
@@ -45,55 +51,44 @@ namespace Pbr
             primitive.GetMaterial()->Bind(pbrResources);
             primitive.Render(pbrResources.GetFillMode());
         }
-
-        // Expect the caller to reset other state, but the geometry shader is cleared specially.
-        //context->GSSetShader(nullptr, nullptr, 0);
     }
 
-    void GLModel::UpdateTransforms(Pbr::GLResources const& /* pbrResources */)
+    GLModelInstance::GLModelInstance(Pbr::GLResources& /* pbrResources */, std::shared_ptr<const Model> model)
+        : ModelInstance(std::move(model))
     {
-        const auto& nodes = GetNodes();
-        const uint32_t newTotalModifyCount = std::accumulate(nodes.begin(), nodes.end(), 0, [](uint32_t sumChangeCount, const Node& node) {
-            return sumChangeCount + node.GetModifyCount();
-        });
+        // Set up the model constant buffer.
+        XRC_CHECK_THROW_GLCMD(glGenBuffers(1, m_modelConstantBuffer.resetAndPut()));
+        XRC_CHECK_THROW_GLCMD(glBindBuffer(GL_UNIFORM_BUFFER, m_modelConstantBuffer.get()));
+        XRC_CHECK_THROW_GLCMD(glBufferData(GL_UNIFORM_BUFFER, sizeof(Glsl::ModelConstantBuffer), nullptr, GL_DYNAMIC_DRAW));
 
+        // Set up the transforms buffer.
+        XrMatrix4x4f identityMatrix;
+        XrMatrix4x4f_CreateIdentity(&identityMatrix);  // or better yet poison it
+        size_t nodeCount = GetModel().GetNodes().size();
+
+        size_t elemSize = sizeof(XrMatrix4x4f);
+        size_t count = nodeCount;
+        size_t size = count * elemSize;
+
+        XRC_CHECK_THROW_GLCMD(glGenBuffers(1, m_modelTransformsStructuredBuffer.resetAndPut()));
+        XRC_CHECK_THROW_GLCMD(glBindBuffer(GL_SHADER_STORAGE_BUFFER, m_modelTransformsStructuredBuffer.get()));
+        XRC_CHECK_THROW_GLCMD(glBufferData(GL_SHADER_STORAGE_BUFFER, size, nullptr, GL_DYNAMIC_DRAW));
+    }
+
+    void GLModelInstance::UpdateTransforms(Pbr::GLResources const& /* pbrResources */)
+    {
         // If none of the node transforms have changed, no need to recompute/update the model transform structured buffer.
-        if (newTotalModifyCount != TotalModifyCount || m_modelTransformsStructuredBufferInvalid) {
-            if (m_modelTransformsStructuredBufferInvalid)  // The structured buffer is reset when a Node is added.
-            {
-                XrMatrix4x4f identityMatrix;
-                XrMatrix4x4f_CreateIdentity(&identityMatrix);  // or better yet poison it
-                m_modelTransforms.resize(nodes.size(), identityMatrix);
-
-                size_t elemSize = sizeof(decltype(m_modelTransforms)::value_type);
-                XRC_CHECK_THROW_GLCMD(glGenBuffers(1, m_modelTransformsStructuredBuffer.resetAndPut()));
-                XRC_CHECK_THROW_GLCMD(glBindBuffer(GL_SHADER_STORAGE_BUFFER, m_modelTransformsStructuredBuffer.get()));
-                XRC_CHECK_THROW_GLCMD(
-                    glBufferData(GL_SHADER_STORAGE_BUFFER, elemSize * m_modelTransforms.size(), m_modelTransforms.data(), GL_DYNAMIC_DRAW));
-
-                m_modelTransformsStructuredBufferInvalid = false;
-            }
-
-            // Nodes are guaranteed to come after their parents, so each node transform can be multiplied by its parent transform in a single pass.
-            assert(nodes.size() == m_modelTransforms.size());
-            XrMatrix4x4f identityMatrix;
-            XrMatrix4x4f_CreateIdentity(&identityMatrix);
-            for (const auto& node : nodes) {
-                assert(node.ParentNodeIndex == RootParentNodeIndex || node.ParentNodeIndex < node.Index);
-                const XrMatrix4x4f& parentTransform =
-                    (node.ParentNodeIndex == RootParentNodeIndex) ? identityMatrix : m_modelTransforms[node.ParentNodeIndex];
-                XrMatrix4x4f nodeTransform = node.GetTransform();
-                XrMatrix4x4f_Multiply(&m_modelTransforms[node.Index], &parentTransform, &nodeTransform);
-            }
+        if (WereNodeLocalTransformsUpdated()) {
+            ResolveTransforms(false);
 
             // Update node transform structured buffer.
+            auto& resolvedTransforms = GetResolvedTransforms();
             XRC_CHECK_THROW_GLCMD(glBindBuffer(GL_SHADER_STORAGE_BUFFER, m_modelTransformsStructuredBuffer.get()));
-            XRC_CHECK_THROW_GLCMD(glBufferSubData(GL_SHADER_STORAGE_BUFFER, 0,
-                                                  sizeof(decltype(m_modelTransforms)::value_type) * m_modelTransforms.size(),
-                                                  this->m_modelTransforms.data()));
-            TotalModifyCount = newTotalModifyCount;
+            XRC_CHECK_THROW_GLCMD(
+                glBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, sizeof(XrMatrix4x4f) * resolvedTransforms.size(), resolvedTransforms.data()));
+            ClearTransformsUpdatedFlag();
         }
     }
 }  // namespace Pbr
 
-#endif
+#endif  // defined(XR_USE_GRAPHICS_API_OPENGL) || defined(XR_USE_GRAPHICS_API_OPENGL_ES)

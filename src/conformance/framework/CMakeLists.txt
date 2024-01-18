@@ -1,10 +1,10 @@
-# Copyright (c) 2019-2023, The Khronos Group Inc.
+# Copyright (c) 2019-2024, The Khronos Group Inc.
 #
 # SPDX-License-Identifier: Apache-2.0
 
 # tinygltf
 
-add_library(conformance_framework_tinygltf STATIC gltf.cpp)
+add_library(conformance_framework_tinygltf STATIC cts_tinygltf.cpp)
 
 target_include_directories(
     conformance_framework_tinygltf
@@ -59,6 +59,7 @@ add_library(
     conformance_utils.cpp
     controller_animation_handler.cpp
     environment.cpp
+    gltf_helpers.cpp
     graphics_plugin_d3d11.cpp
     graphics_plugin_d3d11_gltf.cpp
     graphics_plugin_d3d12.cpp

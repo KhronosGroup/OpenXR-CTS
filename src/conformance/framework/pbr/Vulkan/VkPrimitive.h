@@ -1,4 +1,4 @@
-// Copyright 2023, The Khronos Group, Inc.
+// Copyright 2023-2024, The Khronos Group Inc.
 //
 // Based in part on code that is:
 //
@@ -29,7 +29,7 @@ namespace Pbr
     struct VulkanMaterial;
     struct VulkanResources;
 
-    // A primitive holds a vertex buffer, index buffer, and a pointer to a PBR material.
+    /// A primitive holds a vertex buffer, index buffer, and a pointer to a PBR material.
     struct VulkanPrimitive final
     {
         using Collection = std::vector<VulkanPrimitive>;
@@ -39,13 +39,7 @@ namespace Pbr
         VulkanPrimitive(Pbr::VulkanResources const& pbrResources, const Pbr::PrimitiveBuilder& primitiveBuilder,
                         const std::shared_ptr<Pbr::VulkanMaterial>& material);
 
-        // void UpdateBuffers(Pbr::VulkanResources& pbrResources, const Pbr::PrimitiveBuilder& primitiveBuilder);
-
         /// Get the material for the primitive.
-        std::shared_ptr<VulkanMaterial>& GetMaterial()
-        {
-            return m_material;
-        }
         const std::shared_ptr<VulkanMaterial>& GetMaterial() const
         {
             return m_material;
@@ -58,10 +52,10 @@ namespace Pbr
         }
 
     protected:
-        // friend class Model;
-        friend class VulkanModel;
+        friend class VulkanModelInstance;
         void Render(Conformance::CmdBuffer& directCommandBuffer, VulkanResources& pbrResources, VkDescriptorSet descriptorSet,
-                    VkRenderPass renderPass, VkSampleCountFlagBits sampleCount, VkDescriptorBufferInfo transformBuffer) const;
+                    VkRenderPass renderPass, VkSampleCountFlagBits sampleCount, VkDescriptorBufferInfo modelConstantBuffer,
+                    VkDescriptorBufferInfo transformBuffer) const;
 
         /// The clone shares the vertex and index buffers - they are not cloned
         VulkanPrimitive Clone(Pbr::VulkanResources const& pbrResources) const;

@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2023, The Khronos Group Inc.
+// Copyright (c) 2019-2024, The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -43,14 +43,15 @@ void ValidateXrQuaternion(ConformanceHooksBase* conformanceHook, const XrQuatern
 void ValidateXrVector3f(ConformanceHooksBase* conformanceHook, const XrVector3f& v, const char* valueName, const char* xrFunctionName);
 
 // clang-format off
-#define ENUM_CASE_BOOL(name, val) case name: return true;
+#define ENUM_CASE_BOOL(name, val) case name:
 #define MAKE_IS_VALID_ENUM_VALUE(enumType, zeroIsValid) \
     inline bool is_valid_enum_val(enumType e) {         \
         if (!zeroIsValid && e == 0) return false;       \
-        else if (e == 0x7FFFFFFF) return false;         \
+        if (e == 0x7FFFFFFF) return false;              \
                                                         \
         switch (e) {                                    \
             XR_LIST_ENUM_##enumType(ENUM_CASE_BOOL)     \
+            return true;                                \
             default: return false;                      \
         }                                               \
     }

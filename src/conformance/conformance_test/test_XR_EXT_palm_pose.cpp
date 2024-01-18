@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2023, The Khronos Group Inc.
+// Copyright (c) 2019-2024, The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -60,7 +60,7 @@ namespace Conformance
             "A hand in a pointing pose is rendered in the other hand using the palm action space. "
             "Press select to swap hands. Press menu to complete the validation.";
 
-        CompositionHelper compositionHelper(XR_EXT_PALM_POSE_EXTENSION_NAME, {XR_EXT_PALM_POSE_EXTENSION_NAME});
+        CompositionHelper compositionHelper("Palm Pose", {XR_EXT_PALM_POSE_EXTENSION_NAME});
 
         const XrSpace localSpace = compositionHelper.CreateReferenceSpace(XR_REFERENCE_SPACE_TYPE_LOCAL, XrPosefCPP{});
 

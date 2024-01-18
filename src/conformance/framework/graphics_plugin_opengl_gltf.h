@@ -1,11 +1,10 @@
-// Copyright (c) 2022-2023, The Khronos Group Inc.
+// Copyright (c) 2022-2024, The Khronos Group Inc.
 //
 // SPDX-License-Identifier: MIT
 
 #pragma once
 
 #if defined(XR_USE_GRAPHICS_API_OPENGL) || defined(XR_USE_GRAPHICS_API_OPENGL_ES)
-#include "gltf.h"
 #include "gltf_model.h"
 
 #include "common/xr_linear.h"
@@ -28,12 +27,12 @@ namespace Pbr
 namespace Conformance
 {
 
-    class GLGLTF : public GltfModelBase<Pbr::GLModel, Pbr::GLResources>
+    class GLGLTF : public RenderableGltfModelInstanceBase<Pbr::GLModelInstance, Pbr::GLResources>
     {
     public:
-        using GltfModelBase::GltfModelBase;
+        using RenderableGltfModelInstanceBase::RenderableGltfModelInstanceBase;
 
-        void Render(Pbr::GLResources& resources, XrMatrix4x4f& modelToWorld) const;
+        void Render(Pbr::GLResources& resources, XrMatrix4x4f& modelToWorld);
     };
 }  // namespace Conformance
 #endif

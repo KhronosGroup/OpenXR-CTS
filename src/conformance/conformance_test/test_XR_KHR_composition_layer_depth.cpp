@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2023, The Khronos Group Inc.
+// Copyright (c) 2019-2024, The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -17,6 +17,7 @@
 #include "conformance_framework.h"
 #include "conformance_utils.h"
 #include "utilities/bitmask_generator.h"
+#include "utilities/xrduration_literals.h"
 
 #include <catch2/catch_test_macros.hpp>
 #include <openxr/openxr.h>

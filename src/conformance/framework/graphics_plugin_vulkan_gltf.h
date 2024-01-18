@@ -1,10 +1,9 @@
-// Copyright (c) 2022-2023, The Khronos Group Inc.
+// Copyright (c) 2022-2024, The Khronos Group Inc.
 //
 // SPDX-License-Identifier: MIT
 
 #pragma once
 #ifdef XR_USE_GRAPHICS_API_VULKAN
-#include "gltf.h"
 #include "gltf_model.h"
 
 #include "common/xr_linear.h"
@@ -22,7 +21,7 @@
 
 namespace Pbr
 {
-    class VulkanModel;
+    class Model;
     struct VulkanResources;
 }  // namespace Pbr
 
@@ -30,13 +29,13 @@ namespace Conformance
 {
     struct CmdBuffer;
 
-    class VulkanGLTF : public GltfModelBase<Pbr::VulkanModel, Pbr::VulkanResources>
+    class VulkanGLTF : public RenderableGltfModelInstanceBase<Pbr::VulkanModelInstance, Pbr::VulkanResources>
     {
     public:
-        using GltfModelBase::GltfModelBase;
+        using RenderableGltfModelInstanceBase::RenderableGltfModelInstanceBase;
 
-        void Render(CmdBuffer& directCommandBuffer, Pbr::VulkanResources& resources, XrMatrix4x4f& modelToWorld, VkRenderPass renderPass,
-                    VkSampleCountFlagBits sampleCount) const;
+        void Render(CmdBuffer& directCommandBuffer, Pbr::VulkanResources& resources, const XrMatrix4x4f& modelToWorld,
+                    VkRenderPass renderPass, VkSampleCountFlagBits sampleCount);
     };
 }  // namespace Conformance
 #endif

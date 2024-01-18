@@ -1,4 +1,4 @@
-// Copyright 2022-2023, The Khronos Group, Inc.
+// Copyright 2022-2024, The Khronos Group Inc.
 //
 // Based in part on code that is:
 // Copyright (C) Microsoft Corporation.  All Rights Reserved
@@ -37,31 +37,25 @@ namespace Gltf
     void PopulateFromGltfBinary(Pbr::Model& model, Pbr::IResources& pbrResources, const uint8_t* buffer, uint32_t bufferBytes);
 
     // Creates a Pbr Model from tinygltf model.
-    template <typename DerivedModel>
-    std::shared_ptr<DerivedModel> FromGltfObject(Pbr::IResources& pbrResources, const tinygltf::Model& gltfModel)
+    inline std::shared_ptr<Pbr::Model> FromGltfObject(Pbr::IResources& pbrResources, const tinygltf::Model& gltfModel)
     {
-        static_assert(std::is_base_of<Pbr::Model, DerivedModel>::value, "DerivedModel not derived from Pbr::Model");
-
         // Start off with an empty Model.
-        auto model = std::make_shared<DerivedModel>();
+        auto model = std::make_shared<Pbr::Model>();
         PopulateFromGltfObject(*model, pbrResources, gltfModel);
         return model;
     }
 
     // Creates a Pbr Model from glTF 2.0 GLB file content.
-    template <typename DerivedModel>
-    std::shared_ptr<DerivedModel> FromGltfBinary(Pbr::IResources& pbrResources, const uint8_t* buffer, uint32_t bufferBytes)
+    inline std::shared_ptr<Pbr::Model> FromGltfBinary(Pbr::IResources& pbrResources, const uint8_t* buffer, uint32_t bufferBytes)
     {
-        static_assert(std::is_base_of<Pbr::Model, DerivedModel>::value, "DerivedModel not derived from Pbr::Model");
-
         // Start off with an empty Model.
-        auto model = std::make_shared<DerivedModel>();
+        auto model = std::make_shared<Pbr::Model>();
         PopulateFromGltfBinary(*model, pbrResources, buffer, bufferBytes);
         return model;
     }
 
-    template <typename DerivedModel, typename Container>
-    std::shared_ptr<DerivedModel> FromGltfBinary(Pbr::IResources& pbrResources, const Container& buffer)
+    template <typename Container>
+    std::shared_ptr<Pbr::Model> FromGltfBinary(Pbr::IResources& pbrResources, const Container& buffer)
     {
         return FromGltfBinary(pbrResources, buffer.data(), static_cast<uint32_t>(buffer.size()));
     }

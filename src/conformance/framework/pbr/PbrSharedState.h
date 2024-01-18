@@ -1,4 +1,4 @@
-// Copyright 2023, The Khronos Group, Inc.
+// Copyright 2023-2024, The Khronos Group Inc.
 //
 // Based in part on code that is:
 //
@@ -72,8 +72,8 @@ namespace Pbr
             enum BindingOffsets
             {
                 VSResourceViewsOffset = NumConstantBuffers,
-                MaterialTexturesOffset = VSResourceViewsOffset + NumVSResourceViews,
-                GlobalTexturesOffset = MaterialTexturesOffset + NumMaterialSlots,
+                MaterialTexturesOffset = (int)VSResourceViewsOffset + (int)NumVSResourceViews,
+                GlobalTexturesOffset = (int)MaterialTexturesOffset + (int)NumMaterialSlots,
             };
         }
     }  // namespace ShaderSlots

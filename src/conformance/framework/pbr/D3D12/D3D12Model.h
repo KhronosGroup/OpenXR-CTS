@@ -1,10 +1,11 @@
-// Copyright 2022-2023, The Khronos Group, Inc.
+// Copyright 2022-2024, The Khronos Group Inc.
 //
 // Based in part on code that is:
 // Copyright (C) Microsoft Corporation.  All Rights Reserved
 // Licensed under the MIT License. See License.txt in the project root for license information.
 //
 // SPDX-License-Identifier: MIT AND Apache-2.0
+
 #pragma once
 #include "D3D12Resources.h"
 
@@ -16,22 +17,30 @@ namespace Pbr
 
     struct D3D12Primitive;
 
-    class D3D12Model final : public Model
+    struct ModelConstantBuffer
+    {
+        DirectX::XMFLOAT4X4 ModelToWorld;
+    };
+
+    static_assert((sizeof(ModelConstantBuffer) % 16) == 0, "Constant Buffer must be divisible by 16 bytes");
+
+    class D3D12ModelInstance final : public ModelInstance
     {
     public:
-        // Render the model.
+        D3D12ModelInstance(Pbr::D3D12Resources& pbrResources, std::shared_ptr<const Model> model);
+
+        /// Render the model.
         void Render(Pbr::D3D12Resources& pbrResources, _In_ ID3D12GraphicsCommandList* directCommandList,
-                    DXGI_FORMAT colorRenderTargetFormat, DXGI_FORMAT depthRenderTargetFormat);
+                    DXGI_FORMAT colorRenderTargetFormat, DXGI_FORMAT depthRenderTargetFormat, DirectX::FXMMATRIX modelToWorld);
 
     private:
-        // Updated the transforms used to render the model. This needs to be called any time a node transform is changed.
+        /// Update the transforms used to render the model. This needs to be called any time a node transform is changed.
         void UpdateTransforms(Pbr::D3D12Resources& pbrResources);
 
-        // Temporary buffer holds the world transforms, computed from the node's local transforms.
-        mutable std::vector<XrMatrix4x4f> m_modelTransforms;
-        mutable Conformance::D3D12BufferWithUpload<XrMatrix4x4f> m_modelTransformsStructuredBuffer;
-        mutable Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> m_modelTransformsResourceViewHeap;
+        ModelConstantBuffer m_modelBuffer;
+        Conformance::D3D12BufferWithUpload<ModelConstantBuffer> m_modelConstantBuffer;
 
-        mutable uint32_t TotalModifyCount{0};
+        Conformance::D3D12BufferWithUpload<XrMatrix4x4f> m_modelTransformsStructuredBuffer;
+        Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> m_modelTransformsResourceViewHeap;
     };
 }  // namespace Pbr

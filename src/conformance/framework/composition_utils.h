@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2023, The Khronos Group Inc.
+// Copyright (c) 2019-2024, The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -33,6 +33,7 @@
 #include <cstdint>
 #include <cstring>
 #include <functional>
+#include <initializer_list>
 #include <list>
 #include <map>
 #include <memory>
@@ -47,9 +48,9 @@ namespace Conformance
     class EventReader;
     class ISwapchainImageData;
 
-    RGBAImage CreateTextImage(int32_t width, int32_t height, const char* text, int32_t fontHeight);
+    RGBAImage CreateTextImage(int32_t width, int32_t height, const char* text, int32_t fontHeight, WordWrap wordWrap = WordWrap::Enabled);
 
-    XrPath StringToPath(XrInstance instance, const char* pathStr);
+    XrPath StringToPath(XrInstance instance, const std::string& pathStr);
 
     using UpdateLayers = std::function<void(const XrFrameState&)>;
     using EndFrame = std::function<bool(const XrFrameState&)>;  // Return false to stop the loop.
@@ -84,6 +85,7 @@ namespace Conformance
         void AddActionSet(XrActionSet actionSet);
         void AttachActionSets(std::vector<XrPath>* assertInteractionProfilePath = nullptr);
         void SyncActions(XrPath subactionPath);
+        void SyncActions(const std::initializer_list<XrPath>& subactionPaths);
 
     private:
         XrInstance m_instance;
@@ -94,9 +96,14 @@ namespace Conformance
         std::vector<XrActionSet> m_actionSets;
     };
 
-    /// A helper for basic frame loop and rendering operations, wrapping an instance, session, and @ref InteractionManager
+    /// A helper for basic frame loop and rendering operations, wrapping an instance, session, and @ref InteractionManager.
+    ///
+    /// Displays the usual title box.
     struct CompositionHelper
     {
+        /// Constructor
+        ///
+        /// Note that "testName" is the title that will be shown on the device: it is limited in size and often cannot show the entire actual test name.
         CompositionHelper(const char* testName, const std::vector<const char*>& additionalEnabledExtensions = std::vector<const char*>());
         ~CompositionHelper();
 
@@ -136,6 +143,7 @@ namespace Conformance
 
         EventQueue& GetEventQueue() const;
 
+        /// Call xrEndFrame submitting the given layers.
         void EndFrame(XrTime predictedDisplayTime, std::vector<XrCompositionLayerBaseHeader*> layers);
 
         /// Create a handle for a reference space of type @p type owned by this class.
@@ -214,6 +222,12 @@ namespace Conformance
         /// Typically used with @ref MakeDefaultSubImage to finish populating the structure.
         XrCompositionLayerProjection* CreateProjectionLayer(XrSpace space);
 
+        /// Return the session state from the most recent session state changed event
+        XrSessionState GetSessionState() const
+        {
+            return m_sessionState;
+        }
+
     private:
         std::mutex m_mutex;
 
@@ -229,6 +243,7 @@ namespace Conformance
         int64_t m_defaultColorFormat;
         XrViewConfigurationType m_primaryViewType;
         uint32_t m_projectionViewCount{0};
+        XrSessionState m_sessionState = XR_SESSION_STATE_UNKNOWN;
 
         std::list<XrCompositionLayerProjection> m_projections;
         std::list<std::vector<XrCompositionLayerProjectionView>> m_projectionViews;
@@ -471,6 +486,12 @@ namespace Conformance
             m_sceneLayers.push_back(reinterpret_cast<XrCompositionLayerBaseHeader*>(layer));
         }
 
+        template <typename T>
+        void AddBackgroundLayer(T* layer)
+        {
+            m_backgroundLayers.push_back(reinterpret_cast<XrCompositionLayerBaseHeader*>(layer));
+        }
+
         bool EndFrame(const XrFrameState& frameState, std::vector<XrCompositionLayerBaseHeader*> layers = {})
         {
             bool keepRunning = AppendLayers(layers, frameState.predictedDisplayTime);
@@ -489,6 +510,10 @@ namespace Conformance
             // Add layer(s) based on the interaction mode.
             switch (layerMode) {
             case LayerMode::Scene:
+                for (auto& backgroundLayer : m_backgroundLayers) {
+                    layers.push_back(backgroundLayer);
+                }
+
                 m_actionsQuad->subImage = m_compositionHelper.MakeDefaultSubImage(m_sceneActionsSwapchain);
                 layers.push_back(reinterpret_cast<XrCompositionLayerBaseHeader*>(m_actionsQuad));
 
@@ -579,5 +604,6 @@ namespace Conformance
         XrCompositionLayerQuad* m_exampleQuad{};
         XrSpace m_exampleQuadSpace;
         std::vector<XrCompositionLayerBaseHeader*> m_sceneLayers;
+        std::vector<XrCompositionLayerBaseHeader*> m_backgroundLayers;
     };
 }  // namespace Conformance

@@ -1,4 +1,4 @@
-// Copyright (c) 2022-2023, The Khronos Group Inc.
+// Copyright (c) 2022-2024, The Khronos Group Inc.
 //
 // SPDX-License-Identifier: MIT
 #if defined(XR_USE_GRAPHICS_API_D3D11) && !defined(MISSING_DIRECTX_COLORS)
@@ -21,16 +21,11 @@ using namespace DirectX;
 
 namespace Conformance
 {
-    void D3D11GLTF::Render(ComPtr<ID3D11DeviceContext> deviceContext, Pbr::D3D11Resources& resources, XrMatrix4x4f& modelToWorld) const
+    void D3D11GLTF::Render(ComPtr<ID3D11DeviceContext> deviceContext, Pbr::D3D11Resources& resources, XrMatrix4x4f& modelToWorld)
     {
-        if (!GetModel()) {
-            return;
-        }
-
         resources.SetFillMode(GetFillMode());
-        resources.SetModelToWorld(LoadXrMatrix(modelToWorld), deviceContext.Get());
         resources.Bind(deviceContext.Get());
-        GetModel()->Render(resources, deviceContext.Get());
+        GetModelInstance().Render(resources, deviceContext.Get(), LoadXrMatrix(modelToWorld));
     }
 
 }  // namespace Conformance

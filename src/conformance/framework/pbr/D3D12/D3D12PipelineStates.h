@@ -1,4 +1,4 @@
-// Copyright 2023, The Khronos Group, Inc.
+// Copyright 2023-2024, The Khronos Group Inc.
 //
 // Based in part on code that is:
 //
@@ -8,6 +8,7 @@
 // SPDX-License-Identifier: MIT AND Apache-2.0
 
 #pragma once
+
 #include "../PbrSharedState.h"
 
 #include <d3d12.h>
@@ -48,17 +49,6 @@ namespace Pbr
                                                                              FrontFaceWindingOrder frontFaceWindingOrder,
                                                                              BlendState blendState, DoubleSided doubleSided,
                                                                              DepthDirection depthDirection);
-
-        // void DropStates()
-        // {
-        //     m_pipelineStates.clear();
-        // }
-        // void Reset(Microsoft::WRL::ComPtr<ID3D12RootSignature> rootSignature = nullptr)
-        // {
-        //     DropStates();
-        //     m_rootSignature = std::move(rootSignature);
-        //     m_basePipelineStateDesc.pRootSignature = m_rootSignature.Get();
-        // }
 
     private:
         using PipelineStateKey =

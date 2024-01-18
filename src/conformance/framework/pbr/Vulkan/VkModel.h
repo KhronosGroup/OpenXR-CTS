@@ -1,4 +1,4 @@
-// Copyright 2022-2023, The Khronos Group, Inc.
+// Copyright 2022-2024, The Khronos Group Inc.
 //
 // Based in part on code that is:
 // Copyright (C) Microsoft Corporation.  All Rights Reserved
@@ -9,6 +9,7 @@
 #pragma once
 #include "VkResources.h"
 
+#include "../GlslBuffers.h"
 #include "../PbrHandles.h"
 #include "../PbrModel.h"
 
@@ -23,29 +24,28 @@
 
 namespace Pbr
 {
-
     struct VulkanPrimitive;
     struct VulkanResources;
 
-    class VulkanModel final : public Model
+    class VulkanModelInstance final : public ModelInstance
     {
     public:
-        // Render the model.
+        VulkanModelInstance(Pbr::VulkanResources& pbrResources, std::shared_ptr<const Model> model);
+
+        /// Render the model.
         void Render(Pbr::VulkanResources& pbrResources, Conformance::CmdBuffer& directCommandBuffer, VkRenderPass renderPass,
-                    VkSampleCountFlagBits sampleCount);
+                    VkSampleCountFlagBits sampleCount, XrMatrix4x4f modelToWorld);
 
     private:
         void AllocateDescriptorSets(Pbr::VulkanResources& pbrResources, uint32_t numSets);
-        // Updated the transforms used to render the model. This needs to be called any time a node transform is changed.
+        /// Update the transforms used to render the model. This needs to be called any time a node transform is changed.
         void UpdateTransforms(Pbr::VulkanResources& pbrResources);
 
-        // Temporary buffer holds the world transforms, computed from the node's local transforms.
-        mutable std::vector<XrMatrix4x4f> m_modelTransforms;
-        mutable Conformance::StructuredBuffer<XrMatrix4x4f> m_modelTransformsStructuredBuffer;
-        // mutable Microsoft::WRL::ComPtr<IVulkanDescriptorHeap> m_modelTransformsResourceViewHeap;
+        Glsl::ModelConstantBuffer m_modelBuffer;
+        Conformance::StructuredBuffer<Glsl::ModelConstantBuffer> m_modelConstantBuffer;
+
+        Conformance::StructuredBuffer<XrMatrix4x4f> m_modelTransformsStructuredBuffer;
         Conformance::ScopedVkDescriptorPool m_descriptorPool;
         std::vector<VkDescriptorSet> m_descriptorSets;
-
-        mutable uint32_t TotalModifyCount{0};
     };
 }  // namespace Pbr

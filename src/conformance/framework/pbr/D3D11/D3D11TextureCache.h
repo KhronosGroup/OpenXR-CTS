@@ -1,4 +1,4 @@
-// Copyright 2023, The Khronos Group, Inc.
+// Copyright 2023-2024, The Khronos Group Inc.
 //
 // Based in part on code that is:
 //
@@ -21,7 +21,6 @@ namespace Pbr
 {
     template <typename T>
     using ComPtr = Microsoft::WRL::ComPtr<T>;
-    // using Microsoft::WRL::ComPtr;
 
     /// Cache of single-color textures.
     ///

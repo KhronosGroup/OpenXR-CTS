@@ -1,9 +1,9 @@
-// Copyright (c) 2022-2023, The Khronos Group Inc.
+// Copyright (c) 2022-2024, The Khronos Group Inc.
 //
 // SPDX-License-Identifier: MIT
 #pragma once
 
-#include "gltf.h"
+#include "cts_tinygltf.h"
 
 #include "gltf/GltfHelper.h"
 #include "pbr/GltfLoader.h"
@@ -15,26 +15,23 @@ namespace Conformance
 {
 
     /// Templated base class for API-specific model objects in the main CTS code.
-    template <typename ModelType, typename ResourcesType>
-    class GltfModelBase
+    template <typename ModelInstanceType, typename ResourcesType>
+    class RenderableGltfModelInstanceBase
     {
 
     public:
-        GltfModelBase(ResourcesType& pbrResources, std::shared_ptr<tinygltf::Model> gltf, std::shared_ptr<ModelType> pbrModel = nullptr,
-                      Pbr::FillMode fillMode = Pbr::FillMode::Solid)
-            : m_gltf(gltf)
-            , m_pbrModel(pbrModel != nullptr ? std::move(pbrModel) : Gltf::FromGltfObject<ModelType>(pbrResources, *gltf))
-            , m_fillMode(fillMode)
+        RenderableGltfModelInstanceBase(ModelInstanceType&& pbrModelInstance, Pbr::FillMode fillMode = Pbr::FillMode::Solid)
+            : m_pbrModelInstance(std::move(pbrModelInstance)), m_fillMode(fillMode)
         {
         }
 
-        void SetModel(std::shared_ptr<ModelType>&& model)
+        ModelInstanceType& GetModelInstance() noexcept
         {
-            m_pbrModel = std::move(model);
+            return m_pbrModelInstance;
         }
-        const std::shared_ptr<ModelType>& GetModel() const noexcept
+        const ModelInstanceType& GetModelInstance() const noexcept
         {
-            return m_pbrModel;
+            return m_pbrModelInstance;
         }
 
         void SetFillMode(const Pbr::FillMode& fillMode)
@@ -49,15 +46,15 @@ namespace Conformance
 
         void SetBaseColorFactor(ResourcesType& pbrResources, Pbr::RGBAColor color)
         {
-            for (uint32_t k = 0; k < GetModel()->GetPrimitiveCount(); k++) {
-                auto& material = pbrResources.GetPrimitive(GetModel()->GetPrimitive(k)).GetMaterial();
+            for (uint32_t k = 0; k < m_pbrModelInstance.GetPrimitiveCount(); k++) {
+                auto& material = pbrResources.GetPrimitive(m_pbrModelInstance.GetPrimitiveHandle(k)).GetMaterial();
                 material->Parameters().BaseColorFactor = color;
             }
         }
 
     private:
         std::shared_ptr<tinygltf::Model> m_gltf;
-        std::shared_ptr<ModelType> m_pbrModel;
+        ModelInstanceType m_pbrModelInstance;
         Pbr::FillMode m_fillMode;
     };
 }  // namespace Conformance

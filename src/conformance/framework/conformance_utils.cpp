@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2023, The Khronos Group Inc.
+// Copyright (c) 2019-2024, The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -21,6 +21,7 @@
 #include "two_call_util.h"
 #include "utilities/throw_helpers.h"
 #include "utilities/utils.h"
+#include "utilities/xrduration_literals.h"
 
 #include <openxr/openxr.h>
 #include <openxr/openxr_reflection.h>
@@ -132,6 +133,13 @@ namespace Conformance
             }
         }
 
+        void InstanceDelete::operator()(XrInstance i) const
+        {
+            if (i != XR_NULL_HANDLE) {
+                xrDestroyInstance(i);
+            }
+        }
+
         void SessionDeleteCHECK::operator()(XrSession s) const
         {
             if (s != XR_NULL_HANDLE) {
@@ -145,6 +153,13 @@ namespace Conformance
             if (s != XR_NULL_HANDLE) {
                 XrResult result = xrDestroySession(s);
                 REQUIRE(result == XR_SUCCESS);
+            }
+        }
+
+        void SessionDelete::operator()(XrSession s) const
+        {
+            if (s != XR_NULL_HANDLE) {
+                xrDestroySession(s);
             }
         }
 
@@ -182,11 +197,11 @@ namespace Conformance
 
         void SwapchainDelete::operator()(XrSwapchain s) const
         {
-
             if (s != XR_NULL_HANDLE) {
                 xrDestroySwapchain(s);
             }
         }
+
     }  // namespace deleters
 
     static XrBaseInStructure unrecognizedExtension{XRC_UNRECOGNIZABLE_STRUCTURE_TYPE, nullptr};
@@ -455,10 +470,13 @@ namespace Conformance
             }
             if (instance_ == XR_NULL_HANDLE) {
                 XRC_CHECK_THROW_XRCMD(CreateBasicInstance(&instance));
-                instanceOwned = true;
+                instanceOwned.adopt(instance);
             }
 
             assert(instance != XR_NULL_HANDLE);
+
+            m_eventQueue = std::make_unique<EventQueue>(instance);
+            m_privateEventReader = std::make_unique<EventReader>(*m_eventQueue);
 
             if ((optionFlags & createSession) == 0) {
                 // cannot proceed further without a session
@@ -472,61 +490,7 @@ namespace Conformance
             assert(session != XR_NULL_HANDLE);
 
             if (optionFlags & beginSession) {
-                // The session starts in (or gets directly transitioned to) the
-                // XR_SESSION_STATE_IDLE state and will get transitioned to
-                // XR_SESSION_STATE_READY by the runtime. But before that has not happened,
-                // xrBeginSession() below can return XR_ERROR_SESSION_NOT_READY.
-                // So just calling xrBeginSession might fail without it being a conformance
-                // failure. The correct way is to wait until the runtime tells us via an event
-                // that the session is ready.
-
-                // timeout in case the runtime will never transition to READY: 10s in release, no practical limit in debug
-                auto timeoutToTransitionToSessionState = (GetGlobalData().options.debugMode ? 3600s : 10s);
-                CountdownTimer countdownTimer(timeoutToTransitionToSessionState);
-
-                while ((sessionState != XR_SESSION_STATE_READY) && (!countdownTimer.IsTimeUp())) {
-                    XrEventDataBuffer eventData{XR_TYPE_EVENT_DATA_BUFFER};
-                    XrResult result = xrPollEvent(instance, &eventData);
-                    XRC_CHECK_THROW_XRCMD(result);
-
-                    if (XR_UNQUALIFIED_SUCCESS(result)) {
-                        switch (eventData.type) {
-                        case XR_TYPE_EVENT_DATA_SESSION_STATE_CHANGED:
-                            XrEventDataSessionStateChanged sessionStateChanged;
-                            memcpy(&sessionStateChanged, &eventData, sizeof(sessionStateChanged));
-                            sessionState = sessionStateChanged.state;
-                            break;
-                        default:
-                            break;  // Ignored event type.
-                        }
-                    }
-                }
-
-                if (sessionState != XR_SESSION_STATE_READY) {
-                    // We have failed this check with the timeout. This is a pretty common place to fail
-                    // so we will offer helpful hints for the most common errors - as well as a generic
-                    // message.
-
-                    // https://registry.khronos.org/OpenXR/specs/1.0/html/xrspec.html#sessionstatechanged-description
-                    // If the system supports a user engagement sensor and runtime is in XR_SESSION_STATE_IDLE state,
-                    // the runtime should not transition to the XR_SESSION_STATE_READY state until the user starts
-                    // engaging with the device.
-
-                    std::string extraInfo;
-                    if (sessionState == XR_SESSION_STATE_IDLE) {
-                        extraInfo =
-                            " If this system supports a user engagement sensor, the runtime may not transition to XR_SESSION_STATE_READY state until the user starts engaging with the device.";
-                    }
-
-                    CAPTURE(timeoutToTransitionToSessionState);
-                    CAPTURE(sessionState);
-                    FAIL("Time out waiting for XR_SESSION_STATE_READY session state change after creating a new session." << extraInfo);
-                }
-
-                XrSessionBeginInfo sessionBeginInfo{XR_TYPE_SESSION_BEGIN_INFO,
-                                                    globalData.GetPlatformPlugin()->PopulateNextFieldForStruct(XR_TYPE_SESSION_BEGIN_INFO),
-                                                    globalData.options.viewConfigurationValue};
-                XRC_CHECK_THROW_XRCMD(xrBeginSession(session, &sessionBeginInfo));
+                BeginSession();
             }
 
             // Set up the enumerated types
@@ -581,6 +545,59 @@ namespace Conformance
         }
     }
 
+    void AutoBasicSession::BeginSession()
+    {
+        GlobalData& globalData = GetGlobalData();
+        // The session starts in (or gets directly transitioned to) the
+        // XR_SESSION_STATE_IDLE state and will get transitioned to
+        // XR_SESSION_STATE_READY by the runtime. But before that has not happened,
+        // xrBeginSession() below can return XR_ERROR_SESSION_NOT_READY.
+        // So just calling xrBeginSession might fail without it being a conformance
+        // failure. The correct way is to wait until the runtime tells us via an event
+        // that the session is ready.
+
+        // timeout in case the runtime will never transition to READY: 10s in release, no practical limit in debug
+        auto timeoutToTransitionToSessionState = (GetGlobalData().options.debugMode ? 3600s : 10s);
+        CountdownTimer countdownTimer(timeoutToTransitionToSessionState);
+
+        while ((sessionState != XR_SESSION_STATE_READY) && (!countdownTimer.IsTimeUp())) {
+            XrEventDataBuffer eventBuffer;
+            while (m_privateEventReader->TryReadNext(eventBuffer)) {
+                if (eventBuffer.type == XR_TYPE_EVENT_DATA_SESSION_STATE_CHANGED) {
+                    XrEventDataSessionStateChanged sessionStateChanged;
+                    memcpy(&sessionStateChanged, &eventBuffer, sizeof(sessionStateChanged));
+                    sessionState = sessionStateChanged.state;
+                }
+            }
+        }
+
+        if (sessionState != XR_SESSION_STATE_READY) {
+            // We have failed this check with the timeout. This is a pretty common place to fail
+            // so we will offer helpful hints for the most common errors - as well as a generic
+            // message.
+
+            // https://registry.khronos.org/OpenXR/specs/1.0/html/xrspec.html#sessionstatechanged-description
+            // If the system supports a user engagement sensor and runtime is in XR_SESSION_STATE_IDLE state,
+            // the runtime should not transition to the XR_SESSION_STATE_READY state until the user starts
+            // engaging with the device.
+
+            std::string extraInfo;
+            if (sessionState == XR_SESSION_STATE_IDLE) {
+                extraInfo =
+                    " If this system supports a user engagement sensor, the runtime may not transition to XR_SESSION_STATE_READY state until the user starts engaging with the device.";
+            }
+
+            CAPTURE(timeoutToTransitionToSessionState);
+            CAPTURE(sessionState);
+            FAIL("Time out waiting for XR_SESSION_STATE_READY session state change after creating a new session." << extraInfo);
+        }
+
+        XrSessionBeginInfo sessionBeginInfo{XR_TYPE_SESSION_BEGIN_INFO,
+                                            globalData.GetPlatformPlugin()->PopulateNextFieldForStruct(XR_TYPE_SESSION_BEGIN_INFO),
+                                            globalData.options.viewConfigurationValue};
+        XRC_CHECK_THROW_XRCMD(xrBeginSession(session, &sessionBeginInfo));
+    }
+
     AutoBasicSession::~AutoBasicSession()
     {
         Shutdown();
@@ -620,11 +637,10 @@ namespace Conformance
             }
         }
 
-        if (instanceOwned) {
-            if (instance != XR_NULL_HANDLE)  // Should be true.
-                xrDestroyInstance(instance);
-            instanceOwned = false;
-        }
+        m_privateEventReader.reset();
+        m_eventQueue.reset();
+
+        instanceOwned.reset();
 
         instance = XR_NULL_HANDLE;
     }

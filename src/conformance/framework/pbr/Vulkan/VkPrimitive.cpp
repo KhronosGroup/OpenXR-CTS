@@ -1,4 +1,4 @@
-// Copyright 2023, The Khronos Group, Inc.
+// Copyright 2023-2024, The Khronos Group Inc.
 //
 // Based in part on code that is:
 //
@@ -6,6 +6,8 @@
 // Licensed under the MIT License. See License.txt in the project root for license information.
 //
 // SPDX-License-Identifier: MIT AND Apache-2.0
+
+#if defined(XR_USE_GRAPHICS_API_VULKAN)
 
 #include "VkPrimitive.h"
 
@@ -53,14 +55,15 @@ namespace Pbr
     }
 
     void VulkanPrimitive::Render(Conformance::CmdBuffer& directCommandBuffer, VulkanResources& pbrResources, VkDescriptorSet descriptorSet,
-                                 VkRenderPass renderPass, VkSampleCountFlagBits sampleCount, VkDescriptorBufferInfo transformBuffer) const
+                                 VkRenderPass renderPass, VkSampleCountFlagBits sampleCount, VkDescriptorBufferInfo modelConstantBuffer,
+                                 VkDescriptorBufferInfo transformBuffer) const
     {
         GetMaterial()->UpdateBuffer();
 
         auto materialConstantBuffer = GetMaterial()->GetMaterialConstantBuffer();
         auto materialTextures = GetMaterial()->GetTextureDescriptors();
-        std::unique_ptr<VulkanWriteDescriptorSets> wds =
-            pbrResources.BuildWriteDescriptorSets(materialConstantBuffer, transformBuffer, materialTextures, descriptorSet);
+        std::unique_ptr<VulkanWriteDescriptorSets> wds = pbrResources.BuildWriteDescriptorSets(
+            modelConstantBuffer, materialConstantBuffer, transformBuffer, materialTextures, descriptorSet);
 
         vkUpdateDescriptorSets(pbrResources.GetDevice(), static_cast<uint32_t>(wds->writeDescriptorSets.size()),
                                wds->writeDescriptorSets.data(), 0, NULL);
@@ -91,3 +94,5 @@ namespace Pbr
         CHECKPOINT();
     }
 }  // namespace Pbr
+
+#endif  // defined(XR_USE_GRAPHICS_API_VULKAN)

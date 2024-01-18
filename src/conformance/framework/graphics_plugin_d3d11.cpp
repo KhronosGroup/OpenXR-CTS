@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2023, The Khronos Group Inc.
+// Copyright (c) 2019-2024, The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -207,9 +207,10 @@ namespace Conformance
 
         MeshHandle MakeSimpleMesh(span<const uint16_t> idx, span<const Geometry::Vertex> vtx) override;
 
-        GLTFHandle LoadGLTF(span<const uint8_t> data) override;
-
-        std::shared_ptr<Pbr::Model> GetModel(GLTFHandle handle) const override;
+        GLTFModelHandle LoadGLTF(std::shared_ptr<tinygltf::Model> tinygltfModel) override;
+        std::shared_ptr<Pbr::Model> GetPbrModel(GLTFModelHandle handle) const override;
+        GLTFModelInstanceHandle CreateGLTFModelInstance(GLTFModelHandle handle) override;
+        Pbr::ModelInstance& GetModelInstance(GLTFModelInstanceHandle handle) override;
 
         void RenderView(const XrCompositionLayerProjectionView& layerView, const XrSwapchainImageBaseHeader* colorSwapchainImage,
                         const RenderParams& params) override;
@@ -234,9 +235,11 @@ namespace Conformance
 
         MeshHandle m_cubeMesh;
         VectorWithGenerationCountedHandles<D3D11Mesh, MeshHandle> m_meshes;
-        VectorWithGenerationCountedHandles<D3D11GLTF, GLTFHandle> m_gltfs;
+        // This is fine to be a shared_ptr because Model doesn't directly hold any graphics state.
+        VectorWithGenerationCountedHandles<std::shared_ptr<Pbr::Model>, GLTFModelHandle> m_gltfModels;
+        VectorWithGenerationCountedHandles<D3D11GLTF, GLTFModelInstanceHandle> m_gltfInstances;
 
-        std::unique_ptr<Pbr::D3D11Resources> pbrResources;
+        std::unique_ptr<Pbr::D3D11Resources> m_pbrResources;
 
         SwapchainImageDataMap<D3D11SwapchainImageData> m_swapchainImageDataMap;
     };
@@ -384,14 +387,14 @@ namespace Conformance
 
                 m_cubeMesh = MakeCubeMesh();
 
-                pbrResources = std::make_unique<Pbr::D3D11Resources>(d3d11Device.Get());
-                pbrResources->SetLight({0.0f, 0.7071067811865475f, 0.7071067811865475f}, Pbr::RGB::White);
+                m_pbrResources = std::make_unique<Pbr::D3D11Resources>(d3d11Device.Get());
+                m_pbrResources->SetLight({0.0f, 0.7071067811865475f, 0.7071067811865475f}, Pbr::RGB::White);
 
                 // Read the BRDF Lookup Table used by the PBR system into a DirectX texture.
                 std::vector<byte> brdfLutFileData = ReadFileBytes("brdf_lut.png");
                 Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> brdfLutResourceView =
                     Pbr::D3D11Texture::LoadTextureImage(d3d11Device.Get(), brdfLutFileData.data(), (uint32_t)brdfLutFileData.size());
-                pbrResources->SetBrdfLut(brdfLutResourceView.Get());
+                m_pbrResources->SetBrdfLut(brdfLutResourceView.Get());
             }
 
             return true;
@@ -428,8 +431,9 @@ namespace Conformance
 
         m_cubeMesh = {};
         m_meshes.clear();
-        m_gltfs.clear();
-        pbrResources.reset();
+        m_gltfInstances.clear();
+        m_gltfModels.clear();
+        m_pbrResources.reset();
 
         d3d11DeviceContext.Reset();
         d3d11Device.Reset();
@@ -674,7 +678,6 @@ namespace Conformance
         // Clear color buffer.
         // Create RenderTargetView with original swapchain format (swapchain is typeless).
         ComPtr<ID3D11RenderTargetView> renderTargetView = CreateRenderTargetView(*swapchainData, imageIndex, imageArrayIndex);
-        // TODO: Do not clear to a color when using a pass-through view configuration.
         FLOAT bg[] = {color.r, color.g, color.b, color.a};
         d3d11DeviceContext->ClearRenderTargetView(renderTargetView.Get(), bg);
 
@@ -689,15 +692,28 @@ namespace Conformance
         return handle;
     }
 
-    inline GLTFHandle D3D11GraphicsPlugin::LoadGLTF(span<const uint8_t> data)
+    GLTFModelHandle D3D11GraphicsPlugin::LoadGLTF(std::shared_ptr<tinygltf::Model> tinygltfModel)
     {
-        auto handle = m_gltfs.emplace_back(*pbrResources, Conformance::LoadGLTF(data));
+        std::shared_ptr<Pbr::Model> pbrModel = Gltf::FromGltfObject(*m_pbrResources, *tinygltfModel);
+        auto handle = m_gltfModels.emplace_back(std::move(pbrModel));
         return handle;
     }
 
-    inline std::shared_ptr<Pbr::Model> D3D11GraphicsPlugin::GetModel(GLTFHandle handle) const
+    std::shared_ptr<Pbr::Model> D3D11GraphicsPlugin::GetPbrModel(GLTFModelHandle handle) const
     {
-        return m_gltfs[handle].GetModel();
+        return m_gltfModels[handle];
+    }
+
+    GLTFModelInstanceHandle D3D11GraphicsPlugin::CreateGLTFModelInstance(GLTFModelHandle handle)
+    {
+        auto pbrModelInstance = Pbr::D3D11ModelInstance(*m_pbrResources, GetPbrModel(handle));
+        auto instanceHandle = m_gltfInstances.emplace_back(std::move(pbrModelInstance));
+        return instanceHandle;
+    }
+
+    Pbr::ModelInstance& D3D11GraphicsPlugin::GetModelInstance(GLTFModelInstanceHandle handle)
+    {
+        return m_gltfInstances[handle].GetModelInstance();
     }
 
     void D3D11GraphicsPlugin::RenderView(const XrCompositionLayerProjectionView& layerView,
@@ -776,21 +792,21 @@ namespace Conformance
         }
 
         // Render each gltf
-        for (const auto& gltfHandle : params.glTFs) {
-            D3D11GLTF& gltf = m_gltfs[gltfHandle.handle];
+        for (const auto& gltfDrawable : params.glTFs) {
+            D3D11GLTF& gltf = m_gltfInstances[gltfDrawable.handle];
             // Compute and update the model transform.
 
             XrMatrix4x4f modelToWorld;
-            XrMatrix4x4f_CreateTranslationRotationScale(&modelToWorld, &gltfHandle.params.pose.position,
-                                                        &gltfHandle.params.pose.orientation, &gltfHandle.params.scale);
+            XrMatrix4x4f_CreateTranslationRotationScale(&modelToWorld, &gltfDrawable.params.pose.position,
+                                                        &gltfDrawable.params.pose.orientation, &gltfDrawable.params.scale);
             XrMatrix4x4f viewMatrix;
             XrVector3f unitScale = {1, 1, 1};
             XrMatrix4x4f_CreateTranslationRotationScale(&viewMatrix, &layerView.pose.position, &layerView.pose.orientation, &unitScale);
             XrMatrix4x4f viewMatrixInverse;
             XrMatrix4x4f_Invert(&viewMatrixInverse, &viewMatrix);
-            pbrResources->SetViewProjection(LoadXrMatrix(viewMatrixInverse), LoadXrMatrix(projectionMatrix));
+            m_pbrResources->SetViewProjection(LoadXrMatrix(viewMatrixInverse), LoadXrMatrix(projectionMatrix));
 
-            gltf.Render(d3d11DeviceContext, *pbrResources, modelToWorld);
+            gltf.Render(d3d11DeviceContext, *m_pbrResources, modelToWorld);
         }
     }
 

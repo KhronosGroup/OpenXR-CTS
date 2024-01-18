@@ -1,4 +1,4 @@
-// Copyright 2022-2023, The Khronos Group, Inc.
+// Copyright 2022-2024, The Khronos Group Inc.
 //
 // Based in part on code that is:
 // Copyright (C) Microsoft Corporation.  All Rights Reserved
@@ -101,9 +101,6 @@ namespace Gltf
 {
     void PopulateFromGltfObject(Pbr::Model& model, Pbr::IResources& pbrResources, const tinygltf::Model& gltfModel)
     {
-        // Empty the model to ensure we're starting from scratch
-        model.Clear();
-
         // Read and transform mesh/node data. Primitives with the same material are merged to reduce draw calls.
         PrimitiveBuilderMap primitiveBuilderMap;
         GltfHelper::PrimitiveCache primitiveCache{gltfModel};

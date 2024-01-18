@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2023, The Khronos Group Inc.
+# Copyright (c) 2019-2024, The Khronos Group Inc.
 #
 # SPDX-License-Identifier: Apache-2.0
 
@@ -57,6 +57,7 @@ add_library(
     throw_helpers.cpp
     types_and_constants.cpp
     utils.cpp
+    uuid_utils.cpp
     "${CMAKE_CURRENT_BINARY_DIR}/git_revision.cpp"
 )
 

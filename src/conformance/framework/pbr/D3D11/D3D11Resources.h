@@ -1,4 +1,4 @@
-// Copyright 2022-2023, The Khronos Group, Inc.
+// Copyright 2022-2024, The Khronos Group Inc.
 //
 // Based in part on code that is:
 // Copyright (C) Microsoft Corporation.  All Rights Reserved
@@ -58,39 +58,39 @@ namespace Pbr
                                       const std::shared_ptr<Pbr::Material>& material) override;
         void DropLoaderCaches() override;
 
-        // Sets the Bidirectional Reflectance Distribution Function Lookup Table texture, required by the shader to compute surface
-        // reflectance from the IBL.
+        /// Sets the Bidirectional Reflectance Distribution Function Lookup Table texture, required by the shader to compute surface
+        /// reflectance from the IBL.
         void SetBrdfLut(_In_ ID3D11ShaderResourceView* brdfLut);
 
-        // Create device-dependent resources.
+        /// Create device-dependent resources.
         void CreateDeviceDependentResources(_In_ ID3D11Device* device);
 
-        // Release device-dependent resources.
+        /// Release device-dependent resources.
         void ReleaseDeviceDependentResources();
 
-        // Get the D3D11Device that the PBR resources are associated with.
+        /// Get the D3D11Device that the PBR resources are associated with.
         Microsoft::WRL::ComPtr<ID3D11Device> GetDevice() const;
 
-        // Set the directional light.
+        /// Set the directional light.
         void SetLight(DirectX::XMFLOAT3 direction, RGBColor diffuseColor);
 
-        // Set the specular and diffuse image-based lighting (IBL) maps. ShaderResourceViews must be TextureCubes.
+        /// Set the specular and diffuse image-based lighting (IBL) maps. ShaderResourceViews must be TextureCubes.
         void SetEnvironmentMap(_In_ ID3D11ShaderResourceView* specularEnvironmentMap, _In_ ID3D11ShaderResourceView* diffuseEnvironmentMap);
 
-        // Set the current view and projection matrices.
+        /// Set the current view and projection matrices.
         void XM_CALLCONV SetViewProjection(DirectX::FXMMATRIX view, DirectX::CXMMATRIX projection);
 
-        // Many 1x1 pixel colored textures are used in the PBR system. This is used to create textures backed by a cache to reduce the
-        // number of textures created.
+        /// Many 1x1 pixel colored textures are used in the PBR system. This is used to create textures backed by a cache to reduce the
+        /// number of textures created.
         Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> CreateTypedSolidColorTexture(RGBAColor color) const;
 
-        // Bind the the PBR resources to the current context.
+        /// Bind the the PBR resources to the current context.
         void Bind(_In_ ID3D11DeviceContext* context) const;
 
-        // Set and update the model to world constant buffer value.
-        void XM_CALLCONV SetModelToWorld(DirectX::FXMMATRIX modelToWorld, _In_ ID3D11DeviceContext* context) const;
-
+        /// Get the D3D11Primitive from a primitive handle.
         D3D11Primitive& GetPrimitive(PrimitiveHandle p);
+
+        /// Get the D3D11Primitive from a primitive handle, const overload.
         const D3D11Primitive& GetPrimitive(PrimitiveHandle p) const;
 
         // Set or get the shading and fill modes.
@@ -105,6 +105,10 @@ namespace Pbr
         void SetRasterizerState(_In_ ID3D11DeviceContext* context, bool doubleSided) const;
         void SetDepthStencilState(_In_ ID3D11DeviceContext* context, bool disableDepthWrite) const;
 
+        // Bind the scene constant buffer as well as a provided model constant buffer.
+        void BindConstantBuffers(_In_ ID3D11DeviceContext* context, ID3D11Buffer* modelConstantBuffer) const;
+
+        friend class D3D11ModelInstance;
         friend struct D3D11Material;
 
         struct Impl;
