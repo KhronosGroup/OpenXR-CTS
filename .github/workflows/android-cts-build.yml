@@ -33,7 +33,7 @@ jobs:
           distribution: "temurin"
           cache: gradle
 
-      - uses: gradle/gradle-build-action@v2.10.0
+      - uses: gradle/gradle-build-action@v3.0.0
         with:
           arguments: ${{ inputs.gradleTask }}
           build-root-directory: src/conformance
