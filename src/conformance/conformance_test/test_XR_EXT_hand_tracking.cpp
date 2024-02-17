@@ -430,7 +430,7 @@ namespace Conformance
                         // 0.1 here represents 26 degrees variance between these orientations; which is more than can reasonable be
                         // explained by numerical inaccuracy...
                         REQUIRE_THAT(XrVector3f_Dot(&wristZAxis, &fromMiddleMetacarpalToWrist), Catch::Matchers::WithinRel(1.0f, 0.1f));
-                        if (XrVector3f_Dot(&wristZAxis, &fromMiddleMetacarpalToWrist) > 0.03) {
+                        if (std::abs(1.0 - XrVector3f_Dot(&wristZAxis, &fromMiddleMetacarpalToWrist)) > 0.03) {
                             WARN("Variance between wrist z axis orientation and metacarpal greater than 14 degrees!");
                         }
                     }

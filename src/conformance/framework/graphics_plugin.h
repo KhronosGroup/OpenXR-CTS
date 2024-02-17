@@ -179,7 +179,7 @@ namespace Conformance
         // or unordered_map, probably not significant
         std::map<NodeHandle, NodeParams> nodesAndParams;
 
-        GLTFDrawable(GLTFModelInstanceHandle handle, XrPosef pose = XrPosefCPP{}, XrVector3f scale = {1.0, 1.0, 1.0})
+        explicit GLTFDrawable(GLTFModelInstanceHandle handle, XrPosef pose = XrPosefCPP{}, XrVector3f scale = {1.0, 1.0, 1.0})
             : handle(handle), params(pose, scale)
         {
         }

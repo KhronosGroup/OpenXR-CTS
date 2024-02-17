@@ -132,7 +132,7 @@ namespace Pbr
     class ModelInstance
     {
     protected:
-        ModelInstance(std::shared_ptr<const Model> model) : m_model(std::move(model))
+        explicit ModelInstance(std::shared_ptr<const Model> model) : m_model(std::move(model))
         {
             const auto nodeCount = m_model->GetNodeCount();
 

@@ -557,7 +557,7 @@ namespace Conformance
         // that the session is ready.
 
         // timeout in case the runtime will never transition to READY: 10s in release, no practical limit in debug
-        auto timeoutToTransitionToSessionState = (GetGlobalData().options.debugMode ? 3600s : 10s);
+        auto timeoutToTransitionToSessionState = (GetGlobalData().options.debugMode ? 60s : 10s);
         CountdownTimer countdownTimer(timeoutToTransitionToSessionState);
 
         while ((sessionState != XR_SESSION_STATE_READY) && (!countdownTimer.IsTimeUp())) {
@@ -585,6 +585,10 @@ namespace Conformance
             if (sessionState == XR_SESSION_STATE_IDLE) {
                 extraInfo =
                     " If this system supports a user engagement sensor, the runtime may not transition to XR_SESSION_STATE_READY state until the user starts engaging with the device.";
+            }
+
+            if (GetGlobalData().options.debugMode) {
+                extraInfo += " Tests running using debug mode: using extended timeout of 60s to wait for XR_SESSION_STATE_READY";
             }
 
             CAPTURE(timeoutToTransitionToSessionState);
