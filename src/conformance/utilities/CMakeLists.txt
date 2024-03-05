@@ -44,6 +44,7 @@ configure_file(
 
 add_library(
     conformance_utilities STATIC
+    ballistics.cpp
     bitmask_generator.cpp
     bitmask_to_string.cpp
     d3d_common.cpp

@@ -20,7 +20,7 @@ namespace Conformance
     {
 
     public:
-        RenderableGltfModelInstanceBase(ModelInstanceType&& pbrModelInstance, Pbr::FillMode fillMode = Pbr::FillMode::Solid)
+        explicit RenderableGltfModelInstanceBase(ModelInstanceType&& pbrModelInstance, Pbr::FillMode fillMode = Pbr::FillMode::Solid)
             : m_pbrModelInstance(std::move(pbrModelInstance)), m_fillMode(fillMode)
         {
         }

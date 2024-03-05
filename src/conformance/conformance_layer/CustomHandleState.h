@@ -17,12 +17,30 @@
 #pragma once
 
 #include "Common.h"
+#include "HandleState.h"
+
+#include <atomic>
+
+//
+// XrInstance
+//
+namespace instance
+{
+    HandleState* GetInstanceState(XrInstance handle);
+}
 
 //
 // XrSession
 //
 namespace session
 {
+    enum class SyncActionsState : uint32_t
+    {
+        NOT_CALLED_SINCE_QUEUE_EXHAUST,
+        CALLED_SINCE_QUEUE_EXHAUST,
+        ONGOING,
+    };
+
     struct CustomSessionState : ICustomHandleState
     {
         std::mutex lock;
@@ -32,6 +50,7 @@ namespace session
         bool sessionExitRequested{false};
         bool frameBegun{false};
         bool headless{false};  //< true if a headless extension is enabled *and* in use
+        std::atomic<SyncActionsState> syncActionsState{SyncActionsState::NOT_CALLED_SINCE_QUEUE_EXHAUST};
         XrStructureType graphicsBinding{XR_TYPE_UNKNOWN};
         XrTime lastPredictedDisplayTime{0};
         XrDuration lastPredictedDisplayPeriod{0};
@@ -46,6 +65,8 @@ namespace session
 
     void SessionStateChanged(ConformanceHooksBase* conformanceHooks, const XrEventDataSessionStateChanged* sessionStateChanged);
     void VisibilityMaskChanged(ConformanceHooksBase* conformanceHooks, const XrEventDataVisibilityMaskChangedKHR* visibilityMaskChanged);
+    void InteractionProfileChanged(ConformanceHooksBase* conformanceHooks,
+                                   const XrEventDataInteractionProfileChanged* interactionProfileChanged);
 }  // namespace session
 
 //

@@ -307,7 +307,7 @@ namespace Conformance
         }
     }
 
-    TEST_CASE("XR_MSFT_controller_model_interactive", "[scenario][interactive][no_auto]")
+    TEST_CASE("XR_MSFT_controller_model-interactive", "[scenario][interactive][no_auto]")
     {
 
         GlobalData& globalData = GetGlobalData();

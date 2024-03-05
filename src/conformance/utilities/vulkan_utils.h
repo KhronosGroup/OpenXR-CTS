@@ -7,6 +7,7 @@
 #ifdef XR_USE_GRAPHICS_API_VULKAN
 
 #include "throw_helpers.h"
+#include "xr_linear.h"
 #include "common/xr_dependencies.h"
 #include "common/vulkan_debug_object_namer.hpp"
 #include <openxr/openxr_platform.h>
@@ -999,7 +1000,13 @@ namespace Conformance
         VkDevice m_vkDevice{VK_NULL_HANDLE};
     };
 
-    // Simple vertex MVP xform & color fragment shader layout
+    struct VulkanUniformBuffer
+    {
+        XrMatrix4x4f mvp;
+        XrColor4f tintColor;
+    };
+
+    // Simple vertex MVP xform, tint color & color fragment shader layout
     struct PipelineLayout
     {
         VkPipelineLayout layout{VK_NULL_HANDLE};
@@ -1030,7 +1037,7 @@ namespace Conformance
             VkPushConstantRange pcr = {};
             pcr.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
             pcr.offset = 0;
-            pcr.size = 4 * 4 * sizeof(float);
+            pcr.size = sizeof(VulkanUniformBuffer);
 
             VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo{VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO};
             pipelineLayoutCreateInfo.pushConstantRangeCount = 1;

@@ -17,6 +17,38 @@ particular, since it is primarily software, pull requests may be integrated as
 they are accepted even between periodic updates. However, versions that are not
 signed tags on the `approved` branch are not valid for conformance submission.
 
+## OpenXR CTS 1.0.34.0 (2024-02-29)
+
+- Conformance Tests
+  - Fix: Correct the warning for when Wrist Z variance is above the 14 degree
+    threshold.
+    ([internal MR 3043](https://gitlab.khronos.org/openxr/openxr/merge_requests/3043))
+  - Improvement: Code cleanup and documentation in the conformance layer.
+    ([internal MR 3044](https://gitlab.khronos.org/openxr/openxr/merge_requests/3044))
+  - Improvement: Make the conformance layer throw a distinct error when it
+    encounters a handle whose creation it did not wrap.
+    ([internal MR 3089](https://gitlab.khronos.org/openxr/openxr/merge_requests/3089))
+  - Improvement: Mention in the instructions/README that the conformance automation
+    extension may not be used for conformance submissions, and write a comment
+    about this to the XML output when it is in use for easier identification.
+    ([internal MR 3143](https://gitlab.khronos.org/openxr/openxr/merge_requests/3143))
+  - Improvement: Reduce the maximum time allowed for transitioning session state in
+    debug mode from 1 hour to 1 minute, and add a notice message in debug mode
+    explaining this.
+    ([internal MR 3151](https://gitlab.khronos.org/openxr/openxr/merge_requests/3151))
+  - New test: Validate that `XrEventDataInteractionProfileChanged` is only queued
+    during xrSyncActions using the conformance layer.
+    ([internal MR 3044](https://gitlab.khronos.org/openxr/openxr/merge_requests/3044),
+    [internal issue 1883](https://gitlab.khronos.org/openxr/openxr/issues/1883),
+    [internal MR 3211](https://gitlab.khronos.org/openxr/openxr/merge_requests/3211))
+  - New test: "SpaceOffset" interactive test validates the results of calling
+    xrLocateSpace on spaces created with a non-identity pose. This tests some of
+    the same math that Interactive Throw is intended to test, but with automatic
+    pass/fail detection and better troubleshooting assistance and debugging
+    visualization.
+    ([internal MR 3058](https://gitlab.khronos.org/openxr/openxr/merge_requests/3058),
+    [internal issue 1855](https://gitlab.khronos.org/openxr/openxr/issues/1855))
+
 ## OpenXR CTS 1.0.33.0 (2024-01-18)
 
 - Conformance Tests

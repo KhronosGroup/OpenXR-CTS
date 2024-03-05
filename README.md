@@ -320,7 +320,8 @@ Conformance Criteria
 
 A conformance run is considered passing if all tests finish with allowed result
 codes, and all warnings are acceptably explained to describe why they are not a
-conformance failure. Test results are contained in the output XML files, which
+conformance failure. XR_EXT_conformance_automation may not be used for conformance
+submission. Test results are contained in the output XML files, which
 are an extension of the common "*Unit" schema with some custom elements. Each
 test case leaf section is reached by a run of its own, and is recorded with a
 `testcase` tag, e.g.:

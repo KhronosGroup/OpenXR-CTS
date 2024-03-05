@@ -40,6 +40,8 @@ struct ConformanceHooks : ConformanceHooksBase
     //XrResult xrDestroyInstance(XrInstance instance) override;
     XrResult xrPollEvent(XrInstance instance, XrEventDataBuffer* eventData) override;
 
+    XrResult xrGetSystemProperties(XrInstance instance, XrSystemId systemId, XrSystemProperties* properties) override;
+
     // Defined in Session.cpp
     XrResult xrCreateSession(XrInstance instance, const XrSessionCreateInfo* createInfo, XrSession* session) override;
     //XrResult xrDestroySession(XrSession session) override;
@@ -107,7 +109,6 @@ struct ConformanceHooks : ConformanceHooksBase
     XrResult xrResultToString(XrInstance instance, XrResult value, char buffer[XR_MAX_RESULT_STRING_SIZE]) override;
     XrResult xrStructureTypeToString(XrInstance instance, XrStructureType value, char buffer[XR_MAX_STRUCTURE_NAME_SIZE]) override;
     XrResult xrGetSystem(XrInstance instance, const XrSystemGetInfo* getInfo, XrSystemId* systemId) override;
-    XrResult xrGetSystemProperties(XrInstance instance, XrSystemId systemId, XrSystemProperties* properties) override;
     XrResult xrEnumerateEnvironmentBlendModes(XrInstance instance, XrSystemId systemId, XrViewConfigurationType viewConfigurationType, uint32_t environmentBlendModeCapacityInput, uint32_t* environmentBlendModeCountOutput, XrEnvironmentBlendMode* environmentBlendModes) override;
     XrResult xrGetReferenceSpaceBoundsRect(XrSession session, XrReferenceSpaceType referenceSpaceType, XrExtent2Df* bounds) override;
     XrResult xrEnumerateViewConfigurations(XrInstance instance, XrSystemId systemId, uint32_t viewConfigurationTypeCapacityInput, uint32_t* viewConfigurationTypeCountOutput, XrViewConfigurationType* viewConfigurationTypes) override;
@@ -140,4 +141,5 @@ private:
     void checkEventPayload(const XrEventDataVisibilityMaskChangedKHR* data);
     void checkEventPayload(const XrEventDataPerfSettingsEXT* data);
     void checkEventPayload(const XrEventDataSpatialAnchorCreateCompleteFB* data);
+    void checkEventPayload(const XrEventDataUserPresenceChangedEXT* data);
 };

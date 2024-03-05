@@ -8,16 +8,22 @@
 
 #if defined(ANDROID)
 #include <android/log.h>
+#define LOG_ERROR(...) __android_log_print(ANDROID_LOG_ERROR, "XrApiLayer_runtime_conformance", __VA_ARGS__)
 #define LOG_FATAL(...) __android_log_print(ANDROID_LOG_FATAL, "XrApiLayer_runtime_conformance", __VA_ARGS__)
 #else
 #include <cstdio>
-#define LOG_FATAL(...) fprintf(stderr, __VA_ARGS__)
+#define LOG_ERROR(...) fprintf(stderr, __VA_ARGS__)
+#define LOG_FATAL(...) LOG_ERROR(__VA_ARGS__)
 #endif
 
 #include <exception>
 
 // Unhandled exception at ABI is a catastrophic error in the layer (a bug).
 #define ABI_CATCH                                                                                               \
+    catch (const HandleNotFoundException& e) {                                                                  \
+        LOG_ERROR("ERROR: Conformance Layer: Unknown handle used, created by unrecognized API call? Message = %s\n", e.what()); \
+        return XR_ERROR_HANDLE_INVALID;                                                                         \
+    }                                                                                                           \
     catch (const std::exception& e) {                                                                           \
         LOG_FATAL("FATAL: Conformance Layer Bug: caught exception at ABI level with message = %s\n", e.what()); \
         abort(); /* Something went wrong in the layer. */                                                       \

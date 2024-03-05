@@ -1094,6 +1094,7 @@ namespace Conformance
             ModelConstantBuffer model;
 
             calculateModelMat(mesh.params, model.Model);
+            model.TintColor = {mesh.tintColor.r, mesh.tintColor.g, mesh.tintColor.b, mesh.tintColor.a};
             {
                 uint8_t* data;
                 const D3D12_RANGE readRange{0, 0};
@@ -1113,7 +1114,7 @@ namespace Conformance
 
         // Render each cube
         for (const Cube& cube : params.cubes) {
-            drawMesh(MeshDrawable{m_cubeMesh, cube.params.pose, cube.params.scale});
+            drawMesh(MeshDrawable{m_cubeMesh, cube.params.pose, cube.params.scale, cube.tintColor});
         }
 
         // Render each mesh

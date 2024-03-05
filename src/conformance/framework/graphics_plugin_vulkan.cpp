@@ -86,6 +86,7 @@ namespace Conformance
     layout (std140, push_constant) uniform buf
     {
         mat4 mvp;
+        vec4 tintColor;
     } ubuf;
 
     layout (location = 0) in vec3 Position;
@@ -99,8 +100,9 @@ namespace Conformance
 
     void main()
     {
-        oColor.rgba  = Color.rgba;
-        gl_Position = ubuf.mvp * Position;
+        oColor.rgb = mix(Color.rgb, ubuf.tintColor.rgb, ubuf.tintColor.a);
+        oColor.a  = 1.0;
+        gl_Position = ubuf.mvp * vec4(Position, 1);
     }
 )_";
 
@@ -2052,9 +2054,10 @@ namespace Conformance
             XrMatrix4x4f model;
             XrMatrix4x4f_CreateTranslationRotationScale(&model, &mesh.params.pose.position, &mesh.params.pose.orientation,
                                                         &mesh.params.scale);
-            XrMatrix4x4f mvp;
-            XrMatrix4x4f_Multiply(&mvp, &vp, &model);
-            vkCmdPushConstants(m_cmdBuffer.buf, m_pipelineLayout.layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(mvp.m), &mvp.m[0]);
+            VulkanUniformBuffer ubuf;
+            ubuf.tintColor = mesh.tintColor;
+            XrMatrix4x4f_Multiply(&ubuf.mvp, &vp, &model);
+            vkCmdPushConstants(m_cmdBuffer.buf, m_pipelineLayout.layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(VulkanUniformBuffer), &ubuf);
 
             CHECKPOINT();
 
@@ -2066,7 +2069,7 @@ namespace Conformance
 
         // Render each cube
         for (const Cube& cube : params.cubes) {
-            drawMesh(MeshDrawable{m_cubeMesh, cube.params.pose, cube.params.scale});
+            drawMesh(MeshDrawable{m_cubeMesh, cube.params.pose, cube.params.scale, cube.tintColor});
         }
 
         // Render each mesh

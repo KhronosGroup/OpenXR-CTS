@@ -16,10 +16,22 @@
 
 #include "ConformanceHooks.h"
 #include "CustomHandleState.h"
+#include "HandleState.h"
 #include "RuntimeFailure.h"
 
+#include <openxr/openxr.h>
 #include <openxr/openxr_loader_negotiation.h>
 #include <openxr/openxr_reflection_parent_structs.h>
+#include <atomic>
+
+namespace instance
+{
+    HandleState* GetInstanceState(XrInstance handle)
+    {
+        return GetHandleState({(IntHandle)handle, XR_OBJECT_TYPE_INSTANCE});
+    }
+
+}  // namespace instance
 
 /////////////////
 // ABI
@@ -28,18 +40,52 @@
 XrResult ConformanceHooks::xrPollEvent(XrInstance instance, XrEventDataBuffer* eventData)
 {
     const XrResult result = ConformanceHooksBase::xrPollEvent(instance, eventData);
+
+    if (result == XR_EVENT_UNAVAILABLE) {
+        const HandleState* const instanceState = instance::GetInstanceState(instance);
+
+        // Clear the "xrSyncActions called" flag for all known sessions
+        for (HandleState* childState : instanceState->children) {
+            if (childState->type != XR_OBJECT_TYPE_SESSION) {
+                continue;
+            }
+            session::CustomSessionState* const customSessionState =
+                dynamic_cast<session::CustomSessionState*>(childState->customState.get());
+
+            // avoid setting queue exhaust flag while xrSyncActions is ongoing
+            // caveat: it is technically possible but unlikely that an entire xrSyncActions has happened
+            // since this function forwarded the xrPollEvent call
+            session::SyncActionsState exchangeIfState = session::SyncActionsState::CALLED_SINCE_QUEUE_EXHAUST;
+            customSessionState->syncActionsState.compare_exchange_strong(exchangeIfState,
+                                                                         session::SyncActionsState::NOT_CALLED_SINCE_QUEUE_EXHAUST,  //
+#if __cplusplus >= 202000L
+                                                                         std::memory_order_seq_cst, std::memory_order_seq_cst
+#else
+                                                                         std::memory_order::memory_order_seq_cst,
+                                                                         std::memory_order::memory_order_seq_cst
+#endif  // __cpluscplus >= 202000L
+            );
+        }
+    }
+
     if (result != XR_SUCCESS) {
+        // exit now if we don't have a good event
         return result;
     }
 
-    try {
-        switch ((int)eventData->type) {  // int cast so compiler doesn't warn about other enumerants.
+    // For each known event type, check if that's the current event type,
+    // and if so, cast the event to the derived type then call checkEventPayload().
+    // This will end up choosing an overload per event data type.
+
+    // macro for a case statement when we have defined enough defines to get that type:
+    // reinterpret cast then call to checkEventPayload
 #define MAKE_CASE(STRUCT_TYPE, TYPE_ENUM)                                   \
     case TYPE_ENUM: {                                                       \
         const auto typed = reinterpret_cast<const STRUCT_TYPE*>(eventData); \
         checkEventPayload(typed);                                           \
         break;                                                              \
     }
+    // macro for a case statement where a type is not available due to lack of defines, but the structure type enum still exists (needed by the reflection-generated macro)
 #define MAKE_UNAVAIL_CASE(STRUCT_TYPE, TYPE_ENUM)                                                                            \
     case TYPE_ENUM: {                                                                                                        \
         POSSIBLE_NONCONFORMANT(                                                                                              \
@@ -47,6 +93,12 @@ XrResult ConformanceHooks::xrPollEvent(XrInstance instance, XrEventDataBuffer* e
             eventData->type);                                                                                                \
         break;                                                                                                               \
     }
+
+    try {
+        switch ((int)eventData->type) {  // int cast so compiler doesn't warn about other enumerants.
+
+            // Use the reflection headers to generate all the case statements for things derived from XrEventDataBaseHeader
+            // and call the appropriate checkEventPayload overload on those we can cope with (those whose needed defines are defined)
             XR_LIST_ALL_CHILD_STRUCTURE_TYPES_XrEventDataBaseHeader(MAKE_CASE, MAKE_UNAVAIL_CASE);
 
         default:
@@ -98,7 +150,7 @@ void ConformanceHooks::checkEventPayload(const XrEventDataReferenceSpaceChangePe
 
 void ConformanceHooks::checkEventPayload(const XrEventDataInteractionProfileChanged* data)
 {
-    (void)session::GetSessionState(data->session);  // Check handle is alive/valid.
+    session::InteractionProfileChanged(this, data);  // Validate session handle and timing of InteractionProfileChanged
 }
 
 void ConformanceHooks::checkEventPayload(const XrEventDataVisibilityMaskChangedKHR* data)
@@ -118,4 +170,48 @@ void ConformanceHooks::checkEventPayload(const XrEventDataSpatialAnchorCreateCom
 {
     (void)data;
     // Event data used in gen_dispatch.cpp
+}
+
+void ConformanceHooks::checkEventPayload(const XrEventDataUserPresenceChangedEXT* data)
+{
+    VALIDATE_EVENT_XRBOOL32(data->isUserPresent);
+}
+
+XrResult ConformanceHooks::xrGetSystemProperties(XrInstance instance, XrSystemId systemId, XrSystemProperties* properties)
+{
+    const XrResult result = ConformanceHooksBase::xrGetSystemProperties(instance, systemId, properties);
+
+    if (result == XR_SUCCESS) {
+        // validate some structs?
+        auto nextStruct = properties->next;
+
+        ForEachExtension(properties->next, [&](const XrBaseInStructure* ext) {
+            switch (ext->type) {
+            case XR_TYPE_SYSTEM_HAND_TRACKING_PROPERTIES_EXT: {
+                auto testStruct = reinterpret_cast<const XrSystemHandTrackingPropertiesEXT*>(ext);
+                // The runtime is only required to validate this if EXT_hand_tracking is enabled
+                // but we don't supply invalid values for this in our tests so this is a
+                // a reasonable thing to check here.
+                VALIDATE_EVENT_XRBOOL32(testStruct->supportsHandTracking);
+                break;
+            }
+            case XR_TYPE_SYSTEM_USER_PRESENCE_PROPERTIES_EXT: {
+                // The runtime is only required to validate this if EXT_hand_tracking is enabled
+                // but we don't supply invalidate values for this in our tests so this is a
+                // a reasonable thing to check here.
+
+                auto testStruct = reinterpret_cast<const XrSystemUserPresencePropertiesEXT*>(ext);
+                // The runtime is only required to validate this if EXT_user_presence is enabled
+                // but we don't supply invalid values for this in the tests so this is a
+                // a reasonable thing to check here.
+                VALIDATE_EVENT_XRBOOL32(testStruct->supportsUserPresence);
+                break;
+            }
+            default:
+                break;
+            }
+        });
+    }
+
+    return result;
 }

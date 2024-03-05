@@ -26,6 +26,7 @@
 #include <stdexcept>
 #include <vector>
 
+/// Base class for "custom" handle state that differs between handle types
 struct ICustomHandleState
 {
     virtual ~ICustomHandleState() = default;
@@ -34,7 +35,7 @@ struct ICustomHandleState
 using IntHandle = uint64_t;   // A common type for all handles so a single map can be used.
 struct ConformanceHooksBase;  // forward-declare
 
-// Common state kept around for all XR handles.
+/// Common state kept around for all XR handles.
 struct HandleState
 {
     HandleState(IntHandle handle_, XrObjectType type, HandleState* parent, std::shared_ptr<ConformanceHooksBase> conformanceHooks)
@@ -42,6 +43,7 @@ struct HandleState
     {
     }
 
+    /// "fork-exec" for handles, basically. Called from generated ConformanceHooksBase implementations
     std::unique_ptr<HandleState> CloneForChild(IntHandle handle_, XrObjectType childType)
     {
         // Note that the cloned HandleState will start with a null customState and no children.
@@ -65,16 +67,24 @@ struct HandleState
 
     mutable std::mutex mutex;
 
+    /// Non-owning pointers to handle state of child handles.
     std::vector<HandleState*> children;
 
-    // Additional data stored by the hand-coded validations.
+    /// Additional data stored by the hand-coded validations.
     std::unique_ptr<ICustomHandleState> customState;
 };
 
-// Inherit from std::runtime_error so it can be caught in the ABI boundary.
+/// Handle exception type: Inherit from std::runtime_error so it can be caught in the ABI boundary.
 struct HandleException : public std::runtime_error
 {
     HandleException(const std::string& message) : std::runtime_error(message)
+    {
+    }
+};
+
+struct HandleNotFoundException : public HandleException
+{
+    HandleNotFoundException(const std::string& message) : HandleException(message)
     {
     }
 };
@@ -85,4 +95,6 @@ void UnregisterHandleStateInternal(std::unique_lock<std::mutex>& lockProof, Hand
 void UnregisterHandleState(HandleStateKey key);
 void RegisterHandleState(std::unique_ptr<HandleState> handleState);
 
+/// Retrieve common handle state based on a handle and object type enum.
+/// Throws if not found.
 HandleState* GetHandleState(HandleStateKey key);

@@ -18,6 +18,7 @@
 #include "ConformanceHooks.h"
 #include "CustomHandleState.h"
 #include "RuntimeFailure.h"
+#include "openxr/openxr.h"
 
 namespace
 {
@@ -123,6 +124,28 @@ namespace session
             }
         }
     }
+
+    void InteractionProfileChanged(ConformanceHooksBase* conformanceHooks,
+                                   const XrEventDataInteractionProfileChanged* interactionProfileChanged)
+    {
+        // Check handle is alive/valid.
+        session::CustomSessionState* const customSessionState = GetCustomSessionState(interactionProfileChanged->session);
+        // Cannot clear here because you may have gotten several of these events queued.
+        // Not very useful, but the spec doesn't forbid it.
+        session::SyncActionsState syncActionsState = customSessionState->syncActionsState.load(
+#if __cplusplus >= 202000L
+            std::memory_order_seq_cst
+#else
+            std::memory_order::memory_order_seq_cst
+#endif  // __cpluscplus >= 202000L
+        );
+        if (syncActionsState == SyncActionsState::NOT_CALLED_SINCE_QUEUE_EXHAUST) {
+            conformanceHooks->ConformanceFailure(
+                XR_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT, "xrPollEvent",
+                "Event with type XR_TYPE_EVENT_DATA_INTERACTION_PROFILE_CHANGED must only be queued during xrSyncActions,"
+                " but no xrSyncActions call was made since the last time XR_EVENT_UNAVAILABLE was returned from xrPollEvent.");
+        }
+    }
 }  // namespace session
 
 /////////////////
@@ -133,6 +156,7 @@ using namespace session;
 
 XrResult ConformanceHooks::xrCreateSession(XrInstance instance, const XrSessionCreateInfo* createInfo, XrSession* session)
 {
+    // Call generated base implementation, which will check return codes, create (common) handle state, set up parent/child relationships, etc.
     const XrResult result = ConformanceHooksBase::xrCreateSession(instance, createInfo, session);
     if (XR_SUCCEEDED(result)) {
         std::unique_ptr<CustomSessionState> customSessionState = std::unique_ptr<CustomSessionState>(new CustomSessionState());
@@ -176,9 +200,12 @@ XrResult ConformanceHooks::xrCreateSession(XrInstance instance, const XrSessionC
 
 XrResult ConformanceHooks::xrSyncActions(XrSession session, const XrActionsSyncInfo* syncInfo)
 {
+    CustomSessionState* const customSessionState = GetCustomSessionState(session);
+    customSessionState->syncActionsState.store(session::SyncActionsState::ONGOING);
+
     const XrResult result = ConformanceHooksBase::xrSyncActions(session, syncInfo);
 
-    CustomSessionState* const customSessionState = GetCustomSessionState(session);
+    // late lock since we only touched atomics until now
     std::unique_lock<std::mutex> lock(customSessionState->lock);
 
     if (result == XR_SESSION_NOT_FOCUSED && customSessionState->sessionState == XR_SESSION_STATE_FOCUSED) {
@@ -194,6 +221,10 @@ XrResult ConformanceHooks::xrSyncActions(XrSession session, const XrActionsSyncI
     for (uint32_t i = 0; i < syncInfo->countActiveActionSets; i++) {
         actionset::OnSyncActionData(result, &syncInfo->activeActionSets[i]);
     }
+
+    // caveat: if xrSyncActions is called in parallel with itself, this can un-set ONGOING early
+    customSessionState->syncActionsState.store(session::SyncActionsState::CALLED_SINCE_QUEUE_EXHAUST);
+
     return result;
 }
 

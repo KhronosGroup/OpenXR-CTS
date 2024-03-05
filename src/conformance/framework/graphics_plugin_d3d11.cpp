@@ -775,6 +775,7 @@ namespace Conformance
             ModelConstantBuffer model;
             XMStoreFloat4x4(&model.Model, XMMatrixTranspose(XMMatrixScaling(mesh.params.scale.x, mesh.params.scale.y, mesh.params.scale.z) *
                                                             LoadXrPose(mesh.params.pose)));
+            model.TintColor = {mesh.tintColor.r, mesh.tintColor.g, mesh.tintColor.b, mesh.tintColor.a};
             d3d11DeviceContext->UpdateSubresource(modelCBuffer.Get(), 0, nullptr, &model, 0, 0);
 
             // Draw the mesh.
@@ -783,7 +784,7 @@ namespace Conformance
 
         // Render each cube
         for (const Cube& cube : params.cubes) {
-            drawMesh(MeshDrawable{m_cubeMesh, cube.params.pose, cube.params.scale});
+            drawMesh(MeshDrawable{m_cubeMesh, cube.params.pose, cube.params.scale, cube.tintColor});
         }
 
         // Render each mesh
