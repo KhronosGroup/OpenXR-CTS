@@ -17,6 +17,7 @@
 #include "common/xr_linear.h"
 #include "composition_utils.h"
 #include "conformance_framework.h"
+#include "utilities/ballistics.h"
 #include "utilities/throw_helpers.h"
 #include "utilities/utils.h"
 
@@ -150,14 +151,7 @@ namespace Conformance
             throwSpaces.push_back(std::move(handThrowSpaces));
         }
 
-        struct ThrownCube
-        {
-            XrSpaceVelocity velocity;  // Velocity of space that was captured when a throw happened.
-            XrPosef pose;
-            XrTime updateTime;
-            XrTime createTime;
-        };
-        std::vector<ThrownCube> thrownCubes;
+        std::vector<BodyInMotion> thrownCubes;
 
         // Three fixed cubes which must be reached by the thrown cubes to pass the test.
         std::vector<XrVector3f> targetCubes{{-1, -1, -3.0f}, {1, -1, -4.0f}, {0, 1.0f, -5.0f}};
@@ -202,39 +196,8 @@ namespace Conformance
                     ++it;
             }
 
-            // Apply velocities to thrown cubes.
-            auto simulateThrownCubeAtTime = [](ThrownCube& thrownCube, XrTime predictedDisplayTime) {
-                const XrDuration timeSinceLastTick = predictedDisplayTime - thrownCube.updateTime;
-                CHECK_MSG(timeSinceLastTick > 0, "Unexpected old frame state predictedDisplayTime or future action state lastChangeTime");
-                thrownCube.updateTime = predictedDisplayTime;
-
-                const float secondSinceLastTick = timeSinceLastTick / (float)1'000'000'000;
-
-                // Apply gravity to velocity.
-                thrownCube.velocity.linearVelocity.y += -9.8f * secondSinceLastTick;
-
-                // Apply velocity to position.
-                XrVector3f deltaVelocity;
-                XrVector3f_Scale(&deltaVelocity, &thrownCube.velocity.linearVelocity, secondSinceLastTick);
-                XrVector3f_Add(&thrownCube.pose.position, &thrownCube.pose.position, &deltaVelocity);
-
-                // Convert angular velocity to quaternion with the appropriate amount of rotation for the delta time.
-                XrQuaternionf angularRotation;
-                {
-                    const float radiansPerSecond = XrVector3f_Length(&thrownCube.velocity.angularVelocity);
-                    XrVector3f angularAxis = thrownCube.velocity.angularVelocity;
-                    XrVector3f_Normalize(&angularAxis);
-                    XrQuaternionf_CreateFromAxisAngle(&angularRotation, &angularAxis, radiansPerSecond * secondSinceLastTick);
-                }
-
-                // Update the orientation given the computed angular rotation.
-                XrQuaternionf newOrientation;
-                XrQuaternionf_Multiply(&newOrientation, &thrownCube.pose.orientation, &angularRotation);
-                thrownCube.pose.orientation = newOrientation;
-            };
-
-            for (ThrownCube& thrownCube : thrownCubes) {
-                simulateThrownCubeAtTime(thrownCube, frameState.predictedDisplayTime);
+            for (BodyInMotion& thrownCube : thrownCubes) {
+                thrownCube.doSimulationStep({0.f, -9.8f, 0.f}, frameState.predictedDisplayTime);
                 cubes.push_back({thrownCube.pose, activateCubeScale});
 
                 // Remove any target cubes which are hit by the thrown cube.
@@ -279,11 +242,11 @@ namespace Conformance
                             // Draw an instantaneous indication of the linear & angular velocity
                             if (spaceVelocity.velocityFlags & XR_SPACE_VELOCITY_LINEAR_VALID_BIT) {
                                 auto gnomonTime = frameState.predictedDisplayTime;
-                                ThrownCube gnomon{spaceVelocity, spaceLocation.pose, gnomonTime, gnomonTime};
+                                BodyInMotion gnomon{spaceVelocity, spaceLocation.pose, gnomonTime, gnomonTime};
                                 for (int step = 1; step < 20; ++step) {
                                     auto predictedDisplayTimeAtStep =
                                         frameState.predictedDisplayTime + step * frameState.predictedDisplayPeriod;
-                                    simulateThrownCubeAtTime(gnomon, predictedDisplayTimeAtStep);
+                                    gnomon.doSimulationStep({0.f, -9.8f, 0.f}, predictedDisplayTimeAtStep);
                                     meshes.push_back(MeshDrawable{gnomonMesh, gnomon.pose, gnomonScale});
                                 }
                             }
@@ -299,8 +262,8 @@ namespace Conformance
                                     releaseSpaceLocation.locationFlags & XR_SPACE_LOCATION_ORIENTATION_VALID_BIT &&
                                     releaseSpaceVelocity.velocityFlags & XR_SPACE_VELOCITY_ANGULAR_VALID_BIT &&
                                     releaseSpaceVelocity.velocityFlags & XR_SPACE_VELOCITY_LINEAR_VALID_BIT) {
-                                    thrownCubes.emplace_back(ThrownCube{releaseSpaceVelocity, releaseSpaceLocation.pose,
-                                                                        boolState.lastChangeTime, boolState.lastChangeTime});
+                                    thrownCubes.emplace_back(BodyInMotion{releaseSpaceVelocity, releaseSpaceLocation.pose,
+                                                                          boolState.lastChangeTime, boolState.lastChangeTime});
                                 }
                             }
                         }

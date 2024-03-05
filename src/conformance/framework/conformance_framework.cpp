@@ -536,6 +536,6 @@ std::string Catch::StringMaker<XrPosef>::convert(XrPosef const& value)
     oss << ", xyz=(" << value.orientation.x;
     oss << ", " << value.orientation.y;
     oss << ", " << value.orientation.z;
-    oss << ")]";
+    oss << "))]";
     return oss.str();
 }

@@ -60,15 +60,11 @@ namespace Geometry
     struct AxisIndicator
     {
     public:
-        /// Get access to the single instance, constructed in static storage upon first use
-        static const AxisIndicator& GetInstance();
+        explicit AxisIndicator(float armLength, float armThickness);
 
         int count;
         std::array<unsigned short, 30 * 3> indices;
         std::array<Vertex, 30 * 3> vertices;
-
-    private:
-        AxisIndicator();
     };
 
 }  // namespace Geometry

@@ -127,6 +127,9 @@ namespace Conformance
             auto e2 = xml.scopedElement(CTS_XML_NS_PREFIX_QUALIFIER "enabledInstanceExtensions");
             for (const auto& name : options.enabledInstanceExtensions) {
                 xml.scopedElement(CTS_XML_NS_PREFIX_QUALIFIER "extension").writeAttribute("name", name);
+                if (name == XR_EXT_CONFORMANCE_AUTOMATION_EXTENSION_NAME) {
+                    xml.writeComment("Conformance automation enabled - NOT VALID FOR CONFORMANCE SUBMISSION");
+                }
             }
         }
 

@@ -132,7 +132,13 @@ namespace session
         session::CustomSessionState* const customSessionState = GetCustomSessionState(interactionProfileChanged->session);
         // Cannot clear here because you may have gotten several of these events queued.
         // Not very useful, but the spec doesn't forbid it.
-        session::SyncActionsState syncActionsState = customSessionState->syncActionsState.load(std::memory_order::memory_order_seq_cst);
+        session::SyncActionsState syncActionsState = customSessionState->syncActionsState.load(
+#if __cplusplus >= 202000L
+            std::memory_order_seq_cst
+#else
+            std::memory_order::memory_order_seq_cst
+#endif  // __cpluscplus >= 202000L
+        );
         if (syncActionsState == SyncActionsState::NOT_CALLED_SINCE_QUEUE_EXHAUST) {
             conformanceHooks->ConformanceFailure(
                 XR_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT, "xrPollEvent",

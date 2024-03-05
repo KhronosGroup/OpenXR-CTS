@@ -105,15 +105,17 @@ namespace Conformance
     /// A drawable cube, consisting of pose and scale for a nominally 1m x 1m x 1m cube
     struct Cube
     {
-        static inline Cube Make(XrVector3f position, float scale = 0.25f, XrQuaternionf orientation = {0, 0, 0, 1})
+        static inline Cube Make(XrVector3f position, float scale = 0.25f, XrQuaternionf orientation = {0, 0, 0, 1},
+                                XrColor4f tintColor = {0, 0, 0, 0})
         {
-            return Cube{/* pose */ {orientation, position}, /* scale: */ {scale, scale, scale}};
+            return Cube{/* pose */ {orientation, position}, /* scale: */ {scale, scale, scale}, tintColor};
         }
 
-        Cube(XrPosef pose, XrVector3f scale) : params(pose, scale)
+        Cube(XrPosef pose, XrVector3f scale, XrColor4f tintColor = {0, 0, 0, 0}) : params(pose, scale), tintColor(tintColor)
         {
         }
         DrawableParams params;
+        XrColor4f tintColor;
     };
 
     namespace detail
@@ -136,9 +138,10 @@ namespace Conformance
     {
         MeshHandle handle;
         DrawableParams params;
+        XrColor4f tintColor;
 
-        MeshDrawable(MeshHandle handle, XrPosef pose = XrPosefCPP{}, XrVector3f scale = {1.0, 1.0, 1.0})
-            : handle(handle), params(pose, scale)
+        MeshDrawable(MeshHandle handle, XrPosef pose = XrPosefCPP{}, XrVector3f scale = {1.0, 1.0, 1.0}, XrColor4f tintColor = {0, 0, 0, 0})
+            : handle(handle), params(pose, scale), tintColor(tintColor)
         {
         }
     };
@@ -347,6 +350,7 @@ namespace Conformance
         }
 
         /// Create internal data for a mesh, returning a handle to refer to it.
+        /// `idx` and `vtx` are copied out of and do not need to outlive this function.
         /// This handle expires when the internal data is cleared in Shutdown() and ShutdownDevice().
         virtual MeshHandle MakeSimpleMesh(span<const uint16_t> idx, span<const Geometry::Vertex> vtx) = 0;
 
@@ -377,9 +381,10 @@ namespace Conformance
         }
 
         /// Convenience helper function to make a mesh that is "coordinate axes" also called a "gnomon"
-        MeshHandle MakeGnomonMesh()
+        MeshHandle MakeGnomonMesh(float armLength = 1.0f, float armThickness = 0.1f)
         {
-            return MakeSimpleMesh(Geometry::AxisIndicator::GetInstance().indices, Geometry::AxisIndicator::GetInstance().vertices);
+            Geometry::AxisIndicator gnomon = Geometry::AxisIndicator(armLength, armThickness);
+            return MakeSimpleMesh(gnomon.indices, gnomon.vertices);
         }
 
         virtual void RenderView(const XrCompositionLayerProjectionView& layerView, const XrSwapchainImageBaseHeader* colorSwapchainImage,

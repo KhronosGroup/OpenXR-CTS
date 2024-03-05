@@ -178,10 +178,11 @@ namespace Conformance
         out vec3 PSVertexColor;
 
         uniform mat4 ModelViewProjection;
+        uniform vec4 tintColor;
 
         void main() {
            gl_Position = ModelViewProjection * vec4(VertexPos, 1.0);
-           PSVertexColor = VertexColor;
+           PSVertexColor = mix(VertexColor, tintColor.rgb, tintColor.a);
         }
         )_";
 
@@ -451,6 +452,7 @@ namespace Conformance
         GLuint m_swapchainFramebuffer{0};
         GLuint m_program{0};
         GLint m_modelViewProjectionUniformLocation{0};
+        GLint m_tintColorUniformLocation{0};
         GLint m_vertexAttribCoords{0};
         GLint m_vertexAttribColor{0};
         MeshHandle m_cubeMesh{};
@@ -724,6 +726,7 @@ namespace Conformance
         glDeleteShader(fragmentShader);
 
         m_modelViewProjectionUniformLocation = glGetUniformLocation(m_program, "ModelViewProjection");
+        m_tintColorUniformLocation = glGetUniformLocation(m_program, "tintColor");
 
         m_vertexAttribCoords = glGetAttribLocation(m_program, "VertexPos");
         m_vertexAttribColor = glGetAttribLocation(m_program, "VertexColor");
@@ -1138,6 +1141,7 @@ namespace Conformance
             XrMatrix4x4f mvp;
             XrMatrix4x4f_Multiply(&mvp, &vp, &model);
             glUniformMatrix4fv(m_modelViewProjectionUniformLocation, 1, GL_FALSE, reinterpret_cast<const GLfloat*>(&mvp));
+            glUniform4fv(m_tintColorUniformLocation, 1, reinterpret_cast<const GLfloat*>(&mesh.tintColor));
 
             // Draw the mesh.
             glDrawElements(GL_TRIANGLES, GLsizei(glMesh.m_numIndices), GL_UNSIGNED_SHORT, nullptr);
@@ -1145,7 +1149,7 @@ namespace Conformance
 
         // Render each cube
         for (const Cube& cube : params.cubes) {
-            drawMesh(MeshDrawable{m_cubeMesh, cube.params.pose, cube.params.scale});
+            drawMesh(MeshDrawable{m_cubeMesh, cube.params.pose, cube.params.scale, cube.tintColor});
         }
 
         // Render each mesh

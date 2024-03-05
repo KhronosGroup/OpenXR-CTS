@@ -82,6 +82,13 @@ struct HandleException : public std::runtime_error
     }
 };
 
+struct HandleNotFoundException : public HandleException
+{
+    HandleNotFoundException(const std::string& message) : HandleException(message)
+    {
+    }
+};
+
 using HandleStateKey = std::pair<IntHandle, XrObjectType>;
 
 void UnregisterHandleStateInternal(std::unique_lock<std::mutex>& lockProof, HandleStateKey key);

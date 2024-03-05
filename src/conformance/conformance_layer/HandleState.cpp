@@ -92,8 +92,8 @@ HandleState* GetHandleState(HandleStateKey key)
     std::unique_lock<std::mutex> lock(g_handleStatesMutex);
     auto it = g_handleStates.find(key);
     if (it == g_handleStates.end()) {
-        throw HandleException(std::string("Encountered unknown ") + to_string(key.second) + " handle with value " +
-                              std::to_string(key.first));
+        throw HandleNotFoundException(std::string("Encountered unknown ") + to_string(key.second) + " handle with value " +
+                                      std::to_string(key.first));
     }
     return it->second.get();
 }

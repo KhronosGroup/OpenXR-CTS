@@ -11,6 +11,7 @@
 layout (std140, push_constant) uniform buf
 {
     mat4 mvp;
+    vec4 tintColor;
 } ubuf;
 
 layout (location = 0) in vec3 Position;
@@ -24,7 +25,7 @@ out gl_PerVertex
 
 void main()
 {
-    oColor.rgb  = Color.rgb;
+    oColor.rgb = mix(Color.rgb, ubuf.tintColor.rgb, ubuf.tintColor.a);
     oColor.a  = 1.0;
     gl_Position = ubuf.mvp * vec4(Position, 1);
 }

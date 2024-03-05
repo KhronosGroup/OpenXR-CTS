@@ -22,13 +22,11 @@ namespace Geometry
         return input;
     }
 
-    AxisIndicator::AxisIndicator() : count(0)
+    AxisIndicator::AxisIndicator(float armLength, float armThickness) : count(0)
     {
         constexpr int axes = 3;
         constexpr int verticesPerAxis = 30;
         constexpr int totalVertices = verticesPerAxis * axes;
-
-        constexpr float thickness = 0.1f;
 
         // For each axis, create a copy of the cube mesh missing the -x face.
         // The +x face will be at 1.0, and the -x faces will be mitered together.
@@ -44,13 +42,13 @@ namespace Geometry
 
             Vertex vertex = c_cubeVertices[index + 6];  // skip -x face
             vertex.Color = color;
-            vertex.Position.x *= thickness;
-            vertex.Position.y *= thickness;
-            vertex.Position.z *= thickness;
+            vertex.Position.x *= armThickness;
+            vertex.Position.y *= armThickness;
+            vertex.Position.z *= armThickness;
 
             if (vertex.Position.x > 0) {
                 // +x vertex, end of the arm, send x to +1
-                vertex.Position.x = 1.0;
+                vertex.Position.x = armLength;
             }
             else if (vertex.Position.y > 0 || vertex.Position.z > 0) {
                 // make room for another axis
@@ -64,11 +62,5 @@ namespace Geometry
             indices[i] = i;
             vertices[i] = vertex;
         }
-    }
-
-    const AxisIndicator& AxisIndicator::GetInstance()
-    {
-        static const AxisIndicator instance;
-        return instance;
     }
 }  // namespace Geometry

@@ -25,6 +25,7 @@ namespace Conformance
     struct ModelConstantBuffer
     {
         DirectX::XMFLOAT4X4 Model;
+        DirectX::XMFLOAT4 TintColor;
     };
     struct ViewProjectionConstantBuffer
     {
@@ -43,6 +44,7 @@ namespace Conformance
     };
     cbuffer ModelConstantBuffer : register(b0) {
         float4x4 Model;
+        float4 TintColor;
     };
     cbuffer ViewProjectionConstantBuffer : register(b1) {
         float4x4 ViewProjection;
@@ -51,7 +53,7 @@ namespace Conformance
     PSVertex MainVS(Vertex input) {
        PSVertex output;
        output.Pos = mul(mul(float4(input.Pos, 1), Model), ViewProjection);
-       output.Color = input.Color;
+       output.Color = lerp(input.Color, TintColor.rgb, TintColor.a);
        return output;
     }
 

@@ -56,9 +56,15 @@ XrResult ConformanceHooks::xrPollEvent(XrInstance instance, XrEventDataBuffer* e
             // caveat: it is technically possible but unlikely that an entire xrSyncActions has happened
             // since this function forwarded the xrPollEvent call
             session::SyncActionsState exchangeIfState = session::SyncActionsState::CALLED_SINCE_QUEUE_EXHAUST;
-            customSessionState->syncActionsState.compare_exchange_strong(
-                exchangeIfState, session::SyncActionsState::NOT_CALLED_SINCE_QUEUE_EXHAUST,  //
-                std::memory_order::memory_order_seq_cst, std::memory_order::memory_order_seq_cst);
+            customSessionState->syncActionsState.compare_exchange_strong(exchangeIfState,
+                                                                         session::SyncActionsState::NOT_CALLED_SINCE_QUEUE_EXHAUST,  //
+#if __cplusplus >= 202000L
+                                                                         std::memory_order_seq_cst, std::memory_order_seq_cst
+#else
+                                                                         std::memory_order::memory_order_seq_cst,
+                                                                         std::memory_order::memory_order_seq_cst
+#endif  // __cpluscplus >= 202000L
+            );
         }
     }
 
@@ -164,4 +170,48 @@ void ConformanceHooks::checkEventPayload(const XrEventDataSpatialAnchorCreateCom
 {
     (void)data;
     // Event data used in gen_dispatch.cpp
+}
+
+void ConformanceHooks::checkEventPayload(const XrEventDataUserPresenceChangedEXT* data)
+{
+    VALIDATE_EVENT_XRBOOL32(data->isUserPresent);
+}
+
+XrResult ConformanceHooks::xrGetSystemProperties(XrInstance instance, XrSystemId systemId, XrSystemProperties* properties)
+{
+    const XrResult result = ConformanceHooksBase::xrGetSystemProperties(instance, systemId, properties);
+
+    if (result == XR_SUCCESS) {
+        // validate some structs?
+        auto nextStruct = properties->next;
+
+        ForEachExtension(properties->next, [&](const XrBaseInStructure* ext) {
+            switch (ext->type) {
+            case XR_TYPE_SYSTEM_HAND_TRACKING_PROPERTIES_EXT: {
+                auto testStruct = reinterpret_cast<const XrSystemHandTrackingPropertiesEXT*>(ext);
+                // The runtime is only required to validate this if EXT_hand_tracking is enabled
+                // but we don't supply invalid values for this in our tests so this is a
+                // a reasonable thing to check here.
+                VALIDATE_EVENT_XRBOOL32(testStruct->supportsHandTracking);
+                break;
+            }
+            case XR_TYPE_SYSTEM_USER_PRESENCE_PROPERTIES_EXT: {
+                // The runtime is only required to validate this if EXT_hand_tracking is enabled
+                // but we don't supply invalidate values for this in our tests so this is a
+                // a reasonable thing to check here.
+
+                auto testStruct = reinterpret_cast<const XrSystemUserPresencePropertiesEXT*>(ext);
+                // The runtime is only required to validate this if EXT_user_presence is enabled
+                // but we don't supply invalid values for this in the tests so this is a
+                // a reasonable thing to check here.
+                VALIDATE_EVENT_XRBOOL32(testStruct->supportsUserPresence);
+                break;
+            }
+            default:
+                break;
+            }
+        });
+    }
+
+    return result;
 }
