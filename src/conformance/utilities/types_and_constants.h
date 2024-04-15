@@ -75,7 +75,11 @@ namespace Conformance
         XrPosefCPP() : XrPosef{{0, 0, 0, 1}, {0, 0, 0}}
         {
         }
+        explicit XrPosefCPP(const XrPosef& pose) : XrPosef(pose)
+        {
+        }
     };
+    bool operator==(const XrPosefCPP& lhs, const XrPosefCPP& rhs);
 
     /**
      * @defgroup cts_handle_helpers Handle-type utilities

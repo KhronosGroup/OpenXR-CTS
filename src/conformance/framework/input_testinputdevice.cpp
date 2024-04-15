@@ -80,7 +80,7 @@ namespace Conformance
 
         HumanDrivenInputdevice(ITestMessageDisplay* const messageDisplay, InteractionManager* const interactionManager, XrInstance instance,
                                XrSession session, XrPath interactionProfile, XrPath topLevelPath,
-                               const InputSourcePathCollection& interactionProfilePaths)
+                               const InputSourcePathAvailCollection& interactionProfilePaths)
             : m_messageDisplay(messageDisplay)
             , m_instance(instance)
             , m_session(session)
@@ -110,8 +110,14 @@ namespace Conformance
                         topLevelPathString.end());
             };
 
-            for (const InputSourcePathData& inputSourceData : interactionProfilePaths) {
+            FeatureSet enabled;
+            GetGlobalData().PopulateVersionAndEnabledExtensions(enabled);
+
+            for (const InputSourcePathAvailData& inputSourceData : interactionProfilePaths) {
                 if (!PrefixedByTopLevelPath(inputSourceData.Path)) {
+                    continue;
+                }
+                if (!kInteractionAvailabilities[(size_t)inputSourceData.Availability].IsSatisfiedBy(enabled)) {
                     continue;
                 }
 
@@ -534,7 +540,7 @@ namespace Conformance
     std::unique_ptr<IInputTestDevice> CreateTestDevice(ITestMessageDisplay* const messageDisplay,
                                                        InteractionManager* const interactionManager, XrInstance instance, XrSession session,
                                                        XrPath interactionProfile, XrPath topLevelPath,
-                                                       const InputSourcePathCollection& interactionProfilePaths)
+                                                       const InputSourcePathAvailCollection& interactionProfilePaths)
     {
         return std::make_unique<HumanDrivenInputdevice>(messageDisplay, interactionManager, instance, session, interactionProfile,
                                                         topLevelPath, interactionProfilePaths);

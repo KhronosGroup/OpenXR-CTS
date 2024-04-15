@@ -16,6 +16,7 @@
 #include <d3d12.h>
 #include <wrl/client.h>  // For Microsoft::WRL::ComPtr
 
+#include <array>
 #include <memory>
 
 namespace Pbr

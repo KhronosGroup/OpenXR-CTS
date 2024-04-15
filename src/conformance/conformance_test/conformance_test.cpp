@@ -262,9 +262,24 @@ namespace
         using namespace Catch::Clara;
         auto& options = globalData.options;
 
+        /// Handle apiVersion arg
+        auto const parseDesiredApiVersion = [&](std::string const& arg) {
+            GlobalData& globalData = GetGlobalData();
+            globalData.options.desiredApiVersion = arg;
+            if (striequal(globalData.options.desiredApiVersion.c_str(), "1.0"))
+                globalData.options.desiredApiVersionValue = XR_MAKE_VERSION(1, 0, XR_VERSION_PATCH(XR_CURRENT_API_VERSION));
+            else if (striequal(globalData.options.desiredApiVersion.c_str(), "1.1"))
+                globalData.options.desiredApiVersionValue = XR_MAKE_VERSION(1, 1, XR_VERSION_PATCH(XR_CURRENT_API_VERSION));
+            else {
+                ReportConsoleOnlyF("invalid arg: %s", globalData.options.desiredApiVersion.c_str());
+                return ParserResult::runtimeError("invalid OpenXR version '" + arg + "' passed on command line");
+            }
+
+            return ParserResult::ok(ParseResultType::Matched);
+        };
+
         /// Handle rand seed arg
         auto const parseRandSeed = [&](std::string const& arg) {
-            using namespace Conformance;
             GlobalData& globalData = GetGlobalData();
             uint64_t seedValue = std::strtoull(arg.c_str(), nullptr, 0);
             if (errno == ERANGE) {
@@ -278,7 +293,6 @@ namespace
 
         /// Handle form factor arg
         auto const parseFormFactor = [&](std::string const& arg) {
-            using namespace Conformance;
             GlobalData& globalData = GetGlobalData();
             globalData.options.formFactor = arg;
             if (striequal(globalData.options.formFactor.c_str(), "hmd"))
@@ -295,7 +309,6 @@ namespace
 
         /// Handle hands arg
         auto const parseHands = [&](std::string const& arg) {
-            using namespace Conformance;
             GlobalData& globalData = GetGlobalData();
             globalData.options.enabledHands = arg;
 
@@ -321,7 +334,6 @@ namespace
 
         /// Handle view config arg
         auto const parseViewConfig = [&](std::string const& arg) {
-            using namespace Conformance;
             GlobalData& globalData = GetGlobalData();
             globalData.options.viewConfiguration = arg;
             if (striequal(globalData.options.viewConfiguration.c_str(), "stereo"))
@@ -337,7 +349,6 @@ namespace
 
         /// Handle blend mode arg
         auto const parseBlendMode = [&](std::string const& arg) {
-            using namespace Conformance;
             GlobalData& globalData = GetGlobalData();
             globalData.options.environmentBlendMode = arg;
             if (striequal(globalData.options.environmentBlendMode.c_str(), "opaque"))
@@ -364,6 +375,12 @@ namespace
             ("Specify a graphics plugin to use. Required.")
                 .required()
 
+            | Opt(parseDesiredApiVersion,
+                  "1.0|1.1")        // OpenXR version
+                  ["--apiVersion"]  //
+              ("Specify the OpenXR API version to use. Default is 1.1.")
+                  .optional()
+
             | Opt(parseRandSeed, "uint64_t random seed")  // seed for default global rand.
                   ["-S"]["--randSeed"]                    //
               ("Specify a random seed to use (decimal or hex). Default is a dynamically chosen value.")
@@ -374,8 +391,8 @@ namespace
               ("Specify a form factor to use. Default is HMD.")
                   .optional()
 
-            | Opt(parseHands, "interaction profile")  // Hands
-                  ["--hands"]                         //
+            | Opt(parseHands, "left|right|both")  // Hands
+                  ["--hands"]                     //
               ("Choose which hands to test: left, right, or both. Default is both.")
                   .optional()
 
@@ -434,7 +451,6 @@ namespace
     }
     bool UpdateOptionsFromCommandLine(Catch::Session& catchSession, int argc, const char* const* argv)
     {
-        using namespace Conformance;
         auto& globalData = GetGlobalData();
         auto cli = MakeCLIParser(globalData)  // our options first
                    | catchSession.cli();      // Catch default options
@@ -452,6 +468,7 @@ namespace
         globalData.enabledInteractionProfiles = globalData.options.enabledInteractionProfiles;
         globalData.leftHandUnderTest = globalData.options.leftHandEnabled;
         globalData.rightHandUnderTest = globalData.options.rightHandEnabled;
+        globalData.conformanceReport.apiVersion = globalData.options.desiredApiVersionValue;
 
         if (!(catchSession.configData().listTests || catchSession.configData().listTags || catchSession.configData().listListeners ||
               catchSession.configData().listReporters)) {
@@ -595,8 +612,6 @@ XrcResult XRAPI_CALL xrcEnumerateTestCases(uint32_t capacityInput, uint32_t* cou
 XrcResult XRAPI_CALL xrcRunConformanceTests(const ConformanceLaunchSettings* conformanceLaunchSettings, XrcTestResult* testResult,
                                             uint64_t* failureCount)
 {
-    using namespace Conformance;
-
     // Reset the state of the catch session since catch session must be re-used across multiple calls
     // and cannot be recreated.
     CreateOrGetCatchSession().useConfigData({});
@@ -612,12 +627,19 @@ XrcResult XRAPI_CALL xrcRunConformanceTests(const ConformanceLaunchSettings* con
     try {
         Conformance::g_reportCallback = [&](const char* message) { conformanceLaunchSettings->message(MessageType_Stdout, message); };
 
+#if defined(XR_OS_LINUX) || defined(XR_OS_APPLE) || defined(XR_OS_WINDOWS)
         // Disable loader error output by default, as we intentionally generate errors.
-        if (!GetEnvSet("XR_LOADER_DEBUG"))      // If not already set to something...
-            SetEnv("XR_LOADER_DEBUG", "none");  // then set to disabled.
+        // unless it is already set to something...
+        SetEnv("XR_LOADER_DEBUG", "none", false);
 
         // Search for layers in the conformance executable folder so that the conformance_layer is included automatically.
-        SetEnv(OPENXR_API_LAYER_PATH_ENV_VAR, "./");
+        SetEnv(OPENXR_API_LAYER_PATH_ENV_VAR, "./", true);
+#elif defined(XR_OS_ANDROID)
+        // Android does not support loader debug level override.
+        // Android does not support env var api layer path override.
+#else
+#error conformance layer env path needs to be set
+#endif  //defined(XR_USE_PLATFORM_ANDROID)
 
         ReportTestHeader();
 
@@ -627,7 +649,7 @@ XrcResult XRAPI_CALL xrcRunConformanceTests(const ConformanceLaunchSettings* con
             xrInitializeLoaderKHR != NULL) {
             XrLoaderInitInfoAndroidKHR loaderInitializeInfoAndroid = {XR_TYPE_LOADER_INIT_INFO_ANDROID_KHR};
             loaderInitializeInfoAndroid.applicationVM = Conformance_Android_Get_Application_VM();
-            loaderInitializeInfoAndroid.applicationContext = Conformance_Android_Get_Application_Context();
+            loaderInitializeInfoAndroid.applicationContext = Conformance_Android_Get_Application_Activity();
             xrInitializeLoaderKHR((XrLoaderInitInfoBaseHeaderKHR*)&loaderInitializeInfoAndroid);
         }
 #endif  // defined(XR_USE_PLATFORM_ANDROID)

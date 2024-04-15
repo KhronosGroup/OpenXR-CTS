@@ -7,6 +7,8 @@
 //
 // SPDX-License-Identifier: MIT AND Apache-2.0
 
+#pragma once
+
 #include "D3D12Resources.h"
 
 #include "utilities/d3d12_utils.h"

@@ -30,8 +30,6 @@ namespace Conformance
 
     void ValidateEventData(const XrEventDataBuffer* eventData)
     {
-        GlobalData& globalData = GetGlobalData();
-
         const XrEventDataBuffer* chain = reinterpret_cast<const XrEventDataBuffer*>(eventData->next);
 
         if (chain) {
@@ -119,15 +117,10 @@ namespace Conformance
         }
 
         default: {  // The event is of some type that we don't know.
-            if (globalData.runtimeMatchesAPIVersion) {
-                // Since we are testing a runtime whose version matches our API version,
-                // the event should not be a core type, because that would an event we don't
-                // know about is being returned.
+            // We cannot add a core type in a patch version, and we should not
+            // get core events for a minor version later than the one we request.
 
-                if (globalData.instanceProperties.runtimeVersion == XR_CURRENT_API_VERSION) {
-                    CHECK_MSG(eventData->type < 1000000000, "Runtime supports unexpected event type")
-                }
-            }
+            CHECK_MSG(eventData->type >= XR_EXTENSION_ENUM_BASE, "Runtime supports unexpected event type")
 
             break;
         }

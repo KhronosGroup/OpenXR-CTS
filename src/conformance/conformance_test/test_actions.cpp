@@ -19,8 +19,10 @@
 #include "conformance_framework.h"
 #include "conformance_utils.h"
 #include "input_testinputdevice.h"
+#include "interaction_info.h"
 #include "report.h"
 #include "two_call.h"
+#include "utilities/feature_availability.h"
 #include "utilities/bitmask_to_string.h"
 #include "utilities/event_reader.h"
 #include "utilities/types_and_constants.h"
@@ -325,6 +327,39 @@ namespace Conformance
         }
     }
 
+    struct InteractionAvailabilityEval
+    {
+        template <typename F>
+        explicit InteractionAvailabilityEval(F&& getFeatures)
+        {
+            const FeatureSet features = getFeatures();
+            for (uint32_t i = 0; i < satisfied.size(); ++i) {
+                satisfied[i] = kInteractionAvailabilities[i].IsSatisfiedBy(features);
+            }
+        }
+        std::array<bool, kInteractionAvailabilities.size()> satisfied{};
+    };
+
+    static bool SatisfiedByDefault(InteractionProfileAvailability a)
+    {
+        static InteractionAvailabilityEval eval([] {
+            FeatureSet features;
+            GetGlobalData().PopulateVersionAndEnabledExtensions(features);
+            return features;
+        });
+        return eval.satisfied[(size_t)a];
+    }
+
+    // static bool PossibleToSatisfy(InteractionProfileAvailability a)
+    // {
+    //     static InteractionAvailabilityEval eval([] {
+    //         FeatureSet features;
+    //         GetGlobalData().PopulateVersionAndAvailableExtensions(features);
+    //         return features;
+    //     });
+    //     return eval.satisfied[(size_t)a];
+    // }
+
     TEST_CASE("xrSuggestInteractionProfileBindings", "[actions]")
     {
         AutoBasicInstance instance(AutoBasicInstance::createSystemId);
@@ -435,12 +470,16 @@ namespace Conformance
             }
             SECTION("Supports all specified interaction profiles")
             {
-                for (const auto& ipMetadata : cInteractionProfileDefinitions) {
+                for (const auto& ipMetadata : GetAllInteractionProfiles()) {
                     XrAction boolAction;
                     XrAction floatAction;
                     XrAction vectorAction;
                     XrAction poseAction;
                     XrAction hapticAction;
+
+                    if (!SatisfiedByDefault(ipMetadata.Availability)) {
+                        continue;
+                    }
 
                     std::string actionNamePrefix = ipMetadata.InteractionProfileShortname;
                     std::replace(actionNamePrefix.begin(), actionNamePrefix.end(), '/', '_');
@@ -474,31 +513,32 @@ namespace Conformance
                     bindings.interactionProfile = StringToPath(instance, ipMetadata.InteractionProfilePathString);
                     bindings.countSuggestedBindings = 1;
                     for (const auto& inputSourcePathData : ipMetadata.InputSourcePaths) {
-                        const std::string& bindingPath = inputSourcePathData.Path;
-                        CAPTURE(bindingPath);
-                        const XrActionType& actionType = inputSourcePathData.Type;
+                        CAPTURE(inputSourcePathData.Path);
+                        CAPTURE(inputSourcePathData.Type);
 
-                        std::string actionTypeStr = enum_to_string(actionType);
-                        CAPTURE(actionTypeStr);
-
-                        XrAction* actionRef;
-                        if (actionType == XR_ACTION_TYPE_BOOLEAN_INPUT) {
-                            actionRef = &boolAction;
-                        }
-                        else if (actionType == XR_ACTION_TYPE_FLOAT_INPUT) {
-                            actionRef = &floatAction;
-                        }
-                        else if (actionType == XR_ACTION_TYPE_VECTOR2F_INPUT) {
-                            actionRef = &vectorAction;
-                        }
-                        else if (actionType == XR_ACTION_TYPE_VIBRATION_OUTPUT) {
-                            actionRef = &poseAction;
-                        }
-                        else {
-                            actionRef = &hapticAction;
+                        if (!SatisfiedByDefault(inputSourcePathData.Availability)) {
+                            continue;
                         }
 
-                        XrActionSuggestedBinding suggestedBindings{*actionRef, StringToPath(instance, bindingPath)};
+                        XrAction selectedAction;
+                        switch (inputSourcePathData.Type) {
+                        case XR_ACTION_TYPE_BOOLEAN_INPUT:
+                            selectedAction = boolAction;
+                            break;
+                        case XR_ACTION_TYPE_FLOAT_INPUT:
+                            selectedAction = floatAction;
+                            break;
+                        case XR_ACTION_TYPE_VECTOR2F_INPUT:
+                            selectedAction = vectorAction;
+                            break;
+                        case XR_ACTION_TYPE_VIBRATION_OUTPUT:
+                            selectedAction = poseAction;
+                            break;
+                        default:
+                            selectedAction = hapticAction;
+                        }
+
+                        XrActionSuggestedBinding suggestedBindings{selectedAction, StringToPath(instance, inputSourcePathData.Path)};
                         bindings.suggestedBindings = &suggestedBindings;
                         REQUIRE_RESULT(xrSuggestInteractionProfileBindings(instance, &bindings), XR_SUCCESS);
                     }
@@ -547,6 +587,115 @@ namespace Conformance
         }
     }
 
+    TEST_CASE("xrSuggestInteractionProfileBindings_avail")
+    {
+        AutoBasicInstance instance(AutoBasicInstance::createSystemId);
+        REQUIRE_MSG(instance != XR_NULL_HANDLE_CPP,
+                    "If this (XrInstance creation) fails, ensure the runtime location is set and the runtime is started, if applicable.");
+        REQUIRE_MSG(instance.systemId != XR_NULL_SYSTEM_ID,
+                    "XrInstance SystemId creation failed. Does the runtime have hardware available?");
+
+        XrActionSet actionSet{XR_NULL_HANDLE};
+        XrActionSetCreateInfo actionSetCreateInfo{XR_TYPE_ACTION_SET_CREATE_INFO};
+        strcpy(actionSetCreateInfo.localizedActionSetName, "test action set localized name");
+        strcpy(actionSetCreateInfo.actionSetName, "test_action_set_name");
+        REQUIRE_RESULT(xrCreateActionSet(instance, &actionSetCreateInfo, &actionSet), XR_SUCCESS);
+
+        XrInteractionProfileSuggestedBinding bindings{XR_TYPE_INTERACTION_PROFILE_SUGGESTED_BINDING};
+        bindings.countSuggestedBindings = 1;
+
+        XrAction boolAction;
+        XrAction floatAction;
+        XrAction vectorAction;
+        XrAction poseAction;
+        XrAction hapticAction;
+
+        XrActionCreateInfo actionCreateInfo{XR_TYPE_ACTION_CREATE_INFO};
+        actionCreateInfo.actionType = XR_ACTION_TYPE_BOOLEAN_INPUT;
+        strcpy(actionCreateInfo.localizedActionName, "test bool action localized name");
+        strcpy(actionCreateInfo.actionName, "test_bool_action_name");
+        REQUIRE_RESULT(xrCreateAction(actionSet, &actionCreateInfo, &boolAction), XR_SUCCESS);
+
+        actionCreateInfo.actionType = XR_ACTION_TYPE_FLOAT_INPUT;
+        strcpy(actionCreateInfo.localizedActionName, "test float action localized name");
+        strcpy(actionCreateInfo.actionName, "test_float_action_name");
+        REQUIRE_RESULT(xrCreateAction(actionSet, &actionCreateInfo, &floatAction), XR_SUCCESS);
+
+        actionCreateInfo.actionType = XR_ACTION_TYPE_VECTOR2F_INPUT;
+        strcpy(actionCreateInfo.localizedActionName, "test vector action localized name");
+        strcpy(actionCreateInfo.actionName, "test_vector_action_name");
+        REQUIRE_RESULT(xrCreateAction(actionSet, &actionCreateInfo, &vectorAction), XR_SUCCESS);
+
+        actionCreateInfo.actionType = XR_ACTION_TYPE_POSE_INPUT;
+        strcpy(actionCreateInfo.localizedActionName, "test pose action localized name");
+        strcpy(actionCreateInfo.actionName, "test_pose_action_name");
+        REQUIRE_RESULT(xrCreateAction(actionSet, &actionCreateInfo, &poseAction), XR_SUCCESS);
+
+        actionCreateInfo.actionType = XR_ACTION_TYPE_VIBRATION_OUTPUT;
+        strcpy(actionCreateInfo.localizedActionName, "test haptic action localized name");
+        strcpy(actionCreateInfo.actionName, "test_haptic_action_name");
+        REQUIRE_RESULT(xrCreateAction(actionSet, &actionCreateInfo, &hapticAction), XR_SUCCESS);
+
+        auto setupBinding = [&](const InputSourcePathAvailData& pathData) {
+            CAPTURE(pathData.Path);
+            CAPTURE(pathData.Type);
+
+            XrAction selectedAction;
+            switch (pathData.Type) {
+            case XR_ACTION_TYPE_BOOLEAN_INPUT:
+                selectedAction = boolAction;
+                break;
+            case XR_ACTION_TYPE_FLOAT_INPUT:
+                selectedAction = floatAction;
+                break;
+            case XR_ACTION_TYPE_VECTOR2F_INPUT:
+                selectedAction = vectorAction;
+                break;
+            case XR_ACTION_TYPE_VIBRATION_OUTPUT:
+                selectedAction = poseAction;
+                break;
+            default:
+                selectedAction = hapticAction;
+            }
+
+            XrActionSuggestedBinding suggestedBindings{selectedAction, StringToPath(instance, pathData.Path)};
+            bindings.suggestedBindings = &suggestedBindings;
+            CAPTURE(kInteractionAvailabilities[(size_t)pathData.Availability]);
+            if (SatisfiedByDefault(pathData.Availability)) {
+                CHECK(xrSuggestInteractionProfileBindings(instance, &bindings) == XR_SUCCESS);
+            }
+            else {
+                CHECK(xrSuggestInteractionProfileBindings(instance, &bindings) == XR_ERROR_PATH_UNSUPPORTED);
+            }
+        };
+        FeatureSet features;
+        GetGlobalData().PopulateVersionAndEnabledExtensions(features);
+        CAPTURE(features);
+        for (const InteractionProfileAvailMetadata& ipMetadata : GetAllInteractionProfiles()) {
+            CAPTURE(ipMetadata.InteractionProfilePathString);
+            bindings.interactionProfile = StringToPath(instance, ipMetadata.InteractionProfilePathString);
+            bindings.countSuggestedBindings = 1;
+            if (SatisfiedByDefault(ipMetadata.Availability)) {
+                DYNAMIC_SECTION(ipMetadata.InteractionProfileShortname << " Expect Available")
+                {
+                    for (const auto& inputSourcePathData : ipMetadata.InputSourcePaths) {
+                        setupBinding(inputSourcePathData);
+                    }
+                }
+            }
+            else {
+                // Not available by default
+                DYNAMIC_SECTION(ipMetadata.InteractionProfileShortname << " Expect Unavailable")
+                {
+                    for (const auto& inputSourcePathData : ipMetadata.InputSourcePaths) {
+                        setupBinding(inputSourcePathData);
+                    }
+                }
+            }
+        }
+        xrDestroyActionSet(actionSet);
+    }
+
     TEST_CASE("xrSuggestInteractionProfileBindings_interactive", "[actions][interactive]")
     {
         CompositionHelper compositionHelper("xrSuggestInteractionProfileBindings");
@@ -579,11 +728,11 @@ namespace Conformance
         const char* pathStr = leftUnderTest ? "/user/hand/left" : "/user/hand/right";
 
         XrPath path{StringToPath(compositionHelper.GetInstance(), pathStr)};
-        std::shared_ptr<IInputTestDevice> inputDevice = CreateTestDevice(
-            &actionLayerManager, &compositionHelper.GetInteractionManager(), compositionHelper.GetInstance(),
-            compositionHelper.GetSession(),
-            StringToPath(compositionHelper.GetInstance(), cSimpleKHRInteractionProfileDefinition.InteractionProfilePathString), path,
-            cSimpleKHRInteractionProfileDefinition.InputSourcePaths);
+        std::shared_ptr<IInputTestDevice> inputDevice =
+            CreateTestDevice(&actionLayerManager, &compositionHelper.GetInteractionManager(), compositionHelper.GetInstance(),
+                             compositionHelper.GetSession(),
+                             StringToPath(compositionHelper.GetInstance(), GetSimpleInteractionProfile().InteractionProfilePathString),
+                             path, GetSimpleInteractionProfile().InputSourcePaths);
 
         compositionHelper.GetInteractionManager().AddActionSet(actionSet);
 
@@ -598,7 +747,7 @@ namespace Conformance
 
         // Calling attach on the interaction manager will call xrSuggestInteractionProfileBindings with the bindings provided here, overwriting the previous bindings
         compositionHelper.GetInteractionManager().AddActionBindings(
-            StringToPath(compositionHelper.GetInstance(), cSimpleKHRInteractionProfileDefinition.InteractionProfilePathString),
+            StringToPath(compositionHelper.GetInstance(), GetSimpleInteractionProfile().InteractionProfilePathString),
             {{{selectActionB, selectPath}}});
         compositionHelper.GetInteractionManager().AttachActionSets();
 
@@ -801,6 +950,7 @@ namespace Conformance
                 // required that the functions return `XR_SUCCESS` and we only added this change
                 // to the spec later (see issue 1270), so it is not really right to enforce this
                 // return code; but we can warn runtimes here instead.
+                // TODO enforce for 1.1?
                 XrResult applyResult =
                     xrApplyHapticFeedback(session, &hapticActionInfo, reinterpret_cast<XrHapticBaseHeader*>(&hapticPacket));
                 REQUIRE_RESULT_SUCCEEDED(applyResult);
@@ -866,6 +1016,8 @@ namespace Conformance
 
             attachInfo.actionSets = &actionSet2;
             REQUIRE_RESULT(xrAttachSessionActionSets(session, &attachInfo), XR_ERROR_ACTIONSETS_ALREADY_ATTACHED);
+
+            xrDestroyActionSet(actionSet2);
         }
     }
     TEST_CASE("xrSuggestInteractionProfileBindings_order", "[actions][interactive]")
@@ -895,7 +1047,10 @@ namespace Conformance
 
             // Keep track of the order this test expects, just used to assert that nothing gets reordered
             std::vector<XrPath> interactionProfileOrder{};
-            auto suggestBindings = [&](const InteractionProfileMetadata& interactionProfile) {
+            auto suggestBindings = [&](const InteractionProfileAvailMetadata& interactionProfile) {
+                if (!SatisfiedByDefault(interactionProfile.Availability)) {
+                    return;
+                }
                 std::string interactionProfileName = interactionProfile.InteractionProfilePathString;
                 XrPath interactionProfilePath = StringToPath(compositionHelper.GetInstance(), interactionProfileName);
 
@@ -905,6 +1060,9 @@ namespace Conformance
                     // and only bind the boolean actions. Note that we bind "boolAction"
                     // to *every* boolean input, not just the first one.
                     if (bindings.Type != XR_ACTION_TYPE_BOOLEAN_INPUT) {
+                        continue;
+                    }
+                    if (!SatisfiedByDefault(bindings.Availability)) {
                         continue;
                     }
                     XrActionSuggestedBinding binding = {boolAction, StringToPath(compositionHelper.GetInstance(), bindings.Path)};
@@ -917,25 +1075,26 @@ namespace Conformance
                 }
             };
 
+            auto interactionProfiles = GetAllInteractionProfiles();
             if (reverse) {
-                for (auto interactionProfileReverse = std::rbegin(cInteractionProfileDefinitions);
-                     interactionProfileReverse != std::rend(cInteractionProfileDefinitions); interactionProfileReverse++) {
+                for (auto interactionProfileReverse = std::rbegin(interactionProfiles);
+                     interactionProfileReverse != std::rend(interactionProfiles); interactionProfileReverse++) {
                     suggestBindings(*interactionProfileReverse);
                 }
             }
             else {
-                for (const InteractionProfileMetadata& interactionProfile : cInteractionProfileDefinitions) {
+                for (const InteractionProfileAvailMetadata& interactionProfile : interactionProfiles) {
                     suggestBindings(interactionProfile);
                 }
             }
 
             // Hardcoded path valid for simple controller
             XrPath userHandLeftXrPath{StringToPath(compositionHelper.GetInstance(), topLevelPathString)};
-            std::shared_ptr<IInputTestDevice> inputDevice = CreateTestDevice(
-                &actionLayerManager, &compositionHelper.GetInteractionManager(), compositionHelper.GetInstance(),
-                compositionHelper.GetSession(),
-                StringToPath(compositionHelper.GetInstance(), cSimpleKHRInteractionProfileDefinition.InteractionProfilePathString),
-                userHandLeftXrPath, cSimpleKHRInteractionProfileDefinition.InputSourcePaths);
+            std::shared_ptr<IInputTestDevice> inputDevice =
+                CreateTestDevice(&actionLayerManager, &compositionHelper.GetInteractionManager(), compositionHelper.GetInstance(),
+                                 compositionHelper.GetSession(),
+                                 StringToPath(compositionHelper.GetInstance(), GetSimpleInteractionProfile().InteractionProfilePathString),
+                                 userHandLeftXrPath, GetSimpleInteractionProfile().InputSourcePaths);
 
             // This function calls xrSuggestInteractionProfileBindings() before attaching the actionsets
             interactionManager.AttachActionSets(&interactionProfileOrder);
@@ -994,7 +1153,7 @@ namespace Conformance
         ActionLayerManager actionLayerManager(compositionHelper);
 
         XrPath simpleControllerInteractionProfile =
-            StringToPath(compositionHelper.GetInstance(), cSimpleKHRInteractionProfileDefinition.InteractionProfilePathString);
+            StringToPath(compositionHelper.GetInstance(), GetSimpleInteractionProfile().InteractionProfilePathString);
 
         XrActionSet actionSet{XR_NULL_HANDLE};
         XrActionSetCreateInfo actionSetCreateInfo{XR_TYPE_ACTION_SET_CREATE_INFO};
@@ -1010,18 +1169,18 @@ namespace Conformance
         REQUIRE_RESULT(xrCreateAction(actionSet, &actionCreateInfo, &selectAction), XR_SUCCESS);
 
         XrPath leftHandPath{StringToPath(compositionHelper.GetInstance(), "/user/hand/left")};
-        std::shared_ptr<IInputTestDevice> leftHandInputDevice = CreateTestDevice(
-            &actionLayerManager, &compositionHelper.GetInteractionManager(), compositionHelper.GetInstance(),
-            compositionHelper.GetSession(),
-            StringToPath(compositionHelper.GetInstance(), cSimpleKHRInteractionProfileDefinition.InteractionProfilePathString),
-            leftHandPath, cSimpleKHRInteractionProfileDefinition.InputSourcePaths);
+        std::shared_ptr<IInputTestDevice> leftHandInputDevice =
+            CreateTestDevice(&actionLayerManager, &compositionHelper.GetInteractionManager(), compositionHelper.GetInstance(),
+                             compositionHelper.GetSession(),
+                             StringToPath(compositionHelper.GetInstance(), GetSimpleInteractionProfile().InteractionProfilePathString),
+                             leftHandPath, GetSimpleInteractionProfile().InputSourcePaths);
 
         XrPath rightHandPath{StringToPath(compositionHelper.GetInstance(), "/user/hand/right")};
-        std::shared_ptr<IInputTestDevice> rightHandInputDevice = CreateTestDevice(
-            &actionLayerManager, &compositionHelper.GetInteractionManager(), compositionHelper.GetInstance(),
-            compositionHelper.GetSession(),
-            StringToPath(compositionHelper.GetInstance(), cSimpleKHRInteractionProfileDefinition.InteractionProfilePathString),
-            rightHandPath, cSimpleKHRInteractionProfileDefinition.InputSourcePaths);
+        std::shared_ptr<IInputTestDevice> rightHandInputDevice =
+            CreateTestDevice(&actionLayerManager, &compositionHelper.GetInteractionManager(), compositionHelper.GetInstance(),
+                             compositionHelper.GetSession(),
+                             StringToPath(compositionHelper.GetInstance(), GetSimpleInteractionProfile().InteractionProfilePathString),
+                             rightHandPath, GetSimpleInteractionProfile().InputSourcePaths);
 
         XrActionsSyncInfo syncInfo{XR_TYPE_ACTIONS_SYNC_INFO};
         XrActiveActionSet activeActionSet{actionSet};
@@ -1036,7 +1195,7 @@ namespace Conformance
 
             compositionHelper.GetInteractionManager().AddActionSet(actionSet);
             compositionHelper.GetInteractionManager().AddActionBindings(
-                StringToPath(compositionHelper.GetInstance(), cSimpleKHRInteractionProfileDefinition.InteractionProfilePathString),
+                StringToPath(compositionHelper.GetInstance(), GetSimpleInteractionProfile().InteractionProfilePathString),
                 {{{selectAction, StringToPath(compositionHelper.GetInstance(), "/user/hand/left/input/select/click")},
                   {selectAction, StringToPath(compositionHelper.GetInstance(), "/user/hand/right/input/select/click")}}});
             compositionHelper.GetInteractionManager().AttachActionSets();
@@ -1136,21 +1295,21 @@ namespace Conformance
         ActionLayerManager actionLayerManager(compositionHelper);
 
         XrPath simpleControllerInteractionProfile =
-            StringToPath(compositionHelper.GetInstance(), cSimpleKHRInteractionProfileDefinition.InteractionProfilePathString);
+            StringToPath(compositionHelper.GetInstance(), GetSimpleInteractionProfile().InteractionProfilePathString);
 
         std::string leftHandPathString = "/user/hand/left";
         XrPath leftHandPath{StringToPath(compositionHelper.GetInstance(), "/user/hand/left")};
         std::shared_ptr<IInputTestDevice> leftHandInputDevice =
             CreateTestDevice(&actionLayerManager, &compositionHelper.GetInteractionManager(), compositionHelper.GetInstance(),
                              compositionHelper.GetSession(), simpleControllerInteractionProfile, leftHandPath,
-                             cSimpleKHRInteractionProfileDefinition.InputSourcePaths);
+                             GetSimpleInteractionProfile().InputSourcePaths);
 
         std::string rightHandPathString = "/user/hand/right";
         XrPath rightHandPath{StringToPath(compositionHelper.GetInstance(), "/user/hand/right")};
         std::shared_ptr<IInputTestDevice> rightHandInputDevice =
             CreateTestDevice(&actionLayerManager, &compositionHelper.GetInteractionManager(), compositionHelper.GetInstance(),
                              compositionHelper.GetSession(), simpleControllerInteractionProfile, rightHandPath,
-                             cSimpleKHRInteractionProfileDefinition.InputSourcePaths);
+                             GetSimpleInteractionProfile().InputSourcePaths);
 
         bool leftUnderTest = GetGlobalData().leftHandUnderTest;
         std::string defaultDevicePathStr = leftUnderTest ? leftHandPathString : rightHandPathString;
@@ -1832,7 +1991,7 @@ namespace Conformance
     {
         struct ActionInfo
         {
-            InputSourcePathData Data;
+            InputSourcePathAvailData Data;
             XrAction Action{XR_NULL_HANDLE};
             XrAction XAction{XR_NULL_HANDLE};  // Set if type is vector2f
             XrAction YAction{XR_NULL_HANDLE};  // Set if type is vector2f
@@ -1844,7 +2003,7 @@ namespace Conformance
         constexpr float cEpsilon = 0.1f;
         constexpr float cLargeEpsilon = 0.15f;
 
-        auto TestInteractionProfile = [&](const InteractionProfileMetadata& ipMetadata, const std::string& topLevelPathString) {
+        auto TestInteractionProfile = [&](const InteractionProfileAvailMetadata& ipMetadata, const std::string& topLevelPathString) {
             CompositionHelper compositionHelper("Input device state query");
             compositionHelper.BeginSession();
             ActionLayerManager actionLayerManager(compositionHelper);
@@ -1881,8 +2040,8 @@ namespace Conformance
             };
 
             auto InputSourceDataForTopLevelPath = [&]() {
-                std::vector<InputSourcePathData> ret;
-                for (const InputSourcePathData& inputSourceData : ipMetadata.InputSourcePaths) {
+                std::vector<InputSourcePathAvailData> ret;
+                for (const InputSourcePathAvailData& inputSourceData : ipMetadata.InputSourcePaths) {
                     if (!prefixedByTopLevelPath(inputSourceData.Path)) {
                         continue;
                     }
@@ -1893,11 +2052,14 @@ namespace Conformance
             auto ActionsForTopLevelPath = [&](XrActionType type) -> std::vector<ActionInfo> {
                 auto inputSourceDataList = InputSourceDataForTopLevelPath();
                 std::vector<ActionInfo> actions;
-                for (const InputSourcePathData& inputSourceData : inputSourceDataList) {
+                for (const InputSourcePathAvailData& inputSourceData : inputSourceDataList) {
                     if (type != inputSourceData.Type) {
                         continue;
                     }
                     if (inputSourceData.systemOnly) {
+                        continue;
+                    }
+                    if (!SatisfiedByDefault(inputSourceData.Availability)) {
                         continue;
                     }
 
@@ -2016,11 +2178,14 @@ namespace Conformance
                 auto inputSourceDataList = InputSourceDataForTopLevelPath();
 
                 auto HasSubpathOfType = [&](std::string parentPath, XrActionType type) {
-                    for (const InputSourcePathData& inputSourceData : inputSourceDataList) {
+                    for (const InputSourcePathAvailData& inputSourceData : inputSourceDataList) {
                         if (inputSourceData.Type != type) {
                             continue;
                         }
                         if (inputSourceData.systemOnly) {
+                            continue;
+                        }
+                        if (!SatisfiedByDefault(inputSourceData.Availability)) {
                             continue;
                         }
                         auto prefixedByParentPath =
@@ -2034,11 +2199,14 @@ namespace Conformance
                 };
 
                 std::vector<ActionInfo> actions;
-                for (const InputSourcePathData& inputSourceData : inputSourceDataList) {
+                for (const InputSourcePathAvailData& inputSourceData : inputSourceDataList) {
                     if (type != inputSourceData.Type) {
                         continue;
                     }
                     if (inputSourceData.systemOnly) {
+                        continue;
+                    }
+                    if (!SatisfiedByDefault(inputSourceData.Availability)) {
                         continue;
                     }
 
@@ -2094,11 +2262,14 @@ namespace Conformance
                 strcpy(actionCreateInfo.actionName, std::get<0>(actionNames).c_str());
                 REQUIRE_RESULT(xrCreateAction(actionSet, &actionCreateInfo, &action), XR_SUCCESS);
 
-                for (const InputSourcePathData& inputSourceData : inputSourceDataList) {
+                for (const InputSourcePathAvailData& inputSourceData : inputSourceDataList) {
                     if (type != inputSourceData.Type) {
                         continue;
                     }
                     if (inputSourceData.systemOnly) {
+                        continue;
+                    }
+                    if (!SatisfiedByDefault(inputSourceData.Availability)) {
                         continue;
                     }
 
@@ -2618,6 +2789,7 @@ namespace Conformance
             {
                 INFO("Boolean->Float");
                 for (const auto& booleanToFloatActionData : floatActionsCoercedToBoolean) {
+                    CAPTURE(booleanToFloatActionData.Data.Path);
                     XrPath inputSourcePath = StringToPath(compositionHelper.GetInstance(), booleanToFloatActionData.Data.Path);
 
                     XrActionStateGetInfo getInfo{XR_TYPE_ACTION_STATE_GET_INFO};
@@ -2646,6 +2818,7 @@ namespace Conformance
 
                 INFO("Float->Boolean");
                 for (const auto& floatToBooleanActionData : booleanActionsCoercedToFloat) {
+                    CAPTURE(floatToBooleanActionData.Data.Path);
                     XrPath inputSourcePath = StringToPath(compositionHelper.GetInstance(), floatToBooleanActionData.Data.Path);
 
                     XrActionStateGetInfo getInfo{XR_TYPE_ACTION_STATE_GET_INFO};
@@ -2702,17 +2875,19 @@ namespace Conformance
                 }
             }
         };
-
-        for (const InteractionProfileMetadata& ipMetadata : cInteractionProfileDefinitions) {
-            if (IsInteractionProfileEnabled(ipMetadata.InteractionProfileShortname.c_str())) {
-                for (const std::string& topLevelPathString : ipMetadata.TopLevelPaths) {
+        const std::string leftHandString{"/user/hand/left"};
+        const std::string rightHandString{"/user/hand/right"};
+        for (const InteractionProfileAvailMetadata& ipMetadata : GetAllInteractionProfiles()) {
+            if (IsInteractionProfileEnabled(ipMetadata.InteractionProfileShortname)) {
+                // If the profile has additional required extensions, they should have been enabled automatically.
+                REQUIRE(SatisfiedByDefault(ipMetadata.Availability));
+                for (const char* const topLevelPathString : ipMetadata.TopLevelPaths) {
                     GlobalData& globalData = GetGlobalData();
-                    if ((topLevelPathString == "/user/hand/left" && !globalData.leftHandUnderTest) ||
-                        (topLevelPathString == "/user/hand/right" && !globalData.rightHandUnderTest)) {
+                    if ((topLevelPathString == leftHandString && !globalData.leftHandUnderTest) ||
+                        (topLevelPathString == rightHandString && !globalData.rightHandUnderTest)) {
                         continue;
                     }
-                    ReportF("Testing interaction profile %s for %s", ipMetadata.InteractionProfileShortname.c_str(),
-                            topLevelPathString.c_str());
+                    ReportF("Testing interaction profile %s for %s", ipMetadata.InteractionProfileShortname, topLevelPathString);
                     TestInteractionProfile(ipMetadata, topLevelPathString);
                 }
             }
@@ -2785,7 +2960,7 @@ namespace Conformance
         actionLayerManager.WaitForSessionFocusWithMessage();
 
         XrPath simpleControllerInteractionProfile =
-            StringToPath(compositionHelper.GetInstance(), cSimpleKHRInteractionProfileDefinition.InteractionProfilePathString);
+            StringToPath(compositionHelper.GetInstance(), GetSimpleInteractionProfile().InteractionProfilePathString);
 
         XrPath leftHandSelectClickPath = StringToPath(compositionHelper.GetInstance(), "/user/hand/left/input/select/click");
         XrPath rightHandSelectClickPath = StringToPath(compositionHelper.GetInstance(), "/user/hand/right/input/select/click");
@@ -3002,7 +3177,7 @@ namespace Conformance
         ActionLayerManager actionLayerManager(compositionHelper);
 
         XrPath simpleControllerInteractionProfile =
-            StringToPath(compositionHelper.GetInstance(), cSimpleKHRInteractionProfileDefinition.InteractionProfilePathString);
+            StringToPath(compositionHelper.GetInstance(), GetSimpleInteractionProfile().InteractionProfilePathString);
 
         XrActionSet actionSet{XR_NULL_HANDLE};
         XrActionSetCreateInfo actionSetCreateInfo{XR_TYPE_ACTION_SET_CREATE_INFO};
@@ -3029,7 +3204,7 @@ namespace Conformance
         std::shared_ptr<IInputTestDevice> leftHandInputDevice = CreateTestDevice(
             &actionLayerManager, &compositionHelper.GetInteractionManager(), compositionHelper.GetInstance(),
             compositionHelper.GetSession(), simpleControllerInteractionProfile,
-            StringToPath(compositionHelper.GetInstance(), "/user/hand/left"), cSimpleKHRInteractionProfileDefinition.InputSourcePaths);
+            StringToPath(compositionHelper.GetInstance(), "/user/hand/left"), GetSimpleInteractionProfile().InputSourcePaths);
 
         compositionHelper.GetInteractionManager().AddActionSet(actionSet);
         compositionHelper.GetInteractionManager().AddActionBindings(
@@ -3087,7 +3262,7 @@ namespace Conformance
         ActionLayerManager actionLayerManager(compositionHelper);
 
         XrPath simpleControllerInteractionProfile =
-            StringToPath(compositionHelper.GetInstance(), cSimpleKHRInteractionProfileDefinition.InteractionProfilePathString);
+            StringToPath(compositionHelper.GetInstance(), GetSimpleInteractionProfile().InteractionProfilePathString);
         XrPath leftHandPath{StringToPath(compositionHelper.GetInstance(), "/user/hand/left")};
         XrPath rightHandPath{StringToPath(compositionHelper.GetInstance(), "/user/hand/right")};
         const XrPath bothHands[2] = {leftHandPath, rightHandPath};
@@ -3110,12 +3285,12 @@ namespace Conformance
         std::shared_ptr<IInputTestDevice> leftHandInputDevice =
             CreateTestDevice(&actionLayerManager, &compositionHelper.GetInteractionManager(), compositionHelper.GetInstance(),
                              compositionHelper.GetSession(), simpleControllerInteractionProfile, leftHandPath,
-                             cSimpleKHRInteractionProfileDefinition.InputSourcePaths);
+                             GetSimpleInteractionProfile().InputSourcePaths);
 
         std::shared_ptr<IInputTestDevice> rightHandInputDevice =
             CreateTestDevice(&actionLayerManager, &compositionHelper.GetInteractionManager(), compositionHelper.GetInstance(),
                              compositionHelper.GetSession(), simpleControllerInteractionProfile, rightHandPath,
-                             cSimpleKHRInteractionProfileDefinition.InputSourcePaths);
+                             GetSimpleInteractionProfile().InputSourcePaths);
 
         compositionHelper.GetInteractionManager().AddActionSet(actionSet);
         compositionHelper.GetInteractionManager().AddActionBindings(
@@ -3453,7 +3628,7 @@ namespace Conformance
                             "Locating action space created with subaction path (for 'off' controller) must have neither orientation nor position tracked.");
                         REQUIRE_RESULT(xrLocateSpace(actionSpaceWithoutSubactionPath, localSpace, lastUsed, &relationWithoutSubactionPath),
                                        XR_SUCCESS);
-                        CAPTURE(relationWithoutSubactionPath.locationFlags);
+                        CAPTURE(XrSpaceLocationFlagsCPP(relationWithoutSubactionPath.locationFlags));
                         REQUIRE((relationWithoutSubactionPath.locationFlags &
                                  (XR_SPACE_LOCATION_POSITION_TRACKED_BIT | XR_SPACE_LOCATION_ORIENTATION_TRACKED_BIT)) == 0);
                     }
@@ -3465,7 +3640,7 @@ namespace Conformance
                             "Runtime not allowed to change binding without xrSyncActions call");
                         REQUIRE_RESULT(xrLocateSpace(actionSpaceWithSubactionPath, localSpace, lastUsed, &relationWithSubactionPath),
                                        XR_SUCCESS);
-                        CAPTURE(relationWithSubactionPath.locationFlags);
+                        CAPTURE(XrSpaceLocationFlagsCPP(relationWithSubactionPath.locationFlags));
                         REQUIRE((relationWithSubactionPath.locationFlags &
                                  (XR_SPACE_LOCATION_POSITION_TRACKED_BIT | XR_SPACE_LOCATION_ORIENTATION_TRACKED_BIT)) == 0);
                     }
@@ -3570,11 +3745,11 @@ namespace Conformance
         const char* pathStr = leftUnderTest ? "/user/hand/left" : "/user/hand/right";
 
         XrPath path{StringToPath(compositionHelper.GetInstance(), pathStr)};
-        std::shared_ptr<IInputTestDevice> inputDevice = CreateTestDevice(
-            &actionLayerManager, &compositionHelper.GetInteractionManager(), compositionHelper.GetInstance(),
-            compositionHelper.GetSession(),
-            StringToPath(compositionHelper.GetInstance(), cSimpleKHRInteractionProfileDefinition.InteractionProfilePathString), path,
-            cSimpleKHRInteractionProfileDefinition.InputSourcePaths);
+        std::shared_ptr<IInputTestDevice> inputDevice =
+            CreateTestDevice(&actionLayerManager, &compositionHelper.GetInteractionManager(), compositionHelper.GetInstance(),
+                             compositionHelper.GetSession(),
+                             StringToPath(compositionHelper.GetInstance(), GetSimpleInteractionProfile().InteractionProfilePathString),
+                             path, GetSimpleInteractionProfile().InputSourcePaths);
 
         compositionHelper.GetInteractionManager().AddActionSet(actionSet);
         compositionHelper.GetInteractionManager().AddActionBindings(

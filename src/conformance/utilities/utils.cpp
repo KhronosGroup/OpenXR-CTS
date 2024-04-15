@@ -257,7 +257,7 @@ namespace Conformance
         }
     }
 
-    void StringVectoToDelimitedStringr(const std::vector<std::string>& stringVector, std::string& str, bool append, char delimiter)
+    void StringVectorToDelimitedString(const std::vector<std::string>& stringVector, std::string& str, bool append, char delimiter)
     {
         if (!append) {
             str.clear();

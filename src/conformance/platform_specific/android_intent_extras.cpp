@@ -19,7 +19,7 @@ static constexpr const char* kStringArrayExtraName = "args";
 // Then, we check for individual string intent extras with the following names, which match
 // the names of command line options in the CLI: see `MakeCLIParser` for help.
 static constexpr auto kStringExtraNames = {
-    "graphicsPlugin", "formFactor", "hands", "viewConfiguration", "environmentBlendMode",
+    "graphicsPlugin", "apiVersion", "formFactor", "hands", "viewConfiguration", "environmentBlendMode",
 };
 
 // If we find a string extra with this name, its contents are used as the filename (within the application storage) to write.

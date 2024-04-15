@@ -96,7 +96,7 @@ namespace
         }
     }
 
-    // Generates normals for the trianges in the GltfHelper Primitive object.
+    // Generates normals for the triangles in the GltfHelper Primitive object.
     void ComputeTriangleNormals(GltfHelper::Primitive& primitive)
     {
         assert((primitive.Indices.size() % TRIANGLE_VERTEX_COUNT) == 0);  // Only triangles are supported.

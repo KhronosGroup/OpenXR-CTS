@@ -3,7 +3,7 @@
   "api_layer": {
     "name": "XR_APILAYER_KHRONOS_runtime_conformance",
     "library_path": "libXrApiLayer_runtime_conformance.so",
-    "api_version": "1.0",
+    "api_version": "1.1",
     "implementation_version": "1",
     "description": "API Layer to validate OpenXR runtime conformance",
     "disable_environment":  "KHRONOS_runtime_conformance_disabled"

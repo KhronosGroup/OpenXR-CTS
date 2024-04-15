@@ -40,6 +40,16 @@ presence of an appropriately-named tag: it does not check for a signature on the
 tag, so if you have added tags to your repo it may not warn if you are not on a
 release.)
 
+When you submit for OpenXR 1.1 conformance, you must also submit for each earlier
+OpenXR minor version that your runtime supports in the same submission if you want
+to claim conformance with each of those minor versions too.
+For runtimes which want to claim support for OpenXR 1.0 and OpenXR 1.1 this means
+executing each test run with both `--apiVersion 1.0` and `--apiVersion 1.1` separately.
+
+If you don't supply the `--apiVersion` argument, it defaults to the latest OpenXR
+version as defined in the CTS's own OpenXR header. When running the CTS for a
+conformance submission, you should always supply an `--apiVersion` argument.
+
 Running CTS
 -----------
 
@@ -48,13 +58,21 @@ as it is important for interpreting the results.
 
 1. Run the automated tests (non-interactive tests) for every graphics API that is supported.
 
-    Example:
+    Example for OpenXR 1.0:
 
-        conformance_cli "exclude:[interactive]" -G d3d11 --reporter ctsxml::out=automated_d3d11.xml
-        conformance_cli "exclude:[interactive]" -G d3d12 --reporter ctsxml::out=automated_d3d12.xml
-        conformance_cli "exclude:[interactive]" -G vulkan --reporter ctsxml::out=automated_vulkan.xml
-        conformance_cli "exclude:[interactive]" -G vulkan2 --reporter ctsxml::out=automated_vulkan2.xml
-        conformance_cli "exclude:[interactive]" -G opengl --reporter ctsxml::out=automated_opengl.xml
+        conformance_cli "exclude:[interactive]" -G d3d11 --apiVersion 1.0 --reporter ctsxml::out=automated_d3d11_1_0.xml
+        conformance_cli "exclude:[interactive]" -G d3d12 --apiVersion 1.0 --reporter ctsxml::out=automated_d3d12_1_0.xml
+        conformance_cli "exclude:[interactive]" -G vulkan --apiVersion 1.0 --reporter ctsxml::out=automated_vulkan_1_0.xml
+        conformance_cli "exclude:[interactive]" -G vulkan2 --apiVersion 1.0 --reporter ctsxml::out=automated_vulkan2_1_0.xml
+        conformance_cli "exclude:[interactive]" -G opengl --apiVersion 1.0 --reporter ctsxml::out=automated_opengl_1_0.xml
+
+    Example for OpenXR 1.1:
+
+        conformance_cli "exclude:[interactive]" -G d3d11 --apiVersion 1.1 --reporter ctsxml::out=automated_d3d11_1_1.xml
+        conformance_cli "exclude:[interactive]" -G d3d12 --apiVersion 1.1 --reporter ctsxml::out=automated_d3d12_1_1.xml
+        conformance_cli "exclude:[interactive]" -G vulkan --apiVersion 1.1 --reporter ctsxml::out=automated_vulkan_1_1.xml
+        conformance_cli "exclude:[interactive]" -G vulkan2 --apiVersion 1.1 --reporter ctsxml::out=automated_vulkan2_1_1.xml
+        conformance_cli "exclude:[interactive]" -G opengl --apiVersion 1.1 --reporter ctsxml::out=automated_opengl_1_1.xml
 
     Notes:
     * Some tests require that a begun session progresses to `XR_SESSION_STATE_FOCUSED`.
@@ -65,13 +83,21 @@ as it is important for interpreting the results.
 
 2. Run the interactive composition tests for every graphics API that is supported.
 
-    Example:
+    Example for OpenXR 1.0:
 
-        conformance_cli "[composition][interactive]" -G d3d11 --reporter ctsxml::out=interactive_composition_d3d11.xml
-        conformance_cli "[composition][interactive]" -G d3d12 --reporter ctsxml::out=interactive_composition_d3d12.xml
-        conformance_cli "[composition][interactive]" -G vulkan --reporter ctsxml::out=interactive_composition_vulkan.xml
-        conformance_cli "[composition][interactive]" -G vulkan2 --reporter ctsxml::out=interactive_composition_vulkan2.xml
-        conformance_cli "[composition][interactive]" -G opengl --reporter ctsxml::out=interactive_composition_opengl.xml
+        conformance_cli "[composition][interactive]" -G d3d11 --apiVersion 1.0 --reporter ctsxml::out=interactive_composition_d3d11_1_0.xml
+        conformance_cli "[composition][interactive]" -G d3d12 --apiVersion 1.0 --reporter ctsxml::out=interactive_composition_d3d12_1_0.xml
+        conformance_cli "[composition][interactive]" -G vulkan --apiVersion 1.0 --reporter ctsxml::out=interactive_composition_vulkan_1_0.xml
+        conformance_cli "[composition][interactive]" -G vulkan2 --apiVersion 1.0 --reporter ctsxml::out=interactive_composition_vulkan2_1_0.xml
+        conformance_cli "[composition][interactive]" -G opengl --apiVersion 1.0 --reporter ctsxml::out=interactive_composition_opengl_1_0.xml
+
+    Example for OpenXR 1.1:
+
+        conformance_cli "[composition][interactive]" -G d3d11 --apiVersion 1.1 --reporter ctsxml::out=interactive_composition_d3d11_1_1.xml
+        conformance_cli "[composition][interactive]" -G d3d12 --apiVersion 1.1 --reporter ctsxml::out=interactive_composition_d3d12_1_1.xml
+        conformance_cli "[composition][interactive]" -G vulkan --apiVersion 1.1 --reporter ctsxml::out=interactive_composition_vulkan_1_1.xml
+        conformance_cli "[composition][interactive]" -G vulkan2 --apiVersion 1.1 --reporter ctsxml::out=interactive_composition_vulkan2_1_1.xml
+        conformance_cli "[composition][interactive]" -G opengl --apiVersion 1.1 --reporter ctsxml::out=interactive_composition_opengl_1_1.xml
 
     Notes:
     * The runtime must support `khr/simple_controller` to manually pass or fail
@@ -84,9 +110,13 @@ as it is important for interpreting the results.
 
 3. Run the interactive scenario tests. Run the tests for at least one graphics API.
 
-    Example:
+    Example for OpenXR 1.0:
 
-        conformance_cli "[scenario][interactive]" -G opengl --reporter ctsxml::out=interactive_scenarios.xml
+        conformance_cli "[scenario][interactive]" -G opengl --apiVersion 1.0 --reporter ctsxml::out=interactive_scenarios_1_0.xml
+
+    Example for OpenXR 1.1:
+
+        conformance_cli "[scenario][interactive]" -G opengl --apiVersion 1.1 --reporter ctsxml::out=interactive_scenarios_1_1.xml
 
     Notes:
     * The runtime must support `khr/simple_controller`. If it cannot be included
@@ -98,15 +128,30 @@ as it is important for interpreting the results.
 
    Example:
 
-        conformance_cli "[actions][interactive]" -G d3d11 -I "khr/simple_controller" --reporter ctsxml::out=interactive_action_simple_controller.xml
-        conformance_cli "[actions][interactive]" -G d3d11 -I "microsoft/motion_controller" --reporter ctsxml::out=interactive_action_microsoft_motion_controller.xml
-        conformance_cli "[actions][interactive]" -G d3d11 -I "oculus/touch_controller" --reporter ctsxml::out=interactive_action_oculus_touch_controller.xml
-        conformance_cli "[actions][interactive]" -G d3d11 -I "htc/vive_controller" --reporter ctsxml::out=interactive_action_htc_vive_controller.xml
+    Example for OpenXR 1.0:
+
+        conformance_cli "[actions][interactive]" -G d3d11 -I "khr/simple_controller" --apiVersion 1.0 --reporter ctsxml::out=interactive_action_simple_controller_1_0.xml
+        conformance_cli "[actions][interactive]" -G d3d11 -I "microsoft/motion_controller" --apiVersion 1.0 --reporter ctsxml::out=interactive_action_microsoft_motion_controller_1_0.xml
+        conformance_cli "[actions][interactive]" -G d3d11 -I "oculus/touch_controller" --apiVersion 1.0 --reporter ctsxml::out=interactive_action_oculus_touch_controller_1_0.xml
+        conformance_cli "[actions][interactive]" -G d3d11 -I "htc/vive_controller" --apiVersion 1.0 --reporter ctsxml::out=interactive_action_htc_vive_controller_1_0.xml
+
+    Example for OpenXR 1.1:
+
+        conformance_cli "[actions][interactive]" -G d3d11 -I "khr/simple_controller" --apiVersion 1.1 --reporter ctsxml::out=interactive_action_simple_controller_1_1.xml
+        conformance_cli "[actions][interactive]" -G d3d11 -I "microsoft/motion_controller" --apiVersion 1.1 --reporter ctsxml::out=interactive_action_microsoft_motion_controller_1_1.xml
+        conformance_cli "[actions][interactive]" -G d3d11 -I "oculus/touch_controller" --apiVersion 1.1 --reporter ctsxml::out=interactive_action_oculus_touch_controller_1_1.xml
+        conformance_cli "[actions][interactive]" -G d3d11 -I "htc/vive_controller" --apiVersion 1.1 --reporter ctsxml::out=interactive_action_htc_vive_controller_1_1.xml
 
    Note that the `microsoft/xbox_controller` interaction profile only needs to
    run against the `[gamepad]` tests:
 
-        conformance_cli "[gamepad]" -G d3d11 -I "microsoft/xbox_controller" --reporter ctsxml::out=interactive_action_microsoft_xbox_controller.xml
+    Example for OpenXR 1.0:
+
+        conformance_cli "[gamepad]" -G d3d11 -I "microsoft/xbox_controller" --apiVersion 1.0 --reporter ctsxml::out=interactive_action_microsoft_xbox_controller_1_0.xml
+
+    Example for OpenXR 1.0:
+
+        conformance_cli "[gamepad]" -G d3d11 -I "microsoft/xbox_controller" --apiVersion 1.1 --reporter ctsxml::out=interactive_action_microsoft_xbox_controller_1_1.xml
 
    Notes:
    * A person must use the OpenXR action system input by following the displayed
@@ -127,7 +172,13 @@ Conformance Layer. The activity accepts the equivalent of the command line
 arguments described above using "Intent Extras" instead. `adb shell` may be used
 to start the CTS and pass intent extras, for example as follows:
 
-     adb shell am start-activity -S -n org.khronos.openxr.cts/android.app.NativeActivity --esa args "exclude:[interactive]" -e graphicsPlugin vulkan -e xmlFilename automated_vulkan.xml
+Example for OpenXR 1.0:
+
+     adb shell am start-activity -S -n org.khronos.openxr.cts/android.app.NativeActivity --esa args "exclude:[interactive]" -e graphicsPlugin vulkan -e apiVersion 1.0 -e xmlFilename automated_vulkan_1_0.xml
+
+Example for OpenXR 1.1:
+
+     adb shell am start-activity -S -n org.khronos.openxr.cts/android.app.NativeActivity --esa args "exclude:[interactive]" -e graphicsPlugin vulkan -e apiVersion 1.1 -e xmlFilename automated_vulkan_1_1.xml
 
 which is the rough equivalent of the Vulkan-related command in item 1 above.
 
@@ -153,22 +204,43 @@ You will need to translate the sample command lines in the preceding section to
 this format using intent extras, or create a launcher activity that generates
 those intents. Samples translated include:
 
-     adb shell am start-activity -S -n org.khronos.openxr.cts/android.app.NativeActivity --esa args "exclude:[interactive]" -e graphicsPlugin vulkan -e xmlFilename automated_vulkan.xml
-     adb shell am start-activity -S -n org.khronos.openxr.cts/android.app.NativeActivity --esa args "exclude:[interactive]" -e graphicsPlugin vulkan2 -e xmlFilename automated_vulkan2.xml
-     adb shell am start-activity -S -n org.khronos.openxr.cts/android.app.NativeActivity --esa args "exclude:[interactive]" -e graphicsPlugin opengles -e xmlFilename automated_opengles.xml
+    Example for OpenXR 1.0:
 
-     adb shell am start-activity -S -n org.khronos.openxr.cts/android.app.NativeActivity --esa args "[composition][interactive]" -e graphicsPlugin vulkan -e xmlFilename interactive_composition_vulkan.xml
-     adb shell am start-activity -S -n org.khronos.openxr.cts/android.app.NativeActivity --esa args "[composition][interactive]" -e graphicsPlugin vulkan2 -e xmlFilename interactive_composition_vulkan2.xml
-     adb shell am start-activity -S -n org.khronos.openxr.cts/android.app.NativeActivity --esa args "[composition][interactive]" -e graphicsPlugin opengles -e xmlFilename interactive_composition_opengles.xml
+     adb shell am start-activity -S -n org.khronos.openxr.cts/android.app.NativeActivity --esa args "exclude:[interactive]" -e graphicsPlugin vulkan -e apiVersion 1.0 -e xmlFilename automated_vulkan_1_0.xml
+     adb shell am start-activity -S -n org.khronos.openxr.cts/android.app.NativeActivity --esa args "exclude:[interactive]" -e graphicsPlugin vulkan2 -e apiVersion 1.0 -e xmlFilename automated_vulkan2_1_0.xml
+     adb shell am start-activity -S -n org.khronos.openxr.cts/android.app.NativeActivity --esa args "exclude:[interactive]" -e graphicsPlugin opengles -e apiVersion 1.0 -e xmlFilename automated_opengles_1_0.xml
 
-     adb shell am start-activity -S -n org.khronos.openxr.cts/android.app.NativeActivity --esa args "[scenario][interactive]" -e xmlFilename interactive_scenarios.xml
+     adb shell am start-activity -S -n org.khronos.openxr.cts/android.app.NativeActivity --esa args "[composition][interactive]" -e graphicsPlugin vulkan -e apiVersion 1.0 -e xmlFilename interactive_composition_vulkan_1_0.xml
+     adb shell am start-activity -S -n org.khronos.openxr.cts/android.app.NativeActivity --esa args "[composition][interactive]" -e graphicsPlugin vulkan2 -e apiVersion 1.0 -e xmlFilename interactive_composition_vulkan2_1_0.xml
+     adb shell am start-activity -S -n org.khronos.openxr.cts/android.app.NativeActivity --esa args "[composition][interactive]" -e graphicsPlugin opengles -e apiVersion 1.0 -e xmlFilename interactive_composition_opengles_1_0.xml
 
-     adb shell am start-activity -S -n org.khronos.openxr.cts/android.app.NativeActivity --esa args "[actions][interactive],-I,khr/simple_controller" -e xmlFilename interactive_action_simple_controller.xml
-     adb shell am start-activity -S -n org.khronos.openxr.cts/android.app.NativeActivity --esa args "[actions][interactive],-I,microsoft/motion_controller" -e xmlFilename interactive_action_microsoft_motion_controller.xml
-     adb shell am start-activity -S -n org.khronos.openxr.cts/android.app.NativeActivity --esa args "[actions][interactive],-I,oculus/touch_controller" -e xmlFilename interactive_action_oculus_touch_controller.xml
-     adb shell am start-activity -S -n org.khronos.openxr.cts/android.app.NativeActivity --esa args "[gamepad],-I,htc/vive_controller" -e xmlFilename interactive_action_htc_vive_controller.xml
+     adb shell am start-activity -S -n org.khronos.openxr.cts/android.app.NativeActivity --esa args "[scenario][interactive]" -e apiVersion 1.0 -e xmlFilename interactive_scenarios_1_0.xml
 
-     adb shell am start-activity -S -n org.khronos.openxr.cts/android.app.NativeActivity --esa args "[actions][interactive],-I,microsoft/xbox_controller" -e xmlFilename interactive_action_microsoft_xbox_controller.xml
+     adb shell am start-activity -S -n org.khronos.openxr.cts/android.app.NativeActivity --esa args "[actions][interactive],-I,khr/simple_controller" -e apiVersion 1.0 -e xmlFilename interactive_action_simple_controller_1_0.xml
+     adb shell am start-activity -S -n org.khronos.openxr.cts/android.app.NativeActivity --esa args "[actions][interactive],-I,microsoft/motion_controller" -e apiVersion 1.0 -e xmlFilename interactive_action_microsoft_motion_controller_1_0.xml
+     adb shell am start-activity -S -n org.khronos.openxr.cts/android.app.NativeActivity --esa args "[actions][interactive],-I,oculus/touch_controller" -e apiVersion 1.0 -e xmlFilename interactive_action_oculus_touch_controller_1_0.xml
+     adb shell am start-activity -S -n org.khronos.openxr.cts/android.app.NativeActivity --esa args "[gamepad],-I,htc/vive_controller" -e apiVersion 1.0 -e xmlFilename interactive_action_htc_vive_controller_1_0.xml
+
+     adb shell am start-activity -S -n org.khronos.openxr.cts/android.app.NativeActivity --esa args "[actions][interactive],-I,microsoft/xbox_controller" -e apiVersion 1.0 -e xmlFilename interactive_action_microsoft_xbox_controller_1_0.xml
+
+    Example for OpenXR 1.1:
+
+     adb shell am start-activity -S -n org.khronos.openxr.cts/android.app.NativeActivity --esa args "exclude:[interactive]" -e graphicsPlugin vulkan -e apiVersion 1.1 -e xmlFilename automated_vulkan_1_1.xml
+     adb shell am start-activity -S -n org.khronos.openxr.cts/android.app.NativeActivity --esa args "exclude:[interactive]" -e graphicsPlugin vulkan2 -e apiVersion 1.1 -e xmlFilename automated_vulkan2_1_1.xml
+     adb shell am start-activity -S -n org.khronos.openxr.cts/android.app.NativeActivity --esa args "exclude:[interactive]" -e graphicsPlugin opengles -e apiVersion 1.1 -e xmlFilename automated_opengles_1_1.xml
+
+     adb shell am start-activity -S -n org.khronos.openxr.cts/android.app.NativeActivity --esa args "[composition][interactive]" -e graphicsPlugin vulkan -e apiVersion 1.1 -e xmlFilename interactive_composition_vulkan_1_1.xml
+     adb shell am start-activity -S -n org.khronos.openxr.cts/android.app.NativeActivity --esa args "[composition][interactive]" -e graphicsPlugin vulkan2 -e apiVersion 1.1 -e xmlFilename interactive_composition_vulkan2_1_1.xml
+     adb shell am start-activity -S -n org.khronos.openxr.cts/android.app.NativeActivity --esa args "[composition][interactive]" -e graphicsPlugin opengles -e apiVersion 1.1 -e xmlFilename interactive_composition_opengles_1_1.xml
+
+     adb shell am start-activity -S -n org.khronos.openxr.cts/android.app.NativeActivity --esa args "[scenario][interactive]" -e apiVersion 1.1 -e xmlFilename interactive_scenarios_1_1.xml
+
+     adb shell am start-activity -S -n org.khronos.openxr.cts/android.app.NativeActivity --esa args "[actions][interactive],-I,khr/simple_controller" -e apiVersion 1.1 -e xmlFilename interactive_action_simple_controller_1_1.xml
+     adb shell am start-activity -S -n org.khronos.openxr.cts/android.app.NativeActivity --esa args "[actions][interactive],-I,microsoft/motion_controller" -e apiVersion 1.1 -e xmlFilename interactive_action_microsoft_motion_controller_1_1.xml
+     adb shell am start-activity -S -n org.khronos.openxr.cts/android.app.NativeActivity --esa args "[actions][interactive],-I,oculus/touch_controller" -e apiVersion 1.1 -e xmlFilename interactive_action_oculus_touch_controller_1_1.xml
+     adb shell am start-activity -S -n org.khronos.openxr.cts/android.app.NativeActivity --esa args "[gamepad],-I,htc/vive_controller" -e apiVersion 1.1 -e xmlFilename interactive_action_htc_vive_controller_1_1.xml
+
+     adb shell am start-activity -S -n org.khronos.openxr.cts/android.app.NativeActivity --esa args "[actions][interactive],-I,microsoft/xbox_controller" -e apiVersion 1.1 -e xmlFilename interactive_action_microsoft_xbox_controller_1_1.xml
 
 If you need to specify a different environment blend mode than
 `XR_ENVIRONMENT_BLEND_MODE_OPAQUE`, pass something like the following
@@ -194,11 +266,21 @@ specific details of the renderer.
 
 To run the self-tests, commands similar to the following can be used:
 
-        conformance_cli "[self_test][interactive]" -G d3d11 --reporter ctsxml::out=interactive_self_test_d3d11.xml
-        conformance_cli "[self_test][interactive]" -G d3d12 --reporter ctsxml::out=interactive_self_test_d3d12.xml
-        conformance_cli "[self_test][interactive]" -G vulkan --reporter ctsxml::out=interactive_self_test_vulkan.xml
-        conformance_cli "[self_test][interactive]" -G vulkan2 --reporter ctsxml::out=interactive_self_test_vulkan2.xml
-        conformance_cli "[self_test][interactive]" -G opengl --reporter ctsxml::out=interactive_self_test_opengl.xml
+    Example for OpenXR 1.0:
+
+        conformance_cli "[self_test][interactive]" -G d3d11 --apiVersion 1.0 --reporter ctsxml::out=interactive_self_test_d3d11_1_0.xml
+        conformance_cli "[self_test][interactive]" -G d3d12 --apiVersion 1.0 --reporter ctsxml::out=interactive_self_test_d3d12_1_0.xml
+        conformance_cli "[self_test][interactive]" -G vulkan --apiVersion 1.0 --reporter ctsxml::out=interactive_self_test_vulkan_1_0.xml
+        conformance_cli "[self_test][interactive]" -G vulkan2 --apiVersion 1.0 --reporter ctsxml::out=interactive_self_test_vulkan2_1_0.xml
+        conformance_cli "[self_test][interactive]" -G opengl --apiVersion 1.0 --reporter ctsxml::out=interactive_self_test_opengl_1_0.xml
+
+    Example for OpenXR 1.1:
+
+        conformance_cli "[self_test][interactive]" -G d3d11 --apiVersion 1.1 --reporter ctsxml::out=interactive_self_test_d3d11_1_1.xml
+        conformance_cli "[self_test][interactive]" -G d3d12 --apiVersion 1.1 --reporter ctsxml::out=interactive_self_test_d3d12_1_1.xml
+        conformance_cli "[self_test][interactive]" -G vulkan --apiVersion 1.1 --reporter ctsxml::out=interactive_self_test_vulkan_1_1.xml
+        conformance_cli "[self_test][interactive]" -G vulkan2 --apiVersion 1.1 --reporter ctsxml::out=interactive_self_test_vulkan2_1_1.xml
+        conformance_cli "[self_test][interactive]" -G opengl --apiVersion 1.1 --reporter ctsxml::out=interactive_self_test_opengl_1_1.xml
 
 Conformance Submission Package Requirements
 -------------------------------------------
@@ -217,27 +299,40 @@ Details:
    One or more automated test result XML files, 1 per graphics API supported,
    therefore one or more of the following generated output files:
 
-        automated_d3d11.xml
-        automated_d3d12.xml
-        automated_opengl.xml
-        automated_gles.xml
-        automated_vulkan.xml
-        automated_vulkan2.xml
+        automated_d3d11_1_0.xml
+        automated_d3d12_1_0.xml
+        automated_opengl_1_0.xml
+        automated_gles_1_0.xml
+        automated_vulkan_1_0.xml
+        automated_vulkan2_1_0.xml
+        automated_d3d11_1_1.xml
+        automated_d3d12_1_1.xml
+        automated_opengl_1_1.xml
+        automated_gles_1_1.xml
+        automated_vulkan_1_1.xml
+        automated_vulkan2_1_1.xml
 
    The output XML file(s) from running the interactive tests, 1 per supported
    graphics API, therefore one or more of the following generated output files:
 
-        interactive_composition_d3d11.xml
-        interactive_composition_d3d12.xml
-        interactive_composition_opengl.xml
-        interactive_composition_gles.xml
-        interactive_composition_vulkan.xml
-        interactive_composition_vulkan2.xml
+        interactive_composition_d3d11_1_0.xml
+        interactive_composition_d3d12_1_0.xml
+        interactive_composition_opengl_1_0.xml
+        interactive_composition_gles_1_0.xml
+        interactive_composition_vulkan_1_0.xml
+        interactive_composition_vulkan2_1_0.xml
+        interactive_composition_d3d11_1_1.xml
+        interactive_composition_d3d12_1_1.xml
+        interactive_composition_opengl_1_1.xml
+        interactive_composition_gles_1_1.xml
+        interactive_composition_vulkan_1_1.xml
+        interactive_composition_vulkan2_1_1.xml
 
    At least one output file from running the interactive scenario tests on a
    single graphics API (more is better):
 
-        interactive_scenarios.xml
+        interactive_scenarios_1_0.xml
+        interactive_scenarios_1_1.xml
 
    The output XML file(s) from running the interactive action tests, 1 per
    supported interaction profile, therefore one or more of the following
@@ -245,12 +340,18 @@ Details:
    have their own controllers though simple_controller is expected to be
    supported at a minimum.
 
-        interactive_action_simple_controller.xml
-        interactive_action_microsoft_xbox_controller.xml
-        interactive_action_microsoft_motion_controller.xml
-        interactive_action_oculus_touch_controller.xml
-        interactive_action_valve_index_controller.xml
-        interactive_action_htc_vive_controller.xml
+        interactive_action_simple_controller_1_0.xml
+        interactive_action_microsoft_xbox_controller_1_0.xml
+        interactive_action_microsoft_motion_controller_1_0.xml
+        interactive_action_oculus_touch_controller_1_0.xml
+        interactive_action_valve_index_controller_1_0.xml
+        interactive_action_htc_vive_controller_1_0.xml
+        interactive_action_simple_controller_1_1.xml
+        interactive_action_microsoft_xbox_controller_1_1.xml
+        interactive_action_microsoft_motion_controller_1_1.xml
+        interactive_action_oculus_touch_controller_1_1.xml
+        interactive_action_valve_index_controller_1_1.xml
+        interactive_action_htc_vive_controller_1_1.xml
 
 2. The console output produced by the CTS runs above.
 
@@ -301,8 +402,8 @@ Details:
    member company, or some recognizable abbreviation. The `<_info>` field is
    optional. It may be used to uniquely identify a submission by OS, platform,
    date, or other criteria when making multiple submissions. For example, a
-   company XYZ may make a submission for an OpenXR 1.0 implementation named
-   `XR10_XYZ_PRODUCTA_Windows10.tgz`.
+   company XYZ may make a submission for an OpenXR 1.1 implementation named
+   `XR11_XYZ_PRODUCTA_Windows10.tgz`.
 
 Waivers
 -------

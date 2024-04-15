@@ -647,11 +647,11 @@ Android.
     layer to avoid deeply-nested `if ... else` blocks. (Some compilers have limits
     we were nearing or hitting.)
     ([internal MR 2050](https://gitlab.khronos.org/openxr/openxr/merge_requests/2050))
-  - Improvement: Add device re-use test to `XR_KHR_D3D11_enable` test.
+  - Improvement: Add device reuse test to `XR_KHR_D3D11_enable` test.
     ([internal MR 2054](https://gitlab.khronos.org/openxr/openxr/merge_requests/2054))
-  - Improvement: Add device re-use test to `XR_KHR_D3D12_enable` test.
+  - Improvement: Add device reuse test to `XR_KHR_D3D12_enable` test.
     ([internal MR 2054](https://gitlab.khronos.org/openxr/openxr/merge_requests/2054))
-  - Improvement: Add device re-use test to `XR_KHR_opengl_enable` test.
+  - Improvement: Add device reuse test to `XR_KHR_opengl_enable` test.
     ([internal MR 2054](https://gitlab.khronos.org/openxr/openxr/merge_requests/2054))
   - Improvement: Add support for `XR_KHR_vulkan_enable2` to conformance test suite.
     ([internal MR 2073](https://gitlab.khronos.org/openxr/openxr/merge_requests/2073))

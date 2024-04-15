@@ -61,11 +61,6 @@ void* Conformance_Android_Get_Application_VM()
     return AndroidApplicationVM;
 }
 
-void* Conformance_Android_Get_Application_Context()
-{
-    return AndroidApplicationActivity;
-}
-
 void* Conformance_Android_Get_Application_Activity()
 {
     return AndroidApplicationActivity;

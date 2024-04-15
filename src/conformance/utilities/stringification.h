@@ -24,7 +24,7 @@ namespace Conformance
     /// Example usage:
     /// ```
     /// XrResult result = xrPollEvent(instance, &eventData);
-    /// printf("%d: %s, resut, ResultToString(result));
+    /// printf("%d: %s", result, ResultToString(result));
     /// ```
     const char* ResultToString(XrResult result);
 

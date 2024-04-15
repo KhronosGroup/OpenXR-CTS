@@ -285,7 +285,7 @@ namespace Conformance
         XrInstanceCreateInfo createInfo{XR_TYPE_INSTANCE_CREATE_INFO};
         createInfo.applicationInfo.applicationVersion = 1;
         strcpy(createInfo.applicationInfo.applicationName, "conformance test");
-        createInfo.applicationInfo.apiVersion = XR_CURRENT_API_VERSION;
+        createInfo.applicationInfo.apiVersion = globalData.options.desiredApiVersionValue;
         createInfo.enabledApiLayerCount = (uint32_t)globalData.enabledAPILayerNames.size();
         createInfo.enabledApiLayerNames = globalData.enabledAPILayerNames.data();
 
@@ -576,7 +576,7 @@ namespace Conformance
             // so we will offer helpful hints for the most common errors - as well as a generic
             // message.
 
-            // https://registry.khronos.org/OpenXR/specs/1.0/html/xrspec.html#sessionstatechanged-description
+            // https://registry.khronos.org/OpenXR/specs/1.1/html/xrspec.html#sessionstatechanged-description
             // If the system supports a user engagement sensor and runtime is in XR_SESSION_STATE_IDLE state,
             // the runtime should not transition to the XR_SESSION_STATE_READY state until the user starts
             // engaging with the device.
