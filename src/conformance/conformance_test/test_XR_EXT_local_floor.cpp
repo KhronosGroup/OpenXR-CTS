@@ -306,12 +306,12 @@ namespace Conformance
             }
         }
     }
-    TEST_CASE("XR_EXT_local_floor", "")
+    TEST_CASE("XR_EXT_local_floor", "[XR_EXT_local_floor]")
     {
         SharedLocalFloorAutomated(kExtensionRequirements);
     }
 
-    TEST_CASE("XR_VERSION_1_1-local_floor", "")
+    TEST_CASE("XR_VERSION_1_1-local_floor", "[XR_VERSION_1_1]")
     {
         SharedLocalFloorAutomated(kPromotedCoreRequirements);
     }

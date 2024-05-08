@@ -313,6 +313,9 @@ namespace Conformance
         /// Select the preferred swapchain format from the list of available formats.
         virtual int64_t SelectDepthSwapchainFormat(const int64_t* /*imageFormatArray*/, size_t /*count*/) const = 0;
 
+        /// Implementation must select a signed format with four components unless there are none with alpha.
+        virtual int64_t SelectMotionVectorSwapchainFormat(const int64_t* /*imageFormatArray*/, size_t /*count*/) const = 0;
+
         /// Select the preferred swapchain format.
         virtual int64_t GetSRGBA8Format() const = 0;
 

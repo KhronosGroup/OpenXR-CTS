@@ -26,7 +26,7 @@
 #include "utilities/bitmask_to_string.h"
 #include "utilities/event_reader.h"
 #include "utilities/types_and_constants.h"
-#include "utilities/utils.h"
+#include "utilities/string_utils.h"
 
 #include <openxr/openxr.h>
 #include <openxr/openxr_reflection.h>
@@ -2033,16 +2033,25 @@ namespace Conformance
                                                             "state query test action " + std::to_string(uniqueActionNameCounter)};
             };
 
-            auto prefixedByTopLevelPath = [&topLevelPathString](std::string binding) {
-                return (binding.length() > topLevelPathString.size()) &&
-                       (std::mismatch(topLevelPathString.begin(), topLevelPathString.end(), binding.begin()).first ==
-                        topLevelPathString.end());
+            auto shouldExercisePath = [&ipMetadata](const InputSourcePathAvailData& inputSourceData) -> bool {
+                if (inputSourceData.systemOnly) {
+                    return false;
+                }
+                if (strcmp(ipMetadata.InteractionProfileShortname, "oculus/touch_controller") == 0 &&
+                    ends_with(inputSourceData.Path, "/input/thumbrest/touch")) {
+                    // Rift S and Quest 1 controllers lack thumbrests.
+                    return false;
+                }
+                if (!SatisfiedByDefault(inputSourceData.Availability)) {
+                    return false;
+                }
+                return true;
             };
 
             auto InputSourceDataForTopLevelPath = [&]() {
                 std::vector<InputSourcePathAvailData> ret;
                 for (const InputSourcePathAvailData& inputSourceData : ipMetadata.InputSourcePaths) {
-                    if (!prefixedByTopLevelPath(inputSourceData.Path)) {
+                    if (!starts_with(inputSourceData.Path, topLevelPathString)) {
                         continue;
                     }
                     ret.push_back(inputSourceData);
@@ -2056,10 +2065,7 @@ namespace Conformance
                     if (type != inputSourceData.Type) {
                         continue;
                     }
-                    if (inputSourceData.systemOnly) {
-                        continue;
-                    }
-                    if (!SatisfiedByDefault(inputSourceData.Availability)) {
+                    if (!shouldExercisePath(inputSourceData)) {
                         continue;
                     }
 
@@ -2182,15 +2188,10 @@ namespace Conformance
                         if (inputSourceData.Type != type) {
                             continue;
                         }
-                        if (inputSourceData.systemOnly) {
+                        if (!shouldExercisePath(inputSourceData)) {
                             continue;
                         }
-                        if (!SatisfiedByDefault(inputSourceData.Availability)) {
-                            continue;
-                        }
-                        auto prefixedByParentPath =
-                            (std::string(inputSourceData.Path).length() > parentPath.size()) &&
-                            (std::mismatch(parentPath.begin(), parentPath.end(), inputSourceData.Path).first == parentPath.end());
+                        auto prefixedByParentPath = starts_with(inputSourceData.Path, parentPath);
                         if (prefixedByParentPath) {
                             return true;
                         }
@@ -2203,10 +2204,7 @@ namespace Conformance
                     if (type != inputSourceData.Type) {
                         continue;
                     }
-                    if (inputSourceData.systemOnly) {
-                        continue;
-                    }
-                    if (!SatisfiedByDefault(inputSourceData.Availability)) {
+                    if (!shouldExercisePath(inputSourceData)) {
                         continue;
                     }
 
@@ -2266,10 +2264,7 @@ namespace Conformance
                     if (type != inputSourceData.Type) {
                         continue;
                     }
-                    if (inputSourceData.systemOnly) {
-                        continue;
-                    }
-                    if (!SatisfiedByDefault(inputSourceData.Availability)) {
+                    if (!shouldExercisePath(inputSourceData)) {
                         continue;
                     }
 

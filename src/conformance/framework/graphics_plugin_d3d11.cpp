@@ -193,6 +193,8 @@ namespace Conformance
 
         int64_t SelectDepthSwapchainFormat(const int64_t* imageFormatArray, size_t count) const override;
 
+        int64_t SelectMotionVectorSwapchainFormat(const int64_t* imageFormatArray, size_t count) const override;
+
         // Format required by RGBAImage type.
         int64_t GetSRGBA8Format() const override;
 
@@ -583,6 +585,23 @@ namespace Conformance
         // List of supported depth swapchain formats.
         const std::array<DXGI_FORMAT, 4> f{DXGI_FORMAT_D32_FLOAT, DXGI_FORMAT_D24_UNORM_S8_UINT, DXGI_FORMAT_D16_UNORM,
                                            DXGI_FORMAT_D32_FLOAT_S8X24_UINT};
+
+        const int64_t* formatArrayEnd = formatArray + count;
+        auto it = std::find_first_of(formatArray, formatArrayEnd, f.begin(), f.end());
+
+        if (it == formatArrayEnd) {
+            assert(false);  // Assert instead of throw as we need to switch to the big table which can't fail.
+            return formatArray[0];
+        }
+
+        return *it;
+    }
+
+    // Select the preferred swapchain format from the list of available formats.
+    int64_t D3D11GraphicsPlugin::SelectMotionVectorSwapchainFormat(const int64_t* formatArray, size_t count) const
+    {
+        // List of swapchain formats suitable for motion vectors.
+        const std::array<DXGI_FORMAT, 2> f{DXGI_FORMAT_R16G16B16A16_FLOAT, DXGI_FORMAT_R32G32B32_FLOAT};
 
         const int64_t* formatArrayEnd = formatArray + count;
         auto it = std::find_first_of(formatArray, formatArrayEnd, f.begin(), f.end());

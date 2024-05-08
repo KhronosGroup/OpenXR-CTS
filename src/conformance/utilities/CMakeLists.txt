@@ -54,6 +54,7 @@ add_library(
     event_reader.cpp
     feature_availability.cpp
     opengl_utils.cpp
+    string_utils.cpp
     stringification.cpp
     swapchain_format_data.cpp
     throw_helpers.cpp

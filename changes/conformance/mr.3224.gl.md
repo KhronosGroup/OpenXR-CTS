@@ -1,8 +1,0 @@
----
-- issue.2063.gl
-- mr.3306.gl
-- mr.3318.gl
----
-- New test: Verify correct handling of all interaction profile paths and their input component paths (accept vs reject suggested binding), in the "default" configuration of the instance, using generated data from the XML.
-- Improvement: Use generated data from the XML in existing action tests rather than hardcoded tables.
-- Improvement: Automatically enabled extension(s) needed for the interaction profile specified on the command line.

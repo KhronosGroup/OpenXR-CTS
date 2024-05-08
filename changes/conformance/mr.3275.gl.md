@@ -1,2 +1,0 @@
-- Fix: Remove invalid interpretation of `XrInstanceProperties::runtimeVersion`.
-- Improvement: Use spec-provided constants for inspecting enums for core vs extension origination.

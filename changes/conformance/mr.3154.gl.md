@@ -1,7 +1,0 @@
----
-- issue.2150.gl
-- mr.3318.gl
----
-- New test: Automated test of core OpenXR 1.1 feature `LOCAL_FLOOR` reference space.
-- New test: Interactive test of `LOCAL_FLOOR` reference space (in both extension and promoted to core).
-- Improvement: Enhancements to existing test of `XR_EXT_local_floor`.

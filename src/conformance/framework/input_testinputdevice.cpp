@@ -22,6 +22,7 @@
 #include "two_call.h"
 #include "utilities/throw_helpers.h"
 #include "utilities/types_and_constants.h"
+#include "utilities/string_utils.h"
 
 #include <catch2/catch_test_macros.hpp>
 
@@ -104,17 +105,12 @@ namespace Conformance
             };
 
             std::string topLevelPathString = std::string(CHECK_TWO_CALL(char, {}, xrPathToString, m_instance, m_topLevelPath).data());
-            auto PrefixedByTopLevelPath = [&topLevelPathString](std::string binding) {
-                return (binding.length() > topLevelPathString.size()) &&
-                       (std::mismatch(topLevelPathString.begin(), topLevelPathString.end(), binding.begin()).first ==
-                        topLevelPathString.end());
-            };
 
             FeatureSet enabled;
             GetGlobalData().PopulateVersionAndEnabledExtensions(enabled);
 
             for (const InputSourcePathAvailData& inputSourceData : interactionProfilePaths) {
-                if (!PrefixedByTopLevelPath(inputSourceData.Path)) {
+                if (!starts_with(inputSourceData.Path, topLevelPathString)) {
                     continue;
                 }
                 if (!kInteractionAvailabilities[(size_t)inputSourceData.Availability].IsSatisfiedBy(enabled)) {

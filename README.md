@@ -219,9 +219,9 @@ those intents. Samples translated include:
      adb shell am start-activity -S -n org.khronos.openxr.cts/android.app.NativeActivity --esa args "[actions][interactive],-I,khr/simple_controller" -e apiVersion 1.0 -e xmlFilename interactive_action_simple_controller_1_0.xml
      adb shell am start-activity -S -n org.khronos.openxr.cts/android.app.NativeActivity --esa args "[actions][interactive],-I,microsoft/motion_controller" -e apiVersion 1.0 -e xmlFilename interactive_action_microsoft_motion_controller_1_0.xml
      adb shell am start-activity -S -n org.khronos.openxr.cts/android.app.NativeActivity --esa args "[actions][interactive],-I,oculus/touch_controller" -e apiVersion 1.0 -e xmlFilename interactive_action_oculus_touch_controller_1_0.xml
-     adb shell am start-activity -S -n org.khronos.openxr.cts/android.app.NativeActivity --esa args "[gamepad],-I,htc/vive_controller" -e apiVersion 1.0 -e xmlFilename interactive_action_htc_vive_controller_1_0.xml
+     adb shell am start-activity -S -n org.khronos.openxr.cts/android.app.NativeActivity --esa args "[actions][interactive],-I,htc/vive_controller" -e apiVersion 1.0 -e xmlFilename interactive_action_htc_vive_controller_1_0.xml
 
-     adb shell am start-activity -S -n org.khronos.openxr.cts/android.app.NativeActivity --esa args "[actions][interactive],-I,microsoft/xbox_controller" -e apiVersion 1.0 -e xmlFilename interactive_action_microsoft_xbox_controller_1_0.xml
+     adb shell am start-activity -S -n org.khronos.openxr.cts/android.app.NativeActivity --esa args "[gamepad],-I,microsoft/xbox_controller" -e apiVersion 1.0 -e xmlFilename interactive_action_microsoft_xbox_controller_1_0.xml
 
     Example for OpenXR 1.1:
 
@@ -238,9 +238,9 @@ those intents. Samples translated include:
      adb shell am start-activity -S -n org.khronos.openxr.cts/android.app.NativeActivity --esa args "[actions][interactive],-I,khr/simple_controller" -e apiVersion 1.1 -e xmlFilename interactive_action_simple_controller_1_1.xml
      adb shell am start-activity -S -n org.khronos.openxr.cts/android.app.NativeActivity --esa args "[actions][interactive],-I,microsoft/motion_controller" -e apiVersion 1.1 -e xmlFilename interactive_action_microsoft_motion_controller_1_1.xml
      adb shell am start-activity -S -n org.khronos.openxr.cts/android.app.NativeActivity --esa args "[actions][interactive],-I,oculus/touch_controller" -e apiVersion 1.1 -e xmlFilename interactive_action_oculus_touch_controller_1_1.xml
-     adb shell am start-activity -S -n org.khronos.openxr.cts/android.app.NativeActivity --esa args "[gamepad],-I,htc/vive_controller" -e apiVersion 1.1 -e xmlFilename interactive_action_htc_vive_controller_1_1.xml
+     adb shell am start-activity -S -n org.khronos.openxr.cts/android.app.NativeActivity --esa args "[actions][interactive],-I,htc/vive_controller" -e apiVersion 1.1 -e xmlFilename interactive_action_htc_vive_controller_1_1.xml
 
-     adb shell am start-activity -S -n org.khronos.openxr.cts/android.app.NativeActivity --esa args "[actions][interactive],-I,microsoft/xbox_controller" -e apiVersion 1.1 -e xmlFilename interactive_action_microsoft_xbox_controller_1_1.xml
+     adb shell am start-activity -S -n org.khronos.openxr.cts/android.app.NativeActivity --esa args "[gamepad],-I,microsoft/xbox_controller" -e apiVersion 1.1 -e xmlFilename interactive_action_microsoft_xbox_controller_1_1.xml
 
 If you need to specify a different environment blend mode than
 `XR_ENVIRONMENT_BLEND_MODE_OPAQUE`, pass something like the following

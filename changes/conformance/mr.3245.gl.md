@@ -1,5 +1,0 @@
----
-- issue.2151.gl
-- mr.3318.gl
----
-- New test: Automated test for grip_surface pose identifier (promoted to core OpenXR 1.1), as well as extension `XR_EXT_palm_pose`.

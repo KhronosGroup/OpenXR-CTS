@@ -287,6 +287,8 @@ namespace Conformance
 
         int64_t SelectDepthSwapchainFormat(const int64_t* imageFormatArray, size_t count) const override;
 
+        int64_t SelectMotionVectorSwapchainFormat(const int64_t* imageFormatArray, size_t count) const override;
+
         int64_t GetSRGBA8Format() const override;
 
         ISwapchainImageData* AllocateSwapchainImageData(size_t size, const XrSwapchainCreateInfo& swapchainCreateInfo) override;
@@ -1071,6 +1073,24 @@ namespace Conformance
             GL_DEPTH_COMPONENT24,
             GL_DEPTH_COMPONENT16,
             GL_DEPTH_COMPONENT32F,
+        };
+
+        const int64_t* formatArrayEnd = imageFormatArray + count;
+        auto it = std::find_first_of(imageFormatArray, formatArrayEnd, f.begin(), f.end());
+
+        if (it == formatArrayEnd) {
+            assert(false);  // Assert instead of throw as we need to switch to the big table which can't fail.
+            return imageFormatArray[0];
+        }
+
+        return *it;
+    }
+
+    int64_t OpenGLESGraphicsPlugin::SelectMotionVectorSwapchainFormat(const int64_t* imageFormatArray, size_t count) const
+    {
+        // List of swapchain formats suitable for motion vectors.
+        const std::array<GLenum, 1> f{
+            GL_RGBA16F,
         };
 
         const int64_t* formatArrayEnd = imageFormatArray + count;
