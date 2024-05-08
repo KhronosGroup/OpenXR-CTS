@@ -121,15 +121,13 @@ namespace Conformance
         CHECK_THAT(v, VectorHasOnlyUniqueElements<XrEnvironmentBlendMode>());
         CHECK_THAT(v, !VectorContains(XR_ENVIRONMENT_BLEND_MODE_MAX_ENUM));
 
-        // To do: Verify that the values reported are within the set of valid values for the given runtime version.
+        // To do: Verify that the values reported are within the set of valid values.
         // This is best done in a forward-looking way via a generated table.
         // The following is close but not quite.
-        if (globalData.runtimeMatchesAPIVersion) {
-            for (auto blendMode : v) {
-                if (blendMode < 1000000000) {  // If it's a core type
-                    CHECK_THAT(blendMode, In<XrEnvironmentBlendMode>({XR_ENVIRONMENT_BLEND_MODE_OPAQUE, XR_ENVIRONMENT_BLEND_MODE_ADDITIVE,
-                                                                      XR_ENVIRONMENT_BLEND_MODE_ALPHA_BLEND}));
-                }
+        for (auto blendMode : v) {
+            if (blendMode < XR_EXTENSION_ENUM_BASE) {  // If it's a core type
+                CHECK_THAT(blendMode, In<XrEnvironmentBlendMode>({XR_ENVIRONMENT_BLEND_MODE_OPAQUE, XR_ENVIRONMENT_BLEND_MODE_ADDITIVE,
+                                                                  XR_ENVIRONMENT_BLEND_MODE_ALPHA_BLEND}));
             }
         }
     }

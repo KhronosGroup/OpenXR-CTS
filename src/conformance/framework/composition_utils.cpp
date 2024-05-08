@@ -18,6 +18,7 @@
 
 #include "RGBAImage.h"
 #include "conformance_framework.h"
+#include "conformance_utils.h"
 #include "swapchain_image_data.h"
 
 #include "common/xr_dependencies.h"
@@ -162,17 +163,43 @@ namespace Conformance
 
         XrInstance instanceRaw{XR_NULL_HANDLE_CPP};
         XRC_CHECK_THROW_XRCMD(CreateBasicInstance(&instanceRaw, true, additionalEnabledExtensions));
-        m_instance.adopt(instanceRaw);
+        m_instanceOwned.adopt(instanceRaw);
+        m_instance = instanceRaw;
+        SharedInit(testName);
+    }
 
-        m_eventQueue = std::unique_ptr<EventQueue>(new EventQueue(m_instance.get()));
+    CompositionHelper::CompositionHelper(const char* testName, XrInstance instance, XrViewConfigurationType viewConfigType,
+                                         bool skipOnUnsupportedViewType /* = false */)
+        : m_instance(instance), m_primaryViewType(viewConfigType)
+    {
+        if (viewConfigType == 0) {
+            m_primaryViewType = GetGlobalData().GetOptions().viewConfigurationValue;
+        }
+        SharedInit(testName, skipOnUnsupportedViewType);
+    }
+
+    void CompositionHelper::SharedInit(const char* testName, bool skipOnUnsupportedViewType /* = false */)
+    {
+
+        m_eventQueue = std::unique_ptr<EventQueue>(new EventQueue(m_instance));
         m_privateEventReader = std::unique_ptr<EventReader>(new EventReader(*m_eventQueue));
 
-        XRC_CHECK_THROW_XRCMD(CreateBasicSession(m_instance.get(), &m_systemId, &m_session));
+        XRC_CHECK_THROW_XRCMD(CreateBasicSession(m_instance, &m_systemId, &m_session));
+
+        if (skipOnUnsupportedViewType) {
+            uint32_t viewCount = 0;
+            REQUIRE(XR_SUCCESS == xrEnumerateViewConfigurations(m_instance, m_systemId, 0, &viewCount, nullptr));
+            std::vector<XrViewConfigurationType> runtimeViewTypes(viewCount);
+            REQUIRE(XR_SUCCESS == xrEnumerateViewConfigurations(m_instance, m_systemId, viewCount, &viewCount, runtimeViewTypes.data()));
+            if (std::find(runtimeViewTypes.begin(), runtimeViewTypes.end(), m_primaryViewType) == runtimeViewTypes.end()) {
+                SKIP("View type not supported by runtime");
+            }
+        }
 
         XRC_CHECK_THROW_XRCMD(
-            xrEnumerateViewConfigurationViews(m_instance.get(), m_systemId, m_primaryViewType, 0, &m_projectionViewCount, nullptr));
+            xrEnumerateViewConfigurationViews(m_instance, m_systemId, m_primaryViewType, 0, &m_projectionViewCount, nullptr));
 
-        m_interactionManager = std::make_unique<InteractionManager>(m_instance.get(), m_session);
+        m_interactionManager = std::make_unique<InteractionManager>(m_instance, m_session);
 
         std::vector<int64_t> swapchainFormats;
         {
@@ -188,9 +215,12 @@ namespace Conformance
         if (GetGlobalData().IsUsingGraphicsPlugin()) {
             m_defaultColorFormat =
                 GetGlobalData().graphicsPlugin->SelectColorSwapchainFormat(swapchainFormats.data(), swapchainFormats.size());
+            m_defaultDepthFormat =
+                GetGlobalData().graphicsPlugin->SelectDepthSwapchainFormat(swapchainFormats.data(), swapchainFormats.size());
         }
         else {
             m_defaultColorFormat = static_cast<uint64_t>(-1);
+            m_defaultDepthFormat = static_cast<uint64_t>(-1);
         }
 
         m_viewSpace = CreateReferenceSpace(XR_REFERENCE_SPACE_TYPE_VIEW, XrPosef{{0, 0, 0, 1}, {0, 0, 0}});
@@ -236,7 +266,7 @@ namespace Conformance
 
     XrInstance CompositionHelper::GetInstance() const
     {
-        return m_instance.get();
+        return m_instance;
     }
 
     XrSystemId CompositionHelper::GetSystemId() const
@@ -254,10 +284,10 @@ namespace Conformance
         std::vector<XrViewConfigurationView> views;
 
         uint32_t countOutput;
-        XRC_CHECK_THROW_XRCMD(xrEnumerateViewConfigurationViews(m_instance.get(), m_systemId, m_primaryViewType, 0, &countOutput, nullptr));
+        XRC_CHECK_THROW_XRCMD(xrEnumerateViewConfigurationViews(m_instance, m_systemId, m_primaryViewType, 0, &countOutput, nullptr));
         if (countOutput != 0) {
             views.resize(countOutput, {XR_TYPE_VIEW_CONFIGURATION_VIEW});
-            XRC_CHECK_THROW_XRCMD(xrEnumerateViewConfigurationViews(m_instance.get(), m_systemId, m_primaryViewType, (uint32_t)views.size(),
+            XRC_CHECK_THROW_XRCMD(xrEnumerateViewConfigurationViews(m_instance, m_systemId, m_primaryViewType, (uint32_t)views.size(),
                                                                     &countOutput, views.data()));
         }
 
@@ -267,7 +297,7 @@ namespace Conformance
     XrViewConfigurationProperties CompositionHelper::GetViewConfigurationProperties()
     {
         XrViewConfigurationProperties properties{XR_TYPE_VIEW_CONFIGURATION_PROPERTIES};
-        XRC_CHECK_THROW_XRCMD(xrGetViewConfigurationProperties(m_instance.get(), m_systemId, m_primaryViewType, &properties));
+        XRC_CHECK_THROW_XRCMD(xrGetViewConfigurationProperties(m_instance, m_systemId, m_primaryViewType, &properties));
         return properties;
     }
 
@@ -403,6 +433,27 @@ namespace Conformance
         return createInfo;
     }
 
+    XrSwapchainCreateInfo CompositionHelper::DefaultDepthSwapchainCreateInfo(uint32_t width, uint32_t height,
+                                                                             XrSwapchainCreateFlags createFlags /*= 0*/,
+                                                                             int64_t format /*= -1*/)
+    {
+        if (format == -1) {  // Is -1 a safe "uninitialized" value?
+            format = m_defaultDepthFormat;
+        }
+
+        XrSwapchainCreateInfo createInfo{XR_TYPE_SWAPCHAIN_CREATE_INFO};
+        createInfo.arraySize = 1;
+        createInfo.format = format;
+        createInfo.width = width;
+        createInfo.height = height;
+        createInfo.mipCount = 1;
+        createInfo.faceCount = 1;
+        createInfo.sampleCount = 1;
+        createInfo.usageFlags = XR_SWAPCHAIN_USAGE_SAMPLED_BIT | XR_SWAPCHAIN_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+        createInfo.createFlags = createFlags;
+        return createInfo;
+    }
+
     XrSwapchain CompositionHelper::CreateSwapchain(const XrSwapchainCreateInfo& createInfo)
     {
         if (!GetGlobalData().IsUsingGraphicsPlugin()) {
@@ -428,16 +479,51 @@ namespace Conformance
         return swapchain;
     }
 
+    std::pair<XrSwapchain, XrSwapchain> CompositionHelper::CreateSwapchainWithDepth(const XrSwapchainCreateInfo& createInfo,
+                                                                                    const XrSwapchainCreateInfo& depthCreateInfo)
+    {
+        if (!GetGlobalData().IsUsingGraphicsPlugin()) {
+            return std::make_pair(XR_NULL_HANDLE, XR_NULL_HANDLE);
+        }
+
+        XrSwapchain swapchain;
+        XRC_CHECK_THROW_XRCMD(xrCreateSwapchain(m_session, &createInfo, &swapchain));
+
+        XrSwapchain depthSwapchain;
+        XRC_CHECK_THROW_XRCMD(xrCreateSwapchain(m_session, &depthCreateInfo, &depthSwapchain));
+
+        std::lock_guard<std::mutex> lock(m_mutex);
+
+        // Cache the swapchain create info and image structs.
+        m_createdSwapchains.insert({swapchain, createInfo});
+        m_createdSwapchains.insert({depthSwapchain, depthCreateInfo});
+
+        // Cache the swapchain image structs.
+        uint32_t imageCount;
+        XRC_CHECK_THROW_XRCMD(xrEnumerateSwapchainImages(swapchain, 0, &imageCount, nullptr));
+
+        ISwapchainImageData* swapchainImages = GetGlobalData().graphicsPlugin->AllocateSwapchainImageDataWithDepthSwapchain(
+            imageCount, createInfo, depthSwapchain, depthCreateInfo);
+        XRC_CHECK_THROW_XRCMD(xrEnumerateSwapchainImages(swapchain, imageCount, &imageCount, swapchainImages->GetColorImageArray()));
+        XRC_CHECK_THROW_XRCMD(xrEnumerateSwapchainImages(depthSwapchain, imageCount, &imageCount, swapchainImages->GetDepthImageArray()));
+        m_swapchainImages[swapchain] = swapchainImages;
+
+        return std::make_pair(swapchain, depthSwapchain);
+    }
+
     void CompositionHelper::DestroySwapchain(XrSwapchain swapchain)
     {
         // Drop all associated resources.
-        m_swapchainImages[swapchain]->Reset();
+        auto it = m_swapchainImages.find(swapchain);
+        if (it != m_swapchainImages.end())
+            it->second->Reset();
 
         XRC_CHECK_THROW_XRCMD(xrDestroySwapchain(swapchain));
 
         std::lock_guard<std::mutex> lock(m_mutex);
         XRC_CHECK_THROW(1 == m_createdSwapchains.erase(swapchain));
-        XRC_CHECK_THROW(1 == m_swapchainImages.erase(swapchain));
+        if (it != m_swapchainImages.end())
+            XRC_CHECK_THROW(1 == m_swapchainImages.erase(swapchain));
     }
 
     XrSwapchain CompositionHelper::CreateStaticSwapchainSolidColor(const XrColor4f& color)

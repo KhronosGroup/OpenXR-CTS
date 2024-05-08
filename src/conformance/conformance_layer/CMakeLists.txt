@@ -123,12 +123,15 @@ elseif(APPLE)
     )
     target_sources(
         XrApiLayer_runtime_conformance
-        PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/XrApiLayer_conformance_layer.expsym"
+        PRIVATE
+            "${CMAKE_CURRENT_SOURCE_DIR}/XrApiLayer_conformance_layer.expsym"
     )
 else()
     set_target_properties(
         XrApiLayer_runtime_conformance
-        PROPERTIES LINK_FLAGS "-Wl,--version-script=\"${CMAKE_CURRENT_SOURCE_DIR}/XrApiLayer_conformance_layer.map\""
+        PROPERTIES
+            LINK_FLAGS
+            "-Wl,--version-script=\"${CMAKE_CURRENT_SOURCE_DIR}/XrApiLayer_conformance_layer.map\""
     )
     target_sources(
         XrApiLayer_runtime_conformance

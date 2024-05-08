@@ -365,7 +365,7 @@ namespace Conformance
     ///         ->
     ///     "abc def ghi"
     ///
-    void StringVectoToDelimitedStringr(const std::vector<std::string>& stringVector, std::string& str, bool append = false,
+    void StringVectorToDelimitedString(const std::vector<std::string>& stringVector, std::string& str, bool append = false,
                                        char delimiter = ' ');
 
     /// A container for a vector of strings that owns storage for them, and exposes an array of raw pointers.

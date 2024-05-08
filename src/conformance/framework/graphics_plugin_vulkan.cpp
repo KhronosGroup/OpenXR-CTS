@@ -635,6 +635,8 @@ namespace Conformance
 
         int64_t SelectDepthSwapchainFormat(const int64_t* imageFormatArray, size_t count) const override;
 
+        int64_t SelectMotionVectorSwapchainFormat(const int64_t* imageFormatArray, size_t count) const override;
+
         // Format required by RGBAImage type.
         int64_t GetSRGBA8Format() const override;
 
@@ -1455,6 +1457,7 @@ namespace Conformance
             XRC_SWAPCHAIN_FORMAT(VK_FORMAT_R8_UNORM).ToPair(),
             XRC_SWAPCHAIN_FORMAT(VK_FORMAT_R8G8B8A8_SINT).ToPair(),
             XRC_SWAPCHAIN_FORMAT(VK_FORMAT_R8_SRGB).ToPair(),
+            XRC_SWAPCHAIN_FORMAT(VK_FORMAT_R8G8_SRGB).ToPair(),
 
             XRC_SWAPCHAIN_FORMAT(VK_FORMAT_R16_UNORM).ToPair(),
             XRC_SWAPCHAIN_FORMAT(VK_FORMAT_R16G16_UNORM).ToPair(),
@@ -1675,6 +1678,23 @@ namespace Conformance
         // List of supported depth swapchain formats.
         const std::array<VkFormat, 4> f{VK_FORMAT_D32_SFLOAT, VK_FORMAT_D24_UNORM_S8_UINT, VK_FORMAT_D16_UNORM,
                                         VK_FORMAT_D32_SFLOAT_S8_UINT};
+
+        span<const int64_t> formatArraySpan{formatArray, count};
+        auto it = std::find_first_of(formatArraySpan.begin(), formatArraySpan.end(), f.begin(), f.end());
+
+        if (it == formatArraySpan.end()) {
+            assert(false);  // Assert instead of throw as we need to switch to the big table which can't fail.
+            return formatArray[0];
+        }
+
+        return *it;
+    }
+
+    // Select the preferred swapchain format from the list of available formats.
+    int64_t VulkanGraphicsPlugin::SelectMotionVectorSwapchainFormat(const int64_t* formatArray, size_t count) const
+    {
+        // List of supported swapchain formats suitable for motion vectors.
+        const std::array<VkFormat, 2> f{VK_FORMAT_R16G16B16A16_SFLOAT, VK_FORMAT_R16G16B16_SFLOAT};
 
         span<const int64_t> formatArraySpan{formatArray, count};
         auto it = std::find_first_of(formatArraySpan.begin(), formatArraySpan.end(), f.begin(), f.end());

@@ -14,6 +14,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "catch2/catch_approx.hpp"
 #include "composition_utils.h"
 #include "conformance_framework.h"
 #include "conformance_utils.h"
@@ -45,24 +46,24 @@ namespace Conformance
 
         XrResult result;
 
+        // ugly magic number:
+        // some variance due to numeric inaccuracies is OK
+        constexpr float epsilon = 0.001f;
+
         // compare the calculated pose with the expected pose
-        auto ValidateSpaceLocation = [](XrSpaceLocation& spaceLocation, XrPosef& expectedPose) -> void {
+        auto ValidateSpaceLocation = [epsilon](XrSpaceLocation& spaceLocation, XrPosef& expectedPose) -> void {
             CAPTURE(XrSpaceLocationFlagsCPP(spaceLocation.locationFlags));
             CHECK((spaceLocation.locationFlags & XR_SPACE_LOCATION_POSITION_VALID_BIT) != 0);
             CHECK((spaceLocation.locationFlags & XR_SPACE_LOCATION_ORIENTATION_VALID_BIT) != 0);
 
-            // ugly magic number:
-            // some variance due to numeric inaccuracies is OK
-            float epsilon = 0.001f;
-
             static auto QuaterionsAreEquivalent = [](const XrQuaternionf& q1, const XrQuaternionf& q2, float epsilon) {
-                return std::abs(q1.x * q2.x + q1.y * q2.y + q1.z * q2.z + q1.w * q2.w) >= (1.f - epsilon);
+                return std::abs(q1.x * q2.x + q1.y * q2.y + q1.z * q2.z + q1.w * q2.w) == Catch::Approx(1.f).margin(epsilon);
             };
 
             if (spaceLocation.locationFlags & XR_SPACE_LOCATION_POSITION_VALID_BIT) {
-                CHECK(std::abs(spaceLocation.pose.position.x - expectedPose.position.x) < epsilon);
-                CHECK(std::abs(spaceLocation.pose.position.y - expectedPose.position.y) < epsilon);
-                CHECK(std::abs(spaceLocation.pose.position.z - expectedPose.position.z) < epsilon);
+                REQUIRE(spaceLocation.pose.position.x == Catch::Approx(expectedPose.position.x).margin(epsilon));
+                REQUIRE(spaceLocation.pose.position.y == Catch::Approx(expectedPose.position.y).margin(epsilon));
+                REQUIRE(spaceLocation.pose.position.z == Catch::Approx(expectedPose.position.z).margin(epsilon));
             }
             if (spaceLocation.locationFlags & XR_SPACE_LOCATION_ORIENTATION_VALID_BIT) {
                 CHECK(QuaterionsAreEquivalent(spaceLocation.pose.orientation, expectedPose.orientation, epsilon));
@@ -71,7 +72,7 @@ namespace Conformance
 
         // Note both spaces are in the same reference space, so the time should be irrelevant for the location
         // which is important to get the offset between the spaces right.
-        XrReferenceSpaceCreateInfo spaceCreateInfo = {XR_TYPE_REFERENCE_SPACE_CREATE_INFO, nullptr};
+        XrReferenceSpaceCreateInfo spaceCreateInfo = {XR_TYPE_REFERENCE_SPACE_CREATE_INFO};
         spaceCreateInfo.referenceSpaceType = XR_REFERENCE_SPACE_TYPE_VIEW;  // view has to be supported
         spaceCreateInfo.poseInReferenceSpace = XrPosefCPP();
 
@@ -95,16 +96,16 @@ namespace Conformance
             CHECK(result == XR_SUCCESS);
 
             // Exercise 40ms ago (or the first valid time, whichever is later)
-            result = xrLocateSpace(spaceA, spaceB, std::max(time - 40_xrMilliseconds, (XrTime)1), &location);
+            result = xrLocateSpace(spaceA, spaceB, std::max(time - 40_xrMilliseconds, 1_xrNanoseconds), &location);
             CHECK(result == XR_SUCCESS);
 
             // Exercise 1s ago (or the first valid time, whichever is later)
-            result = xrLocateSpace(spaceA, spaceB, std::max(time - 1_xrSeconds, (XrTime)1), &location);
+            result = xrLocateSpace(spaceA, spaceB, std::max(time - 1_xrSeconds, 1_xrNanoseconds), &location);
             CHECK(result == XR_SUCCESS);
 
             // cleanup
-            CHECK(XR_SUCCESS == xrDestroySpace(spaceA));
-            CHECK(XR_SUCCESS == xrDestroySpace(spaceB));
+            REQUIRE(XR_SUCCESS == xrDestroySpace(spaceA));
+            REQUIRE(XR_SUCCESS == xrDestroySpace(spaceB));
         }
 
         SECTION("wrong inputs")
@@ -143,8 +144,8 @@ namespace Conformance
             CHECK(result == XR_ERROR_TIME_INVALID);
 
             // cleanup
-            CHECK(XR_SUCCESS == xrDestroySpace(spaceA));
-            CHECK(XR_SUCCESS == xrDestroySpace(spaceB));
+            REQUIRE(XR_SUCCESS == xrDestroySpace(spaceA));
+            REQUIRE(XR_SUCCESS == xrDestroySpace(spaceB));
         }
 
         SECTION("space location math")
@@ -163,14 +164,14 @@ namespace Conformance
                 // If it would just be the identity, it might not catch all runtime errors where the location is not set by the runtime!
                 XrSpaceLocation location = {XR_TYPE_SPACE_LOCATION, nullptr, 0, {{3, 2, 1, 0}, {4.2f, 3.1f, 1.4f}}};
 
-                XrReferenceSpaceCreateInfo spaceCreateInfo = {XR_TYPE_REFERENCE_SPACE_CREATE_INFO, nullptr};
-                spaceCreateInfo.referenceSpaceType = XR_REFERENCE_SPACE_TYPE_VIEW;  // view has to be supported
+                XrReferenceSpaceCreateInfo spaceCreateInfoWithPose = {XR_TYPE_REFERENCE_SPACE_CREATE_INFO};
+                spaceCreateInfoWithPose.referenceSpaceType = XR_REFERENCE_SPACE_TYPE_VIEW;  // view has to be supported
 
-                spaceCreateInfo.poseInReferenceSpace = poseSpaceA;
-                CHECK(XR_SUCCESS == xrCreateReferenceSpace(sessionHandle, &spaceCreateInfo, &spaceA));
+                spaceCreateInfoWithPose.poseInReferenceSpace = poseSpaceA;
+                CHECK(XR_SUCCESS == xrCreateReferenceSpace(sessionHandle, &spaceCreateInfoWithPose, &spaceA));
 
-                spaceCreateInfo.poseInReferenceSpace = poseSpaceB;
-                CHECK(XR_SUCCESS == xrCreateReferenceSpace(sessionHandle, &spaceCreateInfo, &spaceB));
+                spaceCreateInfoWithPose.poseInReferenceSpace = poseSpaceB;
+                CHECK(XR_SUCCESS == xrCreateReferenceSpace(sessionHandle, &spaceCreateInfoWithPose, &spaceB));
 
                 XrResult result = xrLocateSpace(spaceA, spaceB, time, &location);
                 {
@@ -187,8 +188,8 @@ namespace Conformance
                     ValidateSpaceLocation(location, expectedResult);
                 }
 
-                CHECK(XR_SUCCESS == xrDestroySpace(spaceA));
-                CHECK(XR_SUCCESS == xrDestroySpace(spaceB));
+                REQUIRE(XR_SUCCESS == xrDestroySpace(spaceA));
+                REQUIRE(XR_SUCCESS == xrDestroySpace(spaceB));
             };
 
             // Independent on tracking, it should be possible to get the relative pose of two
@@ -203,7 +204,7 @@ namespace Conformance
             LocateAndTest(space, space, identity);
 
             // Exercise identical spaces which also have a rotation.
-            space = {{std::sin(0.33f), 0, 0, std::cos(0.33f)}, {7, 8, 9}};
+            space = {{Quat::FromAxisAngle({1, 0, 0}, Math::DegToRad(45))}, {7, 8, 9}};
             LocateAndTest(space, space, identity);
 
             // Exercise different spaces without a rotation.
@@ -212,13 +213,11 @@ namespace Conformance
             // Another test with different spaces.
             LocateAndTest({Quat::Identity, {-1, -2, -3}}, {Quat::Identity, {1, 2, 3}}, {Quat::Identity, {-2, -4, -6}});
 
-            const float pi = std::acos(-1.0f);
-            float deg90 = pi / 2.0f;
-            XrQuaternionf rot_90_x = {std::sin(0.5f * deg90), 0.0f, 0.0f, std::cos(0.5f * deg90)};
-            XrQuaternionf rot_m90_x = {std::sin(0.5f * -deg90), 0.0f, 0.0f, std::cos(0.5f * -deg90)};
+            XrQuaternionf rot_90_x = Quat::FromAxisAngle({1, 0, 0}, Math::DegToRad(90));
+            XrQuaternionf rot_m90_x = Quat::FromAxisAngle({1, 0, 0}, Math::DegToRad(-90));
 
-            XrQuaternionf rot_90_y = {0.0f, std::sin(0.5f * deg90), 0.0f, std::cos(0.5f * deg90)};
-            XrQuaternionf rot_m90_y = {0.0f, std::sin(0.5f * -deg90), 0.0f, std::cos(0.5f * -deg90)};
+            XrQuaternionf rot_90_y = Quat::FromAxisAngle({0, 1, 0}, Math::DegToRad(90));
+            XrQuaternionf rot_m90_y = Quat::FromAxisAngle({0, 1, 0}, Math::DegToRad(-90));
 
             // Different positions, different orientations
             LocateAndTest({{0, 0, 0, 1}, {0, 0, 0}}, {{rot_90_x}, {5, 0, 0}}, {{rot_m90_x}, {-5, 0, 0}});
@@ -244,11 +243,5 @@ namespace Conformance
                 }
             }
         }
-
-        // Leave
-        result = xrRequestExitSession(session);
-        CHECK(result == XR_SUCCESS);
-
-        frameIterator.RunToSessionState(XR_SESSION_STATE_STOPPING);
     }
 }  // namespace Conformance

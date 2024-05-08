@@ -62,7 +62,7 @@ class ConformanceLayerGenerator(AutomaticSourceOutputGenerator):
     #   gen_opts        the ConformanceLayerHeaderGeneratorOptions object
     def beginFile(self, genOpts):
         AutomaticSourceOutputGenerator.beginFile(self, genOpts)
-        self.template = JinjaTemplate(self.env, "template_{}".format(genOpts.filename))
+        self.template = JinjaTemplate(self.env, f"template_{genOpts.filename}")
 
     # Write out all the information for the appropriate file,
     # and then call down to the base class to wrap everything up.

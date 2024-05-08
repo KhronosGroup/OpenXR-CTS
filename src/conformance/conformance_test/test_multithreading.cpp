@@ -985,7 +985,7 @@ namespace Conformance
                     XRC_CHECK_THROW_XRCMD(
                         xrGetInputSourceLocalizedName(session, &nameGetInfo, (uint32_t)sizeof(nameBuffer), &countOutput, nameBuffer));
 
-                    XRC_CHECK_THROW(ValidateStringUTF8(nameBuffer, sizeof(nameBuffer)));
+                    XRC_CHECK_THROW(ValidateStringUTF8(nameBuffer, countOutput));
                 }
             }
 

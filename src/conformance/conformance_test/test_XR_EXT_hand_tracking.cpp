@@ -70,7 +70,7 @@ namespace Conformance
             AutoBasicSession session(AutoBasicSession::beginSession, instance);
 
             if (!SystemSupportsHandTracking(instance, systemId)) {
-                // https://registry.khronos.org/OpenXR/specs/1.0/html/xrspec.html#_create_a_hand_tracker_handle
+                // https://registry.khronos.org/OpenXR/specs/1.1/html/xrspec.html#_create_a_hand_tracker_handle
                 // If the system does not support hand tracking, runtime must return XR_ERROR_FEATURE_UNSUPPORTED from xrCreateHandTrackerEXT.
                 // In this case, the runtime must return XR_FALSE for supportsHandTracking in XrSystemHandTrackingPropertiesEXT when the
                 // function xrGetSystemProperties is called, so that the application can avoid creating a hand tracker.
@@ -160,7 +160,7 @@ namespace Conformance
                 REQUIRE(XR_ERROR_TIME_INVALID == xrLocateHandJointsEXT(handTracker[hand], &locateInfo, &locations));
                 REQUIRE(locations.isActive == XR_FALSE);
 
-                // https://registry.khronos.org/OpenXR/specs/1.0/html/xrspec.html#_locate_hand_joints
+                // https://registry.khronos.org/OpenXR/specs/1.1/html/xrspec.html#_locate_hand_joints
                 for (size_t i = 0; i < jointLocations[hand].size(); ++i) {
                     REQUIRE((jointLocations[hand][i].locationFlags & XR_SPACE_LOCATION_POSITION_VALID_BIT) == 0);
                     REQUIRE((jointLocations[hand][i].locationFlags & XR_SPACE_LOCATION_ORIENTATION_VALID_BIT) == 0);
@@ -203,7 +203,7 @@ namespace Conformance
                 locateInfo.time = frameIterator.frameState.predictedDisplayTime;
                 REQUIRE(XR_SUCCESS == xrLocateHandJointsEXT(handTracker[hand], &locateInfo, &locations));
 
-                // https://registry.khronos.org/OpenXR/specs/1.0/html/xrspec.html#_locate_hand_joints
+                // https://registry.khronos.org/OpenXR/specs/1.1/html/xrspec.html#_locate_hand_joints
                 for (size_t i = 0; i < jointLocations[hand].size(); ++i) {
                     if (locations.isActive == XR_TRUE) {
                         // If the returned isActive is true, the runtime must return all joint locations with both
@@ -215,7 +215,7 @@ namespace Conformance
                         // the returned radius must be a positive value.
                         REQUIRE(jointLocations[hand][i].radius > 0);
 
-                        // From https://registry.khronos.org/OpenXR/specs/1.0/html/xrspec.html#_locate_hand_joints
+                        // From https://registry.khronos.org/OpenXR/specs/1.1/html/xrspec.html#_locate_hand_joints
                         // the velocity is observed or can be calculated by the runtime, the runtime must
                         // fill in the linear velocity of each hand joint within the reference frame of baseSpace
                         // and set the XR_SPACE_VELOCITY_LINEAR_VALID_BIT.
@@ -382,9 +382,9 @@ namespace Conformance
                         // The palm joint is located at the center of the middle finger’s metacarpal bone.
                         XrPosef expectedPalmPose;
                         XrVector3f_Lerp(&expectedPalmPose.position, &middleMetacarpal.pose.position, &middleProximal.pose.position, 0.5f);
-                        REQUIRE_THAT(palm.pose.position.x, Catch::Matchers::WithinRel(expectedPalmPose.position.x));
-                        REQUIRE_THAT(palm.pose.position.y, Catch::Matchers::WithinRel(expectedPalmPose.position.y));
-                        REQUIRE_THAT(palm.pose.position.z, Catch::Matchers::WithinRel(expectedPalmPose.position.z));
+                        REQUIRE_THAT(palm.pose.position.x, Catch::Matchers::WithinRel(expectedPalmPose.position.x, 0.01f));
+                        REQUIRE_THAT(palm.pose.position.y, Catch::Matchers::WithinRel(expectedPalmPose.position.y, 0.01f));
+                        REQUIRE_THAT(palm.pose.position.z, Catch::Matchers::WithinRel(expectedPalmPose.position.z, 0.01f));
                     }
 
                     // Check the palm orientation for each hand if we have valid orientation.
@@ -397,7 +397,7 @@ namespace Conformance
                         XrVector3f palmZAxis, middleMetacarpalZAxis;
                         XrQuaternionf_RotateVector3f(&palmZAxis, &palm.pose.orientation, &zAxis);
                         XrQuaternionf_RotateVector3f(&middleMetacarpalZAxis, &middleMetacarpal.pose.orientation, &zAxis);
-                        REQUIRE_THAT(XrVector3f_Dot(&palmZAxis, &middleMetacarpalZAxis), Catch::Matchers::WithinRel(1.0f));
+                        REQUIRE_THAT(XrVector3f_Dot(&palmZAxis, &middleMetacarpalZAxis), Catch::Matchers::WithinRel(1.0f, 0.01f));
 
                         // The up (+Y) direction is perpendicular to palm surface and pointing towards the back of the hand.
                         // We can compare this to the +Y axis of the middle metacarpal bone to check gross direction.

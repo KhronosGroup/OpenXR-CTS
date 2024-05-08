@@ -8,7 +8,6 @@
 // For Android, we require the following functions to be implemented
 // in our library for accessing Android specific information.
 void* Conformance_Android_Get_Application_VM();
-void* Conformance_Android_Get_Application_Context();
 void* Conformance_Android_Get_Application_Activity();
 void* Conformance_Android_Get_Asset_Manager();
 void Conformance_Android_Attach_Current_Thread();

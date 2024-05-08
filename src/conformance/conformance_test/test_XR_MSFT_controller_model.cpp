@@ -141,14 +141,14 @@ namespace Conformance
         ActionLayerManager actionLayerManager(compositionHelper);
         XrPath simpleKHR = StringToPath(instance, "/interaction_profiles/microsoft/motion_controller");
         XrPath leftHandPath{StringToPath(instance, "/user/hand/left")};
-        std::shared_ptr<IInputTestDevice> leftHandInputDevice =
-            CreateTestDevice(&actionLayerManager, &compositionHelper.GetInteractionManager(), instance, compositionHelper.GetSession(),
-                             simpleKHR, leftHandPath, cWMRControllerIPData);
+        std::shared_ptr<IInputTestDevice> leftHandInputDevice = CreateTestDevice(
+            &actionLayerManager, &compositionHelper.GetInteractionManager(), instance, compositionHelper.GetSession(), simpleKHR,
+            leftHandPath, GetInteractionProfile(InteractionProfileIndex::Profile_microsoft_motion_controller).InputSourcePaths);
 
         XrPath rightHandPath{StringToPath(instance, "/user/hand/right")};
-        std::shared_ptr<IInputTestDevice> rightHandInputDevice =
-            CreateTestDevice(&actionLayerManager, &compositionHelper.GetInteractionManager(), instance, compositionHelper.GetSession(),
-                             simpleKHR, rightHandPath, cWMRControllerIPData);
+        std::shared_ptr<IInputTestDevice> rightHandInputDevice = CreateTestDevice(
+            &actionLayerManager, &compositionHelper.GetInteractionManager(), instance, compositionHelper.GetSession(), simpleKHR,
+            rightHandPath, GetInteractionProfile(InteractionProfileIndex::Profile_microsoft_motion_controller).InputSourcePaths);
 
         const std::vector<XrPath> subactionPaths{leftHandPath, rightHandPath};
 

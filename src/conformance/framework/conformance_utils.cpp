@@ -285,7 +285,7 @@ namespace Conformance
         XrInstanceCreateInfo createInfo{XR_TYPE_INSTANCE_CREATE_INFO};
         createInfo.applicationInfo.applicationVersion = 1;
         strcpy(createInfo.applicationInfo.applicationName, "conformance test");
-        createInfo.applicationInfo.apiVersion = XR_CURRENT_API_VERSION;
+        createInfo.applicationInfo.apiVersion = globalData.options.desiredApiVersionValue;
         createInfo.enabledApiLayerCount = (uint32_t)globalData.enabledAPILayerNames.size();
         createInfo.enabledApiLayerNames = globalData.enabledAPILayerNames.data();
 
@@ -576,7 +576,7 @@ namespace Conformance
             // so we will offer helpful hints for the most common errors - as well as a generic
             // message.
 
-            // https://registry.khronos.org/OpenXR/specs/1.0/html/xrspec.html#sessionstatechanged-description
+            // https://registry.khronos.org/OpenXR/specs/1.1/html/xrspec.html#sessionstatechanged-description
             // If the system supports a user engagement sensor and runtime is in XR_SESSION_STATE_IDLE state,
             // the runtime should not transition to the XR_SESSION_STATE_READY state until the user starts
             // engaging with the device.
@@ -1135,6 +1135,49 @@ namespace Conformance
                 createInfo.createFlags = 0;  // XR_SWAPCHAIN_CREATE_PROTECTED_CONTENT_BIT or XR_SWAPCHAIN_CREATE_STATIC_IMAGE_BIT
                 createInfo.usageFlags = usageFlags;
                 createInfo.format = graphicsPlugin->SelectDepthSwapchainFormat(formatArray.data(), formatArray.size());
+                createInfo.sampleCount = 1;
+                createInfo.width = (uint32_t)widthHeight->width;
+                createInfo.height = (uint32_t)widthHeight->height;
+                createInfo.arraySize = arraySize;
+                createInfo.mipCount = 1;
+
+                result = xrCreateSwapchain(session, &createInfo, swapchain);
+            }
+        }
+
+        return result;
+    }
+
+    // Encapsulates xrEnumerateSwapchainFormats/xrCreateSwapchain
+    XrResult CreateMotionVectorSwapchain(XrSession session, IGraphicsPlugin* graphicsPlugin, XrSwapchain* swapchain,
+                                         XrExtent2Di* widthHeight, uint32_t arraySize)
+    {
+        std::vector<int64_t> formatArray;
+        uint32_t countOutput;
+        XrResult result = xrEnumerateSwapchainFormats(session, 0, &countOutput, nullptr);
+
+        if (result == XR_SUCCESS) {  // This should succeed
+            if (widthHeight->width < 1)
+                widthHeight->width = 256;
+            if (widthHeight->height < 1)
+                widthHeight->height = 256;
+
+            formatArray.resize(countOutput);
+            result = xrEnumerateSwapchainFormats(session, (uint32_t)formatArray.size(), &countOutput, formatArray.data());
+
+            if (result == XR_SUCCESS) {
+                XrSwapchainCreateInfo createInfo{XR_TYPE_SWAPCHAIN_CREATE_INFO};
+
+                XrSwapchainUsageFlags usageFlags = XR_SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT;
+                if (graphicsPlugin->DescribeGraphics() != "OpenGL") {
+                    // mutability exists in GL but isn't used in the conformance tests, so don't require it
+                    usageFlags |= XR_SWAPCHAIN_USAGE_MUTABLE_FORMAT_BIT;
+                }
+
+                createInfo.faceCount = 1;
+                createInfo.createFlags = 0;  // XR_SWAPCHAIN_CREATE_PROTECTED_CONTENT_BIT or XR_SWAPCHAIN_CREATE_STATIC_IMAGE_BIT
+                createInfo.usageFlags = usageFlags;
+                createInfo.format = graphicsPlugin->SelectMotionVectorSwapchainFormat(formatArray.data(), formatArray.size());
                 createInfo.sampleCount = 1;
                 createInfo.width = (uint32_t)widthHeight->width;
                 createInfo.height = (uint32_t)widthHeight->height;

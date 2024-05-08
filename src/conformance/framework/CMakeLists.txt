@@ -49,6 +49,14 @@ run_xr_xml_generate(
     conformance_generator.py function_info.cpp
     ${PROJECT_SOURCE_DIR}/src/scripts/template_function_info.cpp
 )
+run_xr_xml_generate(
+    conformance_generator.py interaction_info_generated.cpp
+    "${PROJECT_SOURCE_DIR}/src/scripts/template_interaction_info_generated.cpp"
+)
+run_xr_xml_generate(
+    conformance_generator.py interaction_info_generated.h
+    "${PROJECT_SOURCE_DIR}/src/scripts/template_interaction_info_generated.h"
+)
 
 add_library(
     conformance_framework STATIC
@@ -81,6 +89,8 @@ add_library(
     xml_test_environment.cpp
     ${VULKAN_SHADERS}
     "${CMAKE_CURRENT_BINARY_DIR}/function_info.cpp"
+    "${CMAKE_CURRENT_BINARY_DIR}/interaction_info_generated.cpp"
+    "${CMAKE_CURRENT_BINARY_DIR}/interaction_info_generated.h"
 )
 
 target_link_libraries(
@@ -110,11 +120,11 @@ target_include_directories(
         ${PROJECT_SOURCE_DIR}/src/external/span-lite/include
         # for xr_linear.h:
         ${PROJECT_SOURCE_DIR}/src/common
+        # for compiled shaders and generated source
+        ${CMAKE_CURRENT_BINARY_DIR}
     PRIVATE
         # so generated source files can find headers in here
         .
-        # for compiled shaders
-        ${CMAKE_CURRENT_BINARY_DIR}
         # for STB utilities, etc
         ${PROJECT_SOURCE_DIR}/src/external
 )

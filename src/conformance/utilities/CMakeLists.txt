@@ -44,6 +44,7 @@ configure_file(
 
 add_library(
     conformance_utilities STATIC
+    Geometry.cpp
     ballistics.cpp
     bitmask_generator.cpp
     bitmask_to_string.cpp
@@ -51,8 +52,9 @@ add_library(
     d3d12_queue_wrapper.cpp
     d3d12_utils.cpp
     event_reader.cpp
-    Geometry.cpp
+    feature_availability.cpp
     opengl_utils.cpp
+    string_utils.cpp
     stringification.cpp
     swapchain_format_data.cpp
     throw_helpers.cpp

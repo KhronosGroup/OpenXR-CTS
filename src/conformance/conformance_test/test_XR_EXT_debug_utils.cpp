@@ -274,7 +274,7 @@ namespace Conformance
             strcpy(createInfo.applicationInfo.applicationName, "conformance test : XR_EXT_debug_utils");
             createInfo.applicationInfo.applicationVersion = 1;
             // Leave engineName and engineVersion empty, which is valid usage.
-            createInfo.applicationInfo.apiVersion = XR_CURRENT_API_VERSION;
+            createInfo.applicationInfo.apiVersion = globalData.options.desiredApiVersionValue;
 
             createInfo.enabledApiLayerCount = (uint32_t)enabledApiLayers.size();
             createInfo.enabledApiLayerNames = enabledApiLayers.data();
@@ -320,7 +320,7 @@ namespace Conformance
             strcpy(createInfo.applicationInfo.applicationName, "conformance test : XR_EXT_debug_utils");
             createInfo.applicationInfo.applicationVersion = 1;
             // Leave engineName and engineVersion empty, which is valid usage.
-            createInfo.applicationInfo.apiVersion = XR_CURRENT_API_VERSION;
+            createInfo.applicationInfo.apiVersion = globalData.options.desiredApiVersionValue;
 
             // Add debug info
             createInfo.next = &debugInfo;
@@ -863,7 +863,7 @@ namespace Conformance
                     REQUIRE_RESULT(XR_SUCCESS, pfn_submit_dmsg(instance, XR_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT,
                                                                XR_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT, &callback_data));
                     const auto& cb = findMessageByMessageId(callbackInfo, callback_data.messageId);
-                    // From: https://registry.khronos.org/OpenXR/specs/1.0/html/xrspec.html#session-labels
+                    // From: https://registry.khronos.org/OpenXR/specs/1.1/html/xrspec.html#session-labels
                     // The labels listed inside sessionLabels are organized in time order, with the most recently
                     // generated label appearing first, and the oldest label appearing last.
                     REQUIRE(cb.callbackData.sessionLabelCount == 2);
@@ -1017,7 +1017,7 @@ namespace Conformance
             }
 
             // Unset object name
-            // https://registry.khronos.org/OpenXR/specs/1.0/man/html/xrSetDebugUtilsObjectNameEXT.html
+            // https://registry.khronos.org/OpenXR/specs/1.1/man/html/xrSetDebugUtilsObjectNameEXT.html
             // If XrDebugUtilsObjectNameInfoEXT::objectName is an empty string, then any previously set name is removed.
             XrDebugUtilsObjectNameInfoEXT unsetObject{XR_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT};
             unsetObject.objectType = XR_OBJECT_TYPE_INSTANCE;
@@ -1101,7 +1101,7 @@ namespace Conformance
             }
         }
 
-        // https://registry.khronos.org/OpenXR/specs/1.0/html/xrspec.html#XR_EXT_debug_utils
+        // https://registry.khronos.org/OpenXR/specs/1.1/html/xrspec.html#XR_EXT_debug_utils
         // The OpenXR spec provides some examples of how to use the extension; they are not full
         // examples but let's make sure that something equivalent to them works.
         // Example 1 / multiple callbacks

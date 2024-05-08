@@ -22,6 +22,7 @@
 #include "two_call.h"
 #include "utilities/throw_helpers.h"
 #include "utilities/types_and_constants.h"
+#include "utilities/string_utils.h"
 
 #include <catch2/catch_test_macros.hpp>
 
@@ -80,7 +81,7 @@ namespace Conformance
 
         HumanDrivenInputdevice(ITestMessageDisplay* const messageDisplay, InteractionManager* const interactionManager, XrInstance instance,
                                XrSession session, XrPath interactionProfile, XrPath topLevelPath,
-                               const InputSourcePathCollection& interactionProfilePaths)
+                               const InputSourcePathAvailCollection& interactionProfilePaths)
             : m_messageDisplay(messageDisplay)
             , m_instance(instance)
             , m_session(session)
@@ -104,14 +105,15 @@ namespace Conformance
             };
 
             std::string topLevelPathString = std::string(CHECK_TWO_CALL(char, {}, xrPathToString, m_instance, m_topLevelPath).data());
-            auto PrefixedByTopLevelPath = [&topLevelPathString](std::string binding) {
-                return (binding.length() > topLevelPathString.size()) &&
-                       (std::mismatch(topLevelPathString.begin(), topLevelPathString.end(), binding.begin()).first ==
-                        topLevelPathString.end());
-            };
 
-            for (const InputSourcePathData& inputSourceData : interactionProfilePaths) {
-                if (!PrefixedByTopLevelPath(inputSourceData.Path)) {
+            FeatureSet enabled;
+            GetGlobalData().PopulateVersionAndEnabledExtensions(enabled);
+
+            for (const InputSourcePathAvailData& inputSourceData : interactionProfilePaths) {
+                if (!starts_with(inputSourceData.Path, topLevelPathString)) {
+                    continue;
+                }
+                if (!kInteractionAvailabilities[(size_t)inputSourceData.Availability].IsSatisfiedBy(enabled)) {
                     continue;
                 }
 
@@ -534,7 +536,7 @@ namespace Conformance
     std::unique_ptr<IInputTestDevice> CreateTestDevice(ITestMessageDisplay* const messageDisplay,
                                                        InteractionManager* const interactionManager, XrInstance instance, XrSession session,
                                                        XrPath interactionProfile, XrPath topLevelPath,
-                                                       const InputSourcePathCollection& interactionProfilePaths)
+                                                       const InputSourcePathAvailCollection& interactionProfilePaths)
     {
         return std::make_unique<HumanDrivenInputdevice>(messageDisplay, interactionManager, instance, session, interactionProfile,
                                                         topLevelPath, interactionProfilePaths);

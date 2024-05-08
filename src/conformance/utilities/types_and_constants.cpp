@@ -25,6 +25,13 @@ namespace Conformance
 {
     constexpr size_t HEX_DIGITS_FOR_HANDLE = 8;
 
+    bool operator==(const XrPosefCPP& lhs, const XrPosefCPP& rhs)
+    {
+        return lhs.position.x == rhs.position.x && lhs.position.y == rhs.position.y && lhs.position.z == rhs.position.z &&
+               lhs.orientation.x == rhs.orientation.x && lhs.orientation.y == rhs.orientation.y && lhs.orientation.z == rhs.orientation.z &&
+               lhs.orientation.w == rhs.orientation.w;
+    }
+
     std::ostream& operator<<(std::ostream& os, NullHandleType const& /*unused*/)
     {
         os << "XR_NULL_HANDLE";

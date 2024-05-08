@@ -18,9 +18,11 @@
 
 #include "composition_utils.h"  // for Colors
 #include "graphics_plugin.h"
+#include "interaction_info.h"
 #include "platform_plugin.h"
 #include "report.h"
 #include "two_call_util.h"
+#include "utilities/feature_availability.h"
 #include "utilities/throw_helpers.h"
 #include "utilities/utils.h"
 #include "utilities/uuid_utils.h"
@@ -65,6 +67,8 @@ namespace Conformance
     std::string Options::DescribeOptions() const
     {
         std::string result;
+
+        AppendSprintf(result, "   apiVersion: %s\n", desiredApiVersion.c_str());
 
         AppendSprintf(result, "   graphicsPlugin: %s\n", graphicsPlugin.c_str());
 
@@ -248,6 +252,52 @@ namespace Conformance
             enabledInstanceExtensionNames.push_back_unique(XR_EXT_DEBUG_UTILS_EXTENSION_NAME);
         }
 
+        // Now that we know our available extensions, try to enable the requested interaction profile(s)
+        {
+            FeatureSet enabled;
+            PopulateVersionAndEnabledExtensions(enabled);
+            FeatureSet available;
+            PopulateVersionAndAvailableExtensions(available);
+
+            // Consistency check: enabled should always be a subset of available
+            XRC_CHECK_THROW_MSG(enabled.IsSatisfiedBy(available), "An unavailable extension is enabled.");
+
+            const auto beginProfiles = std::begin(GetAllInteractionProfiles());
+            const auto endProfiles = std::end(GetAllInteractionProfiles());
+            for (auto& str : globalData.enabledInteractionProfiles) {
+                auto ipIt = std::find_if(beginProfiles, endProfiles, [&](const InteractionProfileAvailMetadata& ip) {
+                    return strcmp(ip.InteractionProfileShortname, str) == 0;
+                });
+
+                if (ipIt == endProfiles) {
+                    // Interaction profile path not found in the generated database, presumably missing from XML.
+                    ReportF("GlobalData::Initialize: Interaction profile \"%s\" not supported by conformance test", str);
+                    return false;
+                }
+                Availability availability = kInteractionAvailabilities[(size_t)ipIt->Availability];
+
+                if (availability.IsSatisfiedBy(enabled)) {
+                    // The currently enabled extensions are enough to get this profile, no need to add more.
+                    continue;
+                }
+
+                // There may be multiple ways of enabling this profile, search for the first that the current version and available extensions
+                // can satisfy.
+                auto fsIt = std::find_if(std::begin(availability), std::end(availability),
+                                         [&](const FeatureSet& featureSet) { return featureSet.IsSatisfiedBy(available); });
+
+                if (fsIt == std::end(availability)) {
+                    // Could not do it!
+                    ReportF("GlobalData::Initialize: Cannot meet requirements for interaction profile \"%s\": need: %s, have: %s", str,
+                            availability.ToString().c_str(), available.ToString().c_str());
+                    return false;
+                }
+
+                for (const char* extension : fsIt->GetExtensions()) {
+                    globalData.enabledInstanceExtensionNames.push_back_unique(extension);
+                }
+            }
+        }
         // Fill out the functions in functionInfoMap.
         // Keep trying all functions, only failing out at end if one of them failed.
         bool functionMapInitialized = true;
@@ -509,6 +559,22 @@ namespace Conformance
             XRC_THROW("Encountered unrecognized environment blend mode value while determining background color.");
         }
     }
+
+    void GlobalData::PopulateVersionAndAvailableExtensions(FeatureSet& out) const
+    {
+        out = FeatureSet(options.desiredApiVersionValue);
+        for (const XrExtensionProperties& extProp : availableInstanceExtensions) {
+            out.SetByExtensionNameString(extProp.extensionName);
+        }
+    }
+
+    void GlobalData::PopulateVersionAndEnabledExtensions(FeatureSet& out) const
+    {
+        out = FeatureSet(options.desiredApiVersionValue);
+        for (const auto& ext : enabledInstanceExtensionNames) {
+            out.SetByExtensionNameString(ext);
+        }
+    }
 }  // namespace Conformance
 
 std::string Catch::StringMaker<XrUuidEXT>::convert(XrUuidEXT const& value)
@@ -538,4 +604,9 @@ std::string Catch::StringMaker<XrPosef>::convert(XrPosef const& value)
     oss << ", " << value.orientation.z;
     oss << "))]";
     return oss.str();
+}
+
+std::string Catch::StringMaker<Conformance::XrPosefCPP>::convert(Conformance::XrPosefCPP const& value)
+{
+    return ::Catch::Detail::stringify(static_cast<XrPosef const&>(value));
 }

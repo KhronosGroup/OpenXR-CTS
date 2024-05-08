@@ -34,7 +34,6 @@ namespace Conformance
 
     TEST_CASE("xrEnumerateReferenceSpaces")
     {
-        GlobalData& globalData = GetGlobalData();
         AutoBasicSession session(AutoBasicSession::OptionFlags::createSession);
 
         SECTION("Normal reference space enumeration")
@@ -47,13 +46,13 @@ namespace Conformance
 
             THEN("Each reference space type should be recognized")
             {
-                // Currently there are three types recognized. No others may be returned by a version-matching runtime.
-                if (globalData.runtimeMatchesAPIVersion) {
-                    for (XrReferenceSpaceType refSpaceType : refSpaceTypes) {
-                        if (refSpaceType < 1000000000) {  // If it's a core type
-                            CHECK_THAT(refSpaceType, In<XrReferenceSpaceType>({XR_REFERENCE_SPACE_TYPE_VIEW, XR_REFERENCE_SPACE_TYPE_LOCAL,
-                                                                               XR_REFERENCE_SPACE_TYPE_STAGE}));
-                        }
+                // Currently there are three types recognized that are not promoted from an extension.
+                // We cannot add a core enumerant value in a patch version, and we should not
+                // get core reference spaces for a minor version later than the one we request.
+                for (XrReferenceSpaceType refSpaceType : refSpaceTypes) {
+                    if (refSpaceType < XR_EXTENSION_ENUM_BASE) {  // If it's a core type
+                        CHECK_THAT(refSpaceType, In<XrReferenceSpaceType>({XR_REFERENCE_SPACE_TYPE_VIEW, XR_REFERENCE_SPACE_TYPE_LOCAL,
+                                                                           XR_REFERENCE_SPACE_TYPE_STAGE}));
                     }
                 }
             }

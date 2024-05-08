@@ -105,6 +105,11 @@ namespace Conformance
         ///
         /// Note that "testName" is the title that will be shown on the device: it is limited in size and often cannot show the entire actual test name.
         CompositionHelper(const char* testName, const std::vector<const char*>& additionalEnabledExtensions = std::vector<const char*>());
+
+        /// Constructor for when you already have an instance, and maybe know your view config type you want to use.
+        CompositionHelper(const char* testName, XrInstance instance, XrViewConfigurationType viewConfigType = (XrViewConfigurationType)0,
+                          bool skipOnUnsupportedViewType = false);
+
         ~CompositionHelper();
 
         InteractionManager& GetInteractionManager();
@@ -162,6 +167,14 @@ namespace Conformance
         XrSwapchainCreateInfo DefaultColorSwapchainCreateInfo(uint32_t width, uint32_t height, XrSwapchainCreateFlags createFlags = 0,
                                                               int64_t format = -1);
 
+        /// Return the XrSwapchainCreateInfo for a basic depth swapchain of given width and height, with optional arguments.
+        ///
+        /// Usage flags are `XR_SWAPCHAIN_USAGE_SAMPLED_BIT | XR_SWAPCHAIN_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT`
+        ///
+        /// Some depth format will be chosen if @p format is not specified.
+        XrSwapchainCreateInfo DefaultDepthSwapchainCreateInfo(uint32_t width, uint32_t height, XrSwapchainCreateFlags createFlags = 0,
+                                                              int64_t format = -1);
+
         /// Create a swapchain image handled by this class.
         ///
         /// @note Do not destroy this directly using OpenXR functions: use @ref DestroySwapchain instead.
@@ -171,6 +184,13 @@ namespace Conformance
         /// - @ref CreateStaticSwapchainSolidColor
         /// - @ref CreateStaticSwapchainImage
         XrSwapchain CreateSwapchain(const XrSwapchainCreateInfo& createInfo);
+
+        /// Create a swapchain image handled by this class as well as a depth swapchain.
+        ///
+        /// @note Do not destroy this directly using OpenXR functions: use @ref DestroySwapchain instead.
+        ///
+        std::pair<XrSwapchain, XrSwapchain> CreateSwapchainWithDepth(const XrSwapchainCreateInfo& createInfo,
+                                                                     const XrSwapchainCreateInfo& depthCreateInfo);
 
         /// Destroy a swapchain image created using @ref CreateSwapchain()
         ///
@@ -229,9 +249,11 @@ namespace Conformance
         }
 
     private:
+        void SharedInit(const char* testName, bool skipOnUnsupportedViewType = false);
         std::mutex m_mutex;
 
-        InstanceREQUIRE m_instance;
+        XrInstance m_instance;
+        InstanceREQUIRE m_instanceOwned;
         XrSession m_session;
         XrSystemId m_systemId;
 
@@ -241,6 +263,7 @@ namespace Conformance
         std::unique_ptr<InteractionManager> m_interactionManager;
 
         int64_t m_defaultColorFormat;
+        int64_t m_defaultDepthFormat;
         XrViewConfigurationType m_primaryViewType;
         uint32_t m_projectionViewCount{0};
         XrSessionState m_sessionState = XR_SESSION_STATE_UNKNOWN;

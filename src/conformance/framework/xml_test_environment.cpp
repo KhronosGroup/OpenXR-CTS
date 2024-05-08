@@ -99,6 +99,10 @@ namespace Conformance
         auto e = xml.scopedElement(CTS_XML_NS_PREFIX_QUALIFIER "testOptions");
         xml.scopedElement(CTS_XML_NS_PREFIX_QUALIFIER "graphicsPlugin").writeAttribute("value", options.graphicsPlugin);
 
+        xml.scopedElement(CTS_XML_NS_PREFIX_QUALIFIER "version")
+            .writeAttribute("string", options.desiredApiVersion)
+            .writeAttribute("value", to_hex(options.desiredApiVersionValue));
+
         xml.scopedElement(CTS_XML_NS_PREFIX_QUALIFIER "formFactor")
             .writeAttribute("string", options.formFactor)
             .writeAttribute("value", enum_to_string(options.formFactorValue));

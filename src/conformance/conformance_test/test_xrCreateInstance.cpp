@@ -44,7 +44,7 @@ namespace Conformance
         strcpy(createInfo.applicationInfo.applicationName, "conformance test");
         createInfo.applicationInfo.applicationVersion = 1;
         // Leave engineName and engineVersion empty, which is valid usage.
-        createInfo.applicationInfo.apiVersion = XR_CURRENT_API_VERSION;
+        createInfo.applicationInfo.apiVersion = globalData.options.desiredApiVersionValue;
 
         if (globalData.requiredPlatformInstanceCreateStruct)
             createInfo.next = globalData.requiredPlatformInstanceCreateStruct;

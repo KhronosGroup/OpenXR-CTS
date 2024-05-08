@@ -17,6 +17,7 @@
 #pragma once
 
 #include "conformance_utils.h"
+#include "utilities/feature_availability.h"
 #include "utilities/stringification.h"
 #include "utilities/types_and_constants.h"
 #include "utilities/utils.h"
@@ -123,6 +124,7 @@
 
 namespace Conformance
 {
+    class FeatureSet;
     struct IGraphicsPlugin;
     struct IPlatformPlugin;
     /// Specifies runtime options for the application.
@@ -140,6 +142,13 @@ namespace Conformance
         /// Options include: "vulkan" "d3d11" d3d12" "opengl" "opengles"
         /// Default is none. Must be manually specified.
         std::string graphicsPlugin{};
+
+        /// Options include: "1.0" "1.1"
+        /// Default is 1.1.
+        std::string desiredApiVersion{"1.1"};
+        /// Will contain the results of XR_MAKE_VERSION using the requested major and minor version
+        /// combined with the patch component of XR_CURRENT_API_VERSION.
+        XrVersion desiredApiVersionValue{XR_CURRENT_API_VERSION};
 
         /// Options include "hmd" "handheld". See enum XrFormFactor.
         /// Default is hmd.
@@ -358,6 +367,12 @@ namespace Conformance
         /// Calculate the clear color to use for the background based on the XrEnvironmentBlendMode in use.
         XrColor4f GetClearColorForBackground() const;
 
+        /// Populate a FeatureSet with the current core version and all *available* extensions.
+        void PopulateVersionAndAvailableExtensions(FeatureSet& out) const;
+
+        /// Populate a FeatureSet with the current core version and (default or manually) enabled extensions.
+        void PopulateVersionAndEnabledExtensions(FeatureSet& out) const;
+
     public:
         /// Guards all member data.
         mutable std::recursive_mutex dataMutex;
@@ -380,11 +395,6 @@ namespace Conformance
         std::shared_ptr<IPlatformPlugin> platformPlugin;
 
         std::shared_ptr<IGraphicsPlugin> graphicsPlugin;
-
-        /// If true then we assume the runtime API version is the same as the API version the
-        /// conformance was built against. If true then we can exercise the runtime more fully because
-        /// we know the API it was built against.
-        bool runtimeMatchesAPIVersion{true};
 
         /// Specifies invalid values, which aren't XR_NULL_HANDLE. Used to exercise invalid handles.
         XrInstance invalidInstance{XRC_INVALID_INSTANCE_VALUE};
@@ -607,6 +617,11 @@ namespace Catch
     struct StringMaker<XrPosef>
     {
         static std::string convert(XrPosef const& value);
+    };
+    template <>
+    struct StringMaker<::Conformance::XrPosefCPP>
+    {
+        static std::string convert(::Conformance::XrPosefCPP const& value);
     };
     template <>
     struct StringMaker<XrVector3f>

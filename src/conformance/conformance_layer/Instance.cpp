@@ -183,8 +183,6 @@ XrResult ConformanceHooks::xrGetSystemProperties(XrInstance instance, XrSystemId
 
     if (result == XR_SUCCESS) {
         // validate some structs?
-        auto nextStruct = properties->next;
-
         ForEachExtension(properties->next, [&](const XrBaseInStructure* ext) {
             switch (ext->type) {
             case XR_TYPE_SYSTEM_HAND_TRACKING_PROPERTIES_EXT: {
