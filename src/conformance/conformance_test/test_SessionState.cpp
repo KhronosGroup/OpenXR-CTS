@@ -77,7 +77,7 @@ namespace Conformance
             return false;
         };
 
-        XrEventDataSessionStateChanged evt;
+        XrEventDataSessionStateChanged evt{};
         REQUIRE(waitForNextSessionState(&evt) == true);
         REQUIRE_MSG(evt.state == XR_SESSION_STATE_IDLE, "Unexpected session state " << evt.state);
 

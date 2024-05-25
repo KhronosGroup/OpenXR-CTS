@@ -244,7 +244,7 @@ namespace Conformance
         return *it;
     }
 
-    TEST_CASE("XR_EXT_debug_utils", "")
+    TEST_CASE("XR_EXT_debug_utils", "[XR_EXT_debug_utils]")
     {
         GlobalData& globalData = GetGlobalData();
 

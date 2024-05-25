@@ -24,7 +24,7 @@
 
 namespace Conformance
 {
-    TEST_CASE("XR_MND_headless", "")
+    TEST_CASE("XR_MND_headless", "[XR_MND_headless]")
     {
         GlobalData& globalData = GetGlobalData();
 

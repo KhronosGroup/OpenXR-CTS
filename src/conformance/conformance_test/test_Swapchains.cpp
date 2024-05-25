@@ -53,7 +53,7 @@ namespace Conformance
         XrSwapchainImageWaitInfo imageWaitInfo{XR_TYPE_SWAPCHAIN_IMAGE_WAIT_INFO};
         imageWaitInfo.timeout = XR_INFINITE_DURATION;
 
-        // acquire/wait/render/release all the images.
+        // Acquire/wait/render/release all the images.
         for (uint32_t i = 0; i < colorImageCount; ++i) {
             CAPTURE(i);
             uint32_t colorImageIndex = UINT32_MAX;
@@ -603,12 +603,11 @@ namespace Conformance
                                                                          swapchainImages->GetColorImageArray()));
 
                         DoRenderTest(swapchainImages, colorImageCount, colorCreateInfo, colorSwapchain.get());
+                        GetGlobalData().graphicsPlugin->Flush();
                     }
 
                     // SwapchainScoped will have xrDestroySwapchain
-                    // now we need to flush
                     GetGlobalData().graphicsPlugin->ClearSwapchainCache();
-                    GetGlobalData().graphicsPlugin->Flush();
                 }
             }
         }

@@ -37,7 +37,7 @@ namespace Conformance
         MakeSystemPropertiesBoolChecker(XrSystemHandTrackingPropertiesEXT{XR_TYPE_SYSTEM_HAND_TRACKING_PROPERTIES_EXT},
                                         &XrSystemHandTrackingPropertiesEXT::supportsHandTracking);
 
-    TEST_CASE("XR_EXT_hand_tracking-create-destroy", "")
+    TEST_CASE("XR_EXT_hand_tracking-create-destroy", "[XR_EXT_hand_tracking]")
     {
         GlobalData& globalData = GetGlobalData();
         if (!globalData.IsInstanceExtensionSupported(XR_EXT_HAND_TRACKING_EXTENSION_NAME)) {
@@ -96,7 +96,7 @@ namespace Conformance
         }
     }
 
-    TEST_CASE("XR_EXT_hand_tracking-simple-queries")
+    TEST_CASE("XR_EXT_hand_tracking-simple-queries", "[XR_EXT_hand_tracking]")
     {
         GlobalData& globalData = GetGlobalData();
         if (!globalData.IsInstanceExtensionSupported(XR_EXT_HAND_TRACKING_EXTENSION_NAME)) {
@@ -296,7 +296,7 @@ namespace Conformance
     }
 
     // Purpose: Ensure that if the hand tracking extension is enabled, you can see some hands!
-    TEST_CASE("XR_EXT_hand_tracking-interactive", "[scenario][interactive][no_auto]")
+    TEST_CASE("XR_EXT_hand_tracking-interactive", "[XR_EXT_hand_tracking][scenario][interactive][no_auto]")
     {
         const char* instructions =
             "Small cubes are rendered to represent the joints of each hand. "

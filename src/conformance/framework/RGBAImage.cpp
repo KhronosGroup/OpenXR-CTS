@@ -252,7 +252,7 @@ namespace Conformance
                 RGBA8Color* const destImageRow = pixels.data() + (destY * width);
 
                 for (int cx = 0; cx < characterWidth; cx++) {
-                    const int destX = (int)(bakedChar.xoff + xadvance + 0.5f) + cx;
+                    const int destX = (int)std::lround(bakedChar.xoff + xadvance) + cx;
                     if (destX < 0 || destX >= width || destX < rect.offset.x || destX >= rect.offset.x + rect.extent.width) {
                         continue;  // Don't bother copying if out of bounds.
                     }
@@ -348,7 +348,9 @@ namespace Conformance
 
     void RGBAImageCache::Init()
     {
-        m_cacheMutex = std::make_unique<std::mutex>();
+        if (!m_cacheMutex) {
+            m_cacheMutex = std::make_unique<std::mutex>();
+        }
     }
 
     std::shared_ptr<RGBAImage> RGBAImageCache::Load(const char* path)

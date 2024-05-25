@@ -267,9 +267,9 @@ namespace
             GlobalData& globalData = GetGlobalData();
             globalData.options.desiredApiVersion = arg;
             if (striequal(globalData.options.desiredApiVersion.c_str(), "1.0"))
-                globalData.options.desiredApiVersionValue = XR_MAKE_VERSION(1, 0, XR_VERSION_PATCH(XR_CURRENT_API_VERSION));
+                globalData.options.desiredApiVersionValue = XR_API_VERSION_1_0;
             else if (striequal(globalData.options.desiredApiVersion.c_str(), "1.1"))
-                globalData.options.desiredApiVersionValue = XR_MAKE_VERSION(1, 1, XR_VERSION_PATCH(XR_CURRENT_API_VERSION));
+                globalData.options.desiredApiVersionValue = XR_API_VERSION_1_1;
             else {
                 ReportConsoleOnlyF("invalid arg: %s", globalData.options.desiredApiVersion.c_str());
                 return ParserResult::runtimeError("invalid OpenXR version '" + arg + "' passed on command line");

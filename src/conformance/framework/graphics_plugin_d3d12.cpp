@@ -1012,6 +1012,8 @@ namespace Conformance
                                          const XrSwapchainImageBaseHeader* colorSwapchainImage, const RenderParams& params)
     {
         if (params.cubes.empty() && params.meshes.empty() && params.glTFs.empty()) {
+            // Early exit, but need to wait as being done at end of method
+            WaitForGpu();
             return;
         }
         D3D12SwapchainImageData* swapchainData;

@@ -32,7 +32,7 @@ namespace Conformance
 {
     // This implements an automated programmatic test of the cylinder layer. However, a separate visual
     // test is required in order to validate that it looks correct.
-    TEST_CASE("XR_KHR_composition_layer_cylinder", "")
+    TEST_CASE("XR_KHR_composition_layer_cylinder", "[XR_KHR_composition_layer_cylinder]")
     {
         GlobalData& globalData = GetGlobalData();
         if (!globalData.IsInstanceExtensionSupported(XR_KHR_COMPOSITION_LAYER_CYLINDER_EXTENSION_NAME)) {

@@ -36,6 +36,7 @@
 #include <map>
 #include <memory>
 #include <ratio>
+#include <sstream>
 #include <thread>
 #include <utility>
 
@@ -1056,6 +1057,13 @@ namespace Conformance
             assert(false);
             return false;
         }
+    }
+
+    std::string SubtestTitle(const char* testName, size_t subtestIdx, size_t subtestCount)
+    {
+        std::ostringstream os;
+        os << testName << ": subtest " << (subtestIdx + 1) << " of " << subtestCount;
+        return os.str();
     }
 
     // Encapsulates xrEnumerateSwapchainFormats/xrCreateSwapchain

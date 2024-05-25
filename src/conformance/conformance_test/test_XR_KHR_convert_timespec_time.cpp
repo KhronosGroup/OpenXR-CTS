@@ -31,7 +31,7 @@
 namespace Conformance
 {
 
-    TEST_CASE("XR_KHR_convert_timespec_time", "")
+    TEST_CASE("XR_KHR_convert_timespec_time", "[XR_KHR_convert_timespec_time]")
     {
 #ifndef XR_USE_TIMESPEC
         SKIP("XR_KHR_convert_timespec_time test not enabled in CTS");

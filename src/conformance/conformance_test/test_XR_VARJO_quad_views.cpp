@@ -205,8 +205,8 @@ namespace Conformance
             }
 
             // Explicitly naming view config type and ignoring whatever was configured on the command line
-            CompositionHelper compositionHelper("Quad Views", instance.get(),
-                                                XR_VIEW_CONFIGURATION_TYPE_PRIMARY_STEREO_WITH_FOVEATED_INSET);
+            CompositionHelper compositionHelper("Quad Views", instance.get(), XR_VIEW_CONFIGURATION_TYPE_PRIMARY_STEREO_WITH_FOVEATED_INSET,
+                                                true);
             InteractiveLayerManager interactiveLayerManager(compositionHelper, "projection_separate.png", "Stereo inset views.");
             XrSession session = compositionHelper.GetSession();
 

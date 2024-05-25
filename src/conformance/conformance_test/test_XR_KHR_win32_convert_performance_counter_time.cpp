@@ -30,7 +30,7 @@
 
 namespace Conformance
 {
-    TEST_CASE("XR_KHR_win32_convert_performance_counter_time", "")
+    TEST_CASE("XR_KHR_win32_convert_performance_counter_time", "[XR_KHR_win32_convert_performance_counter_time]")
     {
         GlobalData& globalData = GetGlobalData();
         if (!globalData.IsInstanceExtensionSupported(XR_KHR_WIN32_CONVERT_PERFORMANCE_COUNTER_TIME_EXTENSION_NAME)) {

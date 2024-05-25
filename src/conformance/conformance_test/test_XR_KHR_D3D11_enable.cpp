@@ -36,7 +36,7 @@ using namespace Microsoft::WRL;
 
 namespace Conformance
 {
-    TEST_CASE("XR_KHR_D3D11_enable", "")
+    TEST_CASE("XR_KHR_D3D11_enable", "[XR_KHR_D3D11_enable]")
     {
         GlobalData& globalData = GetGlobalData();
         if (!globalData.IsInstanceExtensionEnabled(XR_KHR_D3D11_ENABLE_EXTENSION_NAME)) {

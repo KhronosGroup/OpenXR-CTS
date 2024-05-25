@@ -34,32 +34,74 @@ namespace Conformance
 
     extern const std::chrono::nanoseconds kActionWaitDelay;
 
-    // Manages showing a quad with help text.
+    /// Manages showing a quad with help text.
     struct ActionLayerManager : public ITestMessageDisplay
     {
         ActionLayerManager(CompositionHelper& compositionHelper);
 
-        EventReader& GetEventReader()
+        /// Access the contained @ref EventReader
+        EventReader& GetEventReader() noexcept
         {
             return m_eventReader;
         }
 
-        RenderLoop& GetRenderLoop()
+        /// Access the contained @ref RenderLoop
+        RenderLoop& GetRenderLoop() noexcept
         {
             return m_renderLoop;
         }
 
+        /// Wait until your callback returns true, while displaying a text message on the display.
+        ///
+        /// This helper:
+        ///
+        /// - DOES submit frames
+        /// - DOES NOT call `xrSyncActions`
+        /// - DOES NOT poll events through this object's EventReader (though the CompositionHelper will poll events)
         bool WaitWithMessage(const char* waitMessage, std::function<bool()> frameCallback);
 
+        /// Submit frames until focus is available, based on waiting for the session state event,
+        /// in case focus was lost at some point.
+        ///
+        /// This helper:
+        ///
+        /// - DOES submit frames (wraps a call to @ref WaitWithMessage)
+        /// - DOES NOT call `xrSyncActions`
+        /// - DOES call `xrPollEvent`
+        /// - DOES poll events through this object's EventReader
         void WaitForSessionFocusWithMessage();
 
+        /// Waits until xrLocateSpace reports that position/orientation valid flags match @p expectLocatability.
+        ///
+        /// This helper:
+        ///
+        /// - DOES submit frames (wraps a call to @ref WaitWithMessage)
+        /// - DOES NOT call `xrSyncActions` - you must call it beforehand at least once with the right action set(s) to make
+        ///   your action space active!
+        /// - DOES NOT poll events through this object's EventReader (though the CompositionHelper will poll events)
+        ///
+        /// @param hand Hand name for message
+        ///
         bool WaitForLocatability(const std::string& hand, XrSpace space, XrSpace localSpace, XrSpaceLocation* location,
                                  bool expectLocatability);
 
-        // Sync until focus is available, in case focus was lost at some point.
+        /// Sync actions until focus is available, observed by xrSyncActions returning XR_SUCCESS instead of XR_SESSION_NOT_FOCUSED,
+        /// in case focus was lost at some point.
+        ///
+        /// This helper:
+        ///
+        /// - DOES submit frames (wraps a call to @ref WaitWithMessage)
+        /// - DOES call `xrSyncActions` - if you do not want to sync actions, see @ref WaitForSessionFocusWithMessage
+        /// - DOES NOT poll events through this object's EventReader (though the CompositionHelper will poll events)
         void SyncActionsUntilFocusWithMessage(const XrActionsSyncInfo& syncInfo);
 
-        // "Sleep", but keep the render loop going on this thread
+        /// "Sleep", but keep the render loop going on this thread
+        ///
+        /// This helper:
+        ///
+        /// - DOES submit frames
+        /// - DOES NOT call `xrSyncActions`
+        /// - DOES NOT poll events through this object's EventReader (though the CompositionHelper will poll events)
         template <class Rep, class Period>
         void Sleep_For(const std::chrono::duration<Rep, Period>& sleep_duration)
         {
@@ -69,8 +111,19 @@ namespace Conformance
             }
         }
 
+        /// Call `xrEndFrame` via the @ref CompositionHelper, then let it poll for events to decide whether to stop.
+        ///
+        /// If there was a call to @ref DisplayMessage, a layer for the message will be submitted.
         bool EndFrame(const XrFrameState& frameState);
+
+        /// Calls `xrWaitFrame`, `xrBeginFrame`, and `xrEndFrame`, delegating to the owned @ref RenderLoop
         void IterateFrame() override;
+
+        /// Display a message on the console and in the immersive environment.
+        ///
+        /// Prepares a static swapchain with the message for use the next time @ref EndFrame is called,
+        /// directly or indirectly, through this helper object.
+        /// (Does not directly submit frames!)
         void DisplayMessage(const std::string& message) override;
 
     private:

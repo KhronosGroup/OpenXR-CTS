@@ -14,6 +14,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "composition_utils.h"
 #include "conformance_framework.h"
 #include "conformance_utils.h"
 #include "utilities/generator.h"
@@ -32,7 +33,7 @@ namespace Conformance
 {
     // This implements an automated programmatic test of the cubemap layer. However, a separate visual
     // test is required in order to validate that it looks correct.
-    TEST_CASE("XR_KHR_composition_layer_cube", "")
+    TEST_CASE("XR_KHR_composition_layer_cube", "[XR_KHR_composition_layer_cube]")
     {
         GlobalData& globalData = GetGlobalData();
         if (!globalData.IsInstanceExtensionSupported(XR_KHR_COMPOSITION_LAYER_CUBE_EXTENSION_NAME)) {
@@ -81,7 +82,7 @@ namespace Conformance
             for (XrSpace space : session.spaceVector) {
                 for (XrEyeVisibility eyeVisibility : eyeVisibilityArray) {
                     std::array<XrQuaternionf, 4> orientationTestArray{
-                        XrQuaternionf{0, 0, 0, 1},                        // No rotation; looking down the +x axis
+                        Quat::Identity,                                   // No rotation; looking down the +x axis
                         XrQuaternionf{0, 0.7071f, 0, 0.7071f},            // 90 degree rotation around y axis; looking down the -z axis.
                         XrQuaternionf{0, 0, 0.7071f, 0.7071f},            // 90 degree rotation around z axis; looking down the +y axis.
                         XrQuaternionf{-0.709f, 0.383f, -0.381f, -0.454f}  // Misc value.

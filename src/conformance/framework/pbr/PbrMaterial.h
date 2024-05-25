@@ -100,7 +100,7 @@ namespace Pbr
         mutable bool m_parametersChanged{true};
         std::aligned_storage_t<sizeof(ConstantBufferData), alignof(ConstantBufferData)> m_parametersStorage;
 
-        ConstantBufferData m_parameters;
+        ConstantBufferData m_parameters{};
 
         BlendState m_alphaBlended{BlendState::NotAlphaBlended};
         DoubleSided m_doubleSided{DoubleSided::NotDoubleSided};

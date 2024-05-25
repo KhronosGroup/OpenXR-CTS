@@ -405,7 +405,7 @@ namespace Conformance
         REQUIRE(XR_SUCCESS == xrDestroyPlaneDetectorEXT(detection));
     }
 
-    TEST_CASE("XR_EXT_plane_detection-V", "[scenario][interactive][no_auto][XR_EXT_plane_detection]")
+    TEST_CASE("XR_EXT_plane_detection-V", "[XR_EXT_plane_detection][scenario][interactive][no_auto]")
     {
         RunPlaneTest({XR_PLANE_DETECTOR_ORIENTATION_VERTICAL_EXT},
                      "Planes should be rendered at the vertical surfaces, "
@@ -413,7 +413,7 @@ namespace Conformance
                      "Press the select button on either controller to pass the test.");
     }
 
-    TEST_CASE("XR_EXT_plane_detection-HU", "[scenario][interactive][no_auto][XR_EXT_plane_detection]")
+    TEST_CASE("XR_EXT_plane_detection-HU", "[XR_EXT_plane_detection][scenario][interactive][no_auto]")
     {
         RunPlaneTest({XR_PLANE_DETECTOR_ORIENTATION_HORIZONTAL_UPWARD_EXT},
                      "Planes should be rendered at the horizontal surfaces with upward normals, "
@@ -421,7 +421,7 @@ namespace Conformance
                      "Press the select button on either controller to pass the test.");
     }
 
-    TEST_CASE("XR_EXT_plane_detection-HD", "[scenario][interactive][no_auto][XR_EXT_plane_detection]")
+    TEST_CASE("XR_EXT_plane_detection-HD", "[XR_EXT_plane_detection][scenario][interactive][no_auto]")
     {
         RunPlaneTest({XR_PLANE_DETECTOR_ORIENTATION_HORIZONTAL_DOWNWARD_EXT},
                      "Planes should be rendered at the horizontal surfaces with downward normals, "
@@ -429,21 +429,21 @@ namespace Conformance
                      "Press the select button on either controller to pass the test.");
     }
 
-    TEST_CASE("XR_EXT_plane_detection-A", "[scenario][interactive][no_auto][XR_EXT_plane_detection]")
+    TEST_CASE("XR_EXT_plane_detection-A", "[XR_EXT_plane_detection][scenario][interactive][no_auto]")
     {
         RunPlaneTest({XR_PLANE_DETECTOR_ORIENTATION_ARBITRARY_EXT},
                      "Planes should be rendered at the non horizontal/vertical surfaces. "
                      "Press the select button on either controller to pass the test.");
     }
 
-    TEST_CASE("XR_EXT_plane_detection-empty-list", "[scenario][interactive][no_auto][XR_EXT_plane_detection]")
+    TEST_CASE("XR_EXT_plane_detection-empty-list", "[XR_EXT_plane_detection][scenario][interactive][no_auto]")
     {
         RunPlaneTest({},
                      "All planes should be rendered. "
                      "Press the select button on either controller to pass the test.");
     }
 
-    TEST_CASE("XR_EXT_plane_detection-nullptr", "[scenario][interactive][no_auto][XR_EXT_plane_detection]")
+    TEST_CASE("XR_EXT_plane_detection-nullptr", "[XR_EXT_plane_detection][scenario][interactive][no_auto]")
     {
         RunPlaneTest({},
                      "All planes should be rendered. "
@@ -451,25 +451,25 @@ namespace Conformance
                      XR_PLANE_DETECTOR_SEMANTIC_TYPE_UNDEFINED_EXT, true);
     }
 
-    TEST_CASE("XR_EXT_plane_detection-ceiling", "[scenario][interactive][no_auto][XR_EXT_plane_detection]")
+    TEST_CASE("XR_EXT_plane_detection-ceiling", "[XR_EXT_plane_detection][scenario][interactive][no_auto]")
     {
         RunPlaneTest({XR_PLANE_DETECTOR_ORIENTATION_HORIZONTAL_DOWNWARD_EXT}, "Make sure a ceiling is detected in the scene.",
                      XR_PLANE_DETECTOR_SEMANTIC_TYPE_CEILING_EXT);
     }
 
-    TEST_CASE("XR_EXT_plane_detection-floor", "[scenario][interactive][no_auto][XR_EXT_plane_detection]")
+    TEST_CASE("XR_EXT_plane_detection-floor", "[XR_EXT_plane_detection][scenario][interactive][no_auto]")
     {
         RunPlaneTest({XR_PLANE_DETECTOR_ORIENTATION_HORIZONTAL_UPWARD_EXT}, "Make sure a floor is detected in the scene.",
                      XR_PLANE_DETECTOR_SEMANTIC_TYPE_FLOOR_EXT);
     }
 
-    TEST_CASE("XR_EXT_plane_detection-wall", "[scenario][interactive][no_auto][XR_EXT_plane_detection]")
+    TEST_CASE("XR_EXT_plane_detection-wall", "[XR_EXT_plane_detection][scenario][interactive][no_auto]")
     {
         RunPlaneTest({XR_PLANE_DETECTOR_ORIENTATION_VERTICAL_EXT}, "Make sure a wall is detected in the scene.",
                      XR_PLANE_DETECTOR_SEMANTIC_TYPE_WALL_EXT);
     }
 
-    TEST_CASE("XR_EXT_plane_detection-platform", "[scenario][interactive][no_auto][XR_EXT_plane_detection]")
+    TEST_CASE("XR_EXT_plane_detection-platform", "[XR_EXT_plane_detection][scenario][interactive][no_auto]")
     {
         RunPlaneTest({XR_PLANE_DETECTOR_ORIENTATION_HORIZONTAL_UPWARD_EXT}, "Make sure a platform is detected in the scene.",
                      XR_PLANE_DETECTOR_SEMANTIC_TYPE_PLATFORM_EXT);
@@ -833,25 +833,25 @@ namespace Conformance
         REQUIRE(XR_SUCCESS == xrDestroyPlaneDetectorEXT(detection));
     }
 
-    TEST_CASE("XR_EXT_plane_detection-contour-HU", "[scenario][interactive][no_auto][XR_EXT_plane_detection]")
+    TEST_CASE("XR_EXT_plane_detection-contour-HU", "[XR_EXT_plane_detection][scenario][interactive][no_auto]")
     {
         RunPlaneContourTest({XR_PLANE_DETECTOR_ORIENTATION_HORIZONTAL_UPWARD_EXT}, "ext_plane_detection_contour.png",
                             "This should show the plane contours of all upward horizontal planes.");
     }
 
-    TEST_CASE("XR_EXT_plane_detection-contour-HD", "[scenario][interactive][no_auto][XR_EXT_plane_detection]")
+    TEST_CASE("XR_EXT_plane_detection-contour-HD", "[XR_EXT_plane_detection][scenario][interactive][no_auto]")
     {
         RunPlaneContourTest({XR_PLANE_DETECTOR_ORIENTATION_HORIZONTAL_DOWNWARD_EXT}, "ext_plane_detection_contour.png",
                             "This should show the plane contours of all downward horizontal planes.");
     }
 
-    TEST_CASE("XR_EXT_plane_detection-contour-V", "[scenario][interactive][no_auto][XR_EXT_plane_detection]")
+    TEST_CASE("XR_EXT_plane_detection-contour-V", "[XR_EXT_plane_detection][scenario][interactive][no_auto]")
     {
         RunPlaneContourTest({XR_PLANE_DETECTOR_ORIENTATION_VERTICAL_EXT}, "ext_plane_detection_contour.png",
                             "This should show the plane contours of all vertical planes.");
     }
 
-    TEST_CASE("XR_EXT_plane_detection-contour-A", "[scenario][interactive][no_auto][XR_EXT_plane_detection]")
+    TEST_CASE("XR_EXT_plane_detection-contour-A", "[XR_EXT_plane_detection][scenario][interactive][no_auto]")
     {
         RunPlaneContourTest({XR_PLANE_DETECTOR_ORIENTATION_ARBITRARY_EXT}, "ext_plane_detection_contour.png",
                             "This should show the plane contours of all non vertical / horizontal (arbitrary) planes.");

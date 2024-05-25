@@ -337,6 +337,10 @@ namespace Conformance
                 satisfied[i] = kInteractionAvailabilities[i].IsSatisfiedBy(features);
             }
         }
+        // cannot copy, cannot move
+        InteractionAvailabilityEval(InteractionAvailabilityEval&&) = delete;
+        InteractionAvailabilityEval(const InteractionAvailabilityEval&) = delete;
+
         std::array<bool, kInteractionAvailabilities.size()> satisfied{};
     };
 
@@ -603,7 +607,7 @@ namespace Conformance
 
         XrInteractionProfileSuggestedBinding bindings{XR_TYPE_INTERACTION_PROFILE_SUGGESTED_BINDING};
         bindings.countSuggestedBindings = 1;
-
+        XrActionSuggestedBinding suggestedBindings{};
         XrAction boolAction;
         XrAction floatAction;
         XrAction vectorAction;
@@ -658,7 +662,7 @@ namespace Conformance
                 selectedAction = hapticAction;
             }
 
-            XrActionSuggestedBinding suggestedBindings{selectedAction, StringToPath(instance, pathData.Path)};
+            suggestedBindings = XrActionSuggestedBinding{selectedAction, StringToPath(instance, pathData.Path)};
             bindings.suggestedBindings = &suggestedBindings;
             CAPTURE(kInteractionAvailabilities[(size_t)pathData.Availability]);
             if (SatisfiedByDefault(pathData.Availability)) {
@@ -699,6 +703,8 @@ namespace Conformance
     TEST_CASE("xrSuggestInteractionProfileBindings_interactive", "[actions][interactive]")
     {
         CompositionHelper compositionHelper("xrSuggestInteractionProfileBindings");
+        XrInstance instance = compositionHelper.GetInstance();
+        XrSession session = compositionHelper.GetSession();
         compositionHelper.BeginSession();
 
         ActionLayerManager actionLayerManager(compositionHelper);
@@ -707,7 +713,7 @@ namespace Conformance
         XrActionSetCreateInfo actionSetCreateInfo{XR_TYPE_ACTION_SET_CREATE_INFO};
         strcpy(actionSetCreateInfo.localizedActionSetName, "test action set localized name");
         strcpy(actionSetCreateInfo.actionSetName, "test_action_set_name");
-        REQUIRE_RESULT(xrCreateActionSet(compositionHelper.GetInstance(), &actionSetCreateInfo, &actionSet), XR_SUCCESS);
+        REQUIRE_RESULT(xrCreateActionSet(instance, &actionSetCreateInfo, &actionSet), XR_SUCCESS);
 
         XrAction selectActionA{XR_NULL_HANDLE};
         XrActionCreateInfo actionCreateInfo{XR_TYPE_ACTION_CREATE_INFO};
@@ -727,28 +733,26 @@ namespace Conformance
         bool leftUnderTest = GetGlobalData().leftHandUnderTest;
         const char* pathStr = leftUnderTest ? "/user/hand/left" : "/user/hand/right";
 
-        XrPath path{StringToPath(compositionHelper.GetInstance(), pathStr)};
+        XrPath path{StringToPath(instance, pathStr)};
         std::shared_ptr<IInputTestDevice> inputDevice =
-            CreateTestDevice(&actionLayerManager, &compositionHelper.GetInteractionManager(), compositionHelper.GetInstance(),
-                             compositionHelper.GetSession(),
-                             StringToPath(compositionHelper.GetInstance(), GetSimpleInteractionProfile().InteractionProfilePathString),
-                             path, GetSimpleInteractionProfile().InputSourcePaths);
+            CreateTestDevice(&actionLayerManager, &compositionHelper.GetInteractionManager(), instance, session,
+                             StringToPath(instance, GetSimpleInteractionProfile().InteractionProfilePathString), path,
+                             GetSimpleInteractionProfile().InputSourcePaths);
 
         compositionHelper.GetInteractionManager().AddActionSet(actionSet);
 
         std::string selectPathStr = std::string(pathStr) + "/input/select/click";
-        XrPath selectPath = StringToPath(compositionHelper.GetInstance(), selectPathStr);
+        XrPath selectPath = StringToPath(instance, selectPathStr);
         XrActionSuggestedBinding testBinding = {selectActionA, selectPath};
         XrInteractionProfileSuggestedBinding bindings{XR_TYPE_INTERACTION_PROFILE_SUGGESTED_BINDING};
-        bindings.interactionProfile = StringToPath(compositionHelper.GetInstance(), "/interaction_profiles/khr/simple_controller");
+        bindings.interactionProfile = StringToPath(instance, "/interaction_profiles/khr/simple_controller");
         bindings.countSuggestedBindings = 1;
         bindings.suggestedBindings = &testBinding;
-        REQUIRE_RESULT(xrSuggestInteractionProfileBindings(compositionHelper.GetInstance(), &bindings), XR_SUCCESS);
+        REQUIRE_RESULT(xrSuggestInteractionProfileBindings(instance, &bindings), XR_SUCCESS);
 
         // Calling attach on the interaction manager will call xrSuggestInteractionProfileBindings with the bindings provided here, overwriting the previous bindings
         compositionHelper.GetInteractionManager().AddActionBindings(
-            StringToPath(compositionHelper.GetInstance(), GetSimpleInteractionProfile().InteractionProfilePathString),
-            {{{selectActionB, selectPath}}});
+            StringToPath(instance, GetSimpleInteractionProfile().InteractionProfilePathString), {{{selectActionB, selectPath}}});
         compositionHelper.GetInteractionManager().AttachActionSets();
 
         actionLayerManager.WaitForSessionFocusWithMessage();
@@ -767,11 +771,11 @@ namespace Conformance
 
             // selectActionA should have had its bindings discarded and replaced by selectActionB's bindings
             getInfo.action = selectActionA;
-            REQUIRE_RESULT(xrGetActionStateBoolean(compositionHelper.GetSession(), &getInfo, &booleanActionState), XR_SUCCESS);
+            REQUIRE_RESULT(xrGetActionStateBoolean(session, &getInfo, &booleanActionState), XR_SUCCESS);
             REQUIRE_FALSE(booleanActionState.isActive);
 
             getInfo.action = selectActionB;
-            REQUIRE_RESULT(xrGetActionStateBoolean(compositionHelper.GetSession(), &getInfo, &booleanActionState), XR_SUCCESS);
+            REQUIRE_RESULT(xrGetActionStateBoolean(session, &getInfo, &booleanActionState), XR_SUCCESS);
             REQUIRE(booleanActionState.isActive);
         }
     }
@@ -1025,6 +1029,8 @@ namespace Conformance
         auto suggestBindingsAndGetCurrentInteractionProfile = [](bool reverse, bool nullPathExpected,
                                                                  const std::string& topLevelPathString) {
             CompositionHelper compositionHelper("xrSuggestInteractionProfileBindings_order");
+            XrInstance instance = compositionHelper.GetInstance();
+            XrSession session = compositionHelper.GetSession();
             compositionHelper.BeginSession();
 
             ActionLayerManager actionLayerManager(compositionHelper);
@@ -1033,7 +1039,7 @@ namespace Conformance
             XrActionSetCreateInfo actionSetCreateInfo{XR_TYPE_ACTION_SET_CREATE_INFO};
             strcpy(actionSetCreateInfo.localizedActionSetName, "test action set localized name");
             strcpy(actionSetCreateInfo.actionSetName, "test_action_set_name");
-            REQUIRE_RESULT(xrCreateActionSet(compositionHelper.GetInstance(), &actionSetCreateInfo, &actionSet), XR_SUCCESS);
+            REQUIRE_RESULT(xrCreateActionSet(instance, &actionSetCreateInfo, &actionSet), XR_SUCCESS);
 
             XrAction boolAction{XR_NULL_HANDLE};
             XrActionCreateInfo actionCreateInfo{XR_TYPE_ACTION_CREATE_INFO};
@@ -1052,7 +1058,7 @@ namespace Conformance
                     return;
                 }
                 std::string interactionProfileName = interactionProfile.InteractionProfilePathString;
-                XrPath interactionProfilePath = StringToPath(compositionHelper.GetInstance(), interactionProfileName);
+                XrPath interactionProfilePath = StringToPath(instance, interactionProfileName);
 
                 bool bindingSuggested = false;
                 for (auto& bindings : interactionProfile.InputSourcePaths) {
@@ -1065,7 +1071,7 @@ namespace Conformance
                     if (!SatisfiedByDefault(bindings.Availability)) {
                         continue;
                     }
-                    XrActionSuggestedBinding binding = {boolAction, StringToPath(compositionHelper.GetInstance(), bindings.Path)};
+                    XrActionSuggestedBinding binding = {boolAction, StringToPath(instance, bindings.Path)};
                     interactionManager.AddActionBindings(interactionProfilePath, {binding});
                     bindingSuggested = true;
                 }
@@ -1089,12 +1095,11 @@ namespace Conformance
             }
 
             // Hardcoded path valid for simple controller
-            XrPath userHandLeftXrPath{StringToPath(compositionHelper.GetInstance(), topLevelPathString)};
+            XrPath userHandLeftXrPath{StringToPath(instance, topLevelPathString)};
             std::shared_ptr<IInputTestDevice> inputDevice =
-                CreateTestDevice(&actionLayerManager, &compositionHelper.GetInteractionManager(), compositionHelper.GetInstance(),
-                                 compositionHelper.GetSession(),
-                                 StringToPath(compositionHelper.GetInstance(), GetSimpleInteractionProfile().InteractionProfilePathString),
-                                 userHandLeftXrPath, GetSimpleInteractionProfile().InputSourcePaths);
+                CreateTestDevice(&actionLayerManager, &compositionHelper.GetInteractionManager(), instance, session,
+                                 StringToPath(instance, GetSimpleInteractionProfile().InteractionProfilePathString), userHandLeftXrPath,
+                                 GetSimpleInteractionProfile().InputSourcePaths);
 
             // This function calls xrSuggestInteractionProfileBindings() before attaching the actionsets
             interactionManager.AttachActionSets(&interactionProfileOrder);
@@ -1103,10 +1108,8 @@ namespace Conformance
             inputDevice->SetDeviceActive(/*state = */ true, /*skipInteraction = */ false, boolAction, actionSet);
             actionLayerManager.WaitForSessionFocusWithMessage();
             XrInteractionProfileState interactionProfileState{XR_TYPE_INTERACTION_PROFILE_STATE};
-            REQUIRE_RESULT(
-                xrGetCurrentInteractionProfile(compositionHelper.GetSession(),
-                                               StringToPath(compositionHelper.GetInstance(), topLevelPathString), &interactionProfileState),
-                XR_SUCCESS);
+            REQUIRE_RESULT(xrGetCurrentInteractionProfile(session, StringToPath(instance, topLevelPathString), &interactionProfileState),
+                           XR_SUCCESS);
 
             // Are we expecting the topLevelPath to have a active input?
             if (nullPathExpected) {
@@ -1121,7 +1124,7 @@ namespace Conformance
                 REQUIRE(interactionProfileState.interactionProfile != XR_NULL_PATH);
 
                 // XrPaths are only valid for the lifetime of the instance so we return a string
-                return PathToString(compositionHelper.GetInstance(), interactionProfileState.interactionProfile);
+                return PathToString(instance, interactionProfileState.interactionProfile);
             }
         };
 
@@ -1148,18 +1151,19 @@ namespace Conformance
     TEST_CASE("xrGetCurrentInteractionProfile", "[actions][interactive]")
     {
         CompositionHelper compositionHelper("xrGetCurrentInteractionProfile");
+        XrInstance instance = compositionHelper.GetInstance();
+        XrSession session = compositionHelper.GetSession();
         compositionHelper.BeginSession();
 
         ActionLayerManager actionLayerManager(compositionHelper);
 
-        XrPath simpleControllerInteractionProfile =
-            StringToPath(compositionHelper.GetInstance(), GetSimpleInteractionProfile().InteractionProfilePathString);
+        XrPath simpleControllerInteractionProfile = StringToPath(instance, GetSimpleInteractionProfile().InteractionProfilePathString);
 
         XrActionSet actionSet{XR_NULL_HANDLE};
         XrActionSetCreateInfo actionSetCreateInfo{XR_TYPE_ACTION_SET_CREATE_INFO};
         strcpy(actionSetCreateInfo.localizedActionSetName, "test action set localized name");
         strcpy(actionSetCreateInfo.actionSetName, "test_action_set_name");
-        REQUIRE_RESULT(xrCreateActionSet(compositionHelper.GetInstance(), &actionSetCreateInfo, &actionSet), XR_SUCCESS);
+        REQUIRE_RESULT(xrCreateActionSet(instance, &actionSetCreateInfo, &actionSet), XR_SUCCESS);
 
         XrAction selectAction{XR_NULL_HANDLE};
         XrActionCreateInfo actionCreateInfo{XR_TYPE_ACTION_CREATE_INFO};
@@ -1168,19 +1172,17 @@ namespace Conformance
         strcpy(actionCreateInfo.actionName, "test_select_action");
         REQUIRE_RESULT(xrCreateAction(actionSet, &actionCreateInfo, &selectAction), XR_SUCCESS);
 
-        XrPath leftHandPath{StringToPath(compositionHelper.GetInstance(), "/user/hand/left")};
+        XrPath leftHandPath{StringToPath(instance, "/user/hand/left")};
         std::shared_ptr<IInputTestDevice> leftHandInputDevice =
-            CreateTestDevice(&actionLayerManager, &compositionHelper.GetInteractionManager(), compositionHelper.GetInstance(),
-                             compositionHelper.GetSession(),
-                             StringToPath(compositionHelper.GetInstance(), GetSimpleInteractionProfile().InteractionProfilePathString),
-                             leftHandPath, GetSimpleInteractionProfile().InputSourcePaths);
+            CreateTestDevice(&actionLayerManager, &compositionHelper.GetInteractionManager(), instance, session,
+                             StringToPath(instance, GetSimpleInteractionProfile().InteractionProfilePathString), leftHandPath,
+                             GetSimpleInteractionProfile().InputSourcePaths);
 
-        XrPath rightHandPath{StringToPath(compositionHelper.GetInstance(), "/user/hand/right")};
+        XrPath rightHandPath{StringToPath(instance, "/user/hand/right")};
         std::shared_ptr<IInputTestDevice> rightHandInputDevice =
-            CreateTestDevice(&actionLayerManager, &compositionHelper.GetInteractionManager(), compositionHelper.GetInstance(),
-                             compositionHelper.GetSession(),
-                             StringToPath(compositionHelper.GetInstance(), GetSimpleInteractionProfile().InteractionProfilePathString),
-                             rightHandPath, GetSimpleInteractionProfile().InputSourcePaths);
+            CreateTestDevice(&actionLayerManager, &compositionHelper.GetInteractionManager(), instance, session,
+                             StringToPath(instance, GetSimpleInteractionProfile().InteractionProfilePathString), rightHandPath,
+                             GetSimpleInteractionProfile().InputSourcePaths);
 
         XrActionsSyncInfo syncInfo{XR_TYPE_ACTIONS_SYNC_INFO};
         XrActiveActionSet activeActionSet{actionSet};
@@ -1195,9 +1197,9 @@ namespace Conformance
 
             compositionHelper.GetInteractionManager().AddActionSet(actionSet);
             compositionHelper.GetInteractionManager().AddActionBindings(
-                StringToPath(compositionHelper.GetInstance(), GetSimpleInteractionProfile().InteractionProfilePathString),
-                {{{selectAction, StringToPath(compositionHelper.GetInstance(), "/user/hand/left/input/select/click")},
-                  {selectAction, StringToPath(compositionHelper.GetInstance(), "/user/hand/right/input/select/click")}}});
+                StringToPath(instance, GetSimpleInteractionProfile().InteractionProfilePathString),
+                {{{selectAction, StringToPath(instance, "/user/hand/left/input/select/click")},
+                  {selectAction, StringToPath(instance, "/user/hand/right/input/select/click")}}});
             compositionHelper.GetInteractionManager().AttachActionSets();
 
             {
@@ -1205,13 +1207,11 @@ namespace Conformance
 
                 {
                     INFO("Basic usage");
-                    REQUIRE_RESULT(xrGetCurrentInteractionProfile(compositionHelper.GetSession(), leftHandPath, &interactionProfileState),
-                                   XR_SUCCESS);
+                    REQUIRE_RESULT(xrGetCurrentInteractionProfile(session, leftHandPath, &interactionProfileState), XR_SUCCESS);
                 }
                 {
                     INFO("XR_NULL_PATH topLevelPath");
-                    REQUIRE_RESULT(xrGetCurrentInteractionProfile(compositionHelper.GetSession(), XR_NULL_PATH, &interactionProfileState),
-                                   XR_ERROR_PATH_INVALID);
+                    REQUIRE_RESULT(xrGetCurrentInteractionProfile(session, XR_NULL_PATH, &interactionProfileState), XR_ERROR_PATH_INVALID);
                 }
                 OPTIONAL_INVALID_HANDLE_VALIDATION_INFO
                 {
@@ -1222,21 +1222,19 @@ namespace Conformance
                 {
                     INFO("Invalid top level path");
                     XrPath invalidTopLevelPath = (XrPath)0x1234;
-                    REQUIRE_RESULT(
-                        xrGetCurrentInteractionProfile(compositionHelper.GetSession(), invalidTopLevelPath, &interactionProfileState),
-                        XR_ERROR_PATH_INVALID);
+                    REQUIRE_RESULT(xrGetCurrentInteractionProfile(session, invalidTopLevelPath, &interactionProfileState),
+                                   XR_ERROR_PATH_INVALID);
                 }
                 {
                     INFO("Unsupported top level path");
-                    XrPath unsupportedTopLevelPath = StringToPath(compositionHelper.GetInstance(), "/invalid/top/level/path");
-                    REQUIRE_RESULT(
-                        xrGetCurrentInteractionProfile(compositionHelper.GetSession(), unsupportedTopLevelPath, &interactionProfileState),
-                        XR_ERROR_PATH_UNSUPPORTED);
+                    XrPath unsupportedTopLevelPath = StringToPath(instance, "/invalid/top/level/path");
+                    REQUIRE_RESULT(xrGetCurrentInteractionProfile(session, unsupportedTopLevelPath, &interactionProfileState),
+                                   XR_ERROR_PATH_UNSUPPORTED);
                 }
                 {
                     INFO("Invalid type");
                     interactionProfileState = XrInteractionProfileState{XR_TYPE_ACTION_CREATE_INFO};
-                    REQUIRE_RESULT(xrGetCurrentInteractionProfile(compositionHelper.GetSession(), leftHandPath, &interactionProfileState),
+                    REQUIRE_RESULT(xrGetCurrentInteractionProfile(session, leftHandPath, &interactionProfileState),
                                    XR_ERROR_VALIDATION_FAILURE);
                     interactionProfileState = XrInteractionProfileState{XR_TYPE_INTERACTION_PROFILE_STATE};
                 }
@@ -1271,13 +1269,11 @@ namespace Conformance
 
                 REQUIRE(ReadUntilEvent(XR_TYPE_EVENT_DATA_INTERACTION_PROFILE_CHANGED, 1s));
                 if (globalData.leftHandUnderTest) {
-                    REQUIRE_RESULT(xrGetCurrentInteractionProfile(compositionHelper.GetSession(), leftHandPath, &interactionProfileState),
-                                   XR_SUCCESS);
+                    REQUIRE_RESULT(xrGetCurrentInteractionProfile(session, leftHandPath, &interactionProfileState), XR_SUCCESS);
                     REQUIRE(simpleControllerInteractionProfile == interactionProfileState.interactionProfile);
                 }
                 if (globalData.rightHandUnderTest) {
-                    REQUIRE_RESULT(xrGetCurrentInteractionProfile(compositionHelper.GetSession(), rightHandPath, &interactionProfileState),
-                                   XR_SUCCESS);
+                    REQUIRE_RESULT(xrGetCurrentInteractionProfile(session, rightHandPath, &interactionProfileState), XR_SUCCESS);
                     REQUIRE(simpleControllerInteractionProfile == interactionProfileState.interactionProfile);
                 }
             }
@@ -1291,25 +1287,24 @@ namespace Conformance
         if (globalData.IsInstanceExtensionSupported(XR_EXT_ACTIVE_ACTION_SET_PRIORITY_EXTENSION_NAME))
             extensions.push_back(XR_EXT_ACTIVE_ACTION_SET_PRIORITY_EXTENSION_NAME);
         CompositionHelper compositionHelper("xrSyncActions", extensions);
+        XrInstance instance = compositionHelper.GetInstance();
+        XrSession session = compositionHelper.GetSession();
 
         ActionLayerManager actionLayerManager(compositionHelper);
 
-        XrPath simpleControllerInteractionProfile =
-            StringToPath(compositionHelper.GetInstance(), GetSimpleInteractionProfile().InteractionProfilePathString);
+        XrPath simpleControllerInteractionProfile = StringToPath(instance, GetSimpleInteractionProfile().InteractionProfilePathString);
 
         std::string leftHandPathString = "/user/hand/left";
-        XrPath leftHandPath{StringToPath(compositionHelper.GetInstance(), "/user/hand/left")};
+        XrPath leftHandPath{StringToPath(instance, "/user/hand/left")};
         std::shared_ptr<IInputTestDevice> leftHandInputDevice =
-            CreateTestDevice(&actionLayerManager, &compositionHelper.GetInteractionManager(), compositionHelper.GetInstance(),
-                             compositionHelper.GetSession(), simpleControllerInteractionProfile, leftHandPath,
-                             GetSimpleInteractionProfile().InputSourcePaths);
+            CreateTestDevice(&actionLayerManager, &compositionHelper.GetInteractionManager(), instance, session,
+                             simpleControllerInteractionProfile, leftHandPath, GetSimpleInteractionProfile().InputSourcePaths);
 
         std::string rightHandPathString = "/user/hand/right";
-        XrPath rightHandPath{StringToPath(compositionHelper.GetInstance(), "/user/hand/right")};
+        XrPath rightHandPath{StringToPath(instance, "/user/hand/right")};
         std::shared_ptr<IInputTestDevice> rightHandInputDevice =
-            CreateTestDevice(&actionLayerManager, &compositionHelper.GetInteractionManager(), compositionHelper.GetInstance(),
-                             compositionHelper.GetSession(), simpleControllerInteractionProfile, rightHandPath,
-                             GetSimpleInteractionProfile().InputSourcePaths);
+            CreateTestDevice(&actionLayerManager, &compositionHelper.GetInteractionManager(), instance, session,
+                             simpleControllerInteractionProfile, rightHandPath, GetSimpleInteractionProfile().InputSourcePaths);
 
         bool leftUnderTest = GetGlobalData().leftHandUnderTest;
         std::string defaultDevicePathStr = leftUnderTest ? leftHandPathString : rightHandPathString;
@@ -1320,7 +1315,7 @@ namespace Conformance
         XrActionSetCreateInfo actionSetCreateInfo{XR_TYPE_ACTION_SET_CREATE_INFO};
         strcpy(actionSetCreateInfo.localizedActionSetName, "test action set localized name");
         strcpy(actionSetCreateInfo.actionSetName, "test_action_set_name");
-        REQUIRE_RESULT(xrCreateActionSet(compositionHelper.GetInstance(), &actionSetCreateInfo, &actionSet), XR_SUCCESS);
+        REQUIRE_RESULT(xrCreateActionSet(instance, &actionSetCreateInfo, &actionSet), XR_SUCCESS);
 
         XrAction action{XR_NULL_HANDLE};
         XrActionCreateInfo actionCreateInfo{XR_TYPE_ACTION_CREATE_INFO};
@@ -1346,7 +1341,7 @@ namespace Conformance
                 {
                     INFO("No action sets attached");
 
-                    REQUIRE_RESULT_SUCCEEDED(xrSyncActions(compositionHelper.GetSession(), &syncInfo));
+                    REQUIRE_RESULT_SUCCEEDED(xrSyncActions(session, &syncInfo));
                 }
                 {
                     INFO("With action sets attached");
@@ -1354,13 +1349,13 @@ namespace Conformance
                     compositionHelper.GetInteractionManager().AddActionSet(actionSet);
                     compositionHelper.GetInteractionManager().AttachActionSets();
 
-                    REQUIRE_RESULT_SUCCEEDED(xrSyncActions(compositionHelper.GetSession(), &syncInfo));
+                    REQUIRE_RESULT_SUCCEEDED(xrSyncActions(session, &syncInfo));
                 }
             }
             SECTION("Active action sets")
             {
                 XrInteractionProfileState interactionProfileState{XR_TYPE_INTERACTION_PROFILE_STATE};
-                REQUIRE_RESULT(xrGetCurrentInteractionProfile(compositionHelper.GetSession(), defaultDevicePath, &interactionProfileState),
+                REQUIRE_RESULT(xrGetCurrentInteractionProfile(session, defaultDevicePath, &interactionProfileState),
                                XR_ERROR_ACTIONSET_NOT_ATTACHED);
 
                 compositionHelper.GetInteractionManager().AddActionSet(actionSet);
@@ -1368,9 +1363,7 @@ namespace Conformance
 
                 {
                     INFO("Interaction profile selection changes must: only happen when flink:xrSyncActions is called.");
-                    REQUIRE_RESULT(
-                        xrGetCurrentInteractionProfile(compositionHelper.GetSession(), defaultDevicePath, &interactionProfileState),
-                        XR_SUCCESS);
+                    REQUIRE_RESULT(xrGetCurrentInteractionProfile(session, defaultDevicePath, &interactionProfileState), XR_SUCCESS);
                     // per spec: "Interaction profile selection changes must: only happen when flink:xrSyncActions is called."
                     REQUIRE(interactionProfileState.interactionProfile == XR_NULL_PATH);
                 }
@@ -1380,9 +1373,9 @@ namespace Conformance
                 syncInfo.activeActionSets = &activeActionSet;
                 syncInfo.countActiveActionSets = 1;
 
-                REQUIRE_RESULT(xrSyncActions(compositionHelper.GetSession(), &syncInfo), XR_SESSION_NOT_FOCUSED);
+                REQUIRE_RESULT(xrSyncActions(session, &syncInfo), XR_SESSION_NOT_FOCUSED);
 
-                REQUIRE_RESULT(xrGetActionStateBoolean(compositionHelper.GetSession(), &getInfo, &actionStateBoolean), XR_SUCCESS);
+                REQUIRE_RESULT(xrGetActionStateBoolean(session, &getInfo, &actionStateBoolean), XR_SUCCESS);
                 REQUIRE_FALSE(actionStateBoolean.isActive);
             }
         }
@@ -1393,7 +1386,7 @@ namespace Conformance
             SECTION("Parameter validation")
             {
                 std::string selectPathStr = defaultDevicePathStr + "/input/select/click";
-                XrPath selectPath = StringToPath(compositionHelper.GetInstance(), selectPathStr);
+                XrPath selectPath = StringToPath(instance, selectPathStr);
                 compositionHelper.GetInteractionManager().AddActionSet(actionSet);
                 compositionHelper.GetInteractionManager().AddActionBindings(simpleControllerInteractionProfile, {{action, selectPath}});
                 compositionHelper.GetInteractionManager().AttachActionSets();
@@ -1415,7 +1408,7 @@ namespace Conformance
 
                     actionLayerManager.SyncActionsUntilFocusWithMessage(syncInfo);
 
-                    REQUIRE_RESULT(xrGetActionStateBoolean(compositionHelper.GetSession(), &getInfo, &actionStateBoolean), XR_SUCCESS);
+                    REQUIRE_RESULT(xrGetActionStateBoolean(session, &getInfo, &actionStateBoolean), XR_SUCCESS);
                     REQUIRE(actionStateBoolean.isActive);
                     REQUIRE_FALSE(actionStateBoolean.currentState);
 
@@ -1426,11 +1419,11 @@ namespace Conformance
 
                         actionLayerManager.SyncActionsUntilFocusWithMessage(syncInfo);
 
-                        REQUIRE_RESULT(xrGetActionStateBoolean(compositionHelper.GetSession(), &getInfo, &actionStateBoolean), XR_SUCCESS);
+                        REQUIRE_RESULT(xrGetActionStateBoolean(session, &getInfo, &actionStateBoolean), XR_SUCCESS);
                         REQUIRE(actionStateBoolean.isActive);
                         REQUIRE(actionStateBoolean.currentState);
 
-                        REQUIRE_RESULT(xrGetActionStateBoolean(compositionHelper.GetSession(), &getInfo, &actionStateBoolean), XR_SUCCESS);
+                        REQUIRE_RESULT(xrGetActionStateBoolean(session, &getInfo, &actionStateBoolean), XR_SUCCESS);
                         REQUIRE(actionStateBoolean.isActive);
                         REQUIRE(actionStateBoolean.currentState);
                     }
@@ -1443,8 +1436,7 @@ namespace Conformance
                         WaitUntilPredicateWithTimeout(
                             [&]() {
                                 actionLayerManager.GetRenderLoop().IterateFrame();
-                                REQUIRE_RESULT(xrGetActionStateBoolean(compositionHelper.GetSession(), &getInfo, &actionStateBoolean),
-                                               XR_SUCCESS);
+                                REQUIRE_RESULT(xrGetActionStateBoolean(session, &getInfo, &actionStateBoolean), XR_SUCCESS);
                                 REQUIRE(actionStateBoolean.isActive);
                                 REQUIRE(actionStateBoolean.currentState);
                                 return false;
@@ -1458,8 +1450,7 @@ namespace Conformance
                         WaitUntilPredicateWithTimeout(
                             [&]() {
                                 actionLayerManager.GetRenderLoop().IterateFrame();
-                                REQUIRE_RESULT(xrGetActionStateBoolean(compositionHelper.GetSession(), &getInfo, &actionStateBoolean),
-                                               XR_SUCCESS);
+                                REQUIRE_RESULT(xrGetActionStateBoolean(session, &getInfo, &actionStateBoolean), XR_SUCCESS);
                                 REQUIRE_FALSE(actionStateBoolean.isActive);
                                 REQUIRE_FALSE(actionStateBoolean.currentState);
                                 return false;
@@ -1484,7 +1475,7 @@ namespace Conformance
                 strcpy(setCreateInfo.actionSetName, "high_priority_action_set");
                 strcpy(setCreateInfo.localizedActionSetName, "high priority action set");
                 setCreateInfo.priority = 3;
-                REQUIRE_RESULT(xrCreateActionSet(compositionHelper.GetInstance(), &setCreateInfo, &highPriorityActionSet), XR_SUCCESS);
+                REQUIRE_RESULT(xrCreateActionSet(instance, &setCreateInfo, &highPriorityActionSet), XR_SUCCESS);
 
                 XrAction highPrioritySelectAction{XR_NULL_HANDLE};
                 XrAction highPrioritySelectAction2{XR_NULL_HANDLE};
@@ -1504,7 +1495,7 @@ namespace Conformance
                 strcpy(setCreateInfo.actionSetName, "low_priority_action_set");
                 strcpy(setCreateInfo.localizedActionSetName, "low priority action set");
                 setCreateInfo.priority = 2;
-                REQUIRE_RESULT(xrCreateActionSet(compositionHelper.GetInstance(), &setCreateInfo, &lowPriorityActionSet), XR_SUCCESS);
+                REQUIRE_RESULT(xrCreateActionSet(instance, &setCreateInfo, &lowPriorityActionSet), XR_SUCCESS);
 
                 XrAction lowPrioritySelectAction{XR_NULL_HANDLE};
                 XrAction lowPriorityMenuAction{XR_NULL_HANDLE};
@@ -1525,21 +1516,18 @@ namespace Conformance
                 compositionHelper.GetInteractionManager().AddActionBindings(
                     simpleControllerInteractionProfile,
                     {
-                        {highPrioritySelectAction, StringToPath(compositionHelper.GetInstance(), "/user/hand/left/input/select/click")},
-                        {highPrioritySelectAction, StringToPath(compositionHelper.GetInstance(), "/user/hand/right/input/select/click")},
-                        {highPrioritySelectAction2, StringToPath(compositionHelper.GetInstance(), "/user/hand/left/input/select/click")},
-                        {highPrioritySelectAction2, StringToPath(compositionHelper.GetInstance(), "/user/hand/right/input/select/click")},
-                        {lowPrioritySelectAction, StringToPath(compositionHelper.GetInstance(), "/user/hand/left/input/select/click")},
-                        {lowPrioritySelectAction, StringToPath(compositionHelper.GetInstance(), "/user/hand/right/input/select/click")},
-                        {lowPriorityMenuAction, StringToPath(compositionHelper.GetInstance(), "/user/hand/left/input/menu/click")},
-                        {lowPriorityMenuAction, StringToPath(compositionHelper.GetInstance(), "/user/hand/right/input/menu/click")},
-                        {lowPrioritySelectAndMenuAction,
-                         StringToPath(compositionHelper.GetInstance(), "/user/hand/left/input/select/click")},
-                        {lowPrioritySelectAndMenuAction, StringToPath(compositionHelper.GetInstance(), "/user/hand/left/input/menu/click")},
-                        {lowPrioritySelectAndMenuAction,
-                         StringToPath(compositionHelper.GetInstance(), "/user/hand/right/input/select/click")},
-                        {lowPrioritySelectAndMenuAction,
-                         StringToPath(compositionHelper.GetInstance(), "/user/hand/right/input/menu/click")},
+                        {highPrioritySelectAction, StringToPath(instance, "/user/hand/left/input/select/click")},
+                        {highPrioritySelectAction, StringToPath(instance, "/user/hand/right/input/select/click")},
+                        {highPrioritySelectAction2, StringToPath(instance, "/user/hand/left/input/select/click")},
+                        {highPrioritySelectAction2, StringToPath(instance, "/user/hand/right/input/select/click")},
+                        {lowPrioritySelectAction, StringToPath(instance, "/user/hand/left/input/select/click")},
+                        {lowPrioritySelectAction, StringToPath(instance, "/user/hand/right/input/select/click")},
+                        {lowPriorityMenuAction, StringToPath(instance, "/user/hand/left/input/menu/click")},
+                        {lowPriorityMenuAction, StringToPath(instance, "/user/hand/right/input/menu/click")},
+                        {lowPrioritySelectAndMenuAction, StringToPath(instance, "/user/hand/left/input/select/click")},
+                        {lowPrioritySelectAndMenuAction, StringToPath(instance, "/user/hand/left/input/menu/click")},
+                        {lowPrioritySelectAndMenuAction, StringToPath(instance, "/user/hand/right/input/select/click")},
+                        {lowPrioritySelectAndMenuAction, StringToPath(instance, "/user/hand/right/input/menu/click")},
                     });
 
                 compositionHelper.GetInteractionManager().AddActionSet(highPriorityActionSet);
@@ -1563,7 +1551,7 @@ namespace Conformance
                     getInfo.action = action;
                     getInfo.subactionPath = subactionPath;
                     XrActionStateBoolean booleanData{XR_TYPE_ACTION_STATE_BOOLEAN};
-                    REQUIRE_RESULT(xrGetActionStateBoolean(compositionHelper.GetSession(), &getInfo, &booleanData), XR_SUCCESS);
+                    REQUIRE_RESULT(xrGetActionStateBoolean(session, &getInfo, &booleanData), XR_SUCCESS);
                     return static_cast<bool>(booleanData.isActive);
                 };
 
@@ -1820,14 +1808,12 @@ namespace Conformance
                 XrActionSet subactionPathFreeActionSet{XR_NULL_HANDLE};
                 strcpy(actionSetCreateInfo.localizedActionSetName, "test action set localized name 2");
                 strcpy(actionSetCreateInfo.actionSetName, "test_action_set_name_2");
-                REQUIRE_RESULT(xrCreateActionSet(compositionHelper.GetInstance(), &actionSetCreateInfo, &subactionPathFreeActionSet),
-                               XR_SUCCESS);
+                REQUIRE_RESULT(xrCreateActionSet(instance, &actionSetCreateInfo, &subactionPathFreeActionSet), XR_SUCCESS);
 
                 XrActionSet unboundActionActionSet{XR_NULL_HANDLE};
                 strcpy(actionSetCreateInfo.localizedActionSetName, "test action set localized name 5");
                 strcpy(actionSetCreateInfo.actionSetName, "test_action_set_name_5");
-                REQUIRE_RESULT(xrCreateActionSet(compositionHelper.GetInstance(), &actionSetCreateInfo, &unboundActionActionSet),
-                               XR_SUCCESS);
+                REQUIRE_RESULT(xrCreateActionSet(instance, &actionSetCreateInfo, &unboundActionActionSet), XR_SUCCESS);
 
                 XrAction leftHandAction{XR_NULL_HANDLE};
                 actionCreateInfo.actionType = XR_ACTION_TYPE_BOOLEAN_INPUT;
@@ -1850,9 +1836,8 @@ namespace Conformance
                 REQUIRE_RESULT(xrCreateAction(unboundActionActionSet, &actionCreateInfo, &unboundAction), XR_SUCCESS);
 
                 compositionHelper.GetInteractionManager().AddActionBindings(
-                    simpleControllerInteractionProfile,
-                    {{leftHandAction, StringToPath(compositionHelper.GetInstance(), "/user/hand/left/input/select/click")},
-                     {rightHandAction, StringToPath(compositionHelper.GetInstance(), "/user/hand/right/input/select/click")}});
+                    simpleControllerInteractionProfile, {{leftHandAction, StringToPath(instance, "/user/hand/left/input/select/click")},
+                                                         {rightHandAction, StringToPath(instance, "/user/hand/right/input/select/click")}});
                 compositionHelper.GetInteractionManager().AddActionSet(actionSet);
                 compositionHelper.GetInteractionManager().AddActionSet(subactionPathFreeActionSet);
                 compositionHelper.GetInteractionManager().AddActionSet(unboundActionActionSet);
@@ -1882,18 +1867,17 @@ namespace Conformance
                         actionLayerManager.SyncActionsUntilFocusWithMessage(syncInfo);
 
                         getInfo.action = leftHandAction;
-                        REQUIRE_RESULT(xrGetActionStateBoolean(compositionHelper.GetSession(), &getInfo, &actionStateBoolean), XR_SUCCESS);
+                        REQUIRE_RESULT(xrGetActionStateBoolean(session, &getInfo, &actionStateBoolean), XR_SUCCESS);
                         REQUIRE(actionStateBoolean.isActive);
 
                         getInfo.action = rightHandAction;
-                        REQUIRE_RESULT(xrGetActionStateBoolean(compositionHelper.GetSession(), &getInfo, &actionStateBoolean), XR_SUCCESS);
+                        REQUIRE_RESULT(xrGetActionStateBoolean(session, &getInfo, &actionStateBoolean), XR_SUCCESS);
                         REQUIRE_FALSE(actionStateBoolean.isActive);
                         {
                             INFO("Values match those specified for isActive == XR_FALSE");
                             // Set these to the wrong thing if not active, to make sure runtime overwrites the values
                             PoisonStructContents(actionStateBoolean);
-                            REQUIRE_RESULT(xrGetActionStateBoolean(compositionHelper.GetSession(), &getInfo, &actionStateBoolean),
-                                           XR_SUCCESS);
+                            REQUIRE_RESULT(xrGetActionStateBoolean(session, &getInfo, &actionStateBoolean), XR_SUCCESS);
                             REQUIRE_FALSE(actionStateBoolean.isActive);
                             // The conformance layer will verify that the other fields have been cleared appropriately.
                         }
@@ -1905,19 +1889,18 @@ namespace Conformance
                         actionLayerManager.SyncActionsUntilFocusWithMessage(syncInfo);
 
                         getInfo.action = leftHandAction;
-                        REQUIRE_RESULT(xrGetActionStateBoolean(compositionHelper.GetSession(), &getInfo, &actionStateBoolean), XR_SUCCESS);
+                        REQUIRE_RESULT(xrGetActionStateBoolean(session, &getInfo, &actionStateBoolean), XR_SUCCESS);
                         REQUIRE_FALSE(actionStateBoolean.isActive);
 
                         getInfo.action = rightHandAction;
-                        REQUIRE_RESULT(xrGetActionStateBoolean(compositionHelper.GetSession(), &getInfo, &actionStateBoolean), XR_SUCCESS);
+                        REQUIRE_RESULT(xrGetActionStateBoolean(session, &getInfo, &actionStateBoolean), XR_SUCCESS);
                         REQUIRE(actionStateBoolean.isActive);
 #
                         {
                             INFO("Values match those specified for isActive == XR_FALSE");
                             // Set these to the wrong thing if not active, to make sure runtime overwrites the values
                             PoisonStructContents(actionStateBoolean);
-                            REQUIRE_RESULT(xrGetActionStateBoolean(compositionHelper.GetSession(), &getInfo, &actionStateBoolean),
-                                           XR_SUCCESS);
+                            REQUIRE_RESULT(xrGetActionStateBoolean(session, &getInfo, &actionStateBoolean), XR_SUCCESS);
                             REQUIRE(actionStateBoolean.isActive);
                             // The conformance layer will verify that the other fields have been cleared appropriately.
                         }
@@ -1933,11 +1916,11 @@ namespace Conformance
                         actionLayerManager.SyncActionsUntilFocusWithMessage(syncInfo);
 
                         getInfo.action = leftHandAction;
-                        REQUIRE_RESULT(xrGetActionStateBoolean(compositionHelper.GetSession(), &getInfo, &actionStateBoolean), XR_SUCCESS);
+                        REQUIRE_RESULT(xrGetActionStateBoolean(session, &getInfo, &actionStateBoolean), XR_SUCCESS);
                         REQUIRE(actionStateBoolean.isActive);
 
                         getInfo.action = rightHandAction;
-                        REQUIRE_RESULT(xrGetActionStateBoolean(compositionHelper.GetSession(), &getInfo, &actionStateBoolean), XR_SUCCESS);
+                        REQUIRE_RESULT(xrGetActionStateBoolean(session, &getInfo, &actionStateBoolean), XR_SUCCESS);
                         REQUIRE(actionStateBoolean.isActive);
                     }
 
@@ -1952,13 +1935,12 @@ namespace Conformance
 
                     INFO("Subaction path used but not declared");
                     subactionPathFreeActiveActionSet.subactionPath = defaultDevicePath;
-                    REQUIRE_RESULT(xrSyncActions(compositionHelper.GetSession(), &syncInfo), XR_ERROR_PATH_UNSUPPORTED);
+                    REQUIRE_RESULT(xrSyncActions(session, &syncInfo), XR_ERROR_PATH_UNSUPPORTED);
 
                     XrActionSet unattachedActionSet{XR_NULL_HANDLE};
                     strcpy(actionSetCreateInfo.localizedActionSetName, "test action set localized name 3");
                     strcpy(actionSetCreateInfo.actionSetName, "test_action_set_name_3");
-                    REQUIRE_RESULT(xrCreateActionSet(compositionHelper.GetInstance(), &actionSetCreateInfo, &unattachedActionSet),
-                                   XR_SUCCESS);
+                    REQUIRE_RESULT(xrCreateActionSet(instance, &actionSetCreateInfo, &unattachedActionSet), XR_SUCCESS);
 
                     INFO("Unbound action");
                     syncInfo.activeActionSets = &unboundActionActiveActionSet;
@@ -1969,19 +1951,19 @@ namespace Conformance
                     XrActiveActionSet activeActionSet2 = {unattachedActionSet};
                     syncInfo.countActiveActionSets = 1;
                     syncInfo.activeActionSets = &activeActionSet2;
-                    REQUIRE_RESULT(xrSyncActions(compositionHelper.GetSession(), &syncInfo), XR_ERROR_ACTIONSET_NOT_ATTACHED);
+                    REQUIRE_RESULT(xrSyncActions(session, &syncInfo), XR_ERROR_ACTIONSET_NOT_ATTACHED);
 
                     XrActiveActionSet bothSets[2] = {{actionSet}, {unattachedActionSet}};
                     syncInfo.countActiveActionSets = 2;
                     syncInfo.activeActionSets = bothSets;
-                    REQUIRE_RESULT(xrSyncActions(compositionHelper.GetSession(), &syncInfo), XR_ERROR_ACTIONSET_NOT_ATTACHED);
+                    REQUIRE_RESULT(xrSyncActions(session, &syncInfo), XR_ERROR_ACTIONSET_NOT_ATTACHED);
                 }
                 {
                     INFO("Invalid subaction path");
                     syncInfo.countActiveActionSets = 1;
                     syncInfo.activeActionSets = &activeActionSet;
                     activeActionSet.subactionPath = (XrPath)0x1234;
-                    REQUIRE_RESULT(xrSyncActions(compositionHelper.GetSession(), &syncInfo), XR_ERROR_PATH_INVALID);
+                    REQUIRE_RESULT(xrSyncActions(session, &syncInfo), XR_ERROR_PATH_INVALID);
                 }
             }
         }
@@ -2005,16 +1987,18 @@ namespace Conformance
 
         auto TestInteractionProfile = [&](const InteractionProfileAvailMetadata& ipMetadata, const std::string& topLevelPathString) {
             CompositionHelper compositionHelper("Input device state query");
+            XrInstance instance = compositionHelper.GetInstance();
+            XrSession session = compositionHelper.GetSession();
             compositionHelper.BeginSession();
             ActionLayerManager actionLayerManager(compositionHelper);
 
             actionLayerManager.WaitForSessionFocusWithMessage();
 
-            XrPath interactionProfile = StringToPath(compositionHelper.GetInstance(), ipMetadata.InteractionProfilePathString);
-            XrPath inputDevicePath{StringToPath(compositionHelper.GetInstance(), topLevelPathString.data())};
+            XrPath interactionProfile = StringToPath(instance, ipMetadata.InteractionProfilePathString);
+            XrPath inputDevicePath{StringToPath(instance, topLevelPathString.data())};
             std::shared_ptr<IInputTestDevice> inputDevice =
-                CreateTestDevice(&actionLayerManager, &compositionHelper.GetInteractionManager(), compositionHelper.GetInstance(),
-                                 compositionHelper.GetSession(), interactionProfile, inputDevicePath, ipMetadata.InputSourcePaths);
+                CreateTestDevice(&actionLayerManager, &compositionHelper.GetInteractionManager(), instance, session, interactionProfile,
+                                 inputDevicePath, ipMetadata.InputSourcePaths);
 
             XrActionSet actionSet{XR_NULL_HANDLE};
 
@@ -2024,7 +2008,7 @@ namespace Conformance
             XrActionSetCreateInfo actionSetCreateInfo{XR_TYPE_ACTION_SET_CREATE_INFO};
             strcpy(actionSetCreateInfo.localizedActionSetName, localizedActionSetName.c_str());
             strcpy(actionSetCreateInfo.actionSetName, actionSetName.c_str());
-            REQUIRE_RESULT(xrCreateActionSet(compositionHelper.GetInstance(), &actionSetCreateInfo, &actionSet), XR_SUCCESS);
+            REQUIRE_RESULT(xrCreateActionSet(instance, &actionSetCreateInfo, &actionSet), XR_SUCCESS);
 
             uint32_t uniqueActionNameCounter = 0;
             auto GetActionNames = [&uniqueActionNameCounter]() mutable -> std::tuple<std::string, std::string> {
@@ -2094,7 +2078,7 @@ namespace Conformance
                     strcpy(actionCreateInfo.actionName, std::get<0>(actionNames).c_str());
                     REQUIRE_RESULT(xrCreateAction(actionSet, &actionCreateInfo, &action), XR_SUCCESS);
 
-                    XrPath bindingPath = StringToPath(compositionHelper.GetInstance(), inputSourceData.Path);
+                    XrPath bindingPath = StringToPath(instance, inputSourceData.Path);
                     compositionHelper.GetInteractionManager().AddActionBindings(interactionProfile, {{action, bindingPath}});
 
                     ActionInfo info{};
@@ -2139,7 +2123,7 @@ namespace Conformance
                         REQUIRE_RESULT(xrCreateAction(actionSet, &actionCreateInfo, &xAction), XR_SUCCESS);
 
                         std::string xSubBindingPath = std::string(inputSourceData.Path) + "/x";
-                        bindingPath = StringToPath(compositionHelper.GetInstance(), xSubBindingPath);
+                        bindingPath = StringToPath(instance, xSubBindingPath);
                         compositionHelper.GetInteractionManager().AddActionBindings(interactionProfile, {{xAction, bindingPath}});
 
                         actionNames = GetActionNames();
@@ -2148,7 +2132,7 @@ namespace Conformance
                         REQUIRE_RESULT(xrCreateAction(actionSet, &actionCreateInfo, &yAction), XR_SUCCESS);
 
                         std::string ySubBindingPath = std::string(inputSourceData.Path) + "/y";
-                        bindingPath = StringToPath(compositionHelper.GetInstance(), ySubBindingPath);
+                        bindingPath = StringToPath(instance, ySubBindingPath);
                         compositionHelper.GetInteractionManager().AddActionBindings(interactionProfile, {{yAction, bindingPath}});
                         break;
                     }
@@ -2237,7 +2221,7 @@ namespace Conformance
                     strcpy(actionCreateInfo.actionName, std::get<0>(actionNames).c_str());
                     REQUIRE_RESULT(xrCreateAction(actionSet, &actionCreateInfo, &action), XR_SUCCESS);
 
-                    XrPath bindingPath = StringToPath(compositionHelper.GetInstance(), inputSourceData.Path);
+                    XrPath bindingPath = StringToPath(instance, inputSourceData.Path);
                     compositionHelper.GetInteractionManager().AddActionBindings(interactionProfile, {{action, bindingPath}});
 
                     ActionInfo info{};
@@ -2268,7 +2252,7 @@ namespace Conformance
                         continue;
                     }
 
-                    XrPath bindingPath = StringToPath(compositionHelper.GetInstance(), inputSourceData.Path);
+                    XrPath bindingPath = StringToPath(instance, inputSourceData.Path);
                     compositionHelper.GetInteractionManager().AddActionBindings(interactionProfile, {{action, bindingPath}});
                 }
 
@@ -2323,8 +2307,7 @@ namespace Conformance
             actionLayerManager.SyncActionsUntilFocusWithMessage(syncInfo);
 
             XrInteractionProfileState interactionProfileState{XR_TYPE_INTERACTION_PROFILE_STATE};
-            REQUIRE_RESULT(xrGetCurrentInteractionProfile(compositionHelper.GetSession(), inputDevicePath, &interactionProfileState),
-                           XR_SUCCESS);
+            REQUIRE_RESULT(xrGetCurrentInteractionProfile(session, inputDevicePath, &interactionProfileState), XR_SUCCESS);
             REQUIRE(interactionProfile == interactionProfileState.interactionProfile);
 
             XrActionStateBoolean booleanState{XR_TYPE_ACTION_STATE_BOOLEAN};
@@ -2350,11 +2333,11 @@ namespace Conformance
                 XrActionStateVector2f previousVectorState{XR_TYPE_ACTION_STATE_VECTOR2F};
 
                 getInfo.action = allBooleanAction.Action;
-                REQUIRE_RESULT(xrGetActionStateBoolean(compositionHelper.GetSession(), &getInfo, &previousBoolState), XR_SUCCESS);
+                REQUIRE_RESULT(xrGetActionStateBoolean(session, &getInfo, &previousBoolState), XR_SUCCESS);
                 getInfo.action = allFloatAction.Action;
-                REQUIRE_RESULT(xrGetActionStateFloat(compositionHelper.GetSession(), &getInfo, &previousFloatState), XR_SUCCESS);
+                REQUIRE_RESULT(xrGetActionStateFloat(session, &getInfo, &previousFloatState), XR_SUCCESS);
                 getInfo.action = allVectorAction.Action;
-                REQUIRE_RESULT(xrGetActionStateVector2f(compositionHelper.GetSession(), &getInfo, &previousVectorState), XR_SUCCESS);
+                REQUIRE_RESULT(xrGetActionStateVector2f(session, &getInfo, &previousVectorState), XR_SUCCESS);
 
                 // Synthetic values for automation (these loop around by cStepSize in x then y order).
                 float synthesizedX = 0.f;
@@ -2377,12 +2360,11 @@ namespace Conformance
                         actionLayerManager.SyncActionsUntilFocusWithMessage(syncInfo);
 
                         getInfo.action = allBooleanAction.Action;
-                        REQUIRE_RESULT(xrGetActionStateBoolean(compositionHelper.GetSession(), &getInfo, &combinedBoolState), XR_SUCCESS);
+                        REQUIRE_RESULT(xrGetActionStateBoolean(session, &getInfo, &combinedBoolState), XR_SUCCESS);
                         getInfo.action = allFloatAction.Action;
-                        REQUIRE_RESULT(xrGetActionStateFloat(compositionHelper.GetSession(), &getInfo, &combinedFloatState), XR_SUCCESS);
+                        REQUIRE_RESULT(xrGetActionStateFloat(session, &getInfo, &combinedFloatState), XR_SUCCESS);
                         getInfo.action = allVectorAction.Action;
-                        REQUIRE_RESULT(xrGetActionStateVector2f(compositionHelper.GetSession(), &getInfo, &combinedVectorState),
-                                       XR_SUCCESS);
+                        REQUIRE_RESULT(xrGetActionStateVector2f(session, &getInfo, &combinedVectorState), XR_SUCCESS);
 
                         REQUIRE((bool)combinedBoolState.isActive == (booleanActions.size() > 0));
                         REQUIRE((bool)combinedFloatState.isActive == (floatActions.size() > 0));
@@ -2465,7 +2447,7 @@ namespace Conformance
 
                         for (auto& actionInfo : booleanActions) {
                             getInfo.action = actionInfo.Action;
-                            REQUIRE_RESULT(xrGetActionStateBoolean(compositionHelper.GetSession(), &getInfo, &booleanState), XR_SUCCESS);
+                            REQUIRE_RESULT(xrGetActionStateBoolean(session, &getInfo, &booleanState), XR_SUCCESS);
                             if (booleanState.isActive) {
                                 auto key = int32_t(booleanState.currentState);
                                 update(key, actionInfo);
@@ -2478,7 +2460,7 @@ namespace Conformance
 
                         for (auto& actionInfo : floatActions) {
                             getInfo.action = actionInfo.Action;
-                            REQUIRE_RESULT(xrGetActionStateFloat(compositionHelper.GetSession(), &getInfo, &floatState), XR_SUCCESS);
+                            REQUIRE_RESULT(xrGetActionStateFloat(session, &getInfo, &floatState), XR_SUCCESS);
                             if (floatState.isActive) {
                                 auto key = int32_t(std::roundf(floatState.currentState / cStepSize));
                                 update(key, actionInfo);
@@ -2492,7 +2474,7 @@ namespace Conformance
 
                         for (auto& actionInfo : vectorActions) {
                             getInfo.action = actionInfo.Action;
-                            REQUIRE_RESULT(xrGetActionStateVector2f(compositionHelper.GetSession(), &getInfo, &vectorState), XR_SUCCESS);
+                            REQUIRE_RESULT(xrGetActionStateVector2f(session, &getInfo, &vectorState), XR_SUCCESS);
                             if (vectorState.isActive) {
                                 auto i = int32_t(std::roundf(vectorState.currentState.x / cStepSize)) + cStepSizeOffset;
                                 auto j = int32_t(std::roundf(vectorState.currentState.y / cStepSize)) + cStepSizeOffset;
@@ -2509,7 +2491,7 @@ namespace Conformance
 
                                 // Verify the x action matches the parent vector.
                                 getInfo.action = actionInfo.XAction;
-                                REQUIRE_RESULT(xrGetActionStateFloat(compositionHelper.GetSession(), &getInfo, &floatState), XR_SUCCESS);
+                                REQUIRE_RESULT(xrGetActionStateFloat(session, &getInfo, &floatState), XR_SUCCESS);
                                 REQUIRE(floatState.isActive);
                                 REQUIRE(floatState.currentState == vectorState.currentState.x);
                                 ++combinedFloatCount;
@@ -2529,7 +2511,7 @@ namespace Conformance
 
                                 // Verify the y action matches the parent vector.
                                 getInfo.action = actionInfo.YAction;
-                                REQUIRE_RESULT(xrGetActionStateFloat(compositionHelper.GetSession(), &getInfo, &floatState), XR_SUCCESS);
+                                REQUIRE_RESULT(xrGetActionStateFloat(session, &getInfo, &floatState), XR_SUCCESS);
                                 REQUIRE(floatState.isActive);
                                 REQUIRE(floatState.currentState == vectorState.currentState.y);
                                 ++combinedFloatCount;
@@ -2601,20 +2583,17 @@ namespace Conformance
                                 }
                             }
                             for (const auto& actionInfo : booleanActions) {
-                                inputDevice->SetButtonStateBool(StringToPath(compositionHelper.GetInstance(), actionInfo.Data.Path),
-                                                                synthesizedX > 0.5f, true);
+                                inputDevice->SetButtonStateBool(StringToPath(instance, actionInfo.Data.Path), synthesizedX > 0.5f, true);
                             }
 
                             for (const auto& actionInfo : floatActions) {
-                                inputDevice->SetButtonStateFloat(StringToPath(compositionHelper.GetInstance(), actionInfo.Data.Path),
-                                                                 synthesizedX, 0, true);
+                                inputDevice->SetButtonStateFloat(StringToPath(instance, actionInfo.Data.Path), synthesizedX, 0, true);
                             }
 
                             for (const auto& actionInfo : vectorActions) {
                                 float x = (synthesizedX - 0.5f) * 2.f;
                                 float y = (synthesizedY - 0.5f) * 2.f;
-                                inputDevice->SetButtonStateVector2(StringToPath(compositionHelper.GetInstance(), actionInfo.Data.Path),
-                                                                   {x, y}, 0, true);
+                                inputDevice->SetButtonStateVector2(StringToPath(instance, actionInfo.Data.Path), {x, y}, 0, true);
                             }
                         }
 
@@ -2664,19 +2643,19 @@ namespace Conformance
                     getInfo.action = poseActionData.Action;
 
                     actionLayerManager.SyncActionsUntilFocusWithMessage(syncInfo);
-                    REQUIRE_RESULT(xrGetActionStatePose(compositionHelper.GetSession(), &getInfo, &poseState), XR_SUCCESS);
+                    REQUIRE_RESULT(xrGetActionStatePose(session, &getInfo, &poseState), XR_SUCCESS);
                     REQUIRE(poseState.isActive);
 
                     inputDevice->SetDeviceActive(false);
 
                     actionLayerManager.SyncActionsUntilFocusWithMessage(syncInfo);
-                    REQUIRE_RESULT(xrGetActionStatePose(compositionHelper.GetSession(), &getInfo, &poseState), XR_SUCCESS);
+                    REQUIRE_RESULT(xrGetActionStatePose(session, &getInfo, &poseState), XR_SUCCESS);
                     REQUIRE_FALSE(poseState.isActive);
 
                     inputDevice->SetDeviceActive(true);
 
                     actionLayerManager.SyncActionsUntilFocusWithMessage(syncInfo);
-                    REQUIRE_RESULT(xrGetActionStatePose(compositionHelper.GetSession(), &getInfo, &poseState), XR_SUCCESS);
+                    REQUIRE_RESULT(xrGetActionStatePose(session, &getInfo, &poseState), XR_SUCCESS);
                     REQUIRE(poseState.isActive);
                 }
             }
@@ -2688,7 +2667,7 @@ namespace Conformance
                     for (const auto& hapticActionData : hapticActions) {
                         CAPTURE(hapticActionData.Data.Path);
 
-                        XrPath inputSourcePath = StringToPath(compositionHelper.GetInstance(), booleanActions[0].Data.Path);
+                        XrPath inputSourcePath = StringToPath(instance, booleanActions[0].Data.Path);
 
                         XrHapticActionInfo hapticActionInfo{XR_TYPE_HAPTIC_ACTION_INFO};
                         hapticActionInfo.action = hapticActionData.Action;
@@ -2705,8 +2684,7 @@ namespace Conformance
                             actionLayerManager.SyncActionsUntilFocusWithMessage(syncInfo);
                             for (const auto& booleanActionData : booleanActions) {
                                 getInfo.action = booleanActionData.Action;
-                                REQUIRE_RESULT(xrGetActionStateBoolean(compositionHelper.GetSession(), &getInfo, &booleanState),
-                                               XR_SUCCESS);
+                                REQUIRE_RESULT(xrGetActionStateBoolean(session, &getInfo, &booleanState), XR_SUCCESS);
                                 if (booleanState.changedSinceLastSync && booleanState.currentState) {
                                     currentBooleanAction = booleanActionData.Action;
                                     return true;
@@ -2720,9 +2698,9 @@ namespace Conformance
                         actionLayerManager.Sleep_For(3s);
 
                         hapticPacket.duration = std::chrono::duration_cast<std::chrono::nanoseconds>(3s).count();
-                        REQUIRE_RESULT(xrApplyHapticFeedback(compositionHelper.GetSession(), &hapticActionInfo,
-                                                             reinterpret_cast<XrHapticBaseHeader*>(&hapticPacket)),
-                                       XR_SUCCESS);
+                        REQUIRE_RESULT(
+                            xrApplyHapticFeedback(session, &hapticActionInfo, reinterpret_cast<XrHapticBaseHeader*>(&hapticPacket)),
+                            XR_SUCCESS);
 
                         {
                             // For automation only
@@ -2744,16 +2722,16 @@ namespace Conformance
                             inputDevice->SetButtonStateBool(inputSourcePath, false, true);
                         }
 
-                        REQUIRE_RESULT(xrStopHapticFeedback(compositionHelper.GetSession(), &hapticActionInfo), XR_SUCCESS);
+                        REQUIRE_RESULT(xrStopHapticFeedback(session, &hapticActionInfo), XR_SUCCESS);
 
                         actionLayerManager.DisplayMessage("Press any button when you feel the short haptic pulse");
                         actionLayerManager.IterateFrame();
                         actionLayerManager.Sleep_For(3s);
 
                         hapticPacket.duration = XR_MIN_HAPTIC_DURATION;
-                        REQUIRE_RESULT(xrApplyHapticFeedback(compositionHelper.GetSession(), &hapticActionInfo,
-                                                             reinterpret_cast<XrHapticBaseHeader*>(&hapticPacket)),
-                                       XR_SUCCESS);
+                        REQUIRE_RESULT(
+                            xrApplyHapticFeedback(session, &hapticActionInfo, reinterpret_cast<XrHapticBaseHeader*>(&hapticPacket)),
+                            XR_SUCCESS);
 
                         {
                             inputDevice->SetButtonStateBool(inputSourcePath, false, true);
@@ -2785,27 +2763,27 @@ namespace Conformance
                 INFO("Boolean->Float");
                 for (const auto& booleanToFloatActionData : floatActionsCoercedToBoolean) {
                     CAPTURE(booleanToFloatActionData.Data.Path);
-                    XrPath inputSourcePath = StringToPath(compositionHelper.GetInstance(), booleanToFloatActionData.Data.Path);
+                    XrPath inputSourcePath = StringToPath(instance, booleanToFloatActionData.Data.Path);
 
                     XrActionStateGetInfo getInfo{XR_TYPE_ACTION_STATE_GET_INFO};
                     getInfo.action = booleanToFloatActionData.Action;
 
                     inputDevice->SetButtonStateFloat(inputSourcePath, 0.0f, cEpsilon, false, actionSet);
 
-                    REQUIRE_RESULT(xrGetActionStateBoolean(compositionHelper.GetSession(), &getInfo, &booleanState), XR_SUCCESS);
+                    REQUIRE_RESULT(xrGetActionStateBoolean(session, &getInfo, &booleanState), XR_SUCCESS);
                     REQUIRE(booleanState.isActive);
                     REQUIRE_FALSE(booleanState.currentState);
 
                     inputDevice->SetButtonStateFloat(inputSourcePath, 1.0f, cEpsilon, false, actionSet);
 
-                    REQUIRE_RESULT(xrGetActionStateBoolean(compositionHelper.GetSession(), &getInfo, &booleanState), XR_SUCCESS);
+                    REQUIRE_RESULT(xrGetActionStateBoolean(session, &getInfo, &booleanState), XR_SUCCESS);
                     REQUIRE(booleanState.isActive);
                     REQUIRE(booleanState.currentState);
                     REQUIRE(booleanState.lastChangeTime > 0);
 
                     inputDevice->SetButtonStateFloat(inputSourcePath, 0.0f, cEpsilon, false, actionSet);
 
-                    REQUIRE_RESULT(xrGetActionStateBoolean(compositionHelper.GetSession(), &getInfo, &booleanState), XR_SUCCESS);
+                    REQUIRE_RESULT(xrGetActionStateBoolean(session, &getInfo, &booleanState), XR_SUCCESS);
                     REQUIRE(booleanState.isActive);
                     REQUIRE_FALSE(booleanState.currentState);
                     REQUIRE(booleanState.lastChangeTime > 0);
@@ -2814,27 +2792,27 @@ namespace Conformance
                 INFO("Float->Boolean");
                 for (const auto& floatToBooleanActionData : booleanActionsCoercedToFloat) {
                     CAPTURE(floatToBooleanActionData.Data.Path);
-                    XrPath inputSourcePath = StringToPath(compositionHelper.GetInstance(), floatToBooleanActionData.Data.Path);
+                    XrPath inputSourcePath = StringToPath(instance, floatToBooleanActionData.Data.Path);
 
                     XrActionStateGetInfo getInfo{XR_TYPE_ACTION_STATE_GET_INFO};
                     getInfo.action = floatToBooleanActionData.Action;
 
                     inputDevice->SetButtonStateBool(inputSourcePath, false, false, actionSet);
 
-                    REQUIRE_RESULT(xrGetActionStateFloat(compositionHelper.GetSession(), &getInfo, &floatState), XR_SUCCESS);
+                    REQUIRE_RESULT(xrGetActionStateFloat(session, &getInfo, &floatState), XR_SUCCESS);
                     REQUIRE(floatState.isActive);
                     REQUIRE(floatState.currentState == Catch::Approx(0.0f).margin(cLargeEpsilon));
 
                     inputDevice->SetButtonStateBool(inputSourcePath, true, false, actionSet);
 
-                    REQUIRE_RESULT(xrGetActionStateFloat(compositionHelper.GetSession(), &getInfo, &floatState), XR_SUCCESS);
+                    REQUIRE_RESULT(xrGetActionStateFloat(session, &getInfo, &floatState), XR_SUCCESS);
                     REQUIRE(floatState.isActive);
                     REQUIRE(floatState.currentState == Catch::Approx(1.0f).margin(cLargeEpsilon));
                     REQUIRE(floatState.lastChangeTime > 0);
 
                     inputDevice->SetButtonStateBool(inputSourcePath, false, false, actionSet);
 
-                    REQUIRE_RESULT(xrGetActionStateFloat(compositionHelper.GetSession(), &getInfo, &floatState), XR_SUCCESS);
+                    REQUIRE_RESULT(xrGetActionStateFloat(session, &getInfo, &floatState), XR_SUCCESS);
                     REQUIRE(floatState.isActive);
                     REQUIRE(floatState.currentState == Catch::Approx(0.0f).margin(cLargeEpsilon));
                     REQUIRE(floatState.lastChangeTime > 0);
@@ -2849,22 +2827,22 @@ namespace Conformance
 
                     if (actionData.Data.Type == XR_ACTION_TYPE_BOOLEAN_INPUT) {
                         XrActionStateBoolean state{XR_TYPE_ACTION_STATE_BOOLEAN};
-                        REQUIRE_RESULT(xrGetActionStateBoolean(compositionHelper.GetSession(), &getInfo, &state), XR_SUCCESS);
+                        REQUIRE_RESULT(xrGetActionStateBoolean(session, &getInfo, &state), XR_SUCCESS);
                         REQUIRE_FALSE(state.isActive);
                     }
                     else if (actionData.Data.Type == XR_ACTION_TYPE_FLOAT_INPUT) {
                         XrActionStateFloat state{XR_TYPE_ACTION_STATE_FLOAT};
-                        REQUIRE_RESULT(xrGetActionStateFloat(compositionHelper.GetSession(), &getInfo, &state), XR_SUCCESS);
+                        REQUIRE_RESULT(xrGetActionStateFloat(session, &getInfo, &state), XR_SUCCESS);
                         REQUIRE_FALSE(state.isActive);
                     }
                     else if (actionData.Data.Type == XR_ACTION_TYPE_VECTOR2F_INPUT) {
                         XrActionStateVector2f state{XR_TYPE_ACTION_STATE_VECTOR2F};
-                        REQUIRE_RESULT(xrGetActionStateVector2f(compositionHelper.GetSession(), &getInfo, &state), XR_SUCCESS);
+                        REQUIRE_RESULT(xrGetActionStateVector2f(session, &getInfo, &state), XR_SUCCESS);
                         REQUIRE_FALSE(state.isActive);
                     }
                     else if (actionData.Data.Type == XR_ACTION_TYPE_POSE_INPUT) {
                         XrActionStatePose state{XR_TYPE_ACTION_STATE_POSE};
-                        REQUIRE_RESULT(xrGetActionStatePose(compositionHelper.GetSession(), &getInfo, &state), XR_SUCCESS);
+                        REQUIRE_RESULT(xrGetActionStatePose(session, &getInfo, &state), XR_SUCCESS);
                         REQUIRE_FALSE(state.isActive);
                     }
                 }
@@ -2892,16 +2870,18 @@ namespace Conformance
     TEST_CASE("StateQueryFunctionsAndHaptics", "[actions]")
     {
         CompositionHelper compositionHelper("Input device state query");
+        XrInstance instance = compositionHelper.GetInstance();
+        XrSession session = compositionHelper.GetSession();
 
         XrActionSet actionSet{XR_NULL_HANDLE};
         XrActionSetCreateInfo actionSetCreateInfo{XR_TYPE_ACTION_SET_CREATE_INFO};
         strcpy(actionSetCreateInfo.localizedActionSetName, "test action set localized name");
         strcpy(actionSetCreateInfo.actionSetName, "test_action_set_name");
-        REQUIRE_RESULT(xrCreateActionSet(compositionHelper.GetInstance(), &actionSetCreateInfo, &actionSet), XR_SUCCESS);
+        REQUIRE_RESULT(xrCreateActionSet(instance, &actionSetCreateInfo, &actionSet), XR_SUCCESS);
 
-        XrPath leftHandPath = StringToPath(compositionHelper.GetInstance(), "/user/hand/left");
-        XrPath rightHandPath = StringToPath(compositionHelper.GetInstance(), "/user/hand/right");
-        XrPath gamepadPath = StringToPath(compositionHelper.GetInstance(), "/user/gamepad");
+        XrPath leftHandPath = StringToPath(instance, "/user/hand/left");
+        XrPath rightHandPath = StringToPath(instance, "/user/hand/right");
+        XrPath gamepadPath = StringToPath(instance, "/user/gamepad");
         XrPath bothHands[] = {leftHandPath, rightHandPath};
 
         XrAction booleanAction{XR_NULL_HANDLE};
@@ -2954,13 +2934,12 @@ namespace Conformance
         ActionLayerManager actionLayerManager(compositionHelper);
         actionLayerManager.WaitForSessionFocusWithMessage();
 
-        XrPath simpleControllerInteractionProfile =
-            StringToPath(compositionHelper.GetInstance(), GetSimpleInteractionProfile().InteractionProfilePathString);
+        XrPath simpleControllerInteractionProfile = StringToPath(instance, GetSimpleInteractionProfile().InteractionProfilePathString);
 
-        XrPath leftHandSelectClickPath = StringToPath(compositionHelper.GetInstance(), "/user/hand/left/input/select/click");
-        XrPath rightHandSelectClickPath = StringToPath(compositionHelper.GetInstance(), "/user/hand/right/input/select/click");
-        XrPath leftHandMenuClickPath = StringToPath(compositionHelper.GetInstance(), "/user/hand/left/input/menu/click");
-        XrPath rightHandMenuClickPath = StringToPath(compositionHelper.GetInstance(), "/user/hand/right/input/menu/click");
+        XrPath leftHandSelectClickPath = StringToPath(instance, "/user/hand/left/input/select/click");
+        XrPath rightHandSelectClickPath = StringToPath(instance, "/user/hand/right/input/select/click");
+        XrPath leftHandMenuClickPath = StringToPath(instance, "/user/hand/left/input/menu/click");
+        XrPath rightHandMenuClickPath = StringToPath(instance, "/user/hand/right/input/menu/click");
 
         compositionHelper.GetInteractionManager().AddActionSet(actionSet);
         compositionHelper.GetInteractionManager().AddActionBindings(simpleControllerInteractionProfile,
@@ -2991,16 +2970,16 @@ namespace Conformance
                 SECTION("Basic usage")
                 {
                     getInfo.action = booleanAction;
-                    REQUIRE_RESULT(xrGetActionStateBoolean(compositionHelper.GetSession(), &getInfo, &booleanState), XR_SUCCESS);
+                    REQUIRE_RESULT(xrGetActionStateBoolean(session, &getInfo, &booleanState), XR_SUCCESS);
 
                     getInfo.action = floatAction;
-                    REQUIRE_RESULT(xrGetActionStateFloat(compositionHelper.GetSession(), &getInfo, &floatState), XR_SUCCESS);
+                    REQUIRE_RESULT(xrGetActionStateFloat(session, &getInfo, &floatState), XR_SUCCESS);
 
                     getInfo.action = vectorAction;
-                    REQUIRE_RESULT(xrGetActionStateVector2f(compositionHelper.GetSession(), &getInfo, &vectorState), XR_SUCCESS);
+                    REQUIRE_RESULT(xrGetActionStateVector2f(session, &getInfo, &vectorState), XR_SUCCESS);
 
                     getInfo.action = poseAction;
-                    REQUIRE_RESULT(xrGetActionStatePose(compositionHelper.GetSession(), &getInfo, &poseState), XR_SUCCESS);
+                    REQUIRE_RESULT(xrGetActionStatePose(session, &getInfo, &poseState), XR_SUCCESS);
                 }
                 OPTIONAL_INVALID_HANDLE_VALIDATION_SECTION
                 {
@@ -3020,143 +2999,116 @@ namespace Conformance
                         getInfo.action = poseAction;
                         REQUIRE_RESULT(xrGetActionStatePose(invalidSession, &getInfo, &poseState), XR_ERROR_HANDLE_INVALID);
 
-                        REQUIRE_RESULT(xrApplyHapticFeedback(compositionHelper.GetSession(), &hapticActionInfo,
-                                                             reinterpret_cast<XrHapticBaseHeader*>(&hapticPacket)),
-                                       XR_SUCCESS);
-                        REQUIRE_RESULT(xrStopHapticFeedback(compositionHelper.GetSession(), &hapticActionInfo), XR_SUCCESS);
+                        REQUIRE_RESULT(
+                            xrApplyHapticFeedback(session, &hapticActionInfo, reinterpret_cast<XrHapticBaseHeader*>(&hapticPacket)),
+                            XR_SUCCESS);
+                        REQUIRE_RESULT(xrStopHapticFeedback(session, &hapticActionInfo), XR_SUCCESS);
                     }
                     SECTION("Invalid action")
                     {
                         getInfo.action = (XrAction)0x1234;
-                        REQUIRE_RESULT(xrGetActionStateBoolean(compositionHelper.GetSession(), &getInfo, &booleanState),
-                                       XR_ERROR_HANDLE_INVALID);
-                        REQUIRE_RESULT(xrGetActionStateFloat(compositionHelper.GetSession(), &getInfo, &floatState),
-                                       XR_ERROR_HANDLE_INVALID);
-                        REQUIRE_RESULT(xrGetActionStateVector2f(compositionHelper.GetSession(), &getInfo, &vectorState),
-                                       XR_ERROR_HANDLE_INVALID);
-                        REQUIRE_RESULT(xrGetActionStatePose(compositionHelper.GetSession(), &getInfo, &poseState), XR_ERROR_HANDLE_INVALID);
+                        REQUIRE_RESULT(xrGetActionStateBoolean(session, &getInfo, &booleanState), XR_ERROR_HANDLE_INVALID);
+                        REQUIRE_RESULT(xrGetActionStateFloat(session, &getInfo, &floatState), XR_ERROR_HANDLE_INVALID);
+                        REQUIRE_RESULT(xrGetActionStateVector2f(session, &getInfo, &vectorState), XR_ERROR_HANDLE_INVALID);
+                        REQUIRE_RESULT(xrGetActionStatePose(session, &getInfo, &poseState), XR_ERROR_HANDLE_INVALID);
 
                         hapticActionInfo.action = getInfo.action;
-                        REQUIRE_RESULT(xrApplyHapticFeedback(compositionHelper.GetSession(), &hapticActionInfo,
-                                                             reinterpret_cast<XrHapticBaseHeader*>(&hapticPacket)),
-                                       XR_ERROR_HANDLE_INVALID);
-                        REQUIRE_RESULT(xrStopHapticFeedback(compositionHelper.GetSession(), &hapticActionInfo), XR_ERROR_HANDLE_INVALID);
+                        REQUIRE_RESULT(
+                            xrApplyHapticFeedback(session, &hapticActionInfo, reinterpret_cast<XrHapticBaseHeader*>(&hapticPacket)),
+                            XR_ERROR_HANDLE_INVALID);
+                        REQUIRE_RESULT(xrStopHapticFeedback(session, &hapticActionInfo), XR_ERROR_HANDLE_INVALID);
                     }
                 }
                 SECTION("Invalid subaction path")
                 {
                     getInfo.subactionPath = (XrPath)0x1234;
                     getInfo.action = booleanAction;
-                    REQUIRE_RESULT(xrGetActionStateBoolean(compositionHelper.GetSession(), &getInfo, &booleanState), XR_ERROR_PATH_INVALID);
+                    REQUIRE_RESULT(xrGetActionStateBoolean(session, &getInfo, &booleanState), XR_ERROR_PATH_INVALID);
 
                     getInfo.action = floatAction;
-                    REQUIRE_RESULT(xrGetActionStateFloat(compositionHelper.GetSession(), &getInfo, &floatState), XR_ERROR_PATH_INVALID);
+                    REQUIRE_RESULT(xrGetActionStateFloat(session, &getInfo, &floatState), XR_ERROR_PATH_INVALID);
 
                     getInfo.action = vectorAction;
-                    REQUIRE_RESULT(xrGetActionStateVector2f(compositionHelper.GetSession(), &getInfo, &vectorState), XR_ERROR_PATH_INVALID);
+                    REQUIRE_RESULT(xrGetActionStateVector2f(session, &getInfo, &vectorState), XR_ERROR_PATH_INVALID);
 
                     getInfo.action = poseAction;
-                    REQUIRE_RESULT(xrGetActionStatePose(compositionHelper.GetSession(), &getInfo, &poseState), XR_ERROR_PATH_INVALID);
+                    REQUIRE_RESULT(xrGetActionStatePose(session, &getInfo, &poseState), XR_ERROR_PATH_INVALID);
 
                     hapticActionInfo.subactionPath = getInfo.subactionPath;
-                    REQUIRE_RESULT(xrApplyHapticFeedback(compositionHelper.GetSession(), &hapticActionInfo,
-                                                         reinterpret_cast<XrHapticBaseHeader*>(&hapticPacket)),
+                    REQUIRE_RESULT(xrApplyHapticFeedback(session, &hapticActionInfo, reinterpret_cast<XrHapticBaseHeader*>(&hapticPacket)),
                                    XR_ERROR_PATH_INVALID);
-                    REQUIRE_RESULT(xrStopHapticFeedback(compositionHelper.GetSession(), &hapticActionInfo), XR_ERROR_PATH_INVALID);
+                    REQUIRE_RESULT(xrStopHapticFeedback(session, &hapticActionInfo), XR_ERROR_PATH_INVALID);
                 }
                 SECTION("Unspecified subaction path")
                 {
                     getInfo.subactionPath = gamepadPath;
                     getInfo.action = booleanAction;
-                    REQUIRE_RESULT(xrGetActionStateBoolean(compositionHelper.GetSession(), &getInfo, &booleanState),
-                                   XR_ERROR_PATH_UNSUPPORTED);
+                    REQUIRE_RESULT(xrGetActionStateBoolean(session, &getInfo, &booleanState), XR_ERROR_PATH_UNSUPPORTED);
 
                     getInfo.action = floatAction;
-                    REQUIRE_RESULT(xrGetActionStateFloat(compositionHelper.GetSession(), &getInfo, &floatState), XR_ERROR_PATH_UNSUPPORTED);
+                    REQUIRE_RESULT(xrGetActionStateFloat(session, &getInfo, &floatState), XR_ERROR_PATH_UNSUPPORTED);
 
                     getInfo.action = vectorAction;
-                    REQUIRE_RESULT(xrGetActionStateVector2f(compositionHelper.GetSession(), &getInfo, &vectorState),
-                                   XR_ERROR_PATH_UNSUPPORTED);
+                    REQUIRE_RESULT(xrGetActionStateVector2f(session, &getInfo, &vectorState), XR_ERROR_PATH_UNSUPPORTED);
 
                     getInfo.action = poseAction;
-                    REQUIRE_RESULT(xrGetActionStatePose(compositionHelper.GetSession(), &getInfo, &poseState), XR_ERROR_PATH_UNSUPPORTED);
+                    REQUIRE_RESULT(xrGetActionStatePose(session, &getInfo, &poseState), XR_ERROR_PATH_UNSUPPORTED);
 
                     hapticActionInfo.subactionPath = getInfo.subactionPath;
-                    REQUIRE_RESULT(xrApplyHapticFeedback(compositionHelper.GetSession(), &hapticActionInfo,
-                                                         reinterpret_cast<XrHapticBaseHeader*>(&hapticPacket)),
+                    REQUIRE_RESULT(xrApplyHapticFeedback(session, &hapticActionInfo, reinterpret_cast<XrHapticBaseHeader*>(&hapticPacket)),
                                    XR_ERROR_PATH_UNSUPPORTED);
-                    REQUIRE_RESULT(xrStopHapticFeedback(compositionHelper.GetSession(), &hapticActionInfo), XR_ERROR_PATH_UNSUPPORTED);
+                    REQUIRE_RESULT(xrStopHapticFeedback(session, &hapticActionInfo), XR_ERROR_PATH_UNSUPPORTED);
 
                     {
                         INFO("Action created with no subaction paths, cannot be queried with any");
                         getInfo.action = confirmAction;
                         getInfo.subactionPath = leftHandPath;
-                        REQUIRE_RESULT(xrGetActionStateBoolean(compositionHelper.GetSession(), &getInfo, &booleanState),
-                                       XR_ERROR_PATH_UNSUPPORTED);
+                        REQUIRE_RESULT(xrGetActionStateBoolean(session, &getInfo, &booleanState), XR_ERROR_PATH_UNSUPPORTED);
                     }
                 }
                 SECTION("Type mismatch")
                 {
                     getInfo.action = booleanAction;
                     hapticActionInfo.action = booleanAction;
-                    REQUIRE_RESULT(xrGetActionStateFloat(compositionHelper.GetSession(), &getInfo, &floatState),
+                    REQUIRE_RESULT(xrGetActionStateFloat(session, &getInfo, &floatState), XR_ERROR_ACTION_TYPE_MISMATCH);
+                    REQUIRE_RESULT(xrGetActionStateVector2f(session, &getInfo, &vectorState), XR_ERROR_ACTION_TYPE_MISMATCH);
+                    REQUIRE_RESULT(xrGetActionStatePose(session, &getInfo, &poseState), XR_ERROR_ACTION_TYPE_MISMATCH);
+                    REQUIRE_RESULT(xrApplyHapticFeedback(session, &hapticActionInfo, reinterpret_cast<XrHapticBaseHeader*>(&hapticPacket)),
                                    XR_ERROR_ACTION_TYPE_MISMATCH);
-                    REQUIRE_RESULT(xrGetActionStateVector2f(compositionHelper.GetSession(), &getInfo, &vectorState),
-                                   XR_ERROR_ACTION_TYPE_MISMATCH);
-                    REQUIRE_RESULT(xrGetActionStatePose(compositionHelper.GetSession(), &getInfo, &poseState),
-                                   XR_ERROR_ACTION_TYPE_MISMATCH);
-                    REQUIRE_RESULT(xrApplyHapticFeedback(compositionHelper.GetSession(), &hapticActionInfo,
-                                                         reinterpret_cast<XrHapticBaseHeader*>(&hapticPacket)),
-                                   XR_ERROR_ACTION_TYPE_MISMATCH);
-                    REQUIRE_RESULT(xrStopHapticFeedback(compositionHelper.GetSession(), &hapticActionInfo), XR_ERROR_ACTION_TYPE_MISMATCH);
+                    REQUIRE_RESULT(xrStopHapticFeedback(session, &hapticActionInfo), XR_ERROR_ACTION_TYPE_MISMATCH);
 
                     getInfo.action = floatAction;
                     hapticActionInfo.action = floatAction;
-                    REQUIRE_RESULT(xrGetActionStateBoolean(compositionHelper.GetSession(), &getInfo, &booleanState),
+                    REQUIRE_RESULT(xrGetActionStateBoolean(session, &getInfo, &booleanState), XR_ERROR_ACTION_TYPE_MISMATCH);
+                    REQUIRE_RESULT(xrGetActionStateVector2f(session, &getInfo, &vectorState), XR_ERROR_ACTION_TYPE_MISMATCH);
+                    REQUIRE_RESULT(xrGetActionStatePose(session, &getInfo, &poseState), XR_ERROR_ACTION_TYPE_MISMATCH);
+                    REQUIRE_RESULT(xrApplyHapticFeedback(session, &hapticActionInfo, reinterpret_cast<XrHapticBaseHeader*>(&hapticPacket)),
                                    XR_ERROR_ACTION_TYPE_MISMATCH);
-                    REQUIRE_RESULT(xrGetActionStateVector2f(compositionHelper.GetSession(), &getInfo, &vectorState),
-                                   XR_ERROR_ACTION_TYPE_MISMATCH);
-                    REQUIRE_RESULT(xrGetActionStatePose(compositionHelper.GetSession(), &getInfo, &poseState),
-                                   XR_ERROR_ACTION_TYPE_MISMATCH);
-                    REQUIRE_RESULT(xrApplyHapticFeedback(compositionHelper.GetSession(), &hapticActionInfo,
-                                                         reinterpret_cast<XrHapticBaseHeader*>(&hapticPacket)),
-                                   XR_ERROR_ACTION_TYPE_MISMATCH);
-                    REQUIRE_RESULT(xrStopHapticFeedback(compositionHelper.GetSession(), &hapticActionInfo), XR_ERROR_ACTION_TYPE_MISMATCH);
+                    REQUIRE_RESULT(xrStopHapticFeedback(session, &hapticActionInfo), XR_ERROR_ACTION_TYPE_MISMATCH);
 
                     getInfo.action = vectorAction;
                     hapticActionInfo.action = vectorAction;
-                    REQUIRE_RESULT(xrGetActionStateBoolean(compositionHelper.GetSession(), &getInfo, &booleanState),
+                    REQUIRE_RESULT(xrGetActionStateBoolean(session, &getInfo, &booleanState), XR_ERROR_ACTION_TYPE_MISMATCH);
+                    REQUIRE_RESULT(xrGetActionStateFloat(session, &getInfo, &floatState), XR_ERROR_ACTION_TYPE_MISMATCH);
+                    REQUIRE_RESULT(xrGetActionStatePose(session, &getInfo, &poseState), XR_ERROR_ACTION_TYPE_MISMATCH);
+                    REQUIRE_RESULT(xrApplyHapticFeedback(session, &hapticActionInfo, reinterpret_cast<XrHapticBaseHeader*>(&hapticPacket)),
                                    XR_ERROR_ACTION_TYPE_MISMATCH);
-                    REQUIRE_RESULT(xrGetActionStateFloat(compositionHelper.GetSession(), &getInfo, &floatState),
-                                   XR_ERROR_ACTION_TYPE_MISMATCH);
-                    REQUIRE_RESULT(xrGetActionStatePose(compositionHelper.GetSession(), &getInfo, &poseState),
-                                   XR_ERROR_ACTION_TYPE_MISMATCH);
-                    REQUIRE_RESULT(xrApplyHapticFeedback(compositionHelper.GetSession(), &hapticActionInfo,
-                                                         reinterpret_cast<XrHapticBaseHeader*>(&hapticPacket)),
-                                   XR_ERROR_ACTION_TYPE_MISMATCH);
-                    REQUIRE_RESULT(xrStopHapticFeedback(compositionHelper.GetSession(), &hapticActionInfo), XR_ERROR_ACTION_TYPE_MISMATCH);
+                    REQUIRE_RESULT(xrStopHapticFeedback(session, &hapticActionInfo), XR_ERROR_ACTION_TYPE_MISMATCH);
 
                     getInfo.action = poseAction;
                     hapticActionInfo.action = poseAction;
-                    REQUIRE_RESULT(xrGetActionStateFloat(compositionHelper.GetSession(), &getInfo, &floatState),
+                    REQUIRE_RESULT(xrGetActionStateFloat(session, &getInfo, &floatState), XR_ERROR_ACTION_TYPE_MISMATCH);
+                    REQUIRE_RESULT(xrGetActionStateFloat(session, &getInfo, &floatState), XR_ERROR_ACTION_TYPE_MISMATCH);
+                    REQUIRE_RESULT(xrGetActionStateVector2f(session, &getInfo, &vectorState), XR_ERROR_ACTION_TYPE_MISMATCH);
+                    REQUIRE_RESULT(xrApplyHapticFeedback(session, &hapticActionInfo, reinterpret_cast<XrHapticBaseHeader*>(&hapticPacket)),
                                    XR_ERROR_ACTION_TYPE_MISMATCH);
-                    REQUIRE_RESULT(xrGetActionStateFloat(compositionHelper.GetSession(), &getInfo, &floatState),
-                                   XR_ERROR_ACTION_TYPE_MISMATCH);
-                    REQUIRE_RESULT(xrGetActionStateVector2f(compositionHelper.GetSession(), &getInfo, &vectorState),
-                                   XR_ERROR_ACTION_TYPE_MISMATCH);
-                    REQUIRE_RESULT(xrApplyHapticFeedback(compositionHelper.GetSession(), &hapticActionInfo,
-                                                         reinterpret_cast<XrHapticBaseHeader*>(&hapticPacket)),
-                                   XR_ERROR_ACTION_TYPE_MISMATCH);
-                    REQUIRE_RESULT(xrStopHapticFeedback(compositionHelper.GetSession(), &hapticActionInfo), XR_ERROR_ACTION_TYPE_MISMATCH);
+                    REQUIRE_RESULT(xrStopHapticFeedback(session, &hapticActionInfo), XR_ERROR_ACTION_TYPE_MISMATCH);
 
                     getInfo.action = hapticAction;
                     hapticActionInfo.action = hapticAction;
-                    REQUIRE_RESULT(xrGetActionStateFloat(compositionHelper.GetSession(), &getInfo, &floatState),
-                                   XR_ERROR_ACTION_TYPE_MISMATCH);
-                    REQUIRE_RESULT(xrGetActionStateFloat(compositionHelper.GetSession(), &getInfo, &floatState),
-                                   XR_ERROR_ACTION_TYPE_MISMATCH);
-                    REQUIRE_RESULT(xrGetActionStateVector2f(compositionHelper.GetSession(), &getInfo, &vectorState),
-                                   XR_ERROR_ACTION_TYPE_MISMATCH);
+                    REQUIRE_RESULT(xrGetActionStateFloat(session, &getInfo, &floatState), XR_ERROR_ACTION_TYPE_MISMATCH);
+                    REQUIRE_RESULT(xrGetActionStateFloat(session, &getInfo, &floatState), XR_ERROR_ACTION_TYPE_MISMATCH);
+                    REQUIRE_RESULT(xrGetActionStateVector2f(session, &getInfo, &vectorState), XR_ERROR_ACTION_TYPE_MISMATCH);
                 }
             }
         }
@@ -3168,17 +3120,18 @@ namespace Conformance
         // - the other is created after.
         // These two action spaces should both return (the same) valid data.
         CompositionHelper compositionHelper("action_space_creation_pre_suggest");
+        XrInstance instance = compositionHelper.GetInstance();
+        XrSession session = compositionHelper.GetSession();
         compositionHelper.BeginSession();
         ActionLayerManager actionLayerManager(compositionHelper);
 
-        XrPath simpleControllerInteractionProfile =
-            StringToPath(compositionHelper.GetInstance(), GetSimpleInteractionProfile().InteractionProfilePathString);
+        XrPath simpleControllerInteractionProfile = StringToPath(instance, GetSimpleInteractionProfile().InteractionProfilePathString);
 
         XrActionSet actionSet{XR_NULL_HANDLE};
         XrActionSetCreateInfo actionSetCreateInfo{XR_TYPE_ACTION_SET_CREATE_INFO};
         strcpy(actionSetCreateInfo.localizedActionSetName, "test action set localized name");
         strcpy(actionSetCreateInfo.actionSetName, "test_action_set_name");
-        REQUIRE_RESULT(xrCreateActionSet(compositionHelper.GetInstance(), &actionSetCreateInfo, &actionSet), XR_SUCCESS);
+        REQUIRE_RESULT(xrCreateActionSet(instance, &actionSetCreateInfo, &actionSet), XR_SUCCESS);
 
         XrAction poseAction{XR_NULL_HANDLE};
         XrActionCreateInfo createInfo{XR_TYPE_ACTION_CREATE_INFO};
@@ -3194,17 +3147,15 @@ namespace Conformance
         earlySpaceCreateInfo.poseInActionSpace = XrPosefCPP();
         earlySpaceCreateInfo.action = poseAction;
         XrSpace earlyActionSpace{XR_NULL_HANDLE};
-        REQUIRE_RESULT(xrCreateActionSpace(compositionHelper.GetSession(), &earlySpaceCreateInfo, &earlyActionSpace), XR_SUCCESS);
+        REQUIRE_RESULT(xrCreateActionSpace(session, &earlySpaceCreateInfo, &earlyActionSpace), XR_SUCCESS);
 
         std::shared_ptr<IInputTestDevice> leftHandInputDevice = CreateTestDevice(
-            &actionLayerManager, &compositionHelper.GetInteractionManager(), compositionHelper.GetInstance(),
-            compositionHelper.GetSession(), simpleControllerInteractionProfile,
-            StringToPath(compositionHelper.GetInstance(), "/user/hand/left"), GetSimpleInteractionProfile().InputSourcePaths);
+            &actionLayerManager, &compositionHelper.GetInteractionManager(), instance, session, simpleControllerInteractionProfile,
+            StringToPath(instance, "/user/hand/left"), GetSimpleInteractionProfile().InputSourcePaths);
 
         compositionHelper.GetInteractionManager().AddActionSet(actionSet);
         compositionHelper.GetInteractionManager().AddActionBindings(
-            simpleControllerInteractionProfile,
-            {{poseAction, StringToPath(compositionHelper.GetInstance(), "/user/hand/left/input/grip/pose")}});
+            simpleControllerInteractionProfile, {{poseAction, StringToPath(instance, "/user/hand/left/input/grip/pose")}});
         compositionHelper.GetInteractionManager().AttachActionSets();
 
         // Create an ActionSpace after xrSuggestInteractionProfileBindings
@@ -3212,7 +3163,7 @@ namespace Conformance
         lateSpaceCreateInfo.poseInActionSpace = XrPosefCPP();
         lateSpaceCreateInfo.action = poseAction;
         XrSpace lateActionSpace{XR_NULL_HANDLE};
-        REQUIRE_RESULT(xrCreateActionSpace(compositionHelper.GetSession(), &lateSpaceCreateInfo, &lateActionSpace), XR_SUCCESS);
+        REQUIRE_RESULT(xrCreateActionSpace(session, &lateSpaceCreateInfo, &lateActionSpace), XR_SUCCESS);
 
         actionLayerManager.WaitForSessionFocusWithMessage();
 
@@ -3220,7 +3171,7 @@ namespace Conformance
         XrReferenceSpaceCreateInfo createSpaceInfo{XR_TYPE_REFERENCE_SPACE_CREATE_INFO};
         createSpaceInfo.referenceSpaceType = XR_REFERENCE_SPACE_TYPE_LOCAL;
         createSpaceInfo.poseInReferenceSpace = XrPosefCPP();
-        REQUIRE_RESULT(xrCreateReferenceSpace(compositionHelper.GetSession(), &createSpaceInfo, &localSpace), XR_SUCCESS);
+        REQUIRE_RESULT(xrCreateReferenceSpace(session, &createSpaceInfo, &localSpace), XR_SUCCESS);
 
         leftHandInputDevice->SetDeviceActive(true);
 
@@ -3253,20 +3204,21 @@ namespace Conformance
         GlobalData& globalData = GetGlobalData();
 
         CompositionHelper compositionHelper("Action Spaces");
+        XrInstance instance = compositionHelper.GetInstance();
+        XrSession session = compositionHelper.GetSession();
         compositionHelper.BeginSession();
         ActionLayerManager actionLayerManager(compositionHelper);
 
-        XrPath simpleControllerInteractionProfile =
-            StringToPath(compositionHelper.GetInstance(), GetSimpleInteractionProfile().InteractionProfilePathString);
-        XrPath leftHandPath{StringToPath(compositionHelper.GetInstance(), "/user/hand/left")};
-        XrPath rightHandPath{StringToPath(compositionHelper.GetInstance(), "/user/hand/right")};
+        XrPath simpleControllerInteractionProfile = StringToPath(instance, GetSimpleInteractionProfile().InteractionProfilePathString);
+        XrPath leftHandPath{StringToPath(instance, "/user/hand/left")};
+        XrPath rightHandPath{StringToPath(instance, "/user/hand/right")};
         const XrPath bothHands[2] = {leftHandPath, rightHandPath};
 
         XrActionSet actionSet{XR_NULL_HANDLE};
         XrActionSetCreateInfo actionSetCreateInfo{XR_TYPE_ACTION_SET_CREATE_INFO};
         strcpy(actionSetCreateInfo.localizedActionSetName, "test action set localized name");
         strcpy(actionSetCreateInfo.actionSetName, "test_action_set_name");
-        REQUIRE_RESULT(xrCreateActionSet(compositionHelper.GetInstance(), &actionSetCreateInfo, &actionSet), XR_SUCCESS);
+        REQUIRE_RESULT(xrCreateActionSet(instance, &actionSetCreateInfo, &actionSet), XR_SUCCESS);
 
         XrAction poseAction{XR_NULL_HANDLE};
         XrActionCreateInfo createInfo{XR_TYPE_ACTION_CREATE_INFO};
@@ -3278,20 +3230,17 @@ namespace Conformance
         REQUIRE_RESULT(xrCreateAction(actionSet, &createInfo, &poseAction), XR_SUCCESS);
 
         std::shared_ptr<IInputTestDevice> leftHandInputDevice =
-            CreateTestDevice(&actionLayerManager, &compositionHelper.GetInteractionManager(), compositionHelper.GetInstance(),
-                             compositionHelper.GetSession(), simpleControllerInteractionProfile, leftHandPath,
-                             GetSimpleInteractionProfile().InputSourcePaths);
+            CreateTestDevice(&actionLayerManager, &compositionHelper.GetInteractionManager(), instance, session,
+                             simpleControllerInteractionProfile, leftHandPath, GetSimpleInteractionProfile().InputSourcePaths);
 
         std::shared_ptr<IInputTestDevice> rightHandInputDevice =
-            CreateTestDevice(&actionLayerManager, &compositionHelper.GetInteractionManager(), compositionHelper.GetInstance(),
-                             compositionHelper.GetSession(), simpleControllerInteractionProfile, rightHandPath,
-                             GetSimpleInteractionProfile().InputSourcePaths);
+            CreateTestDevice(&actionLayerManager, &compositionHelper.GetInteractionManager(), instance, session,
+                             simpleControllerInteractionProfile, rightHandPath, GetSimpleInteractionProfile().InputSourcePaths);
 
         compositionHelper.GetInteractionManager().AddActionSet(actionSet);
         compositionHelper.GetInteractionManager().AddActionBindings(
-            simpleControllerInteractionProfile,
-            {{poseAction, StringToPath(compositionHelper.GetInstance(), "/user/hand/left/input/grip/pose")},
-             {poseAction, StringToPath(compositionHelper.GetInstance(), "/user/hand/right/input/grip/pose")}});
+            simpleControllerInteractionProfile, {{poseAction, StringToPath(instance, "/user/hand/left/input/grip/pose")},
+                                                 {poseAction, StringToPath(instance, "/user/hand/right/input/grip/pose")}});
         compositionHelper.GetInteractionManager().AttachActionSets();
 
         actionLayerManager.WaitForSessionFocusWithMessage();
@@ -3304,7 +3253,7 @@ namespace Conformance
         XrReferenceSpaceCreateInfo createSpaceInfo{XR_TYPE_REFERENCE_SPACE_CREATE_INFO};
         createSpaceInfo.referenceSpaceType = XR_REFERENCE_SPACE_TYPE_LOCAL;
         createSpaceInfo.poseInReferenceSpace = {{0, 0, 0, 1}, {0, 0, 0}};
-        REQUIRE_RESULT(xrCreateReferenceSpace(compositionHelper.GetSession(), &createSpaceInfo, &localSpace), XR_SUCCESS);
+        REQUIRE_RESULT(xrCreateReferenceSpace(session, &createSpaceInfo, &localSpace), XR_SUCCESS);
 
         XrActionSpaceCreateInfo spaceCreateInfo{XR_TYPE_ACTION_SPACE_CREATE_INFO};
         spaceCreateInfo.poseInActionSpace = {{0, 0, 0, 1}, {0, 0, 0}};
@@ -3312,17 +3261,17 @@ namespace Conformance
 
         // Can track left or right, but may: only switch at xrSyncActions.
         XrSpace actionSpaceWithoutSubactionPath{XR_NULL_HANDLE};
-        REQUIRE_RESULT(xrCreateActionSpace(compositionHelper.GetSession(), &spaceCreateInfo, &actionSpaceWithoutSubactionPath), XR_SUCCESS);
+        REQUIRE_RESULT(xrCreateActionSpace(session, &spaceCreateInfo, &actionSpaceWithoutSubactionPath), XR_SUCCESS);
 
         // Only tracks left
         spaceCreateInfo.subactionPath = leftHandPath;
         XrSpace leftSpace{XR_NULL_HANDLE};
-        REQUIRE_RESULT(xrCreateActionSpace(compositionHelper.GetSession(), &spaceCreateInfo, &leftSpace), XR_SUCCESS);
+        REQUIRE_RESULT(xrCreateActionSpace(session, &spaceCreateInfo, &leftSpace), XR_SUCCESS);
 
         // Only tracks right
         spaceCreateInfo.subactionPath = rightHandPath;
         XrSpace rightSpace{XR_NULL_HANDLE};
-        REQUIRE_RESULT(xrCreateActionSpace(compositionHelper.GetSession(), &spaceCreateInfo, &rightSpace), XR_SUCCESS);
+        REQUIRE_RESULT(xrCreateActionSpace(session, &spaceCreateInfo, &rightSpace), XR_SUCCESS);
 
         if (globalData.leftHandUnderTest) {
             leftHandInputDevice->SetDeviceActive(true);
@@ -3476,8 +3425,7 @@ namespace Conformance
                 {
                     XrActionStateGetInfo getInfo{XR_TYPE_ACTION_STATE_GET_INFO};
                     getInfo.action = poseAction;
-                    REQUIRE_RESULT(xrGetActionStatePose(compositionHelper.GetSession(), &getInfo, &poseActionState),
-                                   XR_ERROR_HANDLE_INVALID);
+                    REQUIRE_RESULT(xrGetActionStatePose(session, &getInfo, &poseActionState), XR_ERROR_HANDLE_INVALID);
                 }
 
                 REQUIRE_RESULT(xrLocateSpace(actionSpaceWithoutSubactionPath, localSpace,
@@ -3527,7 +3475,7 @@ namespace Conformance
                 auto getActionStatePoseActive = [&] {
                     const auto getInfo = XrActionStateGetInfo{XR_TYPE_ACTION_STATE_GET_INFO, nullptr, poseAction, controllerSubactionPath};
                     XrActionStatePose statePose{XR_TYPE_ACTION_STATE_POSE};
-                    REQUIRE_RESULT(xrGetActionStatePose(compositionHelper.GetSession(), &getInfo, &statePose), XR_SUCCESS);
+                    REQUIRE_RESULT(xrGetActionStatePose(session, &getInfo, &statePose), XR_SUCCESS);
                     return statePose.isActive == XR_TRUE;
                 };
 
@@ -3651,7 +3599,7 @@ namespace Conformance
                         const auto getInfo =
                             XrActionStateGetInfo{XR_TYPE_ACTION_STATE_GET_INFO, nullptr, poseAction, controllerSubactionPath};
                         XrActionStatePose statePose{XR_TYPE_ACTION_STATE_POSE};
-                        REQUIRE_RESULT(xrGetActionStatePose(compositionHelper.GetSession(), &getInfo, &statePose), XR_SUCCESS);
+                        REQUIRE_RESULT(xrGetActionStatePose(session, &getInfo, &statePose), XR_SUCCESS);
                         REQUIRE(statePose.isActive == XR_FALSE);
                     }
                     {
@@ -3661,7 +3609,7 @@ namespace Conformance
 
                         const auto getInfo = XrActionStateGetInfo{XR_TYPE_ACTION_STATE_GET_INFO, nullptr, poseAction, XR_NULL_PATH};
                         XrActionStatePose statePose{XR_TYPE_ACTION_STATE_POSE};
-                        REQUIRE_RESULT(xrGetActionStatePose(compositionHelper.GetSession(), &getInfo, &statePose), XR_SUCCESS);
+                        REQUIRE_RESULT(xrGetActionStatePose(session, &getInfo, &statePose), XR_SUCCESS);
                         REQUIRE(statePose.isActive == XR_FALSE);
                     }
                 }
@@ -3706,8 +3654,7 @@ namespace Conformance
                         XrActionStatePose poseActionState{XR_TYPE_ACTION_STATE_POSE};
                         XrActionStateGetInfo getInfo{XR_TYPE_ACTION_STATE_GET_INFO};
                         getInfo.action = poseAction;
-                        REQUIRE_RESULT(xrGetActionStatePose(compositionHelper.GetSession(), &getInfo, &poseActionState),
-                                       XR_ERROR_HANDLE_INVALID);
+                        REQUIRE_RESULT(xrGetActionStatePose(session, &getInfo, &poseActionState), XR_ERROR_HANDLE_INVALID);
                     }
                 }
             }
@@ -3717,12 +3664,14 @@ namespace Conformance
     TEST_CASE("xrEnumerateBoundSourcesForAction_and_xrGetInputSourceLocalizedName", "[actions][interactive]")
     {
         CompositionHelper compositionHelper("BoundSources and LocalizedName");
+        XrInstance instance = compositionHelper.GetInstance();
+        XrSession session = compositionHelper.GetSession();
 
         XrActionSet actionSet{XR_NULL_HANDLE};
         XrActionSetCreateInfo actionSetCreateInfo{XR_TYPE_ACTION_SET_CREATE_INFO};
         strcpy(actionSetCreateInfo.localizedActionSetName, "test action set localized name");
         strcpy(actionSetCreateInfo.actionSetName, "test_action_set_name");
-        REQUIRE_RESULT(xrCreateActionSet(compositionHelper.GetInstance(), &actionSetCreateInfo, &actionSet), XR_SUCCESS);
+        REQUIRE_RESULT(xrCreateActionSet(instance, &actionSetCreateInfo, &actionSet), XR_SUCCESS);
 
         XrAction action{XR_NULL_HANDLE};
         XrActionCreateInfo actionCreateInfo{XR_TYPE_ACTION_CREATE_INFO};
@@ -3739,18 +3688,17 @@ namespace Conformance
         bool leftUnderTest = GetGlobalData().leftHandUnderTest;
         const char* pathStr = leftUnderTest ? "/user/hand/left" : "/user/hand/right";
 
-        XrPath path{StringToPath(compositionHelper.GetInstance(), pathStr)};
+        XrPath path{StringToPath(instance, pathStr)};
         std::shared_ptr<IInputTestDevice> inputDevice =
-            CreateTestDevice(&actionLayerManager, &compositionHelper.GetInteractionManager(), compositionHelper.GetInstance(),
-                             compositionHelper.GetSession(),
-                             StringToPath(compositionHelper.GetInstance(), GetSimpleInteractionProfile().InteractionProfilePathString),
-                             path, GetSimpleInteractionProfile().InputSourcePaths);
+            CreateTestDevice(&actionLayerManager, &compositionHelper.GetInteractionManager(), instance, session,
+                             StringToPath(instance, GetSimpleInteractionProfile().InteractionProfilePathString), path,
+                             GetSimpleInteractionProfile().InputSourcePaths);
 
         compositionHelper.GetInteractionManager().AddActionSet(actionSet);
         compositionHelper.GetInteractionManager().AddActionBindings(
-            StringToPath(compositionHelper.GetInstance(), "/interaction_profiles/khr/simple_controller"),
-            {{action, StringToPath(compositionHelper.GetInstance(), "/user/hand/left/input/select/click")},
-             {action, StringToPath(compositionHelper.GetInstance(), "/user/hand/right/input/select/click")}});
+            StringToPath(instance, "/interaction_profiles/khr/simple_controller"),
+            {{action, StringToPath(instance, "/user/hand/left/input/select/click")},
+             {action, StringToPath(instance, "/user/hand/right/input/select/click")}});
         compositionHelper.GetInteractionManager().AttachActionSets();
 
         inputDevice->SetDeviceActive(true);
@@ -3766,14 +3714,13 @@ namespace Conformance
             info.action = action;
             SECTION("Basic usage")
             {
-                std::vector<XrPath> enumerateResult =
-                    REQUIRE_TWO_CALL(XrPath, {}, xrEnumerateBoundSourcesForAction, compositionHelper.GetSession(), &info);
+                std::vector<XrPath> enumerateResult = REQUIRE_TWO_CALL(XrPath, {}, xrEnumerateBoundSourcesForAction, session, &info);
 
                 // Note that runtimes may return bound sources even when not focused, though they don't have to
 
                 actionLayerManager.SyncActionsUntilFocusWithMessage(syncInfo);
 
-                enumerateResult = REQUIRE_TWO_CALL(XrPath, {}, xrEnumerateBoundSourcesForAction, compositionHelper.GetSession(), &info);
+                enumerateResult = REQUIRE_TWO_CALL(XrPath, {}, xrEnumerateBoundSourcesForAction, session, &info);
 
                 REQUIRE(enumerateResult.size() > 0);
 
@@ -3782,42 +3729,35 @@ namespace Conformance
                 SECTION("xrGetInputSourceLocalizedName")
                 {
                     getInfo.whichComponents = XR_INPUT_SOURCE_LOCALIZED_NAME_USER_PATH_BIT;
-                    std::string localizedStringResult =
-                        REQUIRE_TWO_CALL(char, {}, xrGetInputSourceLocalizedName, compositionHelper.GetSession(), &getInfo).data();
+                    std::string localizedStringResult = REQUIRE_TWO_CALL(char, {}, xrGetInputSourceLocalizedName, session, &getInfo).data();
                     REQUIRE_FALSE(localizedStringResult.empty());
 
                     getInfo.whichComponents = XR_INPUT_SOURCE_LOCALIZED_NAME_INTERACTION_PROFILE_BIT;
-                    localizedStringResult =
-                        REQUIRE_TWO_CALL(char, {}, xrGetInputSourceLocalizedName, compositionHelper.GetSession(), &getInfo).data();
+                    localizedStringResult = REQUIRE_TWO_CALL(char, {}, xrGetInputSourceLocalizedName, session, &getInfo).data();
                     REQUIRE_FALSE(localizedStringResult.empty());
 
                     getInfo.whichComponents = XR_INPUT_SOURCE_LOCALIZED_NAME_COMPONENT_BIT;
-                    localizedStringResult =
-                        REQUIRE_TWO_CALL(char, {}, xrGetInputSourceLocalizedName, compositionHelper.GetSession(), &getInfo).data();
+                    localizedStringResult = REQUIRE_TWO_CALL(char, {}, xrGetInputSourceLocalizedName, session, &getInfo).data();
                     REQUIRE_FALSE(localizedStringResult.empty());
 
                     getInfo.whichComponents =
                         XR_INPUT_SOURCE_LOCALIZED_NAME_USER_PATH_BIT | XR_INPUT_SOURCE_LOCALIZED_NAME_INTERACTION_PROFILE_BIT;
-                    localizedStringResult =
-                        REQUIRE_TWO_CALL(char, {}, xrGetInputSourceLocalizedName, compositionHelper.GetSession(), &getInfo).data();
+                    localizedStringResult = REQUIRE_TWO_CALL(char, {}, xrGetInputSourceLocalizedName, session, &getInfo).data();
                     REQUIRE_FALSE(localizedStringResult.empty());
 
                     getInfo.whichComponents = XR_INPUT_SOURCE_LOCALIZED_NAME_USER_PATH_BIT | XR_INPUT_SOURCE_LOCALIZED_NAME_COMPONENT_BIT;
-                    localizedStringResult =
-                        REQUIRE_TWO_CALL(char, {}, xrGetInputSourceLocalizedName, compositionHelper.GetSession(), &getInfo).data();
+                    localizedStringResult = REQUIRE_TWO_CALL(char, {}, xrGetInputSourceLocalizedName, session, &getInfo).data();
                     REQUIRE_FALSE(localizedStringResult.empty());
 
                     getInfo.whichComponents =
                         XR_INPUT_SOURCE_LOCALIZED_NAME_INTERACTION_PROFILE_BIT | XR_INPUT_SOURCE_LOCALIZED_NAME_COMPONENT_BIT;
-                    localizedStringResult =
-                        REQUIRE_TWO_CALL(char, {}, xrGetInputSourceLocalizedName, compositionHelper.GetSession(), &getInfo).data();
+                    localizedStringResult = REQUIRE_TWO_CALL(char, {}, xrGetInputSourceLocalizedName, session, &getInfo).data();
                     REQUIRE_FALSE(localizedStringResult.empty());
 
                     getInfo.whichComponents = XR_INPUT_SOURCE_LOCALIZED_NAME_USER_PATH_BIT |
                                               XR_INPUT_SOURCE_LOCALIZED_NAME_INTERACTION_PROFILE_BIT |
                                               XR_INPUT_SOURCE_LOCALIZED_NAME_COMPONENT_BIT;
-                    localizedStringResult =
-                        REQUIRE_TWO_CALL(char, {}, xrGetInputSourceLocalizedName, compositionHelper.GetSession(), &getInfo).data();
+                    localizedStringResult = REQUIRE_TWO_CALL(char, {}, xrGetInputSourceLocalizedName, session, &getInfo).data();
                     REQUIRE_FALSE(localizedStringResult.empty());
 
                     uint32_t sourceCountOutput;
@@ -3825,20 +3765,17 @@ namespace Conformance
                     SECTION("Invalid components")
                     {
                         getInfo.whichComponents = 0;
-                        REQUIRE_RESULT(
-                            xrGetInputSourceLocalizedName(compositionHelper.GetSession(), &getInfo, 0, &sourceCountOutput, &buffer),
-                            XR_ERROR_VALIDATION_FAILURE);
+                        REQUIRE_RESULT(xrGetInputSourceLocalizedName(session, &getInfo, 0, &sourceCountOutput, &buffer),
+                                       XR_ERROR_VALIDATION_FAILURE);
                     }
                     SECTION("Invalid path")
                     {
                         getInfo.sourcePath = XR_NULL_PATH;
-                        REQUIRE_RESULT(
-                            xrGetInputSourceLocalizedName(compositionHelper.GetSession(), &getInfo, 0, &sourceCountOutput, &buffer),
-                            XR_ERROR_PATH_INVALID);
+                        REQUIRE_RESULT(xrGetInputSourceLocalizedName(session, &getInfo, 0, &sourceCountOutput, &buffer),
+                                       XR_ERROR_PATH_INVALID);
                         getInfo.sourcePath = (XrPath)0x1234;
-                        REQUIRE_RESULT(
-                            xrGetInputSourceLocalizedName(compositionHelper.GetSession(), &getInfo, 0, &sourceCountOutput, &buffer),
-                            XR_ERROR_PATH_INVALID);
+                        REQUIRE_RESULT(xrGetInputSourceLocalizedName(session, &getInfo, 0, &sourceCountOutput, &buffer),
+                                       XR_ERROR_PATH_INVALID);
                     }
                 }
             }
@@ -3857,7 +3794,7 @@ namespace Conformance
                     info.action = (XrAction)0x1234;
                     uint32_t sourceCountOutput;
                     XrPath buffer;
-                    REQUIRE_RESULT(xrEnumerateBoundSourcesForAction(compositionHelper.GetSession(), &info, 0, &sourceCountOutput, &buffer),
+                    REQUIRE_RESULT(xrEnumerateBoundSourcesForAction(session, &info, 0, &sourceCountOutput, &buffer),
                                    XR_ERROR_HANDLE_INVALID);
                 }
             }

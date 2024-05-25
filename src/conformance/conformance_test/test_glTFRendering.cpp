@@ -95,7 +95,7 @@ namespace Conformance
                 spaceCreateInfo.subactionPath = subactionPaths[i];
                 spaceCreateInfo.poseInActionSpace = XrPosefCPP{};
                 XRC_CHECK_THROW_XRCMD(xrCreateActionSpace(session, &spaceCreateInfo, &space));
-                gripSpaces.emplace_back(std::move(space));
+                gripSpaces.emplace_back(space);
             }
         }
 

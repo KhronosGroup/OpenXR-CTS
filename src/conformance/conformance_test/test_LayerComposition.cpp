@@ -530,7 +530,7 @@ namespace Conformance
                                                            XrPosefCPP()};
                 XRC_CHECK_THROW_XRCMD(xrCreateReferenceSpace(session, &spaceCreateInfo, &space));
             }
-            gripSpaces.push_back(std::move(space));
+            gripSpaces.push_back(space);
         }
 
         // Create 10x10cm L and R quads
@@ -720,7 +720,7 @@ namespace Conformance
         }).Loop();
     }
 
-    TEST_CASE("ProjectionDepth", "[composition][interactive][no_auto][XR_KHR_composition_layer_depth][XR_FB_composition_layer_depth_test]")
+    TEST_CASE("ProjectionDepth", "[XR_KHR_composition_layer_depth][XR_FB_composition_layer_depth_test][composition][interactive][no_auto]")
     {
         GlobalData& globalData = GetGlobalData();
         if (!globalData.IsInstanceExtensionSupported(XR_KHR_COMPOSITION_LAYER_DEPTH_EXTENSION_NAME)) {

@@ -22,9 +22,15 @@ task copyAssets(type: Copy) {
         include '*.otf'
     }
 
+    // immersive images
+    from('conformance_test/composition_assets') {
+        include '*.png'
+    }
+
     // sample images
     from('conformance_test/composition_examples') {
         include '*.png'
+        include '*.jpg'
     }
     from('conformance_test/gltf_examples') {
         include '*.png'

@@ -33,7 +33,7 @@
 
 namespace Conformance
 {
-    TEST_CASE("XR_KHR_vulkan_enable2", "")
+    TEST_CASE("XR_KHR_vulkan_enable2", "[XR_KHR_vulkan_enable2]")
     {
         GlobalData& globalData = GetGlobalData();
         if (!globalData.IsInstanceExtensionEnabled(XR_KHR_VULKAN_ENABLE2_EXTENSION_NAME)) {
