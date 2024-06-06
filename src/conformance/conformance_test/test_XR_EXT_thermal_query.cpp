@@ -26,7 +26,7 @@
 namespace Conformance
 {
 
-    TEST_CASE("XR_EXT_thermal_query", "")
+    TEST_CASE("XR_EXT_thermal_query", "[XR_EXT_thermal_query]")
     {
         GlobalData& globalData = GetGlobalData();
         if (!globalData.IsInstanceExtensionSupported("XR_EXT_thermal_query")) {

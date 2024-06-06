@@ -33,7 +33,7 @@
 namespace Conformance
 {
 
-    TEST_CASE("XR_KHR_opengl_enable", "")
+    TEST_CASE("XR_KHR_opengl_enable", "[XR_KHR_opengl_enable]")
     {
         GlobalData& globalData = GetGlobalData();
         if (!globalData.IsInstanceExtensionEnabled(XR_KHR_OPENGL_ENABLE_EXTENSION_NAME)) {

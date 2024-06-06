@@ -30,6 +30,8 @@ file(
 file(
     GLOB
     ASSETS
+    "composition_assets/*.png"
+    "composition_examples/*.jpg"
     "composition_examples/*.png"
     "SourceCodePro-Regular.otf"
     "gltf_examples/*.glb"

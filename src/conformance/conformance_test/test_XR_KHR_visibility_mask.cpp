@@ -330,7 +330,7 @@ namespace Conformance
         return {mesh, bgColor};
     }
 
-    TEST_CASE("XR_KHR_visibility_mask-interactive", "[scenario][interactive][no_auto][XR_KHR_visibility_mask]")
+    TEST_CASE("XR_KHR_visibility_mask-interactive", "[XR_KHR_visibility_mask][scenario][interactive][no_auto]")
     {
         // successcodes="XR_SUCCESS,XR_SESSION_LOSS_PENDING"
         // errorcodes="XR_ERROR_HANDLE_INVALID,XR_ERROR_INSTANCE_LOST,XR_ERROR_RUNTIME_FAILURE,XR_ERROR_VALIDATION_FAILURE,

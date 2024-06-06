@@ -111,7 +111,7 @@ namespace Conformance
         }
     };
 
-    TEST_CASE("XR_MSFT_controller_model-simple", "")
+    TEST_CASE("XR_MSFT_controller_model-simple", "[XR_MSFT_controller_model]")
     {
         GlobalData& globalData = GetGlobalData();
 
@@ -125,7 +125,7 @@ namespace Conformance
         ext.CheckInvalidModelKey(session, XR_NULL_CONTROLLER_MODEL_KEY_MSFT);
     }
 
-    TEST_CASE("XR_MSFT_controller_model", "")
+    TEST_CASE("XR_MSFT_controller_model", "[XR_MSFT_controller_model]")
     {
         GlobalData& globalData = GetGlobalData();
 
@@ -307,7 +307,7 @@ namespace Conformance
         }
     }
 
-    TEST_CASE("XR_MSFT_controller_model-interactive", "[scenario][interactive][no_auto]")
+    TEST_CASE("XR_MSFT_controller_model-interactive", "[XR_MSFT_controller_model][scenario][interactive][no_auto]")
     {
 
         GlobalData& globalData = GetGlobalData();
@@ -507,7 +507,7 @@ namespace Conformance
                 viewState.viewStateFlags & XR_VIEW_STATE_ORIENTATION_VALID_BIT) {
                 const auto& views = std::get<std::vector<XrView>>(viewData);
 
-                // Render into each view port of the wide swapchain using the projection layer view fov and pose.
+                // Render into each of the separate swapchains using the projection layer view fov and pose.
                 for (size_t view = 0; view < views.size(); view++) {
                     compositionHelper.AcquireWaitReleaseImage(swapchains[view],  //
                                                               [&](const XrSwapchainImageBaseHeader* swapchainImage) {

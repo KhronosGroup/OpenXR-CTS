@@ -30,7 +30,7 @@ namespace Conformance
 {
     // This implements an automated programmatic test of depth layers. However, a separate visual
     // test is required in order to validate that it looks correct.
-    TEST_CASE("XR_KHR_composition_layer_depth", "")
+    TEST_CASE("XR_KHR_composition_layer_depth", "[XR_KHR_composition_layer_depth]")
     {
         GlobalData& globalData = GetGlobalData();
         if (!globalData.IsInstanceExtensionSupported(XR_KHR_COMPOSITION_LAYER_DEPTH_EXTENSION_NAME)) {

@@ -14,6 +14,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "catch2/matchers/catch_matchers.hpp"
+#include "catch2/matchers/catch_matchers_vector.hpp"
 #include "utilities/utils.h"
 #include "conformance_utils.h"
 #include "conformance_framework.h"
@@ -44,6 +46,9 @@ namespace Conformance
         AutoBasicSession session(AutoBasicSession::createSession);
         REQUIRE_MSG(session != XR_NULL_HANDLE_CPP,
                     "If this (XrSession creation) fails, ensure the runtime is configured and the AR/VR device is present.");
+
+        XrInstance instance = session.GetInstance();
+        XrSystemId systemId = session.GetSystemId();
 
         auto tryReadEvent = [&](XrEventDataBuffer* evt) {
             *evt = {XR_TYPE_EVENT_DATA_BUFFER};
@@ -77,7 +82,7 @@ namespace Conformance
             return false;
         };
 
-        XrEventDataSessionStateChanged evt;
+        XrEventDataSessionStateChanged evt{};
         REQUIRE(waitForNextSessionState(&evt) == true);
         REQUIRE_MSG(evt.state == XR_SESSION_STATE_IDLE, "Unexpected session state " << evt.state);
 
@@ -88,10 +93,9 @@ namespace Conformance
         {
             // Get the list of supported view configurations
             uint32_t viewCount = 0;
-            REQUIRE(XR_SUCCESS == xrEnumerateViewConfigurations(session.instance, session.systemId, 0, &viewCount, nullptr));
+            REQUIRE(XR_SUCCESS == xrEnumerateViewConfigurations(instance, systemId, 0, &viewCount, nullptr));
             std::vector<XrViewConfigurationType> runtimeViewTypes(viewCount);
-            REQUIRE(XR_SUCCESS ==
-                    xrEnumerateViewConfigurations(session.instance, session.systemId, viewCount, &viewCount, runtimeViewTypes.data()));
+            REQUIRE(XR_SUCCESS == xrEnumerateViewConfigurations(instance, systemId, viewCount, &viewCount, runtimeViewTypes.data()));
 
             for (XrViewConfigurationType viewType : KnownViewTypes) {
                 CAPTURE(viewType);
@@ -99,15 +103,13 @@ namespace Conformance
                 // Is this enum valid, check against enabled extensions.
                 bool valid = IsViewConfigurationTypeEnumValid(viewType);
 
-                const bool isSupportedType =
-                    std::find(runtimeViewTypes.begin(), runtimeViewTypes.end(), viewType) != runtimeViewTypes.end();
-
-                if (!valid) {
-                    CHECK_MSG(valid == isSupportedType, "Can not support invalid view configuration type");
+                if (!IsViewConfigurationTypeEnumValid(viewType)) {
+                    INFO("Must not enumerate invalid view configuration type");
+                    CHECK_THAT(runtimeViewTypes, !Catch::Matchers::VectorContains(viewType));
                 }
 
-                // Skip this view config.
-                if (isSupportedType) {
+                // Skip this view config if it is supported, since we cannot test correct handling of unsupported values with it.
+                if (Catch::Matchers::VectorContains(viewType).match(runtimeViewTypes)) {
                     continue;
                 }
 

@@ -45,6 +45,9 @@ namespace Pbr
             if (primitive.GetMaterial()->Hidden)
                 continue;
 
+            if (!IsAnyNodeVisible(primitive.GetNodes()))
+                continue;
+
             primitive.Render(directCommandList, pbrResources, colorRenderTargetFormat, depthRenderTargetFormat);
         }
     }
@@ -94,15 +97,15 @@ namespace Pbr
     void D3D12ModelInstance::UpdateTransforms(Pbr::D3D12Resources& pbrResources)
     {
         // If none of the node transforms have changed, no need to recompute/update the model transform structured buffer.
-        if (WereNodeLocalTransformsUpdated()) {
-            ResolveTransforms(true);
+        if (ResolvedTransformsNeedUpdate()) {
+            ResolveTransformsAndVisibilities(true);
 
             // Update node transform structured buffer.
             auto& resolvedTransforms = GetResolvedTransforms();
             pbrResources.WithCopyCommandList([&](ID3D12GraphicsCommandList* cmdList) {
                 m_modelTransformsStructuredBuffer.AsyncUpload(cmdList, resolvedTransforms.data(), resolvedTransforms.size());
             });
-            ClearTransformsUpdatedFlag();
+            MarkResolvedTransformsUpdated();
         }
     }
 }  // namespace Pbr

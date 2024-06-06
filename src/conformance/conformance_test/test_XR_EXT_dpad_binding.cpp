@@ -827,7 +827,7 @@ namespace Conformance
         }
     }
 
-    TEST_CASE("XR_EXT_dpad_binding", "")
+    TEST_CASE("XR_EXT_dpad_binding", "[XR_EXT_dpad_binding]")
     {
         GlobalData& globalData = GetGlobalData();
         if (!globalData.IsInstanceExtensionSupported(XR_EXT_DPAD_BINDING_EXTENSION_NAME) ||
@@ -1151,7 +1151,7 @@ namespace Conformance
         }
     }
 
-    TEST_CASE("XR_EXT_dpad_binding-interactive_thumbstick", "[actions][interactive][no_auto]")
+    TEST_CASE("XR_EXT_dpad_binding-interactive_thumbstick", "[XR_EXT_dpad_binding][actions][interactive][no_auto]")
     {
         GlobalData& globalData = GetGlobalData();
         if (!globalData.IsInstanceExtensionSupported(XR_EXT_DPAD_BINDING_EXTENSION_NAME) ||
@@ -1230,7 +1230,7 @@ namespace Conformance
         }
     }
 
-    TEST_CASE("XR_EXT_dpad_binding-interactive_trackpad", "[actions][interactive][no_auto]")
+    TEST_CASE("XR_EXT_dpad_binding-interactive_trackpad", "[XR_EXT_dpad_binding][actions][interactive][no_auto]")
     {
         GlobalData& globalData = GetGlobalData();
         if (!globalData.IsInstanceExtensionSupported(XR_EXT_DPAD_BINDING_EXTENSION_NAME) ||

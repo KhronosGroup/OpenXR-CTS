@@ -157,5 +157,36 @@ namespace Conformance
                 REQUIRE(destroyInstanceResult == XR_SUCCESS);
             }
         }
+
+        SECTION("not calling xrDestroySession")
+        {
+            GlobalData& globalData = GetGlobalData();
+
+            for (int i = 0; i < 2; ++i) {
+                CAPTURE(i);
+
+                std::shared_ptr<IGraphicsPlugin> graphicsPlugin;
+
+                AutoBasicInstance instance{AutoBasicInstance::createSystemId};
+                XrSystemId systemId = instance.systemId;
+
+                if (!globalData.options.graphicsPlugin.empty()) {
+                    REQUIRE_NOTHROW(graphicsPlugin = Conformance::CreateGraphicsPlugin(globalData.options.graphicsPlugin.c_str(),
+                                                                                       globalData.GetPlatformPlugin()));
+                    REQUIRE(graphicsPlugin->Initialize());
+                }
+
+                REQUIRE(graphicsPlugin->InitializeDevice(instance, systemId));
+
+                XrSessionCreateInfo sessionCreateInfo{XR_TYPE_SESSION_CREATE_INFO, nullptr, 0, systemId};
+                sessionCreateInfo.next = graphicsPlugin->GetGraphicsBinding();
+
+                XrSession session = XR_NULL_HANDLE_CPP;
+                REQUIRE(xrCreateSession(instance, &sessionCreateInfo, &session) == XR_SUCCESS);
+
+                // leak the session handle
+                // AutoBasicInstance will cleanup for us
+            }
+        }
     }
 }  // namespace Conformance

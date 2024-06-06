@@ -64,7 +64,12 @@ namespace Conformance
         {
         }
 
+        /// Call `xrWaitFrame`, `xrBeginFrame`, `xrEndFrame`.
+        /// Returns whatever your @ref EndFrame function returned
         bool IterateFrame();
+
+        /// Call @ref IterateFrame repeatedly until your @ref EndFrame returns false,
+        /// checking that no exceptions are thrown
         void Loop();
 
         XrTime GetLastPredictedDisplayTime() const;

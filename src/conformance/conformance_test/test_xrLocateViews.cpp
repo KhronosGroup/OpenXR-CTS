@@ -14,6 +14,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "catch2/matchers/catch_matchers_vector.hpp"
 #include "conformance_utils.h"
 #include "conformance_framework.h"
 #include "matchers.h"
@@ -106,12 +107,15 @@ namespace Conformance
         {
             // Ensure unsupported view configuration types fail and supported types pass
 
+            XrInstance instance = session.GetInstance();
+            XrSystemId systemId = session.GetSystemId();
+
             // Get the list of supported view configurations
             uint32_t viewConfigCount = 0;
-            REQUIRE(XR_SUCCESS == xrEnumerateViewConfigurations(session.instance, session.systemId, 0, &viewConfigCount, nullptr));
+            REQUIRE(XR_SUCCESS == xrEnumerateViewConfigurations(instance, systemId, 0, &viewConfigCount, nullptr));
             std::vector<XrViewConfigurationType> runtimeViewTypes(viewConfigCount);
-            REQUIRE(XR_SUCCESS == xrEnumerateViewConfigurations(session.instance, session.systemId, viewConfigCount, &viewConfigCount,
-                                                                runtimeViewTypes.data()));
+            REQUIRE(XR_SUCCESS ==
+                    xrEnumerateViewConfigurations(instance, systemId, viewConfigCount, &viewConfigCount, runtimeViewTypes.data()));
 
             CAPTURE(locateInfo.displayTime);
 
@@ -123,8 +127,7 @@ namespace Conformance
                 // Is this enum valid, check against enabled extensions.
                 bool valid = IsViewConfigurationTypeEnumValid(viewType);
 
-                const bool isSupportedType =
-                    std::find(runtimeViewTypes.begin(), runtimeViewTypes.end(), viewType) != runtimeViewTypes.end();
+                const bool isSupportedType = Catch::Matchers::VectorContains(viewType).match(runtimeViewTypes);
                 CAPTURE(valid);
                 CAPTURE(isSupportedType);
 

@@ -121,6 +121,8 @@ namespace Pbr
             }
         }
 
+        NodeIndices.insert(transformIndex);
+
         return *this;
     }
 
@@ -204,6 +206,8 @@ namespace Pbr
             }
         }
 
+        NodeIndices.insert(transformIndex);
+
         return *this;
     }
 
@@ -251,6 +255,12 @@ namespace Pbr
             vert.TexCoord0 = uvs[j];
             Vertices.push_back(vert);
         }
+        NodeIndices.insert(transformIndex);
         return *this;
+    }
+
+    std::vector<NodeIndex_t> PrimitiveBuilder::NodeIndicesVector() const
+    {
+        return std::vector<NodeIndex_t>(NodeIndices.begin(), NodeIndices.end());
     }
 }  // namespace Pbr

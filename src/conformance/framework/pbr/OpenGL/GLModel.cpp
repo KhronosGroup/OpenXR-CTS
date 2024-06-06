@@ -48,6 +48,9 @@ namespace Pbr
             if (primitive.GetMaterial()->Hidden)
                 continue;
 
+            if (!IsAnyNodeVisible(primitive.GetNodes()))
+                continue;
+
             primitive.GetMaterial()->Bind(pbrResources);
             primitive.Render(pbrResources.GetFillMode());
         }
@@ -78,15 +81,15 @@ namespace Pbr
     void GLModelInstance::UpdateTransforms(Pbr::GLResources const& /* pbrResources */)
     {
         // If none of the node transforms have changed, no need to recompute/update the model transform structured buffer.
-        if (WereNodeLocalTransformsUpdated()) {
-            ResolveTransforms(false);
+        if (ResolvedTransformsNeedUpdate()) {
+            ResolveTransformsAndVisibilities(false);
 
             // Update node transform structured buffer.
             auto& resolvedTransforms = GetResolvedTransforms();
             XRC_CHECK_THROW_GLCMD(glBindBuffer(GL_SHADER_STORAGE_BUFFER, m_modelTransformsStructuredBuffer.get()));
             XRC_CHECK_THROW_GLCMD(
                 glBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, sizeof(XrMatrix4x4f) * resolvedTransforms.size(), resolvedTransforms.data()));
-            ClearTransformsUpdatedFlag();
+            MarkResolvedTransformsUpdated();
         }
     }
 }  // namespace Pbr

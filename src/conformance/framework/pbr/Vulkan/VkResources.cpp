@@ -373,7 +373,14 @@ namespace Pbr
 
     VulkanResources::VulkanResources(VulkanResources&& resources) noexcept = default;
 
-    VulkanResources::~VulkanResources() = default;
+    VulkanResources::~VulkanResources()
+    {
+        // stagingBuffers are queued to be cleared in Wait(). If Wait() has not been called, clear them here.
+        for (auto stagingBuffer : m_impl->Resources.StagingBuffers) {
+            stagingBuffer.Reset(GetDevice());
+        }
+        m_impl->Resources.StagingBuffers.clear();
+    }
 
     /* IResources implementations */
     std::shared_ptr<Material> VulkanResources::CreateFlatMaterial(RGBAColor baseColorFactor, float roughnessFactor, float metallicFactor,

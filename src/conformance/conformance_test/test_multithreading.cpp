@@ -377,7 +377,7 @@ namespace Conformance
                 XrSessionActionSetsAttachInfo attachInfo{XR_TYPE_SESSION_ACTION_SETS_ATTACH_INFO};
                 attachInfo.countActionSets = 1;
                 attachInfo.actionSets = &env.GetAutoBasicSession().actionSet;
-                XRC_CHECK_THROW_XRCMD(xrAttachSessionActionSets(env.GetAutoBasicSession().session, &attachInfo));
+                XRC_CHECK_THROW_XRCMD(xrAttachSessionActionSets(env.GetAutoBasicSession(), &attachInfo));
             }
 
             // Get frames iterating to the point of app focused state. This will draw frames along the way.
@@ -871,7 +871,7 @@ namespace Conformance
         RandEngine& randEngine = GetGlobalData().GetRandEngine();
 
         // References to AutoBasicSession members.
-        XrSession& session = env.GetAutoBasicSession().session;
+        XrSession session = env.GetAutoBasicSession().GetSession();
         XrActionSet& actionSet = env.GetAutoBasicSession().actionSet;
         std::vector<XrAction>& actionVector = env.GetAutoBasicSession().actionVector;  // This actions are part of the actionSet.
         std::array<XrPath, 2>& handSubactionArray = env.GetAutoBasicSession().handSubactionArray;

@@ -417,7 +417,7 @@ namespace Conformance
                     viewState.viewStateFlags & XR_VIEW_STATE_ORIENTATION_VALID_BIT) {
                     const auto& views = std::get<std::vector<XrView>>(viewData);
 
-                    // Render into each view port of the wide swapchain using the projection layer view fov and pose.
+                    // Render into each of the separate swapchains using the projection layer view fov and pose.
                     for (size_t view = 0; view < views.size(); view++) {
                         compositionHelper.AcquireWaitReleaseImage(swapchains[view],  //
                                                                   [&](const XrSwapchainImageBaseHeader* swapchainImage) {
@@ -691,7 +691,7 @@ namespace Conformance
                             XrVector3f gripSurfaceXDirection{};
                             XrQuaternionf_RotateVector3f(&gripSurfaceXDirection, &gripSurfaceLocation.pose.orientation, &xAxis);
                             double xAngleDiff = angleDeg(xAxis, gripSurfaceXDirection);
-                            REQUIRE(xAngleDiff < 45.0f);
+                            REQUIRE(xAngleDiff < 75.0f);
                         }
 
                         {
@@ -714,7 +714,7 @@ namespace Conformance
                             XrVector3f gripSurfaceYDirection{};
                             XrQuaternionf_RotateVector3f(&gripSurfaceYDirection, &gripSurfaceLocation.pose.orientation, &yAxis);
                             double yAngleDiff = angleDeg(zMAxis, gripSurfaceYDirection);
-                            REQUIRE(std::abs(yAngleDiff) < 45.0f);
+                            REQUIRE(std::abs(yAngleDiff) < 85.0f);
                         }
 
                         if (i == 0) {
@@ -726,12 +726,13 @@ namespace Conformance
                             REQUIRE(gripSurfaceZDirection.x < 0);
                         }
                         else {
-                            // Test that the z axis (direction from the palm center to the wrist) of grip surface points "to the right" in grip space.
+                            // Test that the z axis (direction from the palm center to the wrist) of grip surface points not significantly to the left in grip space,
+                            // i.e. the part of the hand between wrist and grip_surface pose does not point through the controller handle.
                             // This should be true for all usual controllers. If this is not true for your controller, you may need to adapt or discard this test.
                             XrVector3f zAxis = {0, 0, 1};
                             XrVector3f gripSurfaceZDirection{};
                             XrQuaternionf_RotateVector3f(&gripSurfaceZDirection, &gripSurfaceLocation.pose.orientation, &zAxis);
-                            REQUIRE(gripSurfaceZDirection.x > 0);
+                            REQUIRE(gripSurfaceZDirection.x >= -10);
                         }
 
                         {

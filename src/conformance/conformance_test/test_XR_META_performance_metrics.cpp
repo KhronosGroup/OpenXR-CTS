@@ -29,7 +29,7 @@
 
 namespace Conformance
 {
-    TEST_CASE("XR_META_performance_metrics", "")
+    TEST_CASE("XR_META_performance_metrics", "[XR_META_performance_metrics]")
     {
         GlobalData& globalData = GetGlobalData();
 

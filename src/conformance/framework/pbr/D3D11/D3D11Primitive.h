@@ -26,7 +26,7 @@ namespace Pbr
 
         D3D11Primitive() = delete;
         D3D11Primitive(UINT indexCount, Microsoft::WRL::ComPtr<ID3D11Buffer> indexBuffer, Microsoft::WRL::ComPtr<ID3D11Buffer> vertexBuffer,
-                       std::shared_ptr<D3D11Material> material);
+                       std::shared_ptr<D3D11Material> material, std::vector<NodeIndex_t> nodeIndices);
         D3D11Primitive(Pbr::D3D11Resources const& pbrResources, const Pbr::PrimitiveBuilder& primitiveBuilder,
                        const std::shared_ptr<D3D11Material>& material, bool updatableBuffers = false);
 
@@ -44,6 +44,12 @@ namespace Pbr
             m_material = std::move(material);
         }
 
+        /// Get the nodes that the primitive represents
+        const std::vector<NodeIndex_t>& GetNodes() const
+        {
+            return m_nodeIndices;
+        }
+
     protected:
         friend class D3D11ModelInstance;
         void Render(_In_ ID3D11DeviceContext* context) const;
@@ -54,5 +60,6 @@ namespace Pbr
         Microsoft::WRL::ComPtr<ID3D11Buffer> m_indexBuffer;
         Microsoft::WRL::ComPtr<ID3D11Buffer> m_vertexBuffer;
         std::shared_ptr<D3D11Material> m_material;
+        std::vector<NodeIndex_t> m_nodeIndices;
     };
 }  // namespace Pbr

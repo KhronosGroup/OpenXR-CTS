@@ -36,6 +36,7 @@
 #include <map>
 #include <memory>
 #include <ratio>
+#include <sstream>
 #include <thread>
 #include <utility>
 
@@ -667,8 +668,8 @@ namespace Conformance
         : autoBasicSession(autoBasicSession_), sessionState(autoBasicSession->GetSessionState()), frameState(), viewVector()
     {
         XRC_CHECK_THROW(autoBasicSession);
-        XRC_CHECK_THROW(autoBasicSession->instance);
-        XRC_CHECK_THROW(autoBasicSession->session);
+        XRC_CHECK_THROW(autoBasicSession->GetInstance());
+        XRC_CHECK_THROW(autoBasicSession->GetSession());
         XRC_CHECK_THROW(!autoBasicSession->viewConfigurationTypeVector.empty());
         XRC_CHECK_THROW(!autoBasicSession->environmentBlendModeVector.empty());
     }
@@ -681,7 +682,7 @@ namespace Conformance
     FrameIterator::TickResult FrameIterator::PollEvent()
     {
         XrEventDataBuffer eventData{XR_TYPE_EVENT_DATA_BUFFER};
-        XrResult result = xrPollEvent(autoBasicSession->instance, &eventData);
+        XrResult result = xrPollEvent(autoBasicSession->GetInstance(), &eventData);
 
         switch (result) {
         case XR_SUCCESS: {
@@ -747,11 +748,11 @@ namespace Conformance
         }
 
         XrResult result;
-
+        XrSession session = autoBasicSession->GetSession();
         // xrWaitFrame may block.
         XrFrameWaitInfo frameWaitInfo{XR_TYPE_FRAME_WAIT_INFO};
         frameState = XrFrameState{XR_TYPE_FRAME_STATE};
-        result = xrWaitFrame(autoBasicSession->session, &frameWaitInfo, &frameState);
+        result = xrWaitFrame(session, &frameWaitInfo, &frameState);
         if (XR_FAILED(result))
             return RunResult::Error;
 
@@ -762,13 +763,13 @@ namespace Conformance
         XrViewState viewState{XR_TYPE_VIEW_STATE};
         uint32_t viewCount = (uint32_t)autoBasicSession->viewConfigurationViewVector.size();
         viewVector.resize(viewCount, {XR_TYPE_VIEW});
-        result = xrLocateViews(autoBasicSession->session, &viewLocateInfo, &viewState, viewCount, &viewCount, viewVector.data());
+        result = xrLocateViews(session, &viewLocateInfo, &viewState, viewCount, &viewCount, viewVector.data());
         if (XR_FAILED(result))
             return RunResult::Error;
         viewVector.resize(viewCount);
 
         XrFrameBeginInfo frameBeginInfo{XR_TYPE_FRAME_BEGIN_INFO};
-        result = xrBeginFrame(autoBasicSession->session, &frameBeginInfo);
+        result = xrBeginFrame(session, &frameBeginInfo);
         if (XR_FAILED(result))
             return RunResult::Error;
 
@@ -847,7 +848,7 @@ namespace Conformance
         frameEndInfo.layerCount = 1;
         frameEndInfo.layers = headerPtrArray;
 
-        XrResult result = xrEndFrame(autoBasicSession->session, &frameEndInfo);
+        XrResult result = xrEndFrame(autoBasicSession->GetSession(), &frameEndInfo);
         if (XR_FAILED(result))
             return RunResult::Error;
 
@@ -901,7 +902,7 @@ namespace Conformance
                     XrSessionBeginInfo sessionBeginInfo{
                         XR_TYPE_SESSION_BEGIN_INFO, globalData.GetPlatformPlugin()->PopulateNextFieldForStruct(XR_TYPE_SESSION_BEGIN_INFO),
                         globalData.options.viewConfigurationValue};
-                    REQUIRE(xrBeginSession(autoBasicSession->session, &sessionBeginInfo) == XR_SUCCESS);
+                    REQUIRE(xrBeginSession(autoBasicSession->GetSession(), &sessionBeginInfo) == XR_SUCCESS);
                 }
 
                 // Fall-through because frames must be submitted to get promoted from READY to SYNCHRONIZED.
@@ -1056,6 +1057,13 @@ namespace Conformance
             assert(false);
             return false;
         }
+    }
+
+    std::string SubtestTitle(const char* testName, size_t subtestIdx, size_t subtestCount)
+    {
+        std::ostringstream os;
+        os << testName << ": subtest " << (subtestIdx + 1) << " of " << subtestCount;
+        return os.str();
     }
 
     // Encapsulates xrEnumerateSwapchainFormats/xrCreateSwapchain

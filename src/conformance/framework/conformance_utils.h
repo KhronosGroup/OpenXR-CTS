@@ -639,7 +639,7 @@ namespace Conformance
             return session != XR_NULL_HANDLE;
         }
 
-    public:
+    private:
         int optionFlags{0};  //< Enum OptionFlags
 
         XrInstance instance{XR_NULL_HANDLE};
@@ -653,6 +653,7 @@ namespace Conformance
         std::unique_ptr<EventQueue> m_eventQueue;
         std::unique_ptr<EventReader> m_privateEventReader;
 
+    public:
         std::array<XrPath, 2> handSubactionArray;  // "/user/hand/left", "/user/hand/right"
 
         // Optional created types.
@@ -674,6 +675,10 @@ namespace Conformance
     /// @relates AutoBasicSession
     std::ostream& operator<<(std::ostream& os, AutoBasicSession const& sess);
 
+    /// Calls your @p predicate repeatedly, pausing @p delay in between, until either it returns `true` or @p timeout has elapsed.
+    ///
+    /// @note This does not inherently submit frames and is thus likely to cause problems if a session is running unless your predicate submits a frame!
+    /// It is intended for use outside of a frame loop.
     bool WaitUntilPredicateWithTimeout(const std::function<bool()>& predicate, const std::chrono::nanoseconds timeout,
                                        const std::chrono::nanoseconds delay);
 
@@ -852,5 +857,25 @@ namespace Conformance
         std::memset(&s, 1, sizeof(s));
         s.type = type;
         s.next = next;
+    }
+
+    /// Make a test title given a short test name, a subtest index, and the number of subtests.
+    std::string SubtestTitle(const char* testName, size_t subtestIdx, size_t subtestCount);
+
+    /// Make a test title given a short test name, a subtest index, and the array of subtests.
+    template <typename T, std::size_t Size>
+    inline std::string SubtestTitle(const char* testName, size_t subtestIdx, const T (&subtestArray)[Size])
+    {
+        (void)subtestArray;
+        return SubtestTitle(testName, subtestIdx, Size);
+    }
+
+    /// Make pixel subrects based on normalized subrects and pixel dimensions
+    inline XrRect2Di CropImage(int32_t width, int32_t height, XrRect2Df crop)
+    {
+        return {
+            {int32_t(crop.offset.x * width), int32_t(crop.offset.y * height)},
+            {int32_t(crop.extent.width * width), int32_t(crop.extent.height * height)},
+        };
     }
 }  // namespace Conformance

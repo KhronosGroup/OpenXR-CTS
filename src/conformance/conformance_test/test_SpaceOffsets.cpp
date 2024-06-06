@@ -125,7 +125,7 @@ namespace Conformance
                 const XrSwapchain swapchain = compositionHelper.CreateSwapchain(compositionHelper.DefaultColorSwapchainCreateInfo(
                     viewProperties[j].recommendedImageRectWidth, viewProperties[j].recommendedImageRectHeight));
                 const_cast<XrSwapchainSubImage&>(projLayer->views[j].subImage) = compositionHelper.MakeDefaultSubImage(swapchain, 0);
-                swapchains.push_back(swapchain);
+                swapchains.emplace_back(swapchain);
             }
         }
 
@@ -263,7 +263,7 @@ namespace Conformance
                 XRC_CHECK_THROW_XRCMD(xrCreateActionSpace(compositionHelper.GetSession(), &spaceCreateInfo, &handSpace));
                 handSpaces.spaces.emplace_back(pose, handSpace);
             }
-            spaces.push_back(std::move(handSpaces));
+            spaces.emplace_back(std::move(handSpaces));
         }
 
         constexpr XrVector3f gnomonScale{0.025f, 0.025f, 0.025f};
@@ -510,7 +510,7 @@ namespace Conformance
                         }
 
                         if (spaceLocation.locationFlags & XR_SPACE_LOCATION_POSITION_VALID_BIT) {
-                            cubes.push_back(Cube{spaceLocation.pose, liveCubeScale});
+                            cubes.emplace_back(spaceLocation.pose, liveCubeScale);
                         }
                     }
                 }
@@ -530,7 +530,7 @@ namespace Conformance
                         return tint;
                     };
                     for (const auto& pastPose : space.pastPosesInLocalSpace) {
-                        meshes.push_back(MeshDrawable{pastGnomonMesh, pastPose, gnomonScale, dimNonFailed()});
+                        meshes.emplace_back(pastGnomonMesh, pastPose, gnomonScale, dimNonFailed());
                     }
 
                     struct predictionTrail
@@ -554,12 +554,7 @@ namespace Conformance
                                 auto predictedDisplayTimeAtStep =
                                     frameState.predictedDisplayTime + step * frameState.predictedDisplayPeriod;
                                 gnomon.doSimulationStep({0.f, 0.f, 0.f}, predictedDisplayTimeAtStep);
-                                meshes.push_back(MeshDrawable{
-                                    trail.mesh,
-                                    gnomon.pose,
-                                    gnomonScale,
-                                    dimNonFailed(trail.tint),
-                                });
+                                meshes.emplace_back(trail.mesh, gnomon.pose, gnomonScale, dimNonFailed(trail.tint));
                             }
                         }
                     }
@@ -574,7 +569,7 @@ namespace Conformance
                 viewState.viewStateFlags & XR_VIEW_STATE_ORIENTATION_VALID_BIT) {
                 const auto& views = std::get<std::vector<XrView>>(viewData);
 
-                // Render into each view port of the wide swapchain using the projection layer view fov and pose.
+                // Render into each of the separate swapchains using the projection layer view fov and pose.
                 for (size_t view = 0; view < views.size(); view++) {
                     compositionHelper.AcquireWaitReleaseImage(swapchains[view], [&](const XrSwapchainImageBaseHeader* swapchainImage) {
                         GetGlobalData().graphicsPlugin->ClearImageSlice(swapchainImage);

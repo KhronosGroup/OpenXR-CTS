@@ -14,25 +14,31 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "RGBAImage.h"
+#include "composition_utils.h"
 #include "conformance_framework.h"
 #include "conformance_utils.h"
+#include "utilities/array_size.h"
 #include "utilities/bitmask_generator.h"
 #include "utilities/bitmask_to_string.h"
-#include "utilities/generator.h"
 #include "utilities/xrduration_literals.h"
 
 #include <catch2/catch_test_macros.hpp>
+#include <catch2/generators/catch_generators_range.hpp>
+#include <catch2/generators/catch_generators.hpp>
 #include <openxr/openxr.h>
 
 #include <array>
-#include <memory>
+#include <cmath>
+#include <ostream>
+#include <sstream>
 #include <vector>
 
 namespace Conformance
 {
     // This implements an automated programmatic test of the equirect layer. However, a separate visual
     // test is required in order to validate that it looks correct.
-    TEST_CASE("XR_KHR_composition_layer_equirect", "")
+    TEST_CASE("XR_KHR_composition_layer_equirect", "[XR_KHR_composition_layer_equirect]")
     {
         GlobalData& globalData = GetGlobalData();
         if (!globalData.IsInstanceExtensionSupported(XR_KHR_COMPOSITION_LAYER_EQUIRECT_EXTENSION_NAME)) {
@@ -97,7 +103,7 @@ namespace Conformance
 
                     for (float radius : radiusTestArray) {
                         std::array<XrQuaternionf, 4> orientationTestArray{
-                            XrQuaternionf{0, 0, 0, 1},                        // No rotation; looking down the +x axis
+                            Quat::Identity,                                   // No rotation; looking down the +x axis
                             XrQuaternionf{0, 0.7071f, 0, 0.7071f},            // 90 degree rotation around y axis; looking down the -z axis.
                             XrQuaternionf{0, 0, 0.7071f, 0.7071f},            // 90 degree rotation around z axis; looking down the +y axis.
                             XrQuaternionf{-0.709f, 0.383f, -0.381f, -0.454f}  // Misc value.
@@ -170,4 +176,169 @@ namespace Conformance
 
         frameIterator.RunToSessionState(XR_SESSION_STATE_STOPPING);
     }
+
+    struct EquirectTestCase
+    {
+
+        const char* name;
+        const char* description;
+        XrReferenceSpaceType spaceType;
+        XrPosef pose;
+        float radius;
+        XrVector2f scale;
+        XrVector2f bias;
+        const char* imagePath;
+        XrRect2Df crop;  // normalised
+        const char* exampleImagePath;
+    };
+
+    const EquirectTestCase equirectTestCases[] = {
+        {
+            "Full sphere at infinity",
+            "A 360 view of the inside of a cube at infinity",
+            XR_REFERENCE_SPACE_TYPE_LOCAL,
+            {Quat::Identity, {0, 0, 0}},
+            0.0,  // infinity
+            {1.0, 1.0},
+            {0.0, 0.0},
+            "equirect_8k.png",
+            {{0, 0}, {1, 1}},
+            "equirect_local_space.jpg",
+        },
+        {
+            "Full sphere at infinity (view space)",
+            "A 360 view of the inside of a cube at infinity, rendered in view space",
+            XR_REFERENCE_SPACE_TYPE_VIEW,
+            {Quat::Identity, {0, 0, 0}},
+            0.0,  // infinity
+            {1.0, 1.0},
+            {0.0, 0.0},
+            "equirect_8k.png",
+            {{0, 0}, {1, 1}},
+            "equirect_view_space.jpg",
+        },
+        {
+            "Full sphere at 2m",
+            "A 2m sphere with the same cube test image. "
+            "Example is shown from above and to the left of the origin to make the perspective effect clear.",
+            XR_REFERENCE_SPACE_TYPE_LOCAL,
+            {Quat::Identity, {0, 0, 0}},
+            2.0,
+            {1.0, 1.0},
+            {0.0, 0.0},
+            "equirect_8k.png",
+            {{0, 0}, {1, 1}},
+            "equirect_finite.jpg",
+        },
+        {
+            "Full sphere at 2m with pose",
+            "A 2m sphere with the same cube test image, forward by 1.5m and rotated downward",
+            XR_REFERENCE_SPACE_TYPE_LOCAL,
+            {Quat::FromAxisAngle({1, 0, 0}, Math::DegToRad(45)), {0, 0, -1.5}},
+            2.0,
+            {1.0, 1.0},
+            {0.0, 0.0},
+            "equirect_8k.png",
+            {{0, 0}, {1, 1}},
+            "equirect_finite_pose.jpg",
+        },
+        {
+            "90 degree section at infinity (cropped file)",
+            "A 90 degree section in both latitude and longitude, rendered at infinity",
+            XR_REFERENCE_SPACE_TYPE_LOCAL,
+            {Quat::Identity, {0, 0, 0}},
+            0.0,  // infinity
+            {0.25, 0.5},
+            {0.0, 0.0},
+            "equirect_central_90.png",
+            {{0, 0}, {1, 1}},
+            "equirect_central_90.jpg",
+        },
+        {
+            "90 degree section at infinity (cropped image extents)",
+            "A 90 degree section in both latitude and longitude, rendered at infinity",
+            XR_REFERENCE_SPACE_TYPE_LOCAL,
+            {Quat::Identity, {0, 0, 0}},
+            0.0,  // infinity
+            {0.25, 0.5},
+            {0.0, 0.0},
+            "equirect_8k.png",
+            {{3 / 8., 2 / 8.}, {1 / 4., 2 / 4.}},
+            "equirect_central_90.jpg",
+        },
+    };
+
+    static RGBAImageCache& EquirectImageCache()
+    {
+        static RGBAImageCache imageCache{};
+        imageCache.Init();
+        return imageCache;
+    }
+    TEST_CASE("XR_KHR_composition_layer_equirect-interactive", "[composition][interactive][no_auto]")
+    {
+        GlobalData& globalData = GetGlobalData();
+
+        if (!globalData.IsInstanceExtensionSupported(XR_KHR_COMPOSITION_LAYER_EQUIRECT_EXTENSION_NAME)) {
+            SKIP(XR_KHR_COMPOSITION_LAYER_EQUIRECT_EXTENSION_NAME " not supported");
+        }
+
+        auto testCaseIdx = GENERATE(Catch::Generators::range<size_t>(0, ArraySize(equirectTestCases)));
+        auto testCase = equirectTestCases[testCaseIdx];
+        // technically redundant because GENERATE() makes a "section", but this makes the test more usable.
+        DYNAMIC_SECTION("Test condition name: " << testCase.name)
+        {
+            INFO("Test condition description: " << testCase.description);
+            std::string testTitle = SubtestTitle("Equirect layer", testCaseIdx, equirectTestCases);
+            CompositionHelper compositionHelper(testTitle.c_str(), {XR_KHR_COMPOSITION_LAYER_EQUIRECT_EXTENSION_NAME});
+
+            std::ostringstream oss;
+            oss << testTitle << ": " << testCase.name << '\n';
+            oss << testCase.description << '\n';
+
+            InteractiveLayerManager interactiveLayerManager(compositionHelper, testCase.exampleImagePath, oss.str().c_str());
+            compositionHelper.GetInteractionManager().AttachActionSets();
+            compositionHelper.BeginSession();
+
+            const XrSpace space = compositionHelper.CreateReferenceSpace(testCase.spaceType);
+
+            std::shared_ptr<RGBAImage> image = EquirectImageCache().Load(testCase.imagePath);
+            int32_t imageWidth = image->width;
+            int32_t imageHeight = image->height;
+
+            XrSwapchainCreateInfo createInfo = compositionHelper.DefaultColorSwapchainCreateInfo(
+                imageWidth, imageHeight, XR_SWAPCHAIN_CREATE_STATIC_IMAGE_BIT, GetGlobalData().graphicsPlugin->GetSRGBA8Format());
+
+            // copying to this swapchain, not rendering to it
+            createInfo.usageFlags |= XR_SWAPCHAIN_USAGE_TRANSFER_DST_BIT;
+
+            XrSwapchain swapchain = compositionHelper.CreateSwapchain(createInfo);
+
+            compositionHelper.AcquireWaitReleaseImage(swapchain, [&](const XrSwapchainImageBaseHeader* swapchainImage) {
+                GetGlobalData().graphicsPlugin->CopyRGBAImage(swapchainImage, 0, *image);
+            });
+
+            XrCompositionLayerEquirectKHR equirectLayer{XR_TYPE_COMPOSITION_LAYER_EQUIRECT_KHR};
+            equirectLayer.space = space;
+            equirectLayer.eyeVisibility = XR_EYE_VISIBILITY_BOTH;
+            equirectLayer.subImage.swapchain = swapchain;
+            equirectLayer.subImage.imageRect = CropImage(imageWidth, imageHeight, testCase.crop);
+            equirectLayer.subImage.imageArrayIndex = 0;
+            equirectLayer.pose = testCase.pose;
+            equirectLayer.radius = testCase.radius;
+            equirectLayer.scale = testCase.scale;
+            equirectLayer.bias = testCase.bias;
+
+            interactiveLayerManager.AddBackgroundLayer(&equirectLayer);
+
+            RenderLoop(compositionHelper.GetSession(), [&](const XrFrameState& frameState) {
+                if (!interactiveLayerManager.EndFrame(frameState)) {
+                    // user has marked this test as complete
+                    SUCCEED("User has marked this test as passed");
+                    return false;
+                }
+                return true;
+            }).Loop();
+        }
+    }
+
 }  // namespace Conformance

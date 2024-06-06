@@ -267,7 +267,11 @@ namespace Conformance
         OpenGLFallbackDepthTexture() = default;
         ~OpenGLFallbackDepthTexture()
         {
-            Reset();
+            if (Allocated()) {
+                // As implementation as ::Reset(), but should not throw in destructor
+                glDeleteTextures(1, &m_texture);
+            }
+            m_texture = 0;
         }
         void Reset()
         {

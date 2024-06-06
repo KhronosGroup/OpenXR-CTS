@@ -24,18 +24,21 @@ using namespace DirectX;
 namespace Pbr
 {
     D3D12Primitive::D3D12Primitive(UINT indexCount, Conformance::D3D12BufferWithUpload<uint32_t> indexBuffer, UINT vertexCount,
-                                   Conformance::D3D12BufferWithUpload<Pbr::Vertex> vertexBuffer, std::shared_ptr<D3D12Material> material)
+                                   Conformance::D3D12BufferWithUpload<Pbr::Vertex> vertexBuffer, std::shared_ptr<D3D12Material> material,
+                                   std::vector<NodeIndex_t> nodeIndices)
         : m_indexCount(indexCount)
         , m_indexBuffer(std::move(indexBuffer))
         , m_vertexCount(vertexCount)
         , m_vertexBuffer(std::move(vertexBuffer))
         , m_material(std::move(material))
+        , m_nodeIndices(std::move(nodeIndices))
     {
     }
 
     D3D12Primitive::D3D12Primitive(Pbr::D3D12Resources& pbrResources, const Pbr::PrimitiveBuilder& primitiveBuilder,
                                    const std::shared_ptr<Pbr::D3D12Material>& material)
-        : D3D12Primitive((UINT)primitiveBuilder.Indices.size(), {}, (UINT)primitiveBuilder.Vertices.size(), {}, std::move(material))
+        : D3D12Primitive((UINT)primitiveBuilder.Indices.size(), {}, (UINT)primitiveBuilder.Vertices.size(), {}, std::move(material),
+                         primitiveBuilder.NodeIndicesVector())
     {
         m_indexBuffer.Allocate(pbrResources.GetDevice().Get(), primitiveBuilder.Indices.size());
         m_vertexBuffer.Allocate(pbrResources.GetDevice().Get(), primitiveBuilder.Vertices.size());
@@ -58,7 +61,7 @@ namespace Pbr
 
     D3D12Primitive D3D12Primitive::Clone(Pbr::D3D12Resources const& pbrResources) const
     {
-        return D3D12Primitive(m_indexCount, m_indexBuffer, m_vertexCount, m_vertexBuffer, m_material->Clone(pbrResources));
+        return D3D12Primitive(m_indexCount, m_indexBuffer, m_vertexCount, m_vertexBuffer, m_material->Clone(pbrResources), m_nodeIndices);
     }
 
     void D3D12Primitive::UpdateBuffers(Pbr::D3D12Resources& pbrResources, const Pbr::PrimitiveBuilder& primitiveBuilder)

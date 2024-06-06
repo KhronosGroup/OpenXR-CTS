@@ -17,8 +17,39 @@
 #include "action_utils.h"
 #include "composition_utils.h"
 #include "report.h"
+#include "utilities/throw_helpers.h"
+
+#include <sstream>
 
 using namespace std::chrono_literals;
+
+namespace
+{
+    static std::vector<XrPath> EnumerateBoundSourcesForAction(XrSession session, const XrBoundSourcesForActionEnumerateInfo& info)
+    {
+        std::vector<XrPath> boundSources;
+        uint32_t countOutput;
+        XRC_CHECK_THROW_XRCMD(xrEnumerateBoundSourcesForAction(session, &info, 0, &countOutput, nullptr));
+        if (countOutput != 0) {
+            boundSources.resize(countOutput, XR_NULL_PATH);
+            XRC_CHECK_THROW_XRCMD(
+                xrEnumerateBoundSourcesForAction(session, &info, (uint32_t)boundSources.size(), &countOutput, boundSources.data()));
+        }
+        return boundSources;
+    }
+    static std::string GetInputSourceLocalizedName(XrSession session, const XrInputSourceLocalizedNameGetInfo& getInfo)
+    {
+        uint32_t countOutput;
+        XRC_CHECK_THROW_XRCMD(xrGetInputSourceLocalizedName(session, &getInfo, 0, &countOutput, nullptr));
+        if (countOutput != 0) {
+            std::vector<char> localizedStringBuf(countOutput, '\0');
+            XRC_CHECK_THROW_XRCMD(xrGetInputSourceLocalizedName(session, &getInfo, (uint32_t)localizedStringBuf.size(), &countOutput,
+                                                                localizedStringBuf.data()));
+            return std::string(localizedStringBuf.data());
+        }
+        return "";
+    }
+}  // namespace
 
 namespace Conformance
 {
@@ -151,6 +182,68 @@ namespace Conformance
         m_displayMessageImage = std::move(image);
         m_lastMessage = message;
     }
+
+    std::string ActionLayerManager::ListActionsLocalized(XrActionsSyncInfo syncInfo, nonstd::span<XrAction> actions,
+                                                         const char* actionDelimiter, const char* pathDelimiter, const char* pathSuffix)
+    {
+        std::vector<std::string> localizedUserPathsAndProfiles;
+        std::map<std::string, std::vector<XrPath>> pathsByLocalizedUserPathAndProfile;
+
+        for (auto& action : actions) {
+            XrBoundSourcesForActionEnumerateInfo info{XR_TYPE_BOUND_SOURCES_FOR_ACTION_ENUMERATE_INFO};
+            info.action = action;
+
+            SyncActionsUntilFocusWithMessage(syncInfo);
+
+            std::vector<XrPath> boundSources = EnumerateBoundSourcesForAction(m_compositionHelper.GetSession(), info);
+
+            for (XrPath path : boundSources) {
+                XrInputSourceLocalizedNameGetInfo getInfo{XR_TYPE_INPUT_SOURCE_LOCALIZED_NAME_GET_INFO};
+                getInfo.sourcePath = path;
+                getInfo.whichComponents =
+                    XR_INPUT_SOURCE_LOCALIZED_NAME_USER_PATH_BIT | XR_INPUT_SOURCE_LOCALIZED_NAME_INTERACTION_PROFILE_BIT;
+
+                std::string localizedUserPathAndProfile = GetInputSourceLocalizedName(m_compositionHelper.GetSession(), getInfo);
+
+                auto& paths = pathsByLocalizedUserPathAndProfile[localizedUserPathAndProfile];
+                if (paths.size() == 0) {
+                    localizedUserPathsAndProfiles.push_back(localizedUserPathAndProfile);
+                }
+                paths.push_back(path);
+            }
+        }
+
+        std::ostringstream oss;
+
+        bool firstPathAndProfile = true;
+        for (auto& localizedUserPathAndProfile : localizedUserPathsAndProfiles) {
+            if (!firstPathAndProfile) {
+                oss << pathDelimiter;
+            }
+            firstPathAndProfile = false;
+
+            oss << localizedUserPathAndProfile << pathSuffix;
+
+            auto paths = pathsByLocalizedUserPathAndProfile[localizedUserPathAndProfile];
+
+            bool firstComponent = true;
+            for (XrPath path : paths) {
+                if (!firstComponent) {
+                    oss << actionDelimiter;
+                }
+                firstComponent = false;
+
+                XrInputSourceLocalizedNameGetInfo getInfo{XR_TYPE_INPUT_SOURCE_LOCALIZED_NAME_GET_INFO};
+                getInfo.sourcePath = path;
+                getInfo.whichComponents = XR_INPUT_SOURCE_LOCALIZED_NAME_COMPONENT_BIT;
+
+                std::string localizedComponent = GetInputSourceLocalizedName(m_compositionHelper.GetSession(), getInfo);
+
+                oss << localizedComponent;
+            }
+        }
+        return oss.str();
+    }  // namespace Conformance
 
     ActionLayerManager::MessageQuad::MessageQuad(CompositionHelper& compositionHelper, std::unique_ptr<RGBAImage> image,
                                                  XrSpace compositionSpace)

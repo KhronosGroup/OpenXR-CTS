@@ -77,11 +77,13 @@ namespace
 namespace Pbr
 {
     D3D11Primitive::D3D11Primitive(UINT indexCount, Microsoft::WRL::ComPtr<ID3D11Buffer> indexBuffer,
-                                   Microsoft::WRL::ComPtr<ID3D11Buffer> vertexBuffer, std::shared_ptr<D3D11Material> material)
+                                   Microsoft::WRL::ComPtr<ID3D11Buffer> vertexBuffer, std::shared_ptr<D3D11Material> material,
+                                   std::vector<NodeIndex_t> nodeIndices)
         : m_indexCount(indexCount)
         , m_indexBuffer(std::move(indexBuffer))
         , m_vertexBuffer(std::move(vertexBuffer))
         , m_material(std::move(material))
+        , m_nodeIndices(std::move(nodeIndices))
     {
     }
 
@@ -89,13 +91,14 @@ namespace Pbr
                                    const std::shared_ptr<Pbr::D3D11Material>& material, bool updatableBuffers)
         : D3D11Primitive((UINT)primitiveBuilder.Indices.size(),
                          CreateIndexBuffer(pbrResources.GetDevice().Get(), primitiveBuilder, updatableBuffers),
-                         CreateVertexBuffer(pbrResources.GetDevice().Get(), primitiveBuilder, updatableBuffers), std::move(material))
+                         CreateVertexBuffer(pbrResources.GetDevice().Get(), primitiveBuilder, updatableBuffers), std::move(material),
+                         primitiveBuilder.NodeIndicesVector())
     {
     }
 
     D3D11Primitive D3D11Primitive::Clone(Pbr::D3D11Resources const& pbrResources) const
     {
-        return D3D11Primitive(m_indexCount, m_indexBuffer, m_vertexBuffer, m_material->Clone(pbrResources));
+        return D3D11Primitive(m_indexCount, m_indexBuffer, m_vertexBuffer, m_material->Clone(pbrResources), m_nodeIndices);
     }
 
     void D3D11Primitive::UpdateBuffers(_In_ ID3D11Device* device, _In_ ID3D11DeviceContext* context,

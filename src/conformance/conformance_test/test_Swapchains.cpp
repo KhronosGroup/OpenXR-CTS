@@ -53,7 +53,7 @@ namespace Conformance
         XrSwapchainImageWaitInfo imageWaitInfo{XR_TYPE_SWAPCHAIN_IMAGE_WAIT_INFO};
         imageWaitInfo.timeout = XR_INFINITE_DURATION;
 
-        // acquire/wait/render/release all the images.
+        // Acquire/wait/render/release all the images.
         for (uint32_t i = 0; i < colorImageCount; ++i) {
             CAPTURE(i);
             uint32_t colorImageIndex = UINT32_MAX;
@@ -433,6 +433,9 @@ namespace Conformance
                 REQUIRE_THAT(imageFormatArray, VectorHasOnlyUniqueElements<int64_t>());
                 REQUIRE_THAT(imageFormatArray, !Catch::Matchers::VectorContains(kImageFormatInvalid));
 
+                XrInstance instance = session.GetInstance();
+                XrSystemId systemId = session.GetSystemId();
+
                 SECTION("Swapchain creation test parameters")
                 {
                     // At this point, session.viewConfigurationViewVector has the system's set of view configurations,
@@ -446,8 +449,7 @@ namespace Conformance
                     for (int64_t imageFormat : imageFormatArray) {
 
                         SwapchainCreateTestParameters tp;
-                        REQUIRE(globalData.graphicsPlugin->GetSwapchainCreateTestParameters(session.instance, session, session.systemId,
-                                                                                            imageFormat, &tp));
+                        REQUIRE(globalData.graphicsPlugin->GetSwapchainCreateTestParameters(instance, session, systemId, imageFormat, &tp));
 
                         // TODO remove this when we can mark it as a stencil-only format.
                         if (tp.imageFormatName == "VK_FORMAT_S8_UINT") {
@@ -485,6 +487,8 @@ namespace Conformance
 
         // Set up the session we will use for the testing
         AutoBasicSession session(AutoBasicSession::OptionFlags::beginSession);
+        XrInstance instance = session.GetInstance();
+        XrSystemId systemId = session.GetSystemId();
 
         // Enumerate formats
         std::vector<int64_t> imageFormatArray;
@@ -498,7 +502,7 @@ namespace Conformance
             }
         }
         const XrSwapchainCreateInfo defaultColorCreateInfo =
-            FindDefaultColorSwapchainCreateInfo(imageFormatArray, session.instance, session.systemId, session);
+            FindDefaultColorSwapchainCreateInfo(imageFormatArray, instance, systemId, session);
 
         // In the past, bugs in the CTS have made this fail when called back to back (or called right before graphics shutdown)
         // Because it can be hard to debug failures in these tests, try to provoke this particular issue early,
@@ -509,8 +513,7 @@ namespace Conformance
         for (int64_t imageFormat : imageFormatArray) {
 
             SwapchainCreateTestParameters tp;
-            REQUIRE(
-                globalData.graphicsPlugin->GetSwapchainCreateTestParameters(session.instance, session, session.systemId, imageFormat, &tp));
+            REQUIRE(globalData.graphicsPlugin->GetSwapchainCreateTestParameters(instance, session, systemId, imageFormat, &tp));
 
             if (!tp.supportsRendering) {
                 // skip this format
@@ -603,12 +606,11 @@ namespace Conformance
                                                                          swapchainImages->GetColorImageArray()));
 
                         DoRenderTest(swapchainImages, colorImageCount, colorCreateInfo, colorSwapchain.get());
+                        GetGlobalData().graphicsPlugin->Flush();
                     }
 
                     // SwapchainScoped will have xrDestroySwapchain
-                    // now we need to flush
                     GetGlobalData().graphicsPlugin->ClearSwapchainCache();
-                    GetGlobalData().graphicsPlugin->Flush();
                 }
             }
         }

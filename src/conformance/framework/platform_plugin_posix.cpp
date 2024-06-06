@@ -66,7 +66,7 @@ namespace Conformance
         }
 
     private:
-        bool initialized;
+        bool initialized{};
     };
 
     std::shared_ptr<IPlatformPlugin> CreatePlatformPlugin()
