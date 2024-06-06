@@ -21,6 +21,7 @@
 #include "input_testinputdevice.h"
 #include "utilities/event_reader.h"
 
+#include <nonstd/span.hpp>
 #include <openxr/openxr.h>
 
 #include <chrono>
@@ -125,6 +126,8 @@ namespace Conformance
         /// directly or indirectly, through this helper object.
         /// (Does not directly submit frames!)
         void DisplayMessage(const std::string& message) override;
+        std::string ListActionsLocalized(XrActionsSyncInfo syncInfo, nonstd::span<XrAction> actions, const char* actionDelimiter,
+                                         const char* pathDelimiter, const char* pathSuffix);
 
     private:
         std::mutex m_mutex;

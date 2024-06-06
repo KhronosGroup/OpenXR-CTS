@@ -43,14 +43,15 @@ namespace
 namespace Pbr
 {
     VulkanPrimitive::VulkanPrimitive(Conformance::VertexBuffer<Pbr::Vertex, uint32_t>&& vertexAndIndexBuffer,
-                                     std::shared_ptr<VulkanMaterial> material)
-        : m_vertexAndIndexBuffer(std::move(vertexAndIndexBuffer)), m_material(std::move(material))
+                                     std::shared_ptr<VulkanMaterial> material, std::vector<NodeIndex_t> nodeIndices)
+        : m_vertexAndIndexBuffer(std::move(vertexAndIndexBuffer)), m_material(std::move(material)), m_nodeIndices(std::move(nodeIndices))
     {
     }
 
     VulkanPrimitive::VulkanPrimitive(Pbr::VulkanResources const& pbrResources, const Pbr::PrimitiveBuilder& primitiveBuilder,
                                      const std::shared_ptr<Pbr::VulkanMaterial>& material)
-        : VulkanPrimitive(CreateVertexBuffer(pbrResources.GetDevice(), pbrResources.GetMemoryAllocator(), primitiveBuilder), material)
+        : VulkanPrimitive(CreateVertexBuffer(pbrResources.GetDevice(), pbrResources.GetMemoryAllocator(), primitiveBuilder),
+                          std::move(material), primitiveBuilder.NodeIndicesVector())
     {
     }
 

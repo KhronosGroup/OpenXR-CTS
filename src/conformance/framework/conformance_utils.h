@@ -639,7 +639,7 @@ namespace Conformance
             return session != XR_NULL_HANDLE;
         }
 
-    public:
+    private:
         int optionFlags{0};  //< Enum OptionFlags
 
         XrInstance instance{XR_NULL_HANDLE};
@@ -653,6 +653,7 @@ namespace Conformance
         std::unique_ptr<EventQueue> m_eventQueue;
         std::unique_ptr<EventReader> m_privateEventReader;
 
+    public:
         std::array<XrPath, 2> handSubactionArray;  // "/user/hand/left", "/user/hand/right"
 
         // Optional created types.

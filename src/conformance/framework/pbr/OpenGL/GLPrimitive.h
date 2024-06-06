@@ -30,7 +30,7 @@ namespace Pbr
 
         GLPrimitive() = delete;
         GLPrimitive(GLsizei indexCount, ScopedGLBuffer indexBuffer, ScopedGLBuffer vertexBuffer, ScopedGLVertexArray vao,
-                    std::shared_ptr<GLMaterial> material);
+                    std::shared_ptr<GLMaterial> material, std::vector<NodeIndex_t> nodeIndices);
         GLPrimitive(const Pbr::PrimitiveBuilder& primitiveBuilder, const std::shared_ptr<GLMaterial>& material);
 
         void UpdateBuffers(const Pbr::PrimitiveBuilder& primitiveBuilder);
@@ -47,6 +47,12 @@ namespace Pbr
             m_material = std::move(material);
         }
 
+        /// Get the nodes that the primitive represents
+        const std::vector<NodeIndex_t>& GetNodes() const
+        {
+            return m_nodeIndices;
+        }
+
     protected:
         friend class GLModelInstance;
         void Render(FillMode fillMode) const;
@@ -58,5 +64,6 @@ namespace Pbr
         ScopedGLBuffer m_vertexBuffer;
         ScopedGLVertexArray m_vao;
         std::shared_ptr<GLMaterial> m_material;
+        std::vector<NodeIndex_t> m_nodeIndices;
     };
 }  // namespace Pbr

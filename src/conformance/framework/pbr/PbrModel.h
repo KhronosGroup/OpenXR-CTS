@@ -12,6 +12,8 @@
 
 #include "common/xr_linear.h"
 
+#include <nonstd/span.hpp>
+
 #include <memory>
 #include <stdint.h>
 #include <string>
@@ -20,6 +22,13 @@
 
 namespace Pbr
 {
+    enum class NodeVisibility
+    {
+        Invisible,
+        Visible,
+        Inherit,
+    };
+
     // Node for creating a hierarchy of transforms. These transforms are referenced by vertices in the model's primitives.
     struct Node
     {
@@ -136,6 +145,9 @@ namespace Pbr
         {
             const auto nodeCount = m_model->GetNodeCount();
 
+            m_nodeLocalVisibilities.resize(nodeCount, NodeVisibility::Inherit);
+            m_resolvedVisibilities.resize(nodeCount, true);
+
             m_nodeLocalTransforms.reserve(m_model->GetNodeCount());
             for (const Node& node : m_model->GetNodes()) {
                 m_nodeLocalTransforms.push_back(node.GetLocalTransform());
@@ -146,11 +158,19 @@ namespace Pbr
         }
 
     public:
+        /// Sets the visibility of a node. Nodes otherwise inherit
+        void SetNodeVisibility(NodeIndex_t nodeIndex, NodeVisibility visibility)
+        {
+            m_nodeLocalVisibilities[nodeIndex] = visibility;
+            // Visibility is implemented by scaling to 0
+            m_resolvedTransformsNeedUpdate = true;
+        }
+
         /// Overrides the local transform of a node
         void SetNodeTransform(NodeIndex_t nodeIndex, const XrMatrix4x4f& transform)
         {
             m_nodeLocalTransforms[nodeIndex] = transform;
-            m_nodeLocalTransformsUpdated = true;
+            m_resolvedTransformsNeedUpdate = true;
         }
 
         /// Combine a transform with the original transform from the asset
@@ -164,15 +184,15 @@ namespace Pbr
         }
 
     protected:
-        bool WereNodeLocalTransformsUpdated() const noexcept
+        bool ResolvedTransformsNeedUpdate() const noexcept
         {
-            return m_nodeLocalTransformsUpdated;
+            return m_resolvedTransformsNeedUpdate;
         }
-        void ClearTransformsUpdatedFlag() noexcept
+        void MarkResolvedTransformsUpdated() noexcept
         {
-            m_nodeLocalTransformsUpdated = false;
+            m_resolvedTransformsNeedUpdate = false;
         }
-        void ResolveTransforms(bool transpose)
+        void ResolveTransformsAndVisibilities(bool transpose)
         {
             const auto& nodes = m_model->GetNodes();
 
@@ -182,11 +202,18 @@ namespace Pbr
             XrMatrix4x4f identityMatrix;
             XrMatrix4x4f_CreateIdentity(&identityMatrix);
             for (const auto& node : nodes) {
-                assert(node.GetParentNodeIndex() == Model::RootParentNodeIndex || node.GetParentNodeIndex() < node.GetNodeIndex());
-                const XrMatrix4x4f& parentTransform = (node.GetParentNodeIndex() == Model::RootParentNodeIndex)
-                                                          ? identityMatrix
-                                                          : m_resolvedTransforms[node.GetParentNodeIndex()];
+                bool parentIsRoot = node.GetParentNodeIndex() == Model::RootParentNodeIndex;
+                assert(parentIsRoot || node.GetParentNodeIndex() < node.GetNodeIndex());
+
+                bool parentVisibility = (parentIsRoot) ? true : m_resolvedVisibilities[node.GetParentNodeIndex()];
+                NodeVisibility nodeVisibility = m_nodeLocalVisibilities[node.GetNodeIndex()];
+
+                m_resolvedVisibilities[node.GetNodeIndex()] =
+                    nodeVisibility == NodeVisibility::Inherit ? parentVisibility : nodeVisibility == NodeVisibility::Visible;
+
+                const XrMatrix4x4f& parentTransform = (parentIsRoot) ? identityMatrix : m_resolvedTransforms[node.GetParentNodeIndex()];
                 const XrMatrix4x4f& nodeTransform = m_nodeLocalTransforms[node.GetNodeIndex()];
+
                 if (transpose) {
                     XrMatrix4x4f nodeTransformTranspose;
                     XrMatrix4x4f_Transpose(&nodeTransformTranspose, &nodeTransform);
@@ -194,6 +221,14 @@ namespace Pbr
                 }
                 else {
                     XrMatrix4x4f_Multiply(&m_resolvedTransforms[node.GetNodeIndex()], &parentTransform, &nodeTransform);
+                }
+            }
+
+            // After all node transforms and visibilities have been propagated,
+            // zero the transforms of invisible nodes.
+            for (const auto& node : nodes) {
+                if (!m_resolvedVisibilities[node.GetNodeIndex()]) {
+                    XrMatrix4x4f_CreateScale(&m_resolvedTransforms[node.GetNodeIndex()], 0, 0, 0);
                 }
             }
         }
@@ -208,11 +243,23 @@ namespace Pbr
             return m_resolvedTransforms;
         }
 
+        bool IsAnyNodeVisible(nonstd::span<const NodeIndex_t> nodeIndices) const
+        {
+            for (NodeIndex_t node : nodeIndices) {
+                if (m_resolvedVisibilities[node]) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
     private:
-        bool m_nodeLocalTransformsUpdated{true};
+        bool m_resolvedTransformsNeedUpdate{true};
 
         // Derived classes may depend on this being immutable.
         std::shared_ptr<const Model> m_model;
+        std::vector<NodeVisibility> m_nodeLocalVisibilities;
+        std::vector<bool> m_resolvedVisibilities;
         // This is initialized to the local transform of every node,
         // but can be updated for this instance.
         std::vector<XrMatrix4x4f> m_nodeLocalTransforms;

@@ -46,6 +46,9 @@ namespace Pbr
             if (primitive.GetMaterial()->Hidden)
                 continue;
 
+            if (!IsAnyNodeVisible(primitive.GetNodes()))
+                continue;
+
             primitive.Render(directCommandBuffer, pbrResources, descriptorSet, renderPass, sampleCount,
                              m_modelConstantBuffer.MakeDescriptor(), m_modelTransformsStructuredBuffer.MakeDescriptor());
         }
@@ -90,12 +93,12 @@ namespace Pbr
     void VulkanModelInstance::UpdateTransforms(Pbr::VulkanResources& /* pbrResources */)
     {
         // If none of the node transforms have changed, no need to recompute/update the model transform structured buffer.
-        if (WereNodeLocalTransformsUpdated()) {
-            ResolveTransforms(false);
+        if (ResolvedTransformsNeedUpdate()) {
+            ResolveTransformsAndVisibilities(false);
 
             // Update node transform structured buffer.
             m_modelTransformsStructuredBuffer.Update(GetResolvedTransforms());
-            ClearTransformsUpdatedFlag();
+            MarkResolvedTransformsUpdated();
         }
     }
 }  // namespace Pbr

@@ -105,18 +105,19 @@ namespace
 namespace Pbr
 {
     GLPrimitive::GLPrimitive(GLsizei indexCount, ScopedGLBuffer indexBuffer, ScopedGLBuffer vertexBuffer, ScopedGLVertexArray vao,
-                             std::shared_ptr<GLMaterial> material)
+                             std::shared_ptr<GLMaterial> material, std::vector<NodeIndex_t> nodeIndices)
         : m_indexCount(indexCount)
         , m_indexBuffer(std::move(indexBuffer))
         , m_vertexBuffer(std::move(vertexBuffer))
         , m_vao(std::move(vao))
         , m_material(std::move(material))
+        , m_nodeIndices(std::move(nodeIndices))
     {
     }
 
     GLPrimitive::GLPrimitive(const Pbr::PrimitiveBuilder& primitiveBuilder, const std::shared_ptr<Pbr::GLMaterial>& material)
         : GLPrimitive((GLsizei)primitiveBuilder.Indices.size(), CreateIndexBuffer(primitiveBuilder), CreateVertexBuffer(primitiveBuilder),
-                      ScopedGLVertexArray{}, std::move(material))
+                      ScopedGLVertexArray{}, std::move(material), primitiveBuilder.NodeIndicesVector())
     {
         m_vao = CreateVAO(m_vertexBuffer, m_indexBuffer);
     }

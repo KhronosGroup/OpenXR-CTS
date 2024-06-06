@@ -44,8 +44,10 @@ namespace Conformance
         /// @param skipInteraction Skip human interaction (i.e. this is a hint for the conformance extension)
         /// @param detectionBoolAction Boolean action used to determine if device became active
         /// @param detectionActionSet Action Set associated with detectionBoolAction
+        /// @param extraMessage text to append to the end of the message (after "Turn on/off " and the top level user path),
+        /// if any.
         virtual void SetDeviceActive(bool state, bool skipInteraction = false, XrAction detectionBoolAction = XR_NULL_HANDLE,
-                                     XrActionSet detectionActionSet = XR_NULL_HANDLE) = 0;
+                                     XrActionSet detectionActionSet = XR_NULL_HANDLE, const char* extraMessage = nullptr) = 0;
 
         /// Call xrLocateSpace until XR_SPACE_LOCATION_ORIENTATION_VALID matches the desired state
         struct WaitUntilLosesOrGainsOrientationValidity

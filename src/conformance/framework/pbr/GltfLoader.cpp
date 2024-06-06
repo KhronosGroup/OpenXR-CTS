@@ -87,6 +87,8 @@ namespace
                     primitiveBuilder.Indices[startIndex + i + 1] = startVertex + primitive.Indices[i + 2];
                     primitiveBuilder.Indices[startIndex + i + 2] = startVertex + primitive.Indices[i + 1];
                 }
+
+                primitiveBuilder.NodeIndices.insert(transformIndex);
             }
         }
 

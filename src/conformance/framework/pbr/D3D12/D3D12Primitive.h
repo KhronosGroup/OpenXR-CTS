@@ -25,7 +25,8 @@ namespace Pbr
 
         D3D12Primitive() = delete;
         D3D12Primitive(UINT indexCount, Conformance::D3D12BufferWithUpload<uint32_t> indexBuffer, UINT vertexCount,
-                       Conformance::D3D12BufferWithUpload<Pbr::Vertex> vertexBuffer, std::shared_ptr<D3D12Material> material);
+                       Conformance::D3D12BufferWithUpload<Pbr::Vertex> vertexBuffer, std::shared_ptr<D3D12Material> material,
+                       std::vector<NodeIndex_t> nodeIndices);
         D3D12Primitive(Pbr::D3D12Resources& pbrResources, const Pbr::PrimitiveBuilder& primitiveBuilder,
                        const std::shared_ptr<D3D12Material>& material);
 
@@ -41,6 +42,12 @@ namespace Pbr
         void SetMaterial(std::shared_ptr<D3D12Material> material)
         {
             m_material = std::move(material);
+        }
+
+        /// Get the nodes that the primitive represents
+        const std::vector<NodeIndex_t>& GetNodes() const
+        {
+            return m_nodeIndices;
         }
 
     protected:
@@ -59,5 +66,6 @@ namespace Pbr
         std::shared_ptr<D3D12Material> m_material;
         Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> m_srvHeap;
         Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> m_samplerHeap;
+        std::vector<NodeIndex_t> m_nodeIndices;
     };
 }  // namespace Pbr

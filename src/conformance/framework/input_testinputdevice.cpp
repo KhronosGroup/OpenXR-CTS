@@ -304,10 +304,10 @@ namespace Conformance
         }
 
         void SetDeviceActive(bool state, bool skipInteraction = false, XrAction detectionBoolAction = XR_NULL_HANDLE,
-                             XrActionSet detectionActionSet = XR_NULL_HANDLE) override
+                             XrActionSet detectionActionSet = XR_NULL_HANDLE, const char* extraMessage = nullptr) override
         {
 
-            SetDeviceActiveWithoutWaiting(state);
+            SetDeviceActiveWithoutWaiting(state, extraMessage);
             if (skipInteraction) {
                 // Skip human interaction, this is just a hint to the runtime via the extension
                 return;

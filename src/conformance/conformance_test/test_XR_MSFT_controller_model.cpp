@@ -507,7 +507,7 @@ namespace Conformance
                 viewState.viewStateFlags & XR_VIEW_STATE_ORIENTATION_VALID_BIT) {
                 const auto& views = std::get<std::vector<XrView>>(viewData);
 
-                // Render into each view port of the wide swapchain using the projection layer view fov and pose.
+                // Render into each of the separate swapchains using the projection layer view fov and pose.
                 for (size_t view = 0; view < views.size(); view++) {
                     compositionHelper.AcquireWaitReleaseImage(swapchains[view],  //
                                                               [&](const XrSwapchainImageBaseHeader* swapchainImage) {

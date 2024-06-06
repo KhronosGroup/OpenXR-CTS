@@ -15,6 +15,7 @@
 #include <openxr/openxr.h>
 
 #include <array>
+#include <set>
 #include <stddef.h>
 #include <stdint.h>
 #include <tuple>
@@ -92,6 +93,7 @@ namespace Pbr
     {
         std::vector<Pbr::Vertex> Vertices;
         std::vector<uint32_t> Indices;
+        std::set<NodeIndex_t> NodeIndices;
 
         PrimitiveBuilder& AddSphere(float diameter, uint32_t tessellation, Pbr::NodeIndex_t transformIndex = Pbr::RootNodeIndex,
                                     RGBAColor vertexColor = RGBA::White);
@@ -103,5 +105,7 @@ namespace Pbr
                                   RGBAColor vertexColor = RGBA::White);
         PrimitiveBuilder& AddQuad(XrVector2f sideLengths, XrVector2f textureCoord = {1, 1},
                                   Pbr::NodeIndex_t transformIndex = Pbr::RootNodeIndex, RGBAColor vertexColor = RGBA::White);
+
+        std::vector<NodeIndex_t> NodeIndicesVector() const;
     };
 }  // namespace Pbr

@@ -1430,8 +1430,7 @@ namespace Conformance
 
                     OPTIONAL_DISCONNECTABLE_DEVICE_INFO
                     {
-                        actionLayerManager.DisplayMessage("Turn off " + defaultDevicePathStr + " and wait for 20s");
-                        defaultInputDevice->SetDeviceActive(false, true);
+                        defaultInputDevice->SetDeviceActive(false, true, XR_NULL_HANDLE, XR_NULL_HANDLE, " and wait for 20s");
 
                         WaitUntilPredicateWithTimeout(
                             [&]() {
@@ -1443,9 +1442,9 @@ namespace Conformance
                             },
                             20s, kActionWaitDelay);
 
-                        actionLayerManager.DisplayMessage("Wait for 5s");
-
                         actionLayerManager.SyncActionsUntilFocusWithMessage(syncInfo);
+
+                        actionLayerManager.DisplayMessage("Wait for 5s");
 
                         WaitUntilPredicateWithTimeout(
                             [&]() {
@@ -2667,8 +2666,6 @@ namespace Conformance
                     for (const auto& hapticActionData : hapticActions) {
                         CAPTURE(hapticActionData.Data.Path);
 
-                        XrPath inputSourcePath = StringToPath(instance, booleanActions[0].Data.Path);
-
                         XrHapticActionInfo hapticActionInfo{XR_TYPE_HAPTIC_ACTION_INFO};
                         hapticActionInfo.action = hapticActionData.Action;
 
@@ -2679,10 +2676,27 @@ namespace Conformance
 
                         XrActionStateGetInfo getInfo{XR_TYPE_ACTION_STATE_GET_INFO};
 
+                        std::vector<ActionInfo> selectedBooleanActions;
+                        std::copy_if(std::begin(booleanActions), std::end(booleanActions), std::back_inserter(selectedBooleanActions),
+                                     [&](const ActionInfo& action) {
+                                         const std::string path = std::string(action.Data.Path);
+                                         const std::string suffix = "/click";
+                                         return path.size() >= suffix.size() &&
+                                                path.compare(path.size() - suffix.size(), suffix.size(), suffix) == 0;
+                                     });
+
+                        bool foundClickActions = selectedBooleanActions.size() > 0;
+                        if (!foundClickActions) {
+                            // At time of writing, only hand and eye interaction profiles have no path ending in /click.
+                            selectedBooleanActions = booleanActions;
+                        }
+
+                        XrPath inputSourcePath = StringToPath(instance, selectedBooleanActions[0].Data.Path);
+
                         XrAction currentBooleanAction{XR_NULL_HANDLE};
                         auto GetBooleanButtonState = [&]() -> bool {
                             actionLayerManager.SyncActionsUntilFocusWithMessage(syncInfo);
-                            for (const auto& booleanActionData : booleanActions) {
+                            for (const auto& booleanActionData : selectedBooleanActions) {
                                 getInfo.action = booleanActionData.Action;
                                 REQUIRE_RESULT(xrGetActionStateBoolean(session, &getInfo, &booleanState), XR_SUCCESS);
                                 if (booleanState.changedSinceLastSync && booleanState.currentState) {
@@ -2693,7 +2707,19 @@ namespace Conformance
                             return false;
                         };
 
-                        actionLayerManager.DisplayMessage("Press any button when you feel the 3 second haptic vibration");
+                        std::string buttonPromptPrefix =
+                            foundClickActions ? "Activate any boolean .../click action " : "Activate any boolean action ";
+                        std::string buttonPromptSuffix = "";
+                        if (foundClickActions) {
+                            std::vector<XrAction> actions;
+                            std::transform(selectedBooleanActions.begin(), selectedBooleanActions.end(), std::back_inserter(actions),
+                                           [](ActionInfo& action) { return action.Action; });
+                            std::string localizedActions = actionLayerManager.ListActionsLocalized(syncInfo, actions, ", ", "; on ", ": ");
+                            buttonPromptSuffix = ", e.g.:\non " + localizedActions;
+                        }
+
+                        std::string prompt = buttonPromptPrefix + "when you feel the 3 second haptic vibration" + buttonPromptSuffix;
+                        actionLayerManager.DisplayMessage(prompt);
                         actionLayerManager.IterateFrame();
                         actionLayerManager.Sleep_For(3s);
 
@@ -2711,6 +2737,7 @@ namespace Conformance
                         currentBooleanAction = XR_NULL_HANDLE;
                         WaitUntilPredicateWithTimeout(
                             [&]() {
+                                actionLayerManager.DisplayMessage(prompt);
                                 actionLayerManager.GetRenderLoop().IterateFrame();
                                 return GetBooleanButtonState();
                             },
@@ -2724,7 +2751,11 @@ namespace Conformance
 
                         REQUIRE_RESULT(xrStopHapticFeedback(session, &hapticActionInfo), XR_SUCCESS);
 
-                        actionLayerManager.DisplayMessage("Press any button when you feel the short haptic pulse");
+                        actionLayerManager.IterateFrame();
+                        actionLayerManager.Sleep_For(0.25s);
+
+                        prompt = buttonPromptPrefix + "when you feel the short haptic pulse" + buttonPromptSuffix;
+                        actionLayerManager.DisplayMessage(prompt);
                         actionLayerManager.IterateFrame();
                         actionLayerManager.Sleep_For(3s);
 
@@ -2741,6 +2772,7 @@ namespace Conformance
                         currentBooleanAction = XR_NULL_HANDLE;
                         WaitUntilPredicateWithTimeout(
                             [&]() {
+                                actionLayerManager.DisplayMessage(prompt);
                                 actionLayerManager.GetRenderLoop().IterateFrame();
                                 return GetBooleanButtonState();
                             },
@@ -3115,6 +3147,8 @@ namespace Conformance
     }
     TEST_CASE("action_space_creation_pre_suggest", "[actions][interactive]")
     {
+        bool useLeftHand = GetGlobalData().leftHandUnderTest;
+
         // Creates two ActionSpaces
         // - one is created before xrSuggestInteractionProfileBindings and
         // - the other is created after.
@@ -3149,13 +3183,14 @@ namespace Conformance
         XrSpace earlyActionSpace{XR_NULL_HANDLE};
         REQUIRE_RESULT(xrCreateActionSpace(session, &earlySpaceCreateInfo, &earlyActionSpace), XR_SUCCESS);
 
-        std::shared_ptr<IInputTestDevice> leftHandInputDevice = CreateTestDevice(
+        std::shared_ptr<IInputTestDevice> handInputDevice = CreateTestDevice(
             &actionLayerManager, &compositionHelper.GetInteractionManager(), instance, session, simpleControllerInteractionProfile,
-            StringToPath(instance, "/user/hand/left"), GetSimpleInteractionProfile().InputSourcePaths);
+            StringToPath(instance, useLeftHand ? "/user/hand/left" : "/user/hand/right"), GetSimpleInteractionProfile().InputSourcePaths);
 
         compositionHelper.GetInteractionManager().AddActionSet(actionSet);
         compositionHelper.GetInteractionManager().AddActionBindings(
-            simpleControllerInteractionProfile, {{poseAction, StringToPath(instance, "/user/hand/left/input/grip/pose")}});
+            simpleControllerInteractionProfile,
+            {{poseAction, StringToPath(instance, useLeftHand ? "/user/hand/left/input/grip/pose" : "/user/hand/right/input/grip/pose")}});
         compositionHelper.GetInteractionManager().AttachActionSets();
 
         // Create an ActionSpace after xrSuggestInteractionProfileBindings
@@ -3173,7 +3208,7 @@ namespace Conformance
         createSpaceInfo.poseInReferenceSpace = XrPosefCPP();
         REQUIRE_RESULT(xrCreateReferenceSpace(session, &createSpaceInfo, &localSpace), XR_SUCCESS);
 
-        leftHandInputDevice->SetDeviceActive(true);
+        handInputDevice->SetDeviceActive(true);
 
         XrActionsSyncInfo syncInfo{XR_TYPE_ACTIONS_SYNC_INFO};
         syncInfo.countActiveActionSets = 1;
@@ -3183,7 +3218,7 @@ namespace Conformance
 
         XrSpaceLocation earlyLocation{XR_TYPE_SPACE_LOCATION, nullptr};
         XrSpaceLocation lateLocation{XR_TYPE_SPACE_LOCATION, nullptr};
-        REQUIRE(actionLayerManager.WaitForLocatability("left", lateActionSpace, localSpace, &lateLocation, true));
+        REQUIRE(actionLayerManager.WaitForLocatability(useLeftHand ? "left" : "right", lateActionSpace, localSpace, &lateLocation, true));
 
         XrTime locateTime =
             actionLayerManager.GetRenderLoop().GetLastPredictedDisplayTime();  // Ensure using the same time for the pose checks.
@@ -3292,14 +3327,13 @@ namespace Conformance
             syncInfo.activeActionSets = bothSets;
 
             auto PosesAreEqual = [](XrPosef a, XrPosef b) -> bool {
-                constexpr float e = 0.001f;  // 1mm
-                return (a.position.x == Catch::Approx(b.position.x).epsilon(e)) &&
-                       (a.position.y == Catch::Approx(b.position.y).epsilon(e)) &&
-                       (a.position.z == Catch::Approx(b.position.z).epsilon(e)) &&
-                       (a.orientation.x == Catch::Approx(b.orientation.x).epsilon(e)) &&
-                       (a.orientation.y == Catch::Approx(b.orientation.y).epsilon(e)) &&
-                       (a.orientation.z == Catch::Approx(b.orientation.z).epsilon(e)) &&
-                       (a.orientation.w == Catch::Approx(b.orientation.w).epsilon(e));
+                constexpr float e = 0.002f;  // 1mm (margin below means absolute delta)
+                return (a.position.x == Catch::Approx(b.position.x).margin(e)) && (a.position.y == Catch::Approx(b.position.y).margin(e)) &&
+                       (a.position.z == Catch::Approx(b.position.z).margin(e)) &&
+                       (a.orientation.x == Catch::Approx(b.orientation.x).margin(e)) &&
+                       (a.orientation.y == Catch::Approx(b.orientation.y).margin(e)) &&
+                       (a.orientation.z == Catch::Approx(b.orientation.z).margin(e)) &&
+                       (a.orientation.w == Catch::Approx(b.orientation.w).margin(e));
             };
 
             if (globalData.leftHandUnderTest && globalData.rightHandUnderTest) {
@@ -3484,7 +3518,8 @@ namespace Conformance
                     INFO("Off controller should not have active pose state");
                     REQUIRE(getActionStatePoseActive() == false);
                 }
-                availableInputDevice->SetDeviceActiveWithoutWaiting(true, " - Will wait 20s whether or not the controller is found");
+                availableInputDevice->SetDeviceActiveWithoutWaiting(
+                    true, "\nSlowly move the controller for 20 seconds to prevent it from going idle and becoming inactive.");
                 {
                     INFO("Pose state should not become active again without a call to xrSyncActions");
                     REQUIRE(getActionStatePoseActive() == false);

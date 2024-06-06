@@ -40,6 +40,9 @@ namespace Pbr
             if (primitive.GetMaterial()->Hidden)
                 continue;
 
+            if (!IsAnyNodeVisible(primitive.GetNodes()))
+                continue;
+
             primitive.GetMaterial()->Bind(context, pbrResources);
             primitive.Render(context);
         }
@@ -82,12 +85,12 @@ namespace Pbr
     void D3D11ModelInstance::UpdateTransforms(Pbr::D3D11Resources const& /*pbrResources*/, _In_ ID3D11DeviceContext* context)
     {
         // If none of the node transforms have changed, no need to recompute/update the model transform structured buffer.
-        if (WereNodeLocalTransformsUpdated()) {
-            ResolveTransforms(true);
+        if (ResolvedTransformsNeedUpdate()) {
+            ResolveTransformsAndVisibilities(true);
 
             // Update node transform structured buffer.
             context->UpdateSubresource(m_modelTransformsStructuredBuffer.Get(), 0, nullptr, GetResolvedTransforms().data(), 0, 0);
-            ClearTransformsUpdatedFlag();
+            MarkResolvedTransformsUpdated();
         }
     }
 }  // namespace Pbr

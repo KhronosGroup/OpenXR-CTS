@@ -35,7 +35,8 @@ namespace Pbr
         using Collection = std::vector<VulkanPrimitive>;
 
         VulkanPrimitive() = delete;
-        VulkanPrimitive(Conformance::VertexBuffer<Pbr::Vertex, uint32_t>&& vertexAndIndexBuffer, std::shared_ptr<VulkanMaterial> material);
+        VulkanPrimitive(Conformance::VertexBuffer<Pbr::Vertex, uint32_t>&& vertexAndIndexBuffer, std::shared_ptr<VulkanMaterial> material,
+                        std::vector<NodeIndex_t> nodeIndices);
         VulkanPrimitive(Pbr::VulkanResources const& pbrResources, const Pbr::PrimitiveBuilder& primitiveBuilder,
                         const std::shared_ptr<Pbr::VulkanMaterial>& material);
 
@@ -51,6 +52,12 @@ namespace Pbr
             m_material = std::move(material);
         }
 
+        /// Get the nodes that the primitive represents
+        const std::vector<NodeIndex_t>& GetNodes() const
+        {
+            return m_nodeIndices;
+        }
+
     protected:
         friend class VulkanModelInstance;
         void Render(Conformance::CmdBuffer& directCommandBuffer, VulkanResources& pbrResources, VkDescriptorSet descriptorSet,
@@ -63,5 +70,6 @@ namespace Pbr
     private:
         Conformance::VertexBuffer<Vertex, uint32_t> m_vertexAndIndexBuffer;
         std::shared_ptr<VulkanMaterial> m_material;
+        std::vector<NodeIndex_t> m_nodeIndices;
     };
 }  // namespace Pbr

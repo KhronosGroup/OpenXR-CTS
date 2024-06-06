@@ -17,6 +17,51 @@ particular, since it is primarily software, pull requests may be integrated as
 they are accepted even between periodic updates. However, versions that are not
 signed tags on the `approved` branch are not valid for conformance submission.
 
+## OpenXR CTS 1.1.37.0 (2024-06-06)
+
+- Conformance Tests
+  - Fix: Action test when constrained to right-hand only.
+    ([internal MR 3244](https://gitlab.khronos.org/openxr/openxr/merge_requests/3244))
+  - Fix: Skip StereoWithFoveatedInset-interactive if runtime does not support it.
+    ([internal MR 3350](https://gitlab.khronos.org/openxr/openxr/merge_requests/3350))
+  - Fix: Dangling pointer in action test.
+    ([internal MR 3357](https://gitlab.khronos.org/openxr/openxr/merge_requests/3357))
+  - Fix: Resolve Vulkan validation warning in some tests.
+    ([internal MR 3367](https://gitlab.khronos.org/openxr/openxr/merge_requests/3367))
+  - Improvement: Use absolute epsilons for pose comparison in action test.
+    ([internal MR 3244](https://gitlab.khronos.org/openxr/openxr/merge_requests/3244))
+  - Improvement: Improve user message in action test.
+    ([internal MR 3244](https://gitlab.khronos.org/openxr/openxr/merge_requests/3244))
+  - Improvement: Only suggest binding the proceed action to ".../click" binding
+    paths, rather than all binding paths of boolean type, to avoid accidental
+    activation.
+    ([internal MR 3312](https://gitlab.khronos.org/openxr/openxr/merge_requests/3312))
+  - Improvement: Support hiding parts of models in the glTF/PBR subsystem.
+    ([internal MR 3314](https://gitlab.khronos.org/openxr/openxr/merge_requests/3314))
+  - Improvement: Code cleanup.
+    ([internal MR 3323](https://gitlab.khronos.org/openxr/openxr/merge_requests/3323))
+  - Improvement: Use new `XR_API_VERSION_1_0` and `XR_API_VERSION_1_1` defines.
+    ([internal MR 3329](https://gitlab.khronos.org/openxr/openxr/merge_requests/3329))
+  - Improvement: Relax too strict palm/grip_surface pose assumptions.
+    ([internal MR 3345](https://gitlab.khronos.org/openxr/openxr/merge_requests/3345))
+  - Improvement: Add missing extension name tags to test cases.
+    ([internal MR 3355](https://gitlab.khronos.org/openxr/openxr/merge_requests/3355))
+  - Improvement: Code cleanup and documentation in helper utilities.
+    ([internal MR 3356](https://gitlab.khronos.org/openxr/openxr/merge_requests/3356))
+  - Improvement: Code cleanups and clang-tidy fixes.
+    ([internal MR 3357](https://gitlab.khronos.org/openxr/openxr/merge_requests/3357),
+    [internal MR 3357](https://gitlab.khronos.org/openxr/openxr/merge_requests/3357))
+  - Improvement: Improve readability of test sources.
+    ([internal MR 3358](https://gitlab.khronos.org/openxr/openxr/merge_requests/3358))
+  - Improvement: Fix duplicated inaccurate code comment.
+    ([internal MR 3372](https://gitlab.khronos.org/openxr/openxr/merge_requests/3372))
+  - New test: Add interactive tests for `XR_KHR_composition_layer_equirect` and
+    `XR_KHR_composition_layer_equirect2`.
+    ([internal MR 2882](https://gitlab.khronos.org/openxr/openxr/merge_requests/2882))
+  - New test: Add test which creates a session but does not call
+    `xrDestroySession`.
+    ([internal MR 3247](https://gitlab.khronos.org/openxr/openxr/merge_requests/3247))
+
 ## OpenXR CTS 1.1.36.0 (2024-04-25)
 
 This new release supports testing both OpenXR 1.0 and OpenXR 1.1 runtimes, and
