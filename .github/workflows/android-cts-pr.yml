@@ -34,7 +34,7 @@ jobs:
         run: "cd src/conformance && ./gradlew assembleDebug"
 
       - name: Upload OpenXR-CTS Android
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: OpenXR-CTS Android
           path: src/conformance/build/outputs/apk/debug/conformance-debug.apk
