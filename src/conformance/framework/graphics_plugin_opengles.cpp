@@ -276,8 +276,7 @@ namespace Conformance
 
         bool IsImageFormatKnown(int64_t imageFormat) const override;
 
-        bool GetSwapchainCreateTestParameters(XrInstance instance, XrSession session, XrSystemId systemId, int64_t imageFormat,
-                                              SwapchainCreateTestParameters* swapchainTestParameters) override;
+        bool GetSwapchainCreateTestParameters(int64_t imageFormat, SwapchainCreateTestParameters* swapchainTestParameters) override;
 
         bool ValidateSwapchainImages(int64_t imageFormat, const SwapchainCreateTestParameters* tp, XrSwapchain swapchain,
                                      uint32_t* imageCount) const override;
@@ -968,8 +967,7 @@ namespace Conformance
     // Retrieves SwapchainCreateTestParameters for the caller, handling plaform-specific functionality
     // internally.
     // Executes testing CHECK/REQUIRE directives, and may throw a Catch2 failure exception.
-    bool OpenGLESGraphicsPlugin::GetSwapchainCreateTestParameters(XrInstance /*instance*/, XrSession /*session*/, XrSystemId /*systemId*/,
-                                                                  int64_t imageFormat,
+    bool OpenGLESGraphicsPlugin::GetSwapchainCreateTestParameters(int64_t imageFormat,
                                                                   SwapchainCreateTestParameters* swapchainTestParameters) noexcept(false)
     {
         // Swapchain image format support by the runtime is specified by the xrEnumerateSwapchainFormats function.

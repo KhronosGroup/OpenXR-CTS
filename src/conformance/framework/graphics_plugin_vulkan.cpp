@@ -624,8 +624,7 @@ namespace Conformance
 
         bool IsImageFormatKnown(int64_t imageFormat) const override;
 
-        bool GetSwapchainCreateTestParameters(XrInstance instance, XrSession session, XrSystemId systemId, int64_t imageFormat,
-                                              SwapchainCreateTestParameters* swapchainTestParameters) override;
+        bool GetSwapchainCreateTestParameters(int64_t imageFormat, SwapchainCreateTestParameters* swapchainTestParameters) override;
 
         bool ValidateSwapchainImages(int64_t imageFormat, const SwapchainCreateTestParameters* tp, XrSwapchain swapchain,
                                      uint32_t* imageCount) const override;
@@ -1595,8 +1594,7 @@ namespace Conformance
         return ::Conformance::IsImageFormatKnown(GetSwapchainFormatData(), imageFormat);
     }
 
-    bool VulkanGraphicsPlugin::GetSwapchainCreateTestParameters(XrInstance /*instance*/, XrSession /*session*/, XrSystemId /*systemId*/,
-                                                                int64_t imageFormat, SwapchainCreateTestParameters* swapchainTestParameters)
+    bool VulkanGraphicsPlugin::GetSwapchainCreateTestParameters(int64_t imageFormat, SwapchainCreateTestParameters* swapchainTestParameters)
     {
         *swapchainTestParameters = ::Conformance::GetSwapchainCreateTestParameters(GetSwapchainFormatData(), imageFormat);
         return true;

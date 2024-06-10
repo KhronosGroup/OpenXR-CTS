@@ -293,8 +293,7 @@ namespace Conformance
         /// Retrieves SwapchainCreateTestParameters for the caller, handling platform-specific functionality
         /// internally.
         /// Executes testing CHECK/REQUIRE directives, and may throw a Catch2 failure exception.
-        virtual bool GetSwapchainCreateTestParameters(XrInstance /*unused*/, XrSession /*unused*/, XrSystemId /*unused*/,
-                                                      int64_t /*unused*/, SwapchainCreateTestParameters* /*unused*/) noexcept(false) = 0;
+        virtual bool GetSwapchainCreateTestParameters(int64_t /*unused*/, SwapchainCreateTestParameters* /*unused*/) noexcept(false) = 0;
 
         /// Given an imageFormat and its test parameters and the XrSwapchain resulting from xrCreateSwapchain,
         /// validate the images in any platform-specific way.
