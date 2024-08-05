@@ -19,7 +19,7 @@ set -e
 (
     PREFERRED_CLANG_FORMAT=clang-format-14
     ACCEPTABLE_CLANG_FORMATS=(
-        ${PREFERRED_CLANG_FORMAT}
+        "${PREFERRED_CLANG_FORMAT}"
         clang-format-11
         clang-format-12
         clang-format-13
@@ -53,6 +53,7 @@ set -e
     find . \( -wholename ./src/\* \) \
         -and -not \( -wholename ./src/external/\* \) \
         -and -not \( -wholename ./src/scripts/\* \) \
+        -and -not \( -ipath \*/.cxx/\* \) \
         -and \( -name \*.hpp -or -name \*.h -or -name \*.cpp -or -name \*.c \) \
         -exec "${CLANGFORMAT}" -i -style=file {} +
 
