@@ -407,41 +407,31 @@ namespace Pbr
 
     static VkFilter ConvertMinFilter(int glMinFilter)
     {
-        return glMinFilter == TINYGLTF_TEXTURE_FILTER_NEAREST
-                   ? VK_FILTER_NEAREST
-                   : glMinFilter == TINYGLTF_TEXTURE_FILTER_LINEAR
-                         ? VK_FILTER_LINEAR
-                         : glMinFilter == TINYGLTF_TEXTURE_FILTER_NEAREST_MIPMAP_NEAREST
-                               ? VK_FILTER_NEAREST
-                               : glMinFilter == TINYGLTF_TEXTURE_FILTER_LINEAR_MIPMAP_NEAREST
-                                     ? VK_FILTER_LINEAR
-                                     : glMinFilter == TINYGLTF_TEXTURE_FILTER_NEAREST_MIPMAP_LINEAR
-                                           ? VK_FILTER_NEAREST
-                                           : glMinFilter == TINYGLTF_TEXTURE_FILTER_LINEAR_MIPMAP_LINEAR ? VK_FILTER_LINEAR
-                                                                                                         : VK_FILTER_NEAREST;
+        return glMinFilter == TINYGLTF_TEXTURE_FILTER_NEAREST                  ? VK_FILTER_NEAREST
+               : glMinFilter == TINYGLTF_TEXTURE_FILTER_LINEAR                 ? VK_FILTER_LINEAR
+               : glMinFilter == TINYGLTF_TEXTURE_FILTER_NEAREST_MIPMAP_NEAREST ? VK_FILTER_NEAREST
+               : glMinFilter == TINYGLTF_TEXTURE_FILTER_LINEAR_MIPMAP_NEAREST  ? VK_FILTER_LINEAR
+               : glMinFilter == TINYGLTF_TEXTURE_FILTER_NEAREST_MIPMAP_LINEAR  ? VK_FILTER_NEAREST
+               : glMinFilter == TINYGLTF_TEXTURE_FILTER_LINEAR_MIPMAP_LINEAR   ? VK_FILTER_LINEAR
+                                                                               : VK_FILTER_NEAREST;
     }
 
     static VkSamplerMipmapMode ConvertMipFilter(int glMinFilter)
     {
-        return glMinFilter == TINYGLTF_TEXTURE_FILTER_NEAREST
-                   ? VK_SAMPLER_MIPMAP_MODE_NEAREST
-                   : glMinFilter == TINYGLTF_TEXTURE_FILTER_LINEAR
-                         ? VK_SAMPLER_MIPMAP_MODE_NEAREST
-                         : glMinFilter == TINYGLTF_TEXTURE_FILTER_NEAREST_MIPMAP_NEAREST
-                               ? VK_SAMPLER_MIPMAP_MODE_NEAREST
-                               : glMinFilter == TINYGLTF_TEXTURE_FILTER_LINEAR_MIPMAP_NEAREST
-                                     ? VK_SAMPLER_MIPMAP_MODE_NEAREST
-                                     : glMinFilter == TINYGLTF_TEXTURE_FILTER_NEAREST_MIPMAP_LINEAR
-                                           ? VK_SAMPLER_MIPMAP_MODE_LINEAR
-                                           : glMinFilter == TINYGLTF_TEXTURE_FILTER_LINEAR_MIPMAP_LINEAR ? VK_SAMPLER_MIPMAP_MODE_LINEAR
-                                                                                                         : VK_SAMPLER_MIPMAP_MODE_NEAREST;
+        return glMinFilter == TINYGLTF_TEXTURE_FILTER_NEAREST                  ? VK_SAMPLER_MIPMAP_MODE_NEAREST
+               : glMinFilter == TINYGLTF_TEXTURE_FILTER_LINEAR                 ? VK_SAMPLER_MIPMAP_MODE_NEAREST
+               : glMinFilter == TINYGLTF_TEXTURE_FILTER_NEAREST_MIPMAP_NEAREST ? VK_SAMPLER_MIPMAP_MODE_NEAREST
+               : glMinFilter == TINYGLTF_TEXTURE_FILTER_LINEAR_MIPMAP_NEAREST  ? VK_SAMPLER_MIPMAP_MODE_NEAREST
+               : glMinFilter == TINYGLTF_TEXTURE_FILTER_NEAREST_MIPMAP_LINEAR  ? VK_SAMPLER_MIPMAP_MODE_LINEAR
+               : glMinFilter == TINYGLTF_TEXTURE_FILTER_LINEAR_MIPMAP_LINEAR   ? VK_SAMPLER_MIPMAP_MODE_LINEAR
+                                                                               : VK_SAMPLER_MIPMAP_MODE_NEAREST;
     }
 
     static VkFilter ConvertMagFilter(int glMagFilter)
     {
-        return glMagFilter == TINYGLTF_TEXTURE_FILTER_NEAREST
-                   ? VK_FILTER_NEAREST
-                   : glMagFilter == TINYGLTF_TEXTURE_FILTER_LINEAR ? VK_FILTER_LINEAR : VK_FILTER_NEAREST;
+        return glMagFilter == TINYGLTF_TEXTURE_FILTER_NEAREST  ? VK_FILTER_NEAREST
+               : glMagFilter == TINYGLTF_TEXTURE_FILTER_LINEAR ? VK_FILTER_LINEAR
+                                                               : VK_FILTER_NEAREST;
     }
 
     /// Create a Vulkan sampler from a tinygltf Sampler.
@@ -452,14 +442,12 @@ namespace Pbr
         info.minFilter = ConvertMinFilter(sampler.minFilter);
         info.mipmapMode = ConvertMipFilter(sampler.minFilter);
         info.magFilter = ConvertMagFilter(sampler.magFilter);
-        info.addressModeU = sampler.wrapS == TINYGLTF_TEXTURE_WRAP_CLAMP_TO_EDGE
-                                ? VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE
-                                : sampler.wrapS == TINYGLTF_TEXTURE_WRAP_MIRRORED_REPEAT ? VK_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT
-                                                                                         : VK_SAMPLER_ADDRESS_MODE_REPEAT;
-        info.addressModeV = sampler.wrapT == TINYGLTF_TEXTURE_WRAP_CLAMP_TO_EDGE
-                                ? VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE
-                                : sampler.wrapT == TINYGLTF_TEXTURE_WRAP_MIRRORED_REPEAT ? VK_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT
-                                                                                         : VK_SAMPLER_ADDRESS_MODE_REPEAT;
+        info.addressModeU = sampler.wrapS == TINYGLTF_TEXTURE_WRAP_CLAMP_TO_EDGE     ? VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE
+                            : sampler.wrapS == TINYGLTF_TEXTURE_WRAP_MIRRORED_REPEAT ? VK_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT
+                                                                                     : VK_SAMPLER_ADDRESS_MODE_REPEAT;
+        info.addressModeV = sampler.wrapT == TINYGLTF_TEXTURE_WRAP_CLAMP_TO_EDGE     ? VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE
+                            : sampler.wrapT == TINYGLTF_TEXTURE_WRAP_MIRRORED_REPEAT ? VK_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT
+                                                                                     : VK_SAMPLER_ADDRESS_MODE_REPEAT;
         info.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
         info.maxAnisotropy = 1;
         info.compareOp = VK_COMPARE_OP_ALWAYS;

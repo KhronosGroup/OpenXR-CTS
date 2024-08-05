@@ -657,8 +657,9 @@ namespace GltfHelper
         material.OcclusionStrength = (float)loadScalarFromParameter(gltfMaterial.additionalValues, "occlusionTexture", "strength", 1.0);
 
         auto alphaMode = readParameterFactorAsString(gltfMaterial.additionalValues, "alphaMode", "OPAQUE");
-        material.AlphaMode =
-            alphaMode == "MASK" ? AlphaModeType::Mask : alphaMode == "BLEND" ? AlphaModeType::Blend : AlphaModeType::Opaque;
+        material.AlphaMode = alphaMode == "MASK"    ? AlphaModeType::Mask
+                             : alphaMode == "BLEND" ? AlphaModeType::Blend
+                                                    : AlphaModeType::Opaque;
         material.DoubleSided = readParameterFactorAsBoolean(gltfMaterial.additionalValues, "doubleSided", false);
         material.AlphaCutoff = (float)readParameterFactorAsScalar(gltfMaterial.additionalValues, "alphaCutoff", 0.5f);
 

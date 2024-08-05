@@ -191,36 +191,23 @@ namespace Pbr
 
     static D3D11_FILTER D3D11ConvertFilter(int glMinFilter, int glMagFilter)
     {
-        const D3D11_FILTER_TYPE minFilter = glMinFilter == TINYGLTF_TEXTURE_FILTER_NEAREST
-                                                ? D3D11_FILTER_TYPE_POINT
-                                                : glMinFilter == TINYGLTF_TEXTURE_FILTER_LINEAR
-                                                      ? D3D11_FILTER_TYPE_LINEAR
-                                                      : glMinFilter == TINYGLTF_TEXTURE_FILTER_NEAREST_MIPMAP_NEAREST
-                                                            ? D3D11_FILTER_TYPE_POINT
-                                                            : glMinFilter == TINYGLTF_TEXTURE_FILTER_LINEAR_MIPMAP_NEAREST
-                                                                  ? D3D11_FILTER_TYPE_LINEAR
-                                                                  : glMinFilter == TINYGLTF_TEXTURE_FILTER_NEAREST_MIPMAP_LINEAR
-                                                                        ? D3D11_FILTER_TYPE_POINT
-                                                                        : glMinFilter == TINYGLTF_TEXTURE_FILTER_LINEAR_MIPMAP_LINEAR
-                                                                              ? D3D11_FILTER_TYPE_LINEAR
-                                                                              : D3D11_FILTER_TYPE_POINT;
-        const D3D11_FILTER_TYPE mipFilter = glMinFilter == TINYGLTF_TEXTURE_FILTER_NEAREST
-                                                ? D3D11_FILTER_TYPE_POINT
-                                                : glMinFilter == TINYGLTF_TEXTURE_FILTER_LINEAR
-                                                      ? D3D11_FILTER_TYPE_POINT
-                                                      : glMinFilter == TINYGLTF_TEXTURE_FILTER_NEAREST_MIPMAP_NEAREST
-                                                            ? D3D11_FILTER_TYPE_POINT
-                                                            : glMinFilter == TINYGLTF_TEXTURE_FILTER_LINEAR_MIPMAP_NEAREST
-                                                                  ? D3D11_FILTER_TYPE_POINT
-                                                                  : glMinFilter == TINYGLTF_TEXTURE_FILTER_NEAREST_MIPMAP_LINEAR
-                                                                        ? D3D11_FILTER_TYPE_LINEAR
-                                                                        : glMinFilter == TINYGLTF_TEXTURE_FILTER_LINEAR_MIPMAP_LINEAR
-                                                                              ? D3D11_FILTER_TYPE_LINEAR
-                                                                              : D3D11_FILTER_TYPE_POINT;
-        const D3D11_FILTER_TYPE magFilter =
-            glMagFilter == TINYGLTF_TEXTURE_FILTER_NEAREST
-                ? D3D11_FILTER_TYPE_POINT
-                : glMagFilter == TINYGLTF_TEXTURE_FILTER_LINEAR ? D3D11_FILTER_TYPE_LINEAR : D3D11_FILTER_TYPE_POINT;
+        const D3D11_FILTER_TYPE minFilter = glMinFilter == TINYGLTF_TEXTURE_FILTER_NEAREST                  ? D3D11_FILTER_TYPE_POINT
+                                            : glMinFilter == TINYGLTF_TEXTURE_FILTER_LINEAR                 ? D3D11_FILTER_TYPE_LINEAR
+                                            : glMinFilter == TINYGLTF_TEXTURE_FILTER_NEAREST_MIPMAP_NEAREST ? D3D11_FILTER_TYPE_POINT
+                                            : glMinFilter == TINYGLTF_TEXTURE_FILTER_LINEAR_MIPMAP_NEAREST  ? D3D11_FILTER_TYPE_LINEAR
+                                            : glMinFilter == TINYGLTF_TEXTURE_FILTER_NEAREST_MIPMAP_LINEAR  ? D3D11_FILTER_TYPE_POINT
+                                            : glMinFilter == TINYGLTF_TEXTURE_FILTER_LINEAR_MIPMAP_LINEAR   ? D3D11_FILTER_TYPE_LINEAR
+                                                                                                            : D3D11_FILTER_TYPE_POINT;
+        const D3D11_FILTER_TYPE mipFilter = glMinFilter == TINYGLTF_TEXTURE_FILTER_NEAREST                  ? D3D11_FILTER_TYPE_POINT
+                                            : glMinFilter == TINYGLTF_TEXTURE_FILTER_LINEAR                 ? D3D11_FILTER_TYPE_POINT
+                                            : glMinFilter == TINYGLTF_TEXTURE_FILTER_NEAREST_MIPMAP_NEAREST ? D3D11_FILTER_TYPE_POINT
+                                            : glMinFilter == TINYGLTF_TEXTURE_FILTER_LINEAR_MIPMAP_NEAREST  ? D3D11_FILTER_TYPE_POINT
+                                            : glMinFilter == TINYGLTF_TEXTURE_FILTER_NEAREST_MIPMAP_LINEAR  ? D3D11_FILTER_TYPE_LINEAR
+                                            : glMinFilter == TINYGLTF_TEXTURE_FILTER_LINEAR_MIPMAP_LINEAR   ? D3D11_FILTER_TYPE_LINEAR
+                                                                                                            : D3D11_FILTER_TYPE_POINT;
+        const D3D11_FILTER_TYPE magFilter = glMagFilter == TINYGLTF_TEXTURE_FILTER_NEAREST  ? D3D11_FILTER_TYPE_POINT
+                                            : glMagFilter == TINYGLTF_TEXTURE_FILTER_LINEAR ? D3D11_FILTER_TYPE_LINEAR
+                                                                                            : D3D11_FILTER_TYPE_POINT;
 
         const D3D11_FILTER filter = D3D11_ENCODE_BASIC_FILTER(minFilter, magFilter, mipFilter, D3D11_FILTER_REDUCTION_TYPE_STANDARD);
         return filter;
@@ -232,14 +219,12 @@ namespace Pbr
         D3D11_SAMPLER_DESC samplerDesc{};
 
         samplerDesc.Filter = D3D11ConvertFilter(sampler.minFilter, sampler.magFilter);
-        samplerDesc.AddressU =
-            sampler.wrapS == TINYGLTF_TEXTURE_WRAP_CLAMP_TO_EDGE
-                ? D3D11_TEXTURE_ADDRESS_CLAMP
-                : sampler.wrapS == TINYGLTF_TEXTURE_WRAP_MIRRORED_REPEAT ? D3D11_TEXTURE_ADDRESS_MIRROR : D3D11_TEXTURE_ADDRESS_WRAP;
-        samplerDesc.AddressV =
-            sampler.wrapT == TINYGLTF_TEXTURE_WRAP_CLAMP_TO_EDGE
-                ? D3D11_TEXTURE_ADDRESS_CLAMP
-                : sampler.wrapT == TINYGLTF_TEXTURE_WRAP_MIRRORED_REPEAT ? D3D11_TEXTURE_ADDRESS_MIRROR : D3D11_TEXTURE_ADDRESS_WRAP;
+        samplerDesc.AddressU = sampler.wrapS == TINYGLTF_TEXTURE_WRAP_CLAMP_TO_EDGE     ? D3D11_TEXTURE_ADDRESS_CLAMP
+                               : sampler.wrapS == TINYGLTF_TEXTURE_WRAP_MIRRORED_REPEAT ? D3D11_TEXTURE_ADDRESS_MIRROR
+                                                                                        : D3D11_TEXTURE_ADDRESS_WRAP;
+        samplerDesc.AddressV = sampler.wrapT == TINYGLTF_TEXTURE_WRAP_CLAMP_TO_EDGE     ? D3D11_TEXTURE_ADDRESS_CLAMP
+                               : sampler.wrapT == TINYGLTF_TEXTURE_WRAP_MIRRORED_REPEAT ? D3D11_TEXTURE_ADDRESS_MIRROR
+                                                                                        : D3D11_TEXTURE_ADDRESS_WRAP;
         samplerDesc.AddressW = D3D11_TEXTURE_ADDRESS_WRAP;
         samplerDesc.MaxAnisotropy = 1;
         samplerDesc.ComparisonFunc = D3D11_COMPARISON_ALWAYS;
