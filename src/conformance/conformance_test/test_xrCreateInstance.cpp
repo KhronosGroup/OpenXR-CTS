@@ -46,8 +46,9 @@ namespace Conformance
         // Leave engineName and engineVersion empty, which is valid usage.
         createInfo.applicationInfo.apiVersion = globalData.options.desiredApiVersionValue;
 
-        if (globalData.requiredPlatformInstanceCreateStruct)
+        if (globalData.requiredPlatformInstanceCreateStruct) {
             createInfo.next = globalData.requiredPlatformInstanceCreateStruct;
+        }
 
         // Layers enabled at least for run-time conformance
         StringVec enabledApiLayers = globalData.enabledAPILayerNames;

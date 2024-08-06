@@ -1,0 +1,11 @@
+{
+  "file_format_version": "1.0.0",
+  "api_layer": {
+    "name": "XR_APILAYER_KHRONOS_conformance_test_layer",
+    "library_path": "./@CMAKE_SHARED_MODULE_PREFIX@XrApiLayer_conformance_test_layer@CMAKE_SHARED_MODULE_SUFFIX@",
+    "api_version": "1.0",
+    "implementation_version": "1",
+    "description": "API Layer to validate OpenXR runtime conformance",
+    "disable_environment":  "KHRONOS_conformance_test_layer_disabled"
+  }
+}

@@ -68,7 +68,7 @@ android {
                         '-DBUILD_LOADER=ON',
                         '-DBUILD_CONFORMANCE_TESTS=ON',
                         '-DBUILD_ALL_EXTENSIONS=ON'
-                targets 'conformance_test', 'openxr_loader', 'XrApiLayer_runtime_conformance'
+                targets 'conformance_test', 'openxr_loader', 'XrApiLayer_runtime_conformance', 'XrApiLayer_conformance_test_layer'
             }
         }
         preBuild.dependsOn(copyAssets)
