@@ -814,14 +814,11 @@ namespace Conformance
             D3D11GLTF& gltf = m_gltfInstances[gltfDrawable.handle];
             // Compute and update the model transform.
 
-            XrMatrix4x4f modelToWorld;
-            XrMatrix4x4f_CreateTranslationRotationScale(&modelToWorld, &gltfDrawable.params.pose.position,
-                                                        &gltfDrawable.params.pose.orientation, &gltfDrawable.params.scale);
-            XrMatrix4x4f viewMatrix;
-            XrVector3f unitScale = {1, 1, 1};
-            XrMatrix4x4f_CreateTranslationRotationScale(&viewMatrix, &layerView.pose.position, &layerView.pose.orientation, &unitScale);
-            XrMatrix4x4f viewMatrixInverse;
-            XrMatrix4x4f_Invert(&viewMatrixInverse, &viewMatrix);
+            XrMatrix4x4f modelToWorld = Matrix::FromTranslationRotationScale(
+                gltfDrawable.params.pose.position, gltfDrawable.params.pose.orientation, gltfDrawable.params.scale);
+
+            XrMatrix4x4f viewMatrix = Matrix::FromPose(layerView.pose);
+            XrMatrix4x4f viewMatrixInverse = Matrix::InvertRigidBody(viewMatrix);
             m_pbrResources->SetViewProjection(LoadXrMatrix(viewMatrixInverse), LoadXrMatrix(projectionMatrix));
 
             gltf.Render(d3d11DeviceContext, *m_pbrResources, modelToWorld);

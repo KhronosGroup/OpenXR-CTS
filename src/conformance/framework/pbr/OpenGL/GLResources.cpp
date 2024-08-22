@@ -24,6 +24,7 @@
 
 #include "common/gfxwrapper_opengl.h"
 #include "utilities/opengl_utils.h"
+#include "utilities/xr_math_operators.h"
 
 #include <nonstd/type.hpp>
 #include <tinygltf/tiny_gltf.h>
@@ -58,6 +59,8 @@ static const char* g_PbrPixelShader =
 #endif
     ;
 // IWYU pragma: end_keep
+
+using namespace openxr::math_operators;
 
 namespace Pbr
 {
@@ -272,10 +275,9 @@ namespace Pbr
 
     void GLResources::SetViewProjection(XrMatrix4x4f view, XrMatrix4x4f projection) const
     {
-        XrMatrix4x4f_Multiply(&m_impl->SceneBuffer.ViewProjection, &projection, &view);
+        m_impl->SceneBuffer.ViewProjection = projection * view;
 
-        XrMatrix4x4f inv;
-        XrMatrix4x4f_Invert(&inv, &view);
+        XrMatrix4x4f inv = Matrix::InvertRigidBody(view);
         m_impl->SceneBuffer.EyePosition = {inv.m[12], inv.m[13], inv.m[14]};
     }
 

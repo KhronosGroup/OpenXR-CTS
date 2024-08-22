@@ -17,8 +17,7 @@ namespace Pbr
 {
     Model::Model()
     {
-        XrMatrix4x4f identityMatrix;
-        XrMatrix4x4f_CreateIdentity(&identityMatrix);
+        constexpr XrMatrix4x4f identityMatrix = Matrix::Identity;
         AddNode(identityMatrix, RootParentNodeIndex, "root");
     }
 

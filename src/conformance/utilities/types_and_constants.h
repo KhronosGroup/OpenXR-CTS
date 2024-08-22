@@ -72,9 +72,6 @@ namespace Conformance
     /// @ingroup cts_framework
     struct XrPosefCPP : public XrPosef
     {
-        XrPosefCPP() : XrPosef{{0, 0, 0, 1}, {0, 0, 0}}
-        {
-        }
         explicit XrPosefCPP(const XrPosef& pose) : XrPosef(pose)
         {
         }

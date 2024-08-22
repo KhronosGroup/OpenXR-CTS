@@ -26,6 +26,8 @@ using namespace std::literals::chrono_literals;
 
 namespace Conformance
 {
+    using namespace openxr::math_operators;
+
     ControllerAnimationHandler::ControllerAnimationHandler(const Pbr::Model& model,
                                                            std::vector<XrControllerModelNodePropertiesMSFT>&& properties)
     {
@@ -69,10 +71,9 @@ namespace Conformance
         for (size_t i = 0; i < end; i++) {
             const Pbr::NodeIndex_t nodeIndex = m_nodeIndices[i];
             if (nodeIndex != Pbr::NodeIndex_npos) {
-                XrMatrix4x4f nodeTransform;
                 XrVector3f unitScale = {1, 1, 1};
-                XrMatrix4x4f_CreateTranslationRotationScale(&nodeTransform, &m_nodeStates[i].nodePose.position,
-                                                            &m_nodeStates[i].nodePose.orientation, &unitScale);
+                XrMatrix4x4f nodeTransform = Matrix::FromTranslationRotationScale(m_nodeStates[i].nodePose.position,
+                                                                                  m_nodeStates[i].nodePose.orientation, unitScale);
                 pbrModelInstance.SetNodeTransform(nodeIndex, nodeTransform);
             }
         }

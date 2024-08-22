@@ -68,9 +68,9 @@ struct EnabledExtensions {
 };
 
 struct ConformanceHooksBase {
-    ConformanceHooksBase(XrInstance instance, XrGeneratedDispatchTable dispatchTable, EnabledExtensions enabledExtensions)
-        : instance(instance), dispatchTable(dispatchTable), enabledExtensions(enabledExtensions) {
-        }
+    ConformanceHooksBase(XrInstance instance, XrGeneratedDispatchTable dispatchTable, EnabledVersions versions,
+                         EnabledExtensions enabledExtensions)
+        : instance(instance), dispatchTable(dispatchTable), enabledVersions(versions), enabledExtensions(enabledExtensions) {}
 
     virtual ~ConformanceHooksBase() = default;
     virtual void ConformanceFailure(XrDebugUtilsMessageSeverityFlagsEXT severity, const char* functionName, const char* fmtMessage, ...) = 0;
@@ -88,6 +88,7 @@ struct ConformanceHooksBase {
 
     const XrInstance instance;
     const XrGeneratedDispatchTable dispatchTable;
+    const EnabledVersions enabledVersions;
     const EnabledExtensions enabledExtensions;
 };
 

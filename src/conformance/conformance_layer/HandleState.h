@@ -26,6 +26,22 @@
 #include <stdexcept>
 #include <vector>
 
+struct EnabledVersions
+{
+    EnabledVersions(const XrInstanceCreateInfo* createInfo) noexcept
+        : apiVersion(createInfo->applicationInfo.apiVersion)
+        // Note that this assumes that 1.1 requires 1.0 conformance, which isn't technically strictly required,
+        // but in practice it is true.
+        , version_1_x_compatible(XR_VERSION_MAJOR(apiVersion) == 1)
+        // Similarly this assumes that 1.2 requires 1.1 conformance. 1.2 does not yet exist.
+        , version_1_1_compatible(version_1_x_compatible && XR_VERSION_MINOR(apiVersion) >= 1)
+    {
+    }
+    XrVersion apiVersion;
+    bool version_1_x_compatible{false};
+    bool version_1_1_compatible{false};
+};
+
 /// Base class for "custom" handle state that differs between handle types
 struct ICustomHandleState
 {

@@ -1,0 +1,6 @@
+---
+- issue.2170
+- issue.2301
+---
+- Improvement: Optionally verify that the runtime validates struct `.type` member in various places.
+- Fix: Ensure that existing tests for `type` member verification only run when selected, and only test that member as invalid.

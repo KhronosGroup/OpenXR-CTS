@@ -7,9 +7,10 @@
 #ifdef XR_USE_GRAPHICS_API_VULKAN
 
 #include "throw_helpers.h"
-#include "xr_linear.h"
+#include "common/xr_linear.h"
 #include "common/xr_dependencies.h"
 #include "common/vulkan_debug_object_namer.hpp"
+
 #include <openxr/openxr_platform.h>
 
 #include <nonstd/span.hpp>

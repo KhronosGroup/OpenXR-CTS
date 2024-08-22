@@ -97,7 +97,7 @@ namespace Conformance
             "Full sphere at 2m with pose",
             "A 2m sphere with the same cube test image, forward by 1.5m and rotated downward",
             XR_REFERENCE_SPACE_TYPE_LOCAL,
-            {Quat::FromAxisAngle({1, 0, 0}, Math::DegToRad(45)), {0, 0, -1.5}},
+            {Quat::FromAxisAngle({1, 0, 0}, DegToRad(45)), {0, 0, -1.5}},
             2.0f,
             pi * 2.f,
             pi / 2.f,

@@ -27,6 +27,7 @@
 #include "common/vulkan_debug_object_namer.hpp"
 #include "utilities/vulkan_scoped_handle.h"
 #include "utilities/vulkan_utils.h"
+#include "utilities/xr_math_operators.h"
 
 #include <nonstd/type.hpp>
 #include <tinygltf/tiny_gltf.h>
@@ -53,6 +54,8 @@ const uint32_t g_PbrPixelShader[] = SPV_PREFIX
 #include <PbrPixelShader_glsl_spv.h>
     SPV_SUFFIX;
 // IWYU pragma: end_keep
+
+using namespace openxr::math_operators;
 
 namespace
 {
@@ -308,6 +311,7 @@ namespace Pbr
             // Set up the scene constant buffer.
             Resources.SceneBuffer.Init(device, allocator);
             Resources.SceneBuffer.Create(1, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT);
+            XRC_CHECK_THROW_VKCMD(objnamer.SetName(VK_OBJECT_TYPE_BUFFER, (uint64_t)Resources.SceneBuffer.buf, "CTS pbr scene buffer"));
 
             Resources.BrdfSampler.adopt(VulkanTexture::CreateSampler(device), device);
             Resources.EnvironmentMapSampler.adopt(VulkanTexture::CreateSampler(device), device);
@@ -556,10 +560,9 @@ namespace Pbr
 
     void VulkanResources::SetViewProjection(XrMatrix4x4f view, XrMatrix4x4f projection) const
     {
-        XrMatrix4x4f_Multiply(&m_impl->SceneBuffer.ViewProjection, &projection, &view);
+        m_impl->SceneBuffer.ViewProjection = projection * view;
 
-        XrMatrix4x4f inv;
-        XrMatrix4x4f_Invert(&inv, &view);
+        XrMatrix4x4f inv = Matrix::InvertRigidBody(view);
         m_impl->SceneBuffer.EyePosition = {inv.m[12], inv.m[13], inv.m[14]};
     }
 

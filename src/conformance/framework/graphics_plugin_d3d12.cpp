@@ -792,10 +792,10 @@ namespace Conformance
         const std::array<DXGI_FORMAT, 4> f{DXGI_FORMAT_R8G8B8A8_UNORM_SRGB, DXGI_FORMAT_B8G8R8A8_UNORM_SRGB, DXGI_FORMAT_R8G8B8A8_UNORM,
                                            DXGI_FORMAT_B8G8R8A8_UNORM};
 
-        const int64_t* formatArrayEnd = formatArray + count;
-        auto it = std::find_first_of(formatArray, formatArrayEnd, f.begin(), f.end());
+        span<const int64_t> formatArraySpan{formatArray, count};
+        auto it = std::find_first_of(formatArraySpan.begin(), formatArraySpan.end(), f.begin(), f.end());
 
-        if (it == formatArrayEnd) {
+        if (it == formatArraySpan.end()) {
             assert(false);  // Assert instead of throw as we need to switch to the big table which can't fail.
             return formatArray[0];
         }
@@ -810,10 +810,10 @@ namespace Conformance
         const std::array<DXGI_FORMAT, 4> f{DXGI_FORMAT_D32_FLOAT, DXGI_FORMAT_D24_UNORM_S8_UINT, DXGI_FORMAT_D16_UNORM,
                                            DXGI_FORMAT_D32_FLOAT_S8X24_UINT};
 
-        const int64_t* formatArrayEnd = formatArray + count;
-        auto it = std::find_first_of(formatArray, formatArrayEnd, f.begin(), f.end());
+        span<const int64_t> formatArraySpan{formatArray, count};
+        auto it = std::find_first_of(formatArraySpan.begin(), formatArraySpan.end(), f.begin(), f.end());
 
-        if (it == formatArrayEnd) {
+        if (it == formatArraySpan.end()) {
             assert(false);  // Assert instead of throw as we need to switch to the big table which can't fail.
             return formatArray[0];
         }
@@ -827,10 +827,10 @@ namespace Conformance
         // List of swapchain formats suitable for motion vectors.
         const std::array<DXGI_FORMAT, 2> f{DXGI_FORMAT_R16G16B16A16_FLOAT, DXGI_FORMAT_R32G32B32_FLOAT};
 
-        const int64_t* formatArrayEnd = formatArray + count;
-        auto it = std::find_first_of(formatArray, formatArrayEnd, f.begin(), f.end());
+        span<const int64_t> formatArraySpan{formatArray, count};
+        auto it = std::find_first_of(formatArraySpan.begin(), formatArraySpan.end(), f.begin(), f.end());
 
-        if (it == formatArrayEnd) {
+        if (it == formatArraySpan.end()) {
             assert(false);  // Assert instead of throw as we need to switch to the big table which can't fail.
             return formatArray[0];
         }
@@ -1146,14 +1146,10 @@ namespace Conformance
             D3D12GLTF& gltf = m_gltfInstances[gltfDrawable.handle];
             // Compute and update the model transform.
 
-            XrMatrix4x4f modelToWorld;
-            XrMatrix4x4f_CreateTranslationRotationScale(&modelToWorld, &gltfDrawable.params.pose.position,
-                                                        &gltfDrawable.params.pose.orientation, &gltfDrawable.params.scale);
-            XrMatrix4x4f viewMatrix;
-            XrVector3f unitScale = {1, 1, 1};
-            XrMatrix4x4f_CreateTranslationRotationScale(&viewMatrix, &layerView.pose.position, &layerView.pose.orientation, &unitScale);
-            XrMatrix4x4f viewMatrixInverse;
-            XrMatrix4x4f_Invert(&viewMatrixInverse, &viewMatrix);
+            XrMatrix4x4f modelToWorld = Matrix::FromTranslationRotationScale(
+                gltfDrawable.params.pose.position, gltfDrawable.params.pose.orientation, gltfDrawable.params.scale);
+            XrMatrix4x4f viewMatrix = Matrix::FromPose(layerView.pose);
+            XrMatrix4x4f viewMatrixInverse = Matrix::InvertRigidBody(viewMatrix);
             m_pbrResources->SetViewProjection(LoadXrMatrix(viewMatrixInverse), LoadXrMatrix(projectionMatrix));
 
             DXGI_FORMAT depthSwapchainFormatDX = GetDepthStencilFormatOrDefault(depthCreateInfo);

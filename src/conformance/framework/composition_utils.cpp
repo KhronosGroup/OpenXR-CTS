@@ -388,9 +388,12 @@ namespace Conformance
 
         m_swapchainImages[swapchain]->AcquireAndWaitDepthSwapchainImage(colorImageIndex);
 
-        std::unique_lock<std::mutex> lock(m_mutex);
-        const XrSwapchainImageBaseHeader* image = m_swapchainImages[swapchain]->GetGenericColorImage(colorImageIndex);
-        lock.unlock();
+        const XrSwapchainImageBaseHeader* image = nullptr;
+
+        {
+            std::unique_lock<std::mutex> lock(m_mutex);
+            image = m_swapchainImages[swapchain]->GetGenericColorImage(colorImageIndex);
+        }
 
         doUpdate(image);
 
@@ -399,7 +402,7 @@ namespace Conformance
         m_swapchainImages[swapchain]->ReleaseDepthSwapchainImage();
     }
 
-    XrSpace CompositionHelper::CreateReferenceSpace(XrReferenceSpaceType type, XrPosef pose /*= XrPosefCPP()*/)
+    XrSpace CompositionHelper::CreateReferenceSpace(XrReferenceSpaceType type, XrPosef pose /*= Pose::Identity */)
     {
         XrSpace space;
         XrReferenceSpaceCreateInfo createInfo{XR_TYPE_REFERENCE_SPACE_CREATE_INFO};
@@ -575,7 +578,7 @@ namespace Conformance
     }
 
     XrCompositionLayerQuad* CompositionHelper::CreateQuadLayer(XrSwapchain swapchain, XrSpace space, float width,
-                                                               XrPosef pose /*= XrPosefCPP()*/)
+                                                               XrPosef pose /*= Pose::Identity */)
     {
         XrCompositionLayerQuad quad{XR_TYPE_COMPOSITION_LAYER_QUAD};
         quad.eyeVisibility = XR_EYE_VISIBILITY_BOTH;
@@ -612,7 +615,7 @@ namespace Conformance
     }
 
     BaseProjectionLayerHelper::BaseProjectionLayerHelper(CompositionHelper& compositionHelper, XrReferenceSpaceType spaceType)
-        : m_compositionHelper(compositionHelper), m_localSpace(compositionHelper.CreateReferenceSpace(spaceType, XrPosefCPP{}))
+        : m_compositionHelper(compositionHelper), m_localSpace(compositionHelper.CreateReferenceSpace(spaceType, Pose::Identity))
     {
         const std::vector<XrViewConfigurationView> viewProperties = compositionHelper.EnumerateConfigurationViews();
 

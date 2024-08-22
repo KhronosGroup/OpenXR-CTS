@@ -14,7 +14,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "action_utils.h"
 #include "RGBAImage.h"
+#include "catch2/catch_message.hpp"
 #include "common/xr_linear.h"
 #include "composition_utils.h"
 #include "conformance_framework.h"
@@ -40,6 +42,8 @@ using namespace Conformance;
 
 namespace Conformance
 {
+    using namespace openxr::math_operators;
+
     namespace
     {
         const auto kExtensionRequirements = FeatureSet{FeatureBitIndex::BIT_XR_VERSION_1_0, FeatureBitIndex::BIT_XR_EXT_palm_pose};
@@ -73,7 +77,7 @@ namespace Conformance
             XrInstance instance = compositionHelper.GetInstance();
             XrSession session = compositionHelper.GetSession();
 
-            const XrSpace localSpace = compositionHelper.CreateReferenceSpace(XR_REFERENCE_SPACE_TYPE_LOCAL, XrPosefCPP{});
+            const XrSpace localSpace = compositionHelper.CreateReferenceSpace(XR_REFERENCE_SPACE_TYPE_LOCAL, Pose::Identity);
 
             // Set up composition projection layer and swapchains (one swapchain per view).
             std::vector<XrSwapchain> swapchains;
@@ -173,13 +177,13 @@ namespace Conformance
             XrCompositionLayerQuad* const instructionsQuad = compositionHelper.CreateQuadLayer(
                 compositionHelper.CreateStaticSwapchainImage(CreateTextImage(1024, 512, instructions.str().c_str(), 48)), localSpace, 1.0f,
                 {{0, 0, 0, 1}, {-1.5f, 0, -0.3f}});
-            XrQuaternionf_CreateFromAxisAngle(&instructionsQuad->pose.orientation, &Up, 70 * MATH_PI / 180);
+            instructionsQuad->pose.orientation = Quat::FromAxisAngle(Up, DegToRad(70));
 
             // Create a sample image quad layer placed to the right.
             XrCompositionLayerQuad* const exampleQuad =
                 compositionHelper.CreateQuadLayer(compositionHelper.CreateStaticSwapchainImage(RGBAImage::Load(exampleImage)), localSpace,
                                                   1.25f, {{0, 0, 0, 1}, {1.5f, 0, -0.3f}});
-            XrQuaternionf_CreateFromAxisAngle(&exampleQuad->pose.orientation, &Up, -70 * MATH_PI / 180);
+            exampleQuad->pose.orientation = Quat::FromAxisAngle(Up, -DegToRad(70));
 
             // const float PointerLength = 4.00f;
             const float PointerThickness = 0.01f;
@@ -446,10 +450,10 @@ namespace Conformance
 
         double angleDeg(XrVector3f& a, XrVector3f& b)
         {
-            double dotProd = XrVector3f_Dot(&a, &b);
+            double dotProd = Vector::DotProduct(a, b);
 
-            double magA = XrVector3f_Length(&a);
-            double magB = XrVector3f_Length(&b);
+            double magA = Vector::Length(a);
+            double magB = Vector::Length(b);
 
             double angleInRad = std::acos(dotProd / (magA * magB));
             double angleInDeg = angleInRad * (180.0 / MATH_PI);
@@ -473,7 +477,7 @@ namespace Conformance
             XrAction gripPoseAction, gripSurfacePoseAction;
             XrSpace gripPoseSpace[2], gripSurfacePoseSpace[2];
 
-            auto suggestActions = [&](XrInstance instance, bool testExtension, bool expectSupported = true) {
+            auto makeActionSuggestedBindings = [&](XrInstance instance, bool testExtension) -> const std::vector<XrActionSuggestedBinding> {
                 // Set up the actions.
                 const std::array<XrPath, 2> subactionPaths{StringToPath(instance, "/user/hand/left"),
                                                            StringToPath(instance, "/user/hand/right")};
@@ -517,6 +521,11 @@ namespace Conformance
                                                                                  : "/user/hand/right/input/grip_surface/pose")},
                 };
 
+                return bindings;
+            };
+            auto suggestActions = [&](XrInstance instance, bool testExtension, bool expectSupported = true) {
+                const std::vector<XrActionSuggestedBinding> bindings = makeActionSuggestedBindings(instance, testExtension);
+
                 XrInteractionProfileSuggestedBinding suggestedBindings{XR_TYPE_INTERACTION_PROFILE_SUGGESTED_BINDING};
                 suggestedBindings.interactionProfile = StringToPath(instance, "/interaction_profiles/khr/simple_controller");
                 suggestedBindings.suggestedBindings = bindings.data();
@@ -556,219 +565,207 @@ namespace Conformance
             // Skip after the "Requirements not enabled" tests, so that unavailability of e.g. grip_surface paths on OpenXR 1.0 is tested before the skip.
             const std::vector<const char*> extensions = SkipOrGetExtensions("Grip Surface", globalData, featureSet);
 
-            AutoBasicInstance instance{extensions};
+            const char* testName = testExtension ? "XR_EXT_palm_pose-noninteractive" : "GripSurface-noninteractive";
+            CompositionHelper compositionHelper(testName, extensions);
+            compositionHelper.BeginSession();
+            ActionLayerManager actionLayerManager(compositionHelper);
 
-            suggestActions(instance, testExtension);
-
-            AutoBasicSession session(AutoBasicSession::beginSession | AutoBasicSession::createActions | AutoBasicSession::createSpaces |
-                                         AutoBasicSession::createSwapchains,
-                                     instance);
+            XrInstance instance = compositionHelper.GetInstance();
+            XrSession session = compositionHelper.GetSession();
 
             XrSpace localSpace{XR_NULL_HANDLE};
             XrReferenceSpaceCreateInfo createSpaceInfo{XR_TYPE_REFERENCE_SPACE_CREATE_INFO};
             createSpaceInfo.referenceSpaceType = XR_REFERENCE_SPACE_TYPE_LOCAL;
-            createSpaceInfo.poseInReferenceSpace = XrPosefCPP();
+            createSpaceInfo.poseInReferenceSpace = Pose::Identity;
             REQUIRE_RESULT(xrCreateReferenceSpace(session, &createSpaceInfo, &localSpace), XR_SUCCESS);
 
             XrPath handPaths[2];
             handPaths[0] = StringToPath(instance, "/user/hand/left");
             handPaths[1] = StringToPath(instance, "/user/hand/right");
 
+            XrPath simpleInteractionProfile = StringToPath(instance, GetSimpleInteractionProfile().InteractionProfilePathString);
+
+            std::shared_ptr<IInputTestDevice> leftHandInputDevice =
+                CreateTestDevice(&actionLayerManager, &compositionHelper.GetInteractionManager(), instance, compositionHelper.GetSession(),
+                                 simpleInteractionProfile, handPaths[0], GetSimpleInteractionProfile().InputSourcePaths);
+            std::shared_ptr<IInputTestDevice> rightHandInputDevice =
+                CreateTestDevice(&actionLayerManager, &compositionHelper.GetInteractionManager(), instance, compositionHelper.GetSession(),
+                                 simpleInteractionProfile, handPaths[1], GetSimpleInteractionProfile().InputSourcePaths);
+
+            // gripPoseAction and gripSurfacePoseAction are populated here
+            const std::vector<XrActionSuggestedBinding> bindings = makeActionSuggestedBindings(instance, testExtension);
+
             for (uint32_t i = 0; i < 2; i++) {
                 XrActionSpaceCreateInfo spaceCreateInfo{XR_TYPE_ACTION_SPACE_CREATE_INFO};
                 spaceCreateInfo.subactionPath = handPaths[i];
                 spaceCreateInfo.action = gripPoseAction;
-                spaceCreateInfo.poseInActionSpace = XrPosefCPP();
+                spaceCreateInfo.poseInActionSpace = Pose::Identity;
                 XRC_CHECK_THROW_XRCMD(xrCreateActionSpace(session, &spaceCreateInfo, &gripPoseSpace[i]));
 
                 spaceCreateInfo.action = gripSurfacePoseAction;
                 XRC_CHECK_THROW_XRCMD(xrCreateActionSpace(session, &spaceCreateInfo, &gripSurfacePoseSpace[i]));
             }
 
-            // Get frames iterating to the point of app focused state. This will draw frames along the way.
-            FrameIterator frameIterator(&session);
-            frameIterator.RunToSessionState(XR_SESSION_STATE_FOCUSED);
-
-            XrSessionActionSetsAttachInfo attachInfo{XR_TYPE_SESSION_ACTION_SETS_ATTACH_INFO};
-            attachInfo.actionSets = &actionSet;
-            attachInfo.countActionSets = 1;
-            XRC_CHECK_THROW_XRCMD(xrAttachSessionActionSets(session, &attachInfo));
+            compositionHelper.GetInteractionManager().AddActionBindings(simpleInteractionProfile, bindings);
+            compositionHelper.GetInteractionManager().AddActionSet(actionSet);
+            compositionHelper.GetInteractionManager().AttachActionSets();
 
             XrActionsSyncInfo syncInfo{XR_TYPE_ACTIONS_SYNC_INFO};
             XrActiveActionSet activeActionSet{actionSet};
             syncInfo.activeActionSets = &activeActionSet;
             syncInfo.countActiveActionSets = 1;
 
-            REQUIRE_RESULT(xrSyncActions(session, &syncInfo), XR_SUCCESS);
+            for (uint32_t i = 0; i < 2; i++) {
+                if ((i == 0 && !globalData.leftHandUnderTest) || (i == 1 && !globalData.rightHandUnderTest)) {
+                    continue;
+                }
+                INFO("Hand: " << ((i == 0) ? "left" : "right"));
 
-            enum class TestState
-            {
-                Untested,
-                Inactive,
-                Invalid,
-                Passed,
-            };
+                // Locatability implies active, and we need both.
+                XrSpaceVelocity gripVelocity{XR_TYPE_SPACE_VELOCITY};
+                XrSpaceLocation gripLocation{XR_TYPE_SPACE_LOCATION, &gripVelocity};
+                XrSpaceVelocity gripSurfaceVelocity{XR_TYPE_SPACE_VELOCITY};
+                XrSpaceLocation gripSurfaceLocation{XR_TYPE_SPACE_LOCATION, &gripSurfaceVelocity};
+                if (i == 0) {
+                    leftHandInputDevice->SetDeviceActive(true);
+                    actionLayerManager.SyncActionsUntilFocusWithMessage(syncInfo);
+                    actionLayerManager.DisplayMessage("Keep left controller trackable.");
+                    actionLayerManager.Sleep_For(3s);
+                    REQUIRE(actionLayerManager.WaitForLocatability("left", gripPoseSpace[0], localSpace, &gripLocation, true));
+                    REQUIRE(
+                        actionLayerManager.WaitForLocatability("left", gripSurfacePoseSpace[0], localSpace, &gripSurfaceLocation, true));
+                }
+                else {
+                    rightHandInputDevice->SetDeviceActive(true);
+                    actionLayerManager.SyncActionsUntilFocusWithMessage(syncInfo);
+                    actionLayerManager.DisplayMessage("Keep right controller trackable.");
+                    actionLayerManager.Sleep_For(3s);
+                    REQUIRE(actionLayerManager.WaitForLocatability("right", gripPoseSpace[1], localSpace, &gripLocation, true));
+                    REQUIRE(
+                        actionLayerManager.WaitForLocatability("right", gripSurfacePoseSpace[1], localSpace, &gripSurfaceLocation, true));
+                }
+                // Technically it should still be "active" but one or both might not be locatable by here.
+                // We need the user to not make them un-locatable for the duration of the test.
 
-            // Test keeps running until all grip surface spaces that are tested have VALID location flags.
-            TestState maxTestStates[2] = {TestState::Untested, TestState::Untested};
-            bool testPassed = WaitUntilPredicateWithTimeout(
-                [&]() -> bool {
-                    frameIterator.SubmitFrame();
-                    REQUIRE_RESULT_SUCCEEDED(xrSyncActions(session, &syncInfo));
+                // See if both grip_surface and grip are active at the same time
+                XrActionStateGetInfo getInfo{XR_TYPE_ACTION_STATE_GET_INFO};
+                getInfo.action = gripPoseAction;
+                getInfo.subactionPath = handPaths[i];
 
-                    for (uint32_t i = 0; i < 2; i++) {
-                        if ((i == 0 && !globalData.leftHandUnderTest) || (i == 1 && !globalData.rightHandUnderTest)) {
-                            continue;
-                        }
+                XrActionStatePose gripState{XR_TYPE_ACTION_STATE_POSE};
+                REQUIRE_RESULT(xrGetActionStatePose(session, &getInfo, &gripState), XR_SUCCESS);
 
-                        XrActionStateGetInfo getInfo{XR_TYPE_ACTION_STATE_GET_INFO};
-                        getInfo.action = gripPoseAction;
-                        getInfo.subactionPath = handPaths[i];
+                getInfo.action = gripSurfacePoseAction;
 
-                        XrActionStatePose gripState{XR_TYPE_ACTION_STATE_POSE};
-                        REQUIRE_RESULT(xrGetActionStatePose(session, &getInfo, &gripState), XR_SUCCESS);
+                XrActionStatePose gripSurfaceState{XR_TYPE_ACTION_STATE_POSE};
+                REQUIRE_RESULT(xrGetActionStatePose(session, &getInfo, &gripSurfaceState), XR_SUCCESS);
 
-                        getInfo.action = gripSurfacePoseAction;
+                if (!gripState.isActive && gripSurfaceState.isActive) {
+                    // TODO this is actually a spec gap
+                    WARN(
+                        "Grip Surface pose without Grip pose detected. Not strictly forbidden but unexpected. Skipping pose relation tests between Grip Surface and Grip pose for hand "
+                        << i);
+                    continue;
+                }
 
-                        XrActionStatePose gripSurfaceState{XR_TYPE_ACTION_STATE_POSE};
-                        REQUIRE_RESULT(xrGetActionStatePose(session, &getInfo, &gripSurfaceState), XR_SUCCESS);
+                REQUIRE(gripState.isActive);
+                REQUIRE(gripSurfaceState.isActive);
 
-                        // grip pose is not actually required to be provided (e.g. wrist controller)
-                        if (!gripState.isActive && gripSurfaceState.isActive) {
-                            SKIP(
-                                "Grip Surface pose without Grip pose detected. Skipping pose relation tests between Grip Surface and Grip pose");
-                        }
+                // Locate again so we can pick our time to be the same.
+                XRC_CHECK_THROW_XRCMD(xrLocateSpace(gripPoseSpace[i], localSpace,
+                                                    actionLayerManager.GetRenderLoop().GetLastPredictedDisplayTime(), &gripLocation));
 
-                        if (!gripState.isActive || !gripSurfaceState.isActive) {
-                            maxTestStates[i] = std::max(maxTestStates[i], TestState::Inactive);
-                            continue;
-                        }
+                // VALID is usually enough here because the palm pose / grip surface is a usually a static offset that should be available for non TRACKED grip pose.
+                REQUIRE((gripLocation.locationFlags & XR_SPACE_LOCATION_POSITION_VALID_BIT &&
+                         gripLocation.locationFlags & XR_SPACE_LOCATION_ORIENTATION_VALID_BIT));
 
-                        XrSpaceVelocity gripVelocity{XR_TYPE_SPACE_VELOCITY};
-                        XrSpaceLocation gripLocation{XR_TYPE_SPACE_LOCATION, &gripVelocity};
-                        XRC_CHECK_THROW_XRCMD(
-                            xrLocateSpace(gripPoseSpace[i], localSpace, frameIterator.frameState.predictedDisplayTime, &gripLocation));
+                // Locate grip surface space in grip space to make checks simpler
+                XRC_CHECK_THROW_XRCMD(xrLocateSpace(gripSurfacePoseSpace[i], gripPoseSpace[i],
+                                                    actionLayerManager.GetRenderLoop().GetLastPredictedDisplayTime(),
+                                                    &gripSurfaceLocation));
 
-                        // VALID is usually enough here because the palm pose / grip surface is a usually a static offset that should be available for non TRACKED grip pose.
-                        if (!(gripLocation.locationFlags & XR_SPACE_LOCATION_POSITION_VALID_BIT &&
-                              gripLocation.locationFlags & XR_SPACE_LOCATION_ORIENTATION_VALID_BIT)) {
-                            maxTestStates[i] = std::max(maxTestStates[i], TestState::Invalid);
-                            continue;
-                        }
+                // grip is valid, which means grip surface should be valid too as a static offset
+                // TODO this might technically be a spec gap
+                REQUIRE((gripSurfaceLocation.locationFlags & XR_SPACE_LOCATION_POSITION_VALID_BIT &&
+                         gripSurfaceLocation.locationFlags & XR_SPACE_LOCATION_ORIENTATION_VALID_BIT));
 
-                        // Locate grip surface space in grip space to make checks simpler
-                        XrSpaceVelocity gripSurfaceVelocity{XR_TYPE_SPACE_VELOCITY};
-                        XrSpaceLocation gripSurfaceLocation{XR_TYPE_SPACE_LOCATION, &gripSurfaceVelocity};
-                        XRC_CHECK_THROW_XRCMD(xrLocateSpace(gripSurfacePoseSpace[i], gripPoseSpace[i],
-                                                            frameIterator.frameState.predictedDisplayTime, &gripSurfaceLocation));
+                const float epsilon = 0.0001f;
+                XrVector3f position = gripSurfaceLocation.pose.position;
 
-                        // grip is valid, which means grip surface should be valid too as a static offset
-                        REQUIRE((gripSurfaceLocation.locationFlags & XR_SPACE_LOCATION_POSITION_VALID_BIT &&
-                                 gripSurfaceLocation.locationFlags & XR_SPACE_LOCATION_ORIENTATION_VALID_BIT));
+                // The following test test the offsets of grip surface to grip for common controllers.
+                // Special configurations such as "fist grips", backhanded grips, push daggers, pens, etc. will require modifications to these tests or a waiver.
 
-                        const float epsilon = 0.0001f;
-                        XrVector3f position = gripSurfaceLocation.pose.position;
+                if (i == 0) {
+                    // For tracked hands: grip surface may be arbitrarily close to grip pose
+                    // For controllers: grip surface must be to the left of the grip pose, which is inside the controller.
+                    REQUIRE(position.x <= epsilon);
+                }
+                else {
+                    // For tracked hands: grip surface may be arbitrarily close to grip pose
+                    // For controllers: grip surface must be to the right of the grip pose, which is inside the controller.
+                    REQUIRE(position.x >= -epsilon);
+                }
 
-                        // The following test test the offsets of grip surface to grip for common controllers.
-                        // Special configurations such as "fist grips", backhanded grips, push daggers, pens, etc. will require modifications to these tests or a waiver.
+                {
+                    // Grip: +X axis: When you completely open your hand to form a flat 5-finger pose, the ray that is normal to the user's palm (away from the palm in the left hand, into the palm in the right hand).
+                    // Grip Surface: +X axis: When a user is holding the controller and straightens their index fingers pointing forward, the ray that is normal (perpendicular) to the user's palm (away from the palm in the left hand, into the palm in the right hand).
+                    // In other words, the x axis is normal to the palm for both poses and should "roughly" point in the same direction (away from the palm in the left hand, into the palm in the right hand).
+                    INFO("+X axis of grip and grip_surface/palm_ext should be roughly similar.");
+                    XrVector3f xAxis = {1, 0, 0};
+                    XrVector3f gripSurfaceXDirection = Quat::RotateVector(gripSurfaceLocation.pose.orientation, xAxis);
+                    INFO("gripSurfaceXDirection is the local X axis of grip_surface/palm_ext relative to grip space");
+                    CAPTURE(gripSurfaceXDirection);
+                    double xAngleDiff = angleDeg(xAxis, gripSurfaceXDirection);
+                    CHECK(xAngleDiff < 75.0f);
+                }
 
-                        if (i == 0) {
-                            // For tracked hands: grip surface may be arbitrarily close to grip pose
-                            // For controllers: grip surface must be to the left of the grip pose, which is inside the controller.
-                            REQUIRE(position.x <= epsilon);
-                        }
-                        else {
-                            // For tracked hands: grip surface may be arbitrarily close to grip pose
-                            // For controllers: grip surface must be to the right of the grip pose, which is inside the controller.
-                            REQUIRE(position.x >= -epsilon);
-                        }
+                {
+                    // Grip: -Z axis: When you close your hand partially (as if holding the controller), the ray that goes through the center of the tube formed by your non-thumb fingers, in the direction of little finger to thumb.
+                    // Grip Surface: -Z axis: When a user is holding the controller and straightens their index finger, the ray that is parallel to their finger's pointing direction.
+                    // In other words, the wrist (according to the grip surface pose) should not be tilted more than 90° away from the grip pose's z axis, i.e. the controller handle.
+                    XrVector3f zAxis = {0, 0, 1};
+                    XrVector3f gripSurfaceZDirection = Quat::RotateVector(gripSurfaceLocation.pose.orientation, zAxis);
+                    double zAngleDiff = angleDeg(zAxis, gripSurfaceZDirection);
+                    INFO("gripSurfaceZDirection is the local Z axis of grip_surface/palm_ext relative to grip space");
+                    CAPTURE(gripSurfaceZDirection);
+                    CHECK(std::abs(zAngleDiff) < 90.0f);
+                }
 
-                        {
-                            // Grip: +X axis: When you completely open your hand to form a flat 5-finger pose, the ray that is normal to the user's palm (away from the palm in the left hand, into the palm in the right hand).
-                            // Grip Surface: +X axis: When a user is holding the controller and straightens their index fingers pointing forward, the ray that is normal (perpendicular) to the user's palm (away from the palm in the left hand, into the palm in the right hand).
-                            // In other words, the x axis is normal to the palm for both poses and should "roughly" point in the same direction (away from the palm in the left hand, into the palm in the right hand).
-                            XrVector3f xAxis = {1, 0, 0};
-                            XrVector3f gripSurfaceXDirection{};
-                            XrQuaternionf_RotateVector3f(&gripSurfaceXDirection, &gripSurfaceLocation.pose.orientation, &xAxis);
-                            double xAngleDiff = angleDeg(xAxis, gripSurfaceXDirection);
-                            REQUIRE(xAngleDiff < 75.0f);
-                        }
+                {
+                    // Grip: +Y axis: orthogonal to +Z and +X using the right-hand rule.
+                    // Grip Surface: +Y axis: orthogonal to +Z and +X using the right-hand rule.
+                    // When the hand grips a cylindrical controller handle, the grip surface y axis pointing from the palm center "up" to the thumb should align roughly with the controller handle's forward (z = -1) axis.
+                    XrVector3f yAxis = {0, 1, 0};
+                    XrVector3f zMAxis = {0, 0, -1};
+                    XrVector3f gripSurfaceYDirection = Quat::RotateVector(gripSurfaceLocation.pose.orientation, yAxis);
+                    INFO("gripSurfaceYDirection is the local Y axis of grip_surface/palm_ext relative to grip space");
+                    CAPTURE(gripSurfaceYDirection);
+                    double yAngleDiff = angleDeg(zMAxis, gripSurfaceYDirection);
+                    CHECK(std::abs(yAngleDiff) < 85.0f);
+                }
 
-                        {
-                            // Grip: -Z axis: When you close your hand partially (as if holding the controller), the ray that goes through the center of the tube formed by your non-thumb fingers, in the direction of little finger to thumb.
-                            // Grip Surface: -Z axis: When a user is holding the controller and straightens their index finger, the ray that is parallel to their finger's pointing direction.
-                            // In other words, the wrist (according to the grip surface pose) should not be tilted more than 90° away from the grip pose's z axis, i.e. the controller handle.
-                            XrVector3f zAxis = {0, 0, 1};
-                            XrVector3f gripSurfaceZDirection{};
-                            XrQuaternionf_RotateVector3f(&gripSurfaceZDirection, &gripSurfaceLocation.pose.orientation, &zAxis);
-                            double zAngleDiff = angleDeg(zAxis, gripSurfaceZDirection);
-                            REQUIRE(std::abs(zAngleDiff) < 90.0f);
-                        }
+                const XrVector3f zAxis = {0, 0, 1};
+                XrVector3f gripSurfaceZDirection = Quat::RotateVector(gripSurfaceLocation.pose.orientation, zAxis);
+                INFO("gripSurfaceZDirection is the local Z axis of grip_surface/palm_ext relative to grip space");
+                CAPTURE(gripSurfaceZDirection);
+                if (i == 0) {
+                    // Test that the z axis (direction from the palm center to the wrist) of grip surface points "to the left" in grip space.
+                    // This should be true for all usual controllers. If this is not true for your controller, you may need to adapt or discard this test.
+                    CHECK(gripSurfaceZDirection.x < 0);
+                }
+                else {
+                    // Test that the z axis (direction from the palm center to the wrist) of grip surface points not significantly to the left in grip space,
+                    // i.e. the part of the hand between wrist and grip_surface pose does not point through the controller handle.
+                    // This should be true for all usual controllers. If this is not true for your controller, you may need to adapt or discard this test.
+                    CHECK(gripSurfaceZDirection.x >= -10);
+                }
 
-                        {
-                            // Grip: +Y axis: orthogonal to +Z and +X using the right-hand rule.
-                            // Grip Surface: +Y axis: orthogonal to +Z and +X using the right-hand rule.
-                            // When the hand grips a cylindrical controller handle, the grip surface y axis pointing from the palm center "up" to the thumb should align roughly with the controller handle's forward (z = -1) axis.
-                            XrVector3f yAxis = {0, 1, 0};
-                            XrVector3f zMAxis = {0, 0, -1};
-                            XrVector3f gripSurfaceYDirection{};
-                            XrQuaternionf_RotateVector3f(&gripSurfaceYDirection, &gripSurfaceLocation.pose.orientation, &yAxis);
-                            double yAngleDiff = angleDeg(zMAxis, gripSurfaceYDirection);
-                            REQUIRE(std::abs(yAngleDiff) < 85.0f);
-                        }
-
-                        if (i == 0) {
-                            // Test that the z axis (direction from the palm center to the wrist) of grip surface points "to the left" in grip space.
-                            // This should be true for all usual controllers. If this is not true for your controller, you may need to adapt or discard this test.
-                            XrVector3f zAxis = {0, 0, 1};
-                            XrVector3f gripSurfaceZDirection{};
-                            XrQuaternionf_RotateVector3f(&gripSurfaceZDirection, &gripSurfaceLocation.pose.orientation, &zAxis);
-                            REQUIRE(gripSurfaceZDirection.x < 0);
-                        }
-                        else {
-                            // Test that the z axis (direction from the palm center to the wrist) of grip surface points not significantly to the left in grip space,
-                            // i.e. the part of the hand between wrist and grip_surface pose does not point through the controller handle.
-                            // This should be true for all usual controllers. If this is not true for your controller, you may need to adapt or discard this test.
-                            XrVector3f zAxis = {0, 0, 1};
-                            XrVector3f gripSurfaceZDirection{};
-                            XrQuaternionf_RotateVector3f(&gripSurfaceZDirection, &gripSurfaceLocation.pose.orientation, &zAxis);
-                            REQUIRE(gripSurfaceZDirection.x >= -10);
-                        }
-
-                        {
-                            // Test that the z axis (direction from the palm center to the wrist) of grip surface points "upwards" in grip space, meaning that the controller cylinder is grabbed with the wrist angled towards the user and not somehow away.
-                            // This should be true for all usual controllers. If this is not true for your controller, you may need to adapt or discard this test.
-                            XrVector3f zAxis = {0, 0, 1};
-                            XrVector3f gripSurfaceZDirection{};
-                            XrQuaternionf_RotateVector3f(&gripSurfaceZDirection, &gripSurfaceLocation.pose.orientation, &zAxis);
-                            REQUIRE(gripSurfaceZDirection.y > 0);
-                        }
-
-                        maxTestStates[i] = std::max(maxTestStates[i], TestState::Passed);
-                    }
-                    return (maxTestStates[0] == TestState::Passed || !globalData.leftHandUnderTest) &&
-                           (maxTestStates[1] == TestState::Passed || !globalData.rightHandUnderTest);
-                },
-                30s, 50ms);
-            auto testStateMessage = [](TestState state, bool testExtension) -> std::string {
-                switch (state) {
-                case TestState::Untested:
-                    return "was not tested";
-                case TestState::Inactive:
-                    return std::string(testExtension ? "palm pose" : "grip surface") +
-                           " was never observed as active at the same time as grip";
-                case TestState::Invalid:
-                    return "grip was never observed with a fully valid pose";
-                case TestState::Passed:
-                    return "passed";
-                default:
-                    FAIL("unexpected enum value " << static_cast<int64_t>(state));
-                    return "test state was [unexpected enum value]";
-                };
-            };
-            INFO("left hand " << testStateMessage(maxTestStates[0], testExtension));
-            INFO("right hand " << testStateMessage(maxTestStates[1], testExtension));
-            REQUIRE(testPassed);
+                {
+                    // Test that the z axis (direction from the palm center to the wrist) of grip surface points "upwards" in grip space, meaning that the controller cylinder is grabbed with the wrist angled towards the user and not somehow away.
+                    // This should be true for all usual controllers. If this is not true for your controller, you may need to adapt or discard this test.
+                    CHECK(gripSurfaceZDirection.y > 0);
+                }
+            }
         }
     }  // namespace
 
@@ -786,15 +783,14 @@ namespace Conformance
     }
 
     // These two "objective" tests automatically evaluate their results, but because they require controllers,
-    // they are marked as "interactive", and they currently lack conformance automation support
-
+    // they are marked as "interactive". They do have conformance automation support now.
     // TODO make these use the specified interaction profile rather than simple controller?
-    TEST_CASE("XR_EXT_palm_pose-objective", "[XR_EXT_palm_pose][actions][interactive][no_auto]")
+    TEST_CASE("XR_EXT_palm_pose-objective", "[XR_EXT_palm_pose][actions][interactive]")
     {
         SharedGripSurfaceAutomated(kExtensionRequirements);
     }
 
-    TEST_CASE("GripSurface-objective", "[XR_VERSION_1_1][actions][interactive][no_auto]")
+    TEST_CASE("GripSurface-objective", "[XR_VERSION_1_1][actions][interactive]")
     {
         SharedGripSurfaceAutomated(kPromotedCoreRequirements);
     }

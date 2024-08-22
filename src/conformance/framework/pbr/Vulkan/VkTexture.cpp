@@ -81,6 +81,7 @@ namespace Pbr
 
             Conformance::BufferAndMemory stagingBuffer;
             stagingBuffer.Create(device, memAllocator, bufferCreateInfo);
+            XRC_CHECK_THROW_VKCMD(namer.SetName(VK_OBJECT_TYPE_BUFFER, (uint64_t)stagingBuffer.buf, "CTS texture array staging buffer"));
             stagingBuffer.Update<uint8_t>(device, {rgba, static_cast<size_t>(bufferCreateInfo.size)}, 0);
 
             // create image

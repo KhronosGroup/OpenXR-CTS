@@ -78,6 +78,8 @@ add_library(
     graphics_plugin_opengles.cpp
     graphics_plugin_vulkan.cpp
     graphics_plugin_vulkan_gltf.cpp
+    graphics_plugin_metal.cpp
+    graphics_plugin_metal_gltf.cpp
     input_testinputdevice.cpp
     mesh_projection_layer.cpp
     platform_plugin_android.cpp
@@ -104,6 +106,11 @@ target_link_libraries(
         conformance_framework_tinygltf
 )
 
+if(APPLE)
+    # use C++17 since there is a dependency on metal-cpp
+    target_compile_features(conformance_framework PUBLIC cxx_std_17)
+endif()
+
 if(GLSLANG_VALIDATOR AND NOT GLSL_COMPILER)
     target_compile_definitions(
         conformance_framework PUBLIC USE_GLSLANGVALIDATOR
@@ -118,6 +125,8 @@ target_include_directories(
         ${PROJECT_SOURCE_DIR}/src/external/type-lite/include
         # Backport of std::span functionality to pre-C++17
         ${PROJECT_SOURCE_DIR}/src/external/span-lite/include
+        # for metal-cpp
+        ${PROJECT_SOURCE_DIR}/src/external/metal-cpp
         # for xr_linear.h:
         ${PROJECT_SOURCE_DIR}/src/common
         # for compiled shaders and generated source

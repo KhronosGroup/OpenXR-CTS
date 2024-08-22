@@ -39,10 +39,13 @@
 
 // Include all dependencies of openxr_platform as configured
 #include "common/xr_dependencies.h"
+#include "utilities/xr_math_operators.h"
 #include <openxr/openxr_platform.h>
 
 namespace Conformance
 {
+    using namespace openxr::math_operators;
+
     // The way we do the primary test here, we create an instance and session, then exercise
     // API calls from multiple threads with the given instance/session.
     class ThreadTestEnvironment;
@@ -535,7 +538,7 @@ namespace Conformance
     void Exercise_xrCreateReferenceSpace(ThreadTestEnvironment& env)
     {
         // To do: make the reference space type dynamically chosen.
-        XrReferenceSpaceCreateInfo createInfo{XR_TYPE_REFERENCE_SPACE_CREATE_INFO, nullptr, XR_REFERENCE_SPACE_TYPE_VIEW, XrPosefCPP()};
+        XrReferenceSpaceCreateInfo createInfo{XR_TYPE_REFERENCE_SPACE_CREATE_INFO, nullptr, XR_REFERENCE_SPACE_TYPE_VIEW, Pose::Identity};
         XrSpace space;
         XrResult result = xrCreateReferenceSpace(env.GetAutoBasicSession().GetSession(), &createInfo, &space);
         XRC_CHECK_THROW_XRRESULT_SUCCESS_OR_LIMIT_REACHED(result, "xrCreateReferenceSpace");
@@ -564,7 +567,7 @@ namespace Conformance
         XrActionSpaceCreateInfo actionSpaceCreateInfo{XR_TYPE_ACTION_SPACE_CREATE_INFO};
         actionSpaceCreateInfo.action = env.gripPoseAction;
         actionSpaceCreateInfo.subactionPath = handSubactionArray[a];
-        actionSpaceCreateInfo.poseInActionSpace = XrPosefCPP();
+        actionSpaceCreateInfo.poseInActionSpace = Pose::Identity;
 
         XrSpace space;
         XrResult result = xrCreateActionSpace(env.GetAutoBasicSession().GetSession(), &actionSpaceCreateInfo, &space);

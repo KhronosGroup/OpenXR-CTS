@@ -65,6 +65,7 @@ as it is important for interpreting the results.
         conformance_cli "exclude:[interactive]" -G vulkan --apiVersion 1.0 --reporter ctsxml::out=automated_vulkan_1_0.xml
         conformance_cli "exclude:[interactive]" -G vulkan2 --apiVersion 1.0 --reporter ctsxml::out=automated_vulkan2_1_0.xml
         conformance_cli "exclude:[interactive]" -G opengl --apiVersion 1.0 --reporter ctsxml::out=automated_opengl_1_0.xml
+        conformance_cli "exclude:[interactive]" -G metal --apiVersion 1.0 --reporter ctsxml::out=automated_metal_1_0.xml
 
     Example for OpenXR 1.1:
 
@@ -73,6 +74,7 @@ as it is important for interpreting the results.
         conformance_cli "exclude:[interactive]" -G vulkan --apiVersion 1.1 --reporter ctsxml::out=automated_vulkan_1_1.xml
         conformance_cli "exclude:[interactive]" -G vulkan2 --apiVersion 1.1 --reporter ctsxml::out=automated_vulkan2_1_1.xml
         conformance_cli "exclude:[interactive]" -G opengl --apiVersion 1.1 --reporter ctsxml::out=automated_opengl_1_1.xml
+        conformance_cli "exclude:[interactive]" -G metal --apiVersion 1.1 --reporter ctsxml::out=automated_metal_1_1.xml
 
     Notes:
     * Some tests require that a begun session progresses to `XR_SESSION_STATE_FOCUSED`.
@@ -90,6 +92,7 @@ as it is important for interpreting the results.
         conformance_cli "[composition][interactive]" -G vulkan --apiVersion 1.0 --reporter ctsxml::out=interactive_composition_vulkan_1_0.xml
         conformance_cli "[composition][interactive]" -G vulkan2 --apiVersion 1.0 --reporter ctsxml::out=interactive_composition_vulkan2_1_0.xml
         conformance_cli "[composition][interactive]" -G opengl --apiVersion 1.0 --reporter ctsxml::out=interactive_composition_opengl_1_0.xml
+        conformance_cli "[composition][interactive]" -G metal --apiVersion 1.0 --reporter ctsxml::out=interactive_composition_metal_1_0.xml
 
     Example for OpenXR 1.1:
 
@@ -98,6 +101,7 @@ as it is important for interpreting the results.
         conformance_cli "[composition][interactive]" -G vulkan --apiVersion 1.1 --reporter ctsxml::out=interactive_composition_vulkan_1_1.xml
         conformance_cli "[composition][interactive]" -G vulkan2 --apiVersion 1.1 --reporter ctsxml::out=interactive_composition_vulkan2_1_1.xml
         conformance_cli "[composition][interactive]" -G opengl --apiVersion 1.1 --reporter ctsxml::out=interactive_composition_opengl_1_1.xml
+        conformance_cli "[composition][interactive]" -G metal --apiVersion 1.1 --reporter ctsxml::out=interactive_composition_metal_1_1.xml
 
     Notes:
     * The runtime must support `khr/simple_controller` to manually pass or fail
@@ -273,6 +277,7 @@ To run the self-tests, commands similar to the following can be used:
         conformance_cli "[self_test][interactive]" -G vulkan --apiVersion 1.0 --reporter ctsxml::out=interactive_self_test_vulkan_1_0.xml
         conformance_cli "[self_test][interactive]" -G vulkan2 --apiVersion 1.0 --reporter ctsxml::out=interactive_self_test_vulkan2_1_0.xml
         conformance_cli "[self_test][interactive]" -G opengl --apiVersion 1.0 --reporter ctsxml::out=interactive_self_test_opengl_1_0.xml
+        conformance_cli "[self_test][interactive]" -G metal --apiVersion 1.0 --reporter ctsxml::out=interactive_self_test_metal_1_0.xml
 
     Example for OpenXR 1.1:
 
@@ -281,6 +286,7 @@ To run the self-tests, commands similar to the following can be used:
         conformance_cli "[self_test][interactive]" -G vulkan --apiVersion 1.1 --reporter ctsxml::out=interactive_self_test_vulkan_1_1.xml
         conformance_cli "[self_test][interactive]" -G vulkan2 --apiVersion 1.1 --reporter ctsxml::out=interactive_self_test_vulkan2_1_1.xml
         conformance_cli "[self_test][interactive]" -G opengl --apiVersion 1.1 --reporter ctsxml::out=interactive_self_test_opengl_1_1.xml
+        conformance_cli "[self_test][interactive]" -G metal --apiVersion 1.1 --reporter ctsxml::out=interactive_self_test_metal_1_1.xml
 
 Conformance Submission Package Requirements
 -------------------------------------------
@@ -301,12 +307,14 @@ Details:
 
         automated_d3d11_1_0.xml
         automated_d3d12_1_0.xml
+        automated_metal_1_0.xml
         automated_opengl_1_0.xml
         automated_gles_1_0.xml
         automated_vulkan_1_0.xml
         automated_vulkan2_1_0.xml
         automated_d3d11_1_1.xml
         automated_d3d12_1_1.xml
+        automated_metal_1_1.xml
         automated_opengl_1_1.xml
         automated_gles_1_1.xml
         automated_vulkan_1_1.xml
@@ -317,12 +325,14 @@ Details:
 
         interactive_composition_d3d11_1_0.xml
         interactive_composition_d3d12_1_0.xml
+        interactive_composition_metal_1_0.xml
         interactive_composition_opengl_1_0.xml
         interactive_composition_gles_1_0.xml
         interactive_composition_vulkan_1_0.xml
         interactive_composition_vulkan2_1_0.xml
         interactive_composition_d3d11_1_1.xml
         interactive_composition_d3d12_1_1.xml
+        interactive_composition_metal_1_1.xml
         interactive_composition_opengl_1_1.xml
         interactive_composition_gles_1_1.xml
         interactive_composition_vulkan_1_1.xml

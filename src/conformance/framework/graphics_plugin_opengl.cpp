@@ -111,6 +111,10 @@ namespace Conformance
             XRC_SWAPCHAIN_FORMAT(GL_RG32F).WORKAROUND.ToPair(),
             XRC_SWAPCHAIN_FORMAT(GL_RGBA32F).WORKAROUND.ToPair(),
             XRC_SWAPCHAIN_FORMAT(GL_R11F_G11F_B10F).WORKAROUND.ToPair(),
+            XRC_SWAPCHAIN_FORMAT(GL_R8_SNORM).WORKAROUND.ToPair(),
+            XRC_SWAPCHAIN_FORMAT(GL_RG8_SNORM).WORKAROUND.ToPair(),
+            XRC_SWAPCHAIN_FORMAT(GL_RGB8_SNORM).WORKAROUND.ToPair(),
+            XRC_SWAPCHAIN_FORMAT(GL_RGBA8_SNORM).WORKAROUND.ToPair(),
             XRC_SWAPCHAIN_FORMAT(GL_R8I).WORKAROUND.ToPair(),
             XRC_SWAPCHAIN_FORMAT(GL_R8UI).WORKAROUND.ToPair(),
             XRC_SWAPCHAIN_FORMAT(GL_R16I).WORKAROUND.ToPair(),
@@ -502,7 +506,7 @@ namespace Conformance
 
     std::string OpenGLGraphicsPlugin::DescribeGraphics() const
     {
-        return std::string("OpenGL");
+        return "OpenGL";
     }
 
     std::vector<std::string> OpenGLGraphicsPlugin::GetInstanceExtensions() const
@@ -893,7 +897,7 @@ namespace Conformance
         return true;
     }
 
-    int64_t OpenGLGraphicsPlugin::SelectColorSwapchainFormat(const int64_t* imageFormatArray, size_t count) const
+    int64_t OpenGLGraphicsPlugin::SelectColorSwapchainFormat(const int64_t* formatArray, size_t count) const
     {
         // List of supported color swapchain formats, note sRGB formats skipped due to CTS bug.
         // The order of this list does not effect the priority of selecting formats, the runtime list defines that.
@@ -908,36 +912,36 @@ namespace Conformance
             GL_RGBA8_SNORM,
         };
 
-        const int64_t* formatArrayEnd = imageFormatArray + count;
-        auto it = std::find_first_of(imageFormatArray, formatArrayEnd, f.begin(), f.end());
+        span<const int64_t> formatArraySpan{formatArray, count};
+        auto it = std::find_first_of(formatArraySpan.begin(), formatArraySpan.end(), f.begin(), f.end());
 
-        if (it == formatArrayEnd) {
+        if (it == formatArraySpan.end()) {
             assert(false);  // Assert instead of throw as we need to switch to the big table which can't fail.
-            return imageFormatArray[0];
+            return formatArray[0];
         }
 
         return *it;
     }
 
-    int64_t OpenGLGraphicsPlugin::SelectDepthSwapchainFormat(const int64_t* imageFormatArray, size_t count) const
+    int64_t OpenGLGraphicsPlugin::SelectDepthSwapchainFormat(const int64_t* formatArray, size_t count) const
     {
         // List of supported depth swapchain formats.
         const std::array<GLenum, 5> f{
             GL_DEPTH24_STENCIL8, GL_DEPTH32F_STENCIL8, GL_DEPTH_COMPONENT24, GL_DEPTH_COMPONENT32F, GL_DEPTH_COMPONENT16,
         };
 
-        const int64_t* formatArrayEnd = imageFormatArray + count;
-        auto it = std::find_first_of(imageFormatArray, formatArrayEnd, f.begin(), f.end());
+        span<const int64_t> formatArraySpan{formatArray, count};
+        auto it = std::find_first_of(formatArraySpan.begin(), formatArraySpan.end(), f.begin(), f.end());
 
-        if (it == formatArrayEnd) {
+        if (it == formatArraySpan.end()) {
             assert(false);  // Assert instead of throw as we need to switch to the big table which can't fail.
-            return imageFormatArray[0];
+            return formatArray[0];
         }
 
         return *it;
     }
 
-    int64_t OpenGLGraphicsPlugin::SelectMotionVectorSwapchainFormat(const int64_t* imageFormatArray, size_t count) const
+    int64_t OpenGLGraphicsPlugin::SelectMotionVectorSwapchainFormat(const int64_t* formatArray, size_t count) const
     {
         // List of swapchain formats suitable for motion vectors.
         const std::array<GLenum, 2> f{
@@ -945,12 +949,12 @@ namespace Conformance
             GL_RGB16F,
         };
 
-        const int64_t* formatArrayEnd = imageFormatArray + count;
-        auto it = std::find_first_of(imageFormatArray, formatArrayEnd, f.begin(), f.end());
+        span<const int64_t> formatArraySpan{formatArray, count};
+        auto it = std::find_first_of(formatArraySpan.begin(), formatArraySpan.end(), f.begin(), f.end());
 
-        if (it == formatArrayEnd) {
+        if (it == formatArraySpan.end()) {
             assert(false);  // Assert instead of throw as we need to switch to the big table which can't fail.
-            return imageFormatArray[0];
+            return formatArray[0];
         }
 
         return *it;
@@ -1138,12 +1142,9 @@ namespace Conformance
         const auto& pose = layerView.pose;
         XrMatrix4x4f proj;
         XrMatrix4x4f_CreateProjectionFov(&proj, GRAPHICS_OPENGL, layerView.fov, 0.05f, 100.0f);
-        XrMatrix4x4f toView;
-        XrMatrix4x4f_CreateFromRigidTransform(&toView, &pose);
-        XrMatrix4x4f view;
-        XrMatrix4x4f_InvertRigidBody(&view, &toView);
-        XrMatrix4x4f vp;
-        XrMatrix4x4f_Multiply(&vp, &proj, &view);
+        XrMatrix4x4f toView = Matrix::FromPose(pose);
+        XrMatrix4x4f view = Matrix::InvertRigidBody(toView);
+        XrMatrix4x4f vp = proj * view;
         MeshHandle lastMeshHandle;
 
         const auto drawMesh = [this, &vp, &lastMeshHandle](const MeshDrawable mesh) {
@@ -1158,11 +1159,9 @@ namespace Conformance
             }
 
             // Compute the model-view-projection transform and set it..
-            XrMatrix4x4f model;
-            XrMatrix4x4f_CreateTranslationRotationScale(&model, &mesh.params.pose.position, &mesh.params.pose.orientation,
-                                                        &mesh.params.scale);
-            XrMatrix4x4f mvp;
-            XrMatrix4x4f_Multiply(&mvp, &vp, &model);
+            XrMatrix4x4f model =
+                Matrix::FromTranslationRotationScale(mesh.params.pose.position, mesh.params.pose.orientation, mesh.params.scale);
+            XrMatrix4x4f mvp = vp = model;
             glUniformMatrix4fv(m_modelViewProjectionUniformLocation, 1, GL_FALSE, reinterpret_cast<const GLfloat*>(&mvp));
             glUniform4fv(m_tintColorUniformLocation, 1, reinterpret_cast<const GLfloat*>(&mesh.tintColor));
 
@@ -1185,9 +1184,8 @@ namespace Conformance
             GLGLTF& gltf = m_gltfInstances[gltfDrawable.handle];
             // Compute and update the model transform.
 
-            XrMatrix4x4f modelToWorld;
-            XrMatrix4x4f_CreateTranslationRotationScale(&modelToWorld, &gltfDrawable.params.pose.position,
-                                                        &gltfDrawable.params.pose.orientation, &gltfDrawable.params.scale);
+            XrMatrix4x4f modelToWorld = Matrix::FromTranslationRotationScale(
+                gltfDrawable.params.pose.position, gltfDrawable.params.pose.orientation, gltfDrawable.params.scale);
 
             m_pbrResources->SetViewProjection(view, proj);
 

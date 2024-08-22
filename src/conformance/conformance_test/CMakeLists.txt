@@ -76,6 +76,8 @@ target_include_directories(
         ${CMAKE_CURRENT_BINARY_DIR}
         ../framework
         ${PROJECT_SOURCE_DIR}/src/common
+        # for Metal binding on Apple platforms
+        ${PROJECT_SOURCE_DIR}/src/external/metal-cpp
         # for common_config.h:
         ${PROJECT_BINARY_DIR}/src
 )
@@ -114,6 +116,16 @@ if(WIN32)
             target_compile_options(conformance_test PRIVATE /WX)
         endif()
     endif()
+endif()
+
+if(APPLE)
+    # use C++17 since there is a dependency on metal-cpp
+    target_compile_features(conformance_test PUBLIC cxx_std_17)
+
+    target_link_libraries(
+        conformance_test PRIVATE "-framework Foundation"
+                                 "-framework CoreGraphics" "-framework Metal"
+    )
 endif()
 
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")

@@ -82,9 +82,9 @@ namespace Pbr
         void SetDoubleSided(DoubleSided doubleSided);
         void SetAlphaBlended(BlendState alphaBlended);
 
-        DoubleSided GetDoubleSided();
-        FillMode GetWireframe();
-        BlendState GetAlphaBlended();
+        DoubleSided GetDoubleSided() const;
+        FillMode GetWireframe() const;
+        BlendState GetAlphaBlended() const;
 
         ConstantBufferData& Parameters();
         const ConstantBufferData& Parameters() const;

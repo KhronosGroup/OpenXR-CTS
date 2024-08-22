@@ -9,6 +9,7 @@
 #include "GltfHelper.h"
 
 #include "common/xr_linear.h"
+#include "utilities/xr_math_operators.h"
 
 #include <openxr/openxr.h>
 #include <tinygltf/tiny_gltf.h>
@@ -43,6 +44,8 @@ static_assert(sizeof(XrVector4f) == sizeof(DirectX::XMFLOAT4), "Size of 4D vecto
 
 namespace
 {
+    using namespace openxr::math_operators;
+
     // The glTF 2 specification recommends using the MikkTSpace algorithm to generate
     // tangents when none are available. This function takes a GltfHelper Primitive which has
     // no tangents and uses the MikkTSpace algorithm to generate the tangents. This can
@@ -109,27 +112,24 @@ namespace
             GltfHelper::Vertex& v2 = primitive.Vertices[primitive.Indices[i + 2]];
 
             // Compute normal. Normalization happens later.
-            XrVector3f d0;
-            XrVector3f_Sub(&d0, &v2.Position, &v0.Position);
-            XrVector3f d1;
-            XrVector3f_Sub(&d1, &v1.Position, &v0.Position);
-            XrVector3f normal;
-            XrVector3f_Cross(&normal, &d0, &d1);
+            XrVector3f d0 = v2.Position - v0.Position;
+            XrVector3f d1 = v1.Position - v0.Position;
+            XrVector3f normal = Vector::CrossProduct(d0, d1);
 
             // Add the normal to the three vertices of the triangle. Normals are added
             // so that reused vertices will get the average normal (done later).
             // Note that the normals are not normalized at this point, so larger triangles
             // will have more weight than small triangles which share a vertex. This
             // appears to give better results.
-            XrVector3f_Add(&v0.Normal, &v0.Normal, &normal);
-            XrVector3f_Add(&v1.Normal, &v1.Normal, &normal);
-            XrVector3f_Add(&v2.Normal, &v2.Normal, &normal);
+            v0.Normal += normal;
+            v1.Normal += normal;
+            v2.Normal += normal;
         }
 
         // Since the same vertex may have been used by multiple triangles, and the cross product normals
         // aren't normalized yet, normalize the computed normals.
         for (GltfHelper::Vertex& vertex : primitive.Vertices) {
-            XrVector3f_Normalize(&vertex.Normal);
+            Vector::Normalize(vertex.Normal);
         }
     }
 
@@ -480,8 +480,7 @@ namespace GltfHelper
     {
         // A node may specify either a 4x4 matrix or TRS (Translation-Rotation-Scale) values, but not both.
         if (gltfNode.matrix.size() == 16) {
-            XrMatrix4x4f identityMatrix;
-            XrMatrix4x4f_CreateIdentity(&identityMatrix);
+            constexpr XrMatrix4x4f identityMatrix = Matrix::Identity;
             return Double4x4ToXrMatrix4x4f(identityMatrix, gltfNode.matrix);
         }
         else {
@@ -489,9 +488,7 @@ namespace GltfHelper
             XrVector3f translation = DoublesToXrVector3f(XrVector3f{0, 0, 0}, gltfNode.translation);
             XrQuaternionf rotation = DoublesToXrQuaternionf(XrQuaternionf{0, 0, 0, 1}, gltfNode.rotation);
             XrVector3f scale = DoublesToXrVector3f(XrVector3f{1, 1, 1}, gltfNode.scale);
-            XrMatrix4x4f mat;
-            XrMatrix4x4f_CreateTranslationRotationScale(&mat, &translation, &rotation, &scale);
-            return mat;
+            return Matrix::FromTranslationRotationScale(translation, rotation, scale);
         }
     }
 

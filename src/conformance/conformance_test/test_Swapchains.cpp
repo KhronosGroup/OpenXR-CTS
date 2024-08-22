@@ -434,6 +434,23 @@ namespace Conformance
 
                 SECTION("Swapchain creation test parameters")
                 {
+                    OPTIONAL_INVALID_TYPE_VALIDATION_SECTION
+                    {
+                        XrSwapchainCreateInfo createInfoWithoutType = FindDefaultColorSwapchainCreateInfo(imageFormatArray, session);
+                        createInfoWithoutType.type = (XrStructureType)0;
+
+                        XrSwapchain swapchainRaw{XR_NULL_HANDLE_CPP};
+                        REQUIRE_RESULT(xrCreateSwapchain(session, &createInfoWithoutType, &swapchainRaw), XR_ERROR_VALIDATION_FAILURE);
+                    }
+                    OPTIONAL_INVALID_TYPE_VALIDATION_SECTION
+                    {
+                        XrSwapchainCreateInfo createInfoWithInvalidType = FindDefaultColorSwapchainCreateInfo(imageFormatArray, session);
+                        createInfoWithInvalidType.type = XR_TYPE_ACTIONS_SYNC_INFO;
+
+                        XrSwapchain swapchainRaw{XR_NULL_HANDLE_CPP};
+                        REQUIRE_RESULT(xrCreateSwapchain(session, &createInfoWithInvalidType, &swapchainRaw), XR_ERROR_VALIDATION_FAILURE);
+                    }
+
                     // At this point, session.viewConfigurationViewVector has the system's set of view configurations,
                     // and imageFormatArray has the supported set of image formats.
 

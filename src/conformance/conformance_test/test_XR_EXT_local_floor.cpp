@@ -14,21 +14,23 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "catch2/matchers/catch_matchers.hpp"
-#include "catch2/matchers/catch_matchers_vector.hpp"
 #include "composition_utils.h"
 #include "conformance_framework.h"
 #include "matchers.h"
 #include "report.h"
 #include "availability_helper.h"
-#include "utilities/feature_availability.h"
-#include "utilities/utils.h"
 #include "conformance_utils.h"
 #include "two_call.h"
+#include "utilities/feature_availability.h"
+#include "utilities/utils.h"
+
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/catch_approx.hpp>
+#include <catch2/matchers/catch_matchers.hpp>
+#include <catch2/matchers/catch_matchers_vector.hpp>
 #include <catch2/matchers/catch_matchers_contains.hpp>
 #include <openxr/openxr.h>
+
 #include <algorithm>
 #include <vector>
 
@@ -36,6 +38,7 @@ using namespace Conformance;
 
 namespace Conformance
 {
+    using namespace openxr::math_operators;
     using Catch::Matchers::VectorContains;
     namespace
     {
@@ -189,7 +192,7 @@ namespace Conformance
 
             XrReferenceSpaceCreateInfo localFloorCreateInfo{XR_TYPE_REFERENCE_SPACE_CREATE_INFO};
             localFloorCreateInfo.referenceSpaceType = XR_REFERENCE_SPACE_TYPE_LOCAL_FLOOR_EXT;
-            localFloorCreateInfo.poseInReferenceSpace = XrPosefCPP();
+            localFloorCreateInfo.poseInReferenceSpace = Pose::Identity;
 
             XrSpace localFloor = XR_NULL_HANDLE;
             REQUIRE_RESULT(xrCreateReferenceSpace(session, &localFloorCreateInfo, &localFloor), XR_SUCCESS);
@@ -228,7 +231,7 @@ namespace Conformance
             XrSpaceLocation localFloorInViewLoc{XR_TYPE_SPACE_LOCATION};
 
             XrReferenceSpaceCreateInfo createInfo{XR_TYPE_REFERENCE_SPACE_CREATE_INFO};
-            createInfo.poseInReferenceSpace = XrPosefCPP();
+            createInfo.poseInReferenceSpace = Pose::Identity;
 
             createInfo.referenceSpaceType = XR_REFERENCE_SPACE_TYPE_VIEW;
             REQUIRE_RESULT(xrCreateReferenceSpace(session, &createInfo, &viewSpace), XR_SUCCESS);
@@ -271,7 +274,7 @@ namespace Conformance
 
                     localInStageBounds = CheckInBounds(session, XR_REFERENCE_SPACE_TYPE_STAGE, localInStageLoc, stageSpaceHasBounds);
 
-                    XrPosef yOffsetPose = XrPosefCPP();
+                    XrPosef yOffsetPose = Pose::Identity;
                     yOffsetPose.position.y = -localInStageLoc.pose.position.y;
 
                     createInfo.referenceSpaceType = XR_REFERENCE_SPACE_TYPE_LOCAL;
@@ -341,9 +344,9 @@ namespace Conformance
             SKIP("XR_REFERENCE_SPACE_TYPE_STAGE not supported");
         }
 
-        XrSpace refSpace = compositionHelper.CreateReferenceSpace(refSpaceType, XrPosefCPP{});
-        XrSpace localSpace = compositionHelper.CreateReferenceSpace(XR_REFERENCE_SPACE_TYPE_LOCAL, XrPosefCPP{});
-        XrSpace localFloorSpace = compositionHelper.CreateReferenceSpace(XR_REFERENCE_SPACE_TYPE_LOCAL_FLOOR_EXT, XrPosefCPP{});
+        XrSpace refSpace = compositionHelper.CreateReferenceSpace(refSpaceType, Pose::Identity);
+        XrSpace localSpace = compositionHelper.CreateReferenceSpace(XR_REFERENCE_SPACE_TYPE_LOCAL, Pose::Identity);
+        XrSpace localFloorSpace = compositionHelper.CreateReferenceSpace(XR_REFERENCE_SPACE_TYPE_LOCAL_FLOOR_EXT, Pose::Identity);
 
         // Set up composition projection layer and swapchains (one swapchain per view).
         std::vector<XrSwapchain> swapchains;

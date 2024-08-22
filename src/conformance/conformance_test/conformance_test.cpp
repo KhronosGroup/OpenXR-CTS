@@ -426,6 +426,11 @@ namespace
               ("Enables testing of invalid handle checking.")
                   .optional()
 
+            | Opt(options.invalidTypeValidation)     // Invalid type validation
+                  ["-T"]["--invalidTypeValidation"]  //
+              ("Enables testing of invalid type checking.")
+                  .optional()
+
             | Opt(options.nonDisconnectableDevices)  // Runtime supports disconnectable devices
                   ["--nonDisconnectableDevices"]     //
               ("Disables tests that requires disconnectable devices (for debugging).")

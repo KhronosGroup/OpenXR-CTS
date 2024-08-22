@@ -57,6 +57,8 @@ void ValidateXrVector3f(ConformanceHooksBase* conformanceHook, const XrVector3f&
     }
 // clang-format on
 
+MAKE_IS_VALID_ENUM_VALUE(XrViewConfigurationType, false);
+MAKE_IS_VALID_ENUM_VALUE(XrEnvironmentBlendMode, false);
 MAKE_IS_VALID_ENUM_VALUE(XrSessionState, false);
 MAKE_IS_VALID_ENUM_VALUE(XrReferenceSpaceType, false);
 MAKE_IS_VALID_ENUM_VALUE(XrPerfSettingsDomainEXT, false);

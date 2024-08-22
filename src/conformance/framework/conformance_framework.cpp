@@ -92,6 +92,8 @@ namespace Conformance
 
         AppendSprintf(result, "   invalidHandleValidation: %s\n", invalidHandleValidation ? "yes" : "no");
 
+        AppendSprintf(result, "   invalidTypeValidation: %s\n", invalidTypeValidation ? "yes" : "no");
+
         AppendSprintf(result, "   fileLineLoggingEnabled: %s\n", fileLineLoggingEnabled ? "yes" : "no");
 
         AppendSprintf(result, "   pollGetSystem: %s\n", pollGetSystem ? "yes" : "no");
@@ -129,6 +131,7 @@ namespace Conformance
         AppendSprintf(reportString, "Tested view configuration: %s\n", globalData.options.viewConfiguration.c_str());
         AppendSprintf(reportString, "Tested environment blend mode: %s\n", globalData.options.environmentBlendMode.c_str());
         AppendSprintf(reportString, "Handle invalidation tested: %s\n", globalData.options.invalidHandleValidation ? "yes" : "no");
+        AppendSprintf(reportString, "Type invalidation tested: %s\n", globalData.options.invalidTypeValidation ? "yes" : "no");
         AppendSprintf(reportString, "Non-disconnectable devices: %s\n", globalData.options.nonDisconnectableDevices ? "yes" : "no");
         AppendSprintf(reportString, "Test Success Count: %d\n", (int)testSuccessCount);
         AppendSprintf(reportString, "Test Failure Count: %d\n", (int)testFailureCount);
@@ -604,9 +607,4 @@ std::string Catch::StringMaker<XrPosef>::convert(XrPosef const& value)
     oss << ", " << value.orientation.z;
     oss << "))]";
     return oss.str();
-}
-
-std::string Catch::StringMaker<Conformance::XrPosefCPP>::convert(Conformance::XrPosefCPP const& value)
-{
-    return ::Catch::Detail::stringify(static_cast<XrPosef const&>(value));
 }

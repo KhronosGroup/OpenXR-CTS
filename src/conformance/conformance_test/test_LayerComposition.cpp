@@ -32,6 +32,8 @@ using namespace Conformance;
 
 namespace Conformance
 {
+    using namespace openxr::math_operators;
+
     // Purpose: Verify behavior of quad visibility and occlusion with the expectation that:
     // 1. Quads render with painters algo.
     // 2. Quads which are facing away are not visible.
@@ -55,12 +57,12 @@ namespace Conformance
 
         // Each quad is rotated on Y axis by 45 degrees to form an X.
         // Green is added second so it should draw over the blue quad.
-        const XrQuaternionf blueRot = Quat::FromAxisAngle({0, 1, 0}, Math::DegToRad(-45));
+        const XrQuaternionf blueRot = Quat::FromAxisAngle({0, 1, 0}, DegToRad(-45));
         interactiveLayerManager.AddLayer(compositionHelper.CreateQuadLayer(blueSwapchain, viewSpace, 1.0f, XrPosef{blueRot, {0, 0, -2}}));
-        const XrQuaternionf greenRot = Quat::FromAxisAngle({0, 1, 0}, Math::DegToRad(45));
+        const XrQuaternionf greenRot = Quat::FromAxisAngle({0, 1, 0}, DegToRad(45));
         interactiveLayerManager.AddLayer(compositionHelper.CreateQuadLayer(greenSwapchain, viewSpace, 1.0f, XrPosef{greenRot, {0, 0, -2}}));
         // Red quad is rotated away from the viewer and should not be visible.
-        const XrQuaternionf redRot = Quat::FromAxisAngle({0, 1, 0}, Math::DegToRad(180));
+        const XrQuaternionf redRot = Quat::FromAxisAngle({0, 1, 0}, DegToRad(180));
         interactiveLayerManager.AddLayer(compositionHelper.CreateQuadLayer(redSwapchain, viewSpace, 1.0f, XrPosef{redRot, {0, 0, -1}}));
 
         RenderLoop(session, [&](const XrFrameState& frameState) { return interactiveLayerManager.EndFrame(frameState); }).Loop();
@@ -95,8 +97,7 @@ namespace Conformance
         static_assert(RotationCount * 2 <= XR_MIN_COMPOSITION_LAYERS_SUPPORTED, "Too many layers");
 
         for (int i = 0; i < RotationCount; i++) {
-            const float radians =
-                Math::LinearMap(i, 0, RotationCount - 1, Math::DegToRad(-MaxRotationDegrees), Math::DegToRad(MaxRotationDegrees));
+            const float radians = Math::LinearMap(i, 0, RotationCount - 1, DegToRad(-MaxRotationDegrees), DegToRad(MaxRotationDegrees));
 
             const XrPosef pose1 = XrPosef{Quat::FromAxisAngle({0, 1, 0}, radians), {0, 0, 0}};
             const XrPosef pose2 = XrPosef{Quat::Identity, {0, 0, -1}};
@@ -309,7 +310,7 @@ namespace Conformance
         interactionManager.AttachActionSets();
         compositionHelper.BeginSession();
 
-        const XrSpace localSpace = compositionHelper.CreateReferenceSpace(XR_REFERENCE_SPACE_TYPE_LOCAL, XrPosefCPP());
+        const XrSpace localSpace = compositionHelper.CreateReferenceSpace(XR_REFERENCE_SPACE_TYPE_LOCAL, Pose::Identity);
 
         const std::vector<XrViewConfigurationView> viewProperties = compositionHelper.EnumerateConfigurationViews();
 
@@ -381,7 +382,7 @@ namespace Conformance
         interactionManager.AttachActionSets();
         compositionHelper.BeginSession();
 
-        const XrSpace localSpace = compositionHelper.CreateReferenceSpace(XR_REFERENCE_SPACE_TYPE_LOCAL, XrPosefCPP());
+        const XrSpace localSpace = compositionHelper.CreateReferenceSpace(XR_REFERENCE_SPACE_TYPE_LOCAL, Pose::Identity);
 
         const std::vector<XrViewConfigurationView> viewProperties = compositionHelper.EnumerateConfigurationViews();
 
@@ -522,12 +523,12 @@ namespace Conformance
                 XrActionSpaceCreateInfo spaceCreateInfo{XR_TYPE_ACTION_SPACE_CREATE_INFO};
                 spaceCreateInfo.action = gripPoseAction;
                 spaceCreateInfo.subactionPath = subactionPaths[i];
-                spaceCreateInfo.poseInActionSpace = XrPosefCPP();
+                spaceCreateInfo.poseInActionSpace = Pose::Identity;
                 XRC_CHECK_THROW_XRCMD(xrCreateActionSpace(session, &spaceCreateInfo, &space));
             }
             else {
                 XrReferenceSpaceCreateInfo spaceCreateInfo{XR_TYPE_REFERENCE_SPACE_CREATE_INFO, nullptr, XR_REFERENCE_SPACE_TYPE_LOCAL,
-                                                           XrPosefCPP()};
+                                                           Pose::Identity};
                 XRC_CHECK_THROW_XRCMD(xrCreateReferenceSpace(session, &spaceCreateInfo, &space));
             }
             gripSpaces.push_back(space);
@@ -578,7 +579,7 @@ namespace Conformance
         interactionManager.AttachActionSets();
         compositionHelper.BeginSession();
 
-        const XrSpace localSpace = compositionHelper.CreateReferenceSpace(XR_REFERENCE_SPACE_TYPE_LOCAL, XrPosefCPP{});
+        const XrSpace localSpace = compositionHelper.CreateReferenceSpace(XR_REFERENCE_SPACE_TYPE_LOCAL, Pose::Identity);
 
         if (!compositionHelper.GetViewConfigurationProperties().fovMutable) {
             SKIP("View configuration does not support mutable FoV");
@@ -614,8 +615,7 @@ namespace Conformance
         const std::vector<Cube> cubes = {Cube::Make({-.2f, -.2f, -2}), Cube::Make({.2f, -.2f, -2}), Cube::Make({0, .1f, -2})};
 
         const XrVector3f Forward{0, 0, 1};
-        XrQuaternionf roll180;
-        XrQuaternionf_CreateFromAxisAngle(&roll180, &Forward, MATH_PI);
+        const XrQuaternionf roll180 = Quat::FromAxisAngle(Forward, MATH_PI);
 
         auto updateLayers = [&](const XrFrameState& frameState) {
             auto viewData = compositionHelper.LocateViews(localSpace, frameState.predictedDisplayTime);
@@ -640,7 +640,7 @@ namespace Conformance
 
                         // Render using a 180 degree roll on Z which effectively creates a flip on both the X and Y axis.
                         XrCompositionLayerProjectionView rolled = projLayer->views[view];
-                        XrQuaternionf_Multiply(&rolled.pose.orientation, &roll180, &views[view].pose.orientation);
+                        rolled.pose.orientation = roll180 * views[view].pose.orientation;
                         GetGlobalData().graphicsPlugin->RenderView(rolled, swapchainImage, RenderParams().Draw(cubes));
 
                         // After rendering, report a flipped FOV on X and Y without the 180 degree roll, which has the same
@@ -742,7 +742,7 @@ namespace Conformance
         interactionManager.AttachActionSets();
         compositionHelper.BeginSession();
 
-        const XrSpace localSpace = compositionHelper.CreateReferenceSpace(XR_REFERENCE_SPACE_TYPE_LOCAL, XrPosefCPP());
+        const XrSpace localSpace = compositionHelper.CreateReferenceSpace(XR_REFERENCE_SPACE_TYPE_LOCAL, Pose::Identity);
 
         const std::vector<XrViewConfigurationView> viewProperties = compositionHelper.EnumerateConfigurationViews();
 

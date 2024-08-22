@@ -41,6 +41,8 @@
 
 namespace Conformance
 {
+    using namespace openxr::math_operators;
+
     constexpr XrVector3f Up{0, 1, 0};
 
     struct ExtensionDataForXR_MSFT_controller_model
@@ -187,7 +189,7 @@ namespace Conformance
         syncInfo.countActiveActionSets = 1;
 
         XrActionSpaceCreateInfo actionSpaceCreateInfo{XR_TYPE_ACTION_SPACE_CREATE_INFO};
-        actionSpaceCreateInfo.poseInActionSpace = XrPosefCPP();
+        actionSpaceCreateInfo.poseInActionSpace = Pose::Identity;
 
         std::vector<XrSpace> gripSpaces;
         for (std::shared_ptr<IInputTestDevice> controller : {leftHandInputDevice, rightHandInputDevice}) {
@@ -325,7 +327,7 @@ namespace Conformance
         XrInstance instance = compositionHelper.GetInstance();
         ExtensionDataForXR_MSFT_controller_model ext(instance);
 
-        const XrSpace localSpace = compositionHelper.CreateReferenceSpace(XR_REFERENCE_SPACE_TYPE_LOCAL, XrPosefCPP{});
+        const XrSpace localSpace = compositionHelper.CreateReferenceSpace(XR_REFERENCE_SPACE_TYPE_LOCAL, Pose::Identity);
 
         // Set up composition projection layer and swapchains (one swapchain per view).
         std::vector<XrSwapchain> swapchains;
@@ -408,14 +410,14 @@ namespace Conformance
         XrCompositionLayerQuad* const instructionsQuad =
             compositionHelper.CreateQuadLayer(compositionHelper.CreateStaticSwapchainImage(CreateTextImage(1024, 768, instructions, 48)),
                                               localSpace, 1, {{0, 0, 0, 1}, {-1.5f, 0, -0.3f}});
-        XrQuaternionf_CreateFromAxisAngle(&instructionsQuad->pose.orientation, &Up, 70 * MATH_PI / 180);
+        instructionsQuad->pose.orientation = Quat::FromAxisAngle(Up, DegToRad(70));
 
         // Initialize an XrSpace for each hand
         for (Hand& hand : hands) {
             XrActionSpaceCreateInfo spaceCreateInfo{XR_TYPE_ACTION_SPACE_CREATE_INFO};
             spaceCreateInfo.subactionPath = hand.subactionPath;
             spaceCreateInfo.action = gripPoseAction;
-            spaceCreateInfo.poseInActionSpace = XrPosefCPP();
+            spaceCreateInfo.poseInActionSpace = Pose::Identity;
             XRC_CHECK_THROW_XRCMD(xrCreateActionSpace(compositionHelper.GetSession(), &spaceCreateInfo, &hand.space));
         }
 

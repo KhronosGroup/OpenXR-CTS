@@ -33,6 +33,8 @@ using namespace Conformance;
 
 namespace Conformance
 {
+    using namespace openxr::math_operators;
+
     constexpr XrVector3f Up{0, 1, 0};
 
     // Purpose: Verify behavior of action timing and action space linear/angular velocity through throwing
@@ -50,7 +52,7 @@ namespace Conformance
 
         CompositionHelper compositionHelper("Interactive Throw");
 
-        const XrSpace localSpace = compositionHelper.CreateReferenceSpace(XR_REFERENCE_SPACE_TYPE_LOCAL, XrPosefCPP{});
+        const XrSpace localSpace = compositionHelper.CreateReferenceSpace(XR_REFERENCE_SPACE_TYPE_LOCAL, Pose::Identity);
 
         // Set up composition projection layer and swapchains (one swapchain per view).
         std::vector<XrSwapchain> swapchains;
@@ -125,7 +127,7 @@ namespace Conformance
         XrCompositionLayerQuad* const instructionsQuad =
             compositionHelper.CreateQuadLayer(compositionHelper.CreateStaticSwapchainImage(CreateTextImage(1024, 768, instructions, 48)),
                                               localSpace, 1, {{0, 0, 0, 1}, {-1.5f, 0, -0.3f}});
-        XrQuaternionf_CreateFromAxisAngle(&instructionsQuad->pose.orientation, &Up, 70 * MATH_PI / 180);
+        instructionsQuad->pose.orientation = Quat::FromAxisAngle(Up, DegToRad(70));
 
         // Spaces attached to the hand (subaction).
         struct HandThrowSpaces
@@ -202,9 +204,8 @@ namespace Conformance
 
                 // Remove any target cubes which are hit by the thrown cube.
                 for (auto it = targetCubes.begin(); it != targetCubes.end();) {
-                    XrVector3f delta;
-                    XrVector3f_Sub(&delta, &(*it), &thrownCube.pose.position);
-                    if (XrVector3f_Length(&delta) < targetCubeHitThreshold) {
+                    XrVector3f delta = *it - thrownCube.pose.position;
+                    if (Vector::Length(delta) < targetCubeHitThreshold) {
                         it = targetCubes.erase(it);
                     }
                     else {

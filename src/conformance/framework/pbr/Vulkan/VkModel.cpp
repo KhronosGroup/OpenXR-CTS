@@ -76,10 +76,9 @@ namespace Pbr
         // Set up the model constant buffer.
         m_modelConstantBuffer.Init(pbrResources.GetDevice(), pbrResources.GetMemoryAllocator());
         m_modelConstantBuffer.Create(1, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT);
+        XRC_CHECK_THROW_VKCMD(
+            pbrResources.GetDebugNamer().SetName(VK_OBJECT_TYPE_BUFFER, (uint64_t)m_modelConstantBuffer.buf, "CTS model constant buffer"));
 
-        // Set up the transforms buffer.
-        XrMatrix4x4f identityMatrix;
-        XrMatrix4x4f_CreateIdentity(&identityMatrix);  // or better yet poison it
         size_t nodeCount = GetModel().GetNodes().size();
 
         // Create/recreate the structured buffer and SRV which holds the node transforms.
@@ -89,6 +88,8 @@ namespace Pbr
 
         m_modelTransformsStructuredBuffer.Init(pbrResources.GetDevice(), pbrResources.GetMemoryAllocator());
         m_modelTransformsStructuredBuffer.Create(size, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
+        XRC_CHECK_THROW_VKCMD(pbrResources.GetDebugNamer().SetName(VK_OBJECT_TYPE_BUFFER, (uint64_t)m_modelTransformsStructuredBuffer.buf,
+                                                                   "CTS model transform buffer"));
     }
     void VulkanModelInstance::UpdateTransforms(Pbr::VulkanResources& /* pbrResources */)
     {

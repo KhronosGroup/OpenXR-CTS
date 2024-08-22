@@ -37,6 +37,8 @@ using namespace Conformance;
 
 namespace Conformance
 {
+    using namespace openxr::math_operators;
+
     constexpr XrVector3f Up{0, 1, 0};
 
     TEST_CASE("HapticInterrupt", "[scenario][interactive][no_auto]")
@@ -50,7 +52,7 @@ namespace Conformance
 
         CompositionHelper compositionHelper("Haptic Interrupt");
 
-        const XrSpace localSpace = compositionHelper.CreateReferenceSpace(XR_REFERENCE_SPACE_TYPE_LOCAL, XrPosefCPP{});
+        const XrSpace localSpace = compositionHelper.CreateReferenceSpace(XR_REFERENCE_SPACE_TYPE_LOCAL, Pose::Identity);
 
         // Set up composition projection layer and swapchains (one swapchain per view).
         std::vector<XrSwapchain> swapchains;
@@ -136,7 +138,7 @@ namespace Conformance
         XrCompositionLayerQuad* const instructionsQuad =
             compositionHelper.CreateQuadLayer(compositionHelper.CreateStaticSwapchainImage(CreateTextImage(1024, 512, instructions, 48)),
                                               localSpace, 1, {{0, 0, 0, 1}, {-1.5f, 0, -0.3f}});
-        XrQuaternionf_CreateFromAxisAngle(&instructionsQuad->pose.orientation, &Up, 70 * MATH_PI / 180);
+        instructionsQuad->pose.orientation = Quat::FromAxisAngle(Up, DegToRad(70));
 
         struct Hand
         {

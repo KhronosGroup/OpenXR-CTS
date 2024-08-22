@@ -198,6 +198,12 @@ namespace Conformance
         /// Default is false.
         bool invalidHandleValidation{false};
 
+        /// Indicates if the runtime should be tested to ensure it returns XR_ERROR_VALIDATION_FAILURE
+        /// upon passing structs with invalid .type fields.
+        /// The OpenXR specification does not require this check, but some runtimes will.
+        /// Default is false.
+        bool invalidTypeValidation{false};
+
         /// Indicates if the runtime supports disconnecting a device, specifically left and right devices.
         /// Some input tests depends on the side-effects of device disconnection to test various features.
         /// If true the runtime does not support disconnectable devices.
@@ -560,6 +566,12 @@ FunctionType GetInstanceExtensionFunctionNoexcept(XrInstance instance, const cha
     if (GetGlobalData().options.invalidHandleValidation) \
     SECTION("Invalid handle validation (optional)")
 
+/// Start a Catch2 SECTION that checks for type validation.
+/// This is not required by the spec, but some runtimes do it as it is permitted.
+#define OPTIONAL_INVALID_TYPE_VALIDATION_SECTION       \
+    if (GetGlobalData().options.invalidTypeValidation) \
+    SECTION("Invalid type validation (optional)")
+
 /// Start a scope that will require the user to disconnect a device.
 /// Not all devices can do this.
 #define OPTIONAL_DISCONNECTABLE_DEVICE_INFO                  \
@@ -617,11 +629,6 @@ namespace Catch
     struct StringMaker<XrPosef>
     {
         static std::string convert(XrPosef const& value);
-    };
-    template <>
-    struct StringMaker<::Conformance::XrPosefCPP>
-    {
-        static std::string convert(::Conformance::XrPosefCPP const& value);
     };
     template <>
     struct StringMaker<XrVector3f>

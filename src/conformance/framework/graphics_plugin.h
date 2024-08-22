@@ -23,6 +23,7 @@
 #include "utilities/Geometry.h"
 #include "RGBAImage.h"
 #include "pbr/PbrModel.h"
+#include "utilities/xr_math_operators.h"
 
 #include <openxr/openxr.h>
 #include <nonstd/span.hpp>
@@ -82,6 +83,8 @@ namespace tinygltf
 
 namespace Conformance
 {
+    using namespace openxr::math_operators;
+
     // Import a backported implementation of std::span, or std::span itself if available.
 
     using nonstd::span;
@@ -94,7 +97,7 @@ namespace Conformance
     /// Parameters for a particular copy of a drawable.
     struct DrawableParams
     {
-        XrPosef pose = XrPosefCPP{};
+        XrPosef pose = Pose::Identity;
         XrVector3f scale = {1.f, 1.f, 1.f};
 
         DrawableParams(XrPosef pose_, XrVector3f scale_) : pose(pose_), scale(scale_)
@@ -140,7 +143,8 @@ namespace Conformance
         DrawableParams params;
         XrColor4f tintColor;
 
-        MeshDrawable(MeshHandle handle, XrPosef pose = XrPosefCPP{}, XrVector3f scale = {1.0, 1.0, 1.0}, XrColor4f tintColor = {0, 0, 0, 0})
+        MeshDrawable(MeshHandle handle, XrPosef pose = Pose::Identity, XrVector3f scale = {1.0, 1.0, 1.0},
+                     XrColor4f tintColor = {0, 0, 0, 0})
             : handle(handle), params(pose, scale), tintColor(tintColor)
         {
         }
@@ -182,7 +186,7 @@ namespace Conformance
         // or unordered_map, probably not significant
         std::map<NodeHandle, NodeParams> nodesAndParams;
 
-        explicit GLTFDrawable(GLTFModelInstanceHandle handle, XrPosef pose = XrPosefCPP{}, XrVector3f scale = {1.0, 1.0, 1.0})
+        explicit GLTFDrawable(GLTFModelInstanceHandle handle, XrPosef pose = Pose::Identity, XrVector3f scale = {1.0, 1.0, 1.0})
             : handle(handle), params(pose, scale)
         {
         }

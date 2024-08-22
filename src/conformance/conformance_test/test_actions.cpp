@@ -15,7 +15,6 @@
 // limitations under the License.
 
 #include "action_utils.h"
-#include "catch2/matchers/catch_matchers.hpp"
 #include "composition_utils.h"
 #include "conformance_framework.h"
 #include "conformance_utils.h"
@@ -34,6 +33,7 @@
 #include <openxr/openxr_reflection.h>
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/catch_approx.hpp>
+#include <catch2/matchers/catch_matchers.hpp>
 
 #include <algorithm>
 #include <chrono>
@@ -67,6 +67,8 @@ const std::regex cInteractionSourcePathRegex("^((.+)/(input|output))/(([^/]+)|([
 
 namespace Conformance
 {
+    using namespace openxr::math_operators;
+
     TEST_CASE("xrCreateActionSet", "[actions]")
     {
         AutoBasicInstance instance(AutoBasicInstance::createSystemId);
@@ -81,6 +83,20 @@ namespace Conformance
         XrActionSetCreateInfo actionSetCreateInfo{XR_TYPE_ACTION_SET_CREATE_INFO};
         strcpy(actionSetCreateInfo.localizedActionSetName, "test action set localized name");
         strcpy(actionSetCreateInfo.actionSetName, "test_action_set_name");
+
+        OPTIONAL_INVALID_TYPE_VALIDATION_SECTION
+        {
+            XrActionSetCreateInfo actionSetCreateInfoWithoutType = actionSetCreateInfo;
+            actionSetCreateInfoWithoutType.type = (XrStructureType)0;
+            REQUIRE_RESULT(xrCreateActionSet(instance, &actionSetCreateInfoWithoutType, &actionSet), XR_ERROR_VALIDATION_FAILURE);
+        }
+
+        OPTIONAL_INVALID_TYPE_VALIDATION_SECTION
+        {
+            XrActionSetCreateInfo actionSetCreateInfoWithInvalidType = actionSetCreateInfo;
+            actionSetCreateInfoWithInvalidType.type = XR_TYPE_ACTIONS_SYNC_INFO;
+            REQUIRE_RESULT(xrCreateActionSet(instance, &actionSetCreateInfoWithInvalidType, &actionSet), XR_ERROR_VALIDATION_FAILURE);
+        }
 
         SECTION("Basic action creation")
         {
@@ -199,6 +215,20 @@ namespace Conformance
         actionCreateInfo.actionType = XR_ACTION_TYPE_BOOLEAN_INPUT;
         strcpy(actionCreateInfo.localizedActionName, "test action localized name");
         strcpy(actionCreateInfo.actionName, "test_action_name");
+
+        OPTIONAL_INVALID_TYPE_VALIDATION_SECTION
+        {
+            XrActionCreateInfo actionCreateInfoWithoutType = actionCreateInfo;
+            actionCreateInfoWithoutType.type = (XrStructureType)0;
+            REQUIRE_RESULT(xrCreateAction(actionSet, &actionCreateInfoWithoutType, &action), XR_ERROR_VALIDATION_FAILURE);
+        }
+
+        OPTIONAL_INVALID_TYPE_VALIDATION_SECTION
+        {
+            XrActionCreateInfo actionCreateInfoWithInvalidType = actionCreateInfo;
+            actionCreateInfoWithInvalidType.type = XR_TYPE_ACTIONS_SYNC_INFO;
+            REQUIRE_RESULT(xrCreateAction(actionSet, &actionCreateInfoWithInvalidType, &action), XR_ERROR_VALIDATION_FAILURE);
+        }
 
         SECTION("Basic action creation")
         {
@@ -431,7 +461,15 @@ namespace Conformance
                 REQUIRE_RESULT(xrSuggestInteractionProfileBindings(instance, &bindings), XR_ERROR_VALIDATION_FAILURE);
             }
 
-            SECTION("Invalid type")
+            OPTIONAL_INVALID_TYPE_VALIDATION_SECTION
+            {
+                bindings = XrInteractionProfileSuggestedBinding{};
+                bindings.countSuggestedBindings = 1;
+                bindings.suggestedBindings = &testBinding;
+                REQUIRE_RESULT(xrSuggestInteractionProfileBindings(instance, &bindings), XR_ERROR_VALIDATION_FAILURE);
+            }
+
+            OPTIONAL_INVALID_TYPE_VALIDATION_SECTION
             {
                 bindings = XrInteractionProfileSuggestedBinding{XR_TYPE_ACTIONS_SYNC_INFO};
                 bindings.countSuggestedBindings = 1;
@@ -836,6 +874,24 @@ namespace Conformance
 
         SECTION("Parameter validation")
         {
+            OPTIONAL_INVALID_TYPE_VALIDATION_SECTION
+            {
+                XrSessionActionSetsAttachInfo attachInfoWithoutType = attachInfo;
+                attachInfoWithoutType.type = (XrStructureType)0;
+                attachInfoWithoutType.countActionSets = 1;
+                attachInfoWithoutType.actionSets = &actionSet;
+                REQUIRE_RESULT(xrAttachSessionActionSets(session, &attachInfoWithoutType), XR_ERROR_VALIDATION_FAILURE);
+            }
+
+            OPTIONAL_INVALID_TYPE_VALIDATION_SECTION
+            {
+                XrSessionActionSetsAttachInfo attachInfoWithInvalidType = attachInfo;
+                attachInfoWithInvalidType.type = XR_TYPE_ACTIONS_SYNC_INFO;
+                attachInfoWithInvalidType.countActionSets = 1;
+                attachInfoWithInvalidType.actionSets = &actionSet;
+                REQUIRE_RESULT(xrAttachSessionActionSets(session, &attachInfoWithInvalidType), XR_ERROR_VALIDATION_FAILURE);
+            }
+
             SECTION("Basic usage")
             {
                 REQUIRE_RESULT(xrAttachSessionActionSets(session, &attachInfo), XR_SUCCESS);
@@ -1233,6 +1289,8 @@ namespace Conformance
                     REQUIRE_RESULT(xrGetCurrentInteractionProfile(session, unsupportedTopLevelPath, &interactionProfileState),
                                    XR_ERROR_PATH_UNSUPPORTED);
                 }
+
+                OPTIONAL_INVALID_TYPE_VALIDATION_SECTION
                 {
                     INFO("Invalid type");
                     interactionProfileState = XrInteractionProfileState{XR_TYPE_ACTION_CREATE_INFO};
@@ -1896,7 +1954,7 @@ namespace Conformance
                         getInfo.action = rightHandAction;
                         REQUIRE_RESULT(xrGetActionStateBoolean(session, &getInfo, &actionStateBoolean), XR_SUCCESS);
                         REQUIRE(actionStateBoolean.isActive);
-#
+
                         {
                             INFO("Values match those specified for isActive == XR_FALSE");
                             // Set these to the wrong thing if not active, to make sure runtime overwrites the values
@@ -1947,6 +2005,36 @@ namespace Conformance
                     syncInfo.activeActionSets = &unboundActionActiveActionSet;
                     unboundActionActiveActionSet.subactionPath = defaultDevicePath;
                     actionLayerManager.SyncActionsUntilFocusWithMessage(syncInfo);
+
+                    INFO("Unbound and active action");
+                    XrActiveActionSet activeAndUnboundActionActiveActionSet[] = {{actionSet}, {unboundActionActionSet}};
+                    syncInfo.activeActionSets = activeAndUnboundActionActiveActionSet;
+                    syncInfo.countActiveActionSets = 2;
+                    unboundActionActiveActionSet.subactionPath = defaultDevicePath;
+                    actionLayerManager.SyncActionsUntilFocusWithMessage(syncInfo);
+
+                    {
+                        INFO("Unbound action state");
+                        XrBoundSourcesForActionEnumerateInfo info{XR_TYPE_BOUND_SOURCES_FOR_ACTION_ENUMERATE_INFO};
+                        info.action = unboundAction;
+                        uint32_t count = 0;
+                        REQUIRE_RESULT(xrEnumerateBoundSourcesForAction(compositionHelper.GetSession(), &info, 0, &count, nullptr),
+                                       XR_SUCCESS);
+                        if (count == 0) {
+                            XrActionStateBoolean state{XR_TYPE_ACTION_STATE_BOOLEAN};
+                            getInfo.action = unboundAction;
+                            getInfo.subactionPath = defaultDevicePath;
+                            REQUIRE_RESULT(xrGetActionStateBoolean(compositionHelper.GetSession(), &getInfo, &state), XR_SUCCESS);
+                            REQUIRE(state.currentState == XR_FALSE);
+                            REQUIRE(state.changedSinceLastSync == XR_FALSE);
+                            REQUIRE(state.lastChangeTime == 0);
+                        }
+                        else {
+                            // todo: Is it permissible for a runtime to always remap actions and not support unmapped actions at all?
+                            WARN(
+                                "Unbound action was actually bound! For this test \"test select action 4\" / \"test_select_action_4\" should not be remapped by the runtime");
+                        }
+                    }
 
                     INFO("unattached action set");
                     XrActiveActionSet activeActionSet2 = {unattachedActionSet};
@@ -3147,6 +3235,52 @@ namespace Conformance
             }
         }
     }
+
+    TEST_CASE("action_space_creation-noninteractive", "[actions]")
+    {
+        CompositionHelper compositionHelper("action_space_creation-noninteractive");
+        compositionHelper.BeginSession();
+        ActionLayerManager actionLayerManager(compositionHelper);
+
+        XrActionSet actionSet{XR_NULL_HANDLE};
+        XrActionSetCreateInfo actionSetCreateInfo{XR_TYPE_ACTION_SET_CREATE_INFO};
+        strcpy(actionSetCreateInfo.localizedActionSetName, "test action set localized name");
+        strcpy(actionSetCreateInfo.actionSetName, "test_action_set_name");
+        REQUIRE_RESULT(xrCreateActionSet(compositionHelper.GetInstance(), &actionSetCreateInfo, &actionSet), XR_SUCCESS);
+
+        XrAction poseAction{XR_NULL_HANDLE};
+        XrActionCreateInfo createInfo{XR_TYPE_ACTION_CREATE_INFO};
+        createInfo.actionType = XR_ACTION_TYPE_POSE_INPUT;
+        strcpy(createInfo.actionName, "test_action_name");
+        strcpy(createInfo.localizedActionName, "test localized name");
+        createInfo.countSubactionPaths = 0;
+        createInfo.subactionPaths = nullptr;
+        REQUIRE_RESULT(xrCreateAction(actionSet, &createInfo, &poseAction), XR_SUCCESS);
+
+        XrActionSpaceCreateInfo spaceCreateInfo{XR_TYPE_ACTION_SPACE_CREATE_INFO};
+        spaceCreateInfo.poseInActionSpace = Pose::Identity;
+        spaceCreateInfo.action = poseAction;
+        XrSpace space{XR_NULL_HANDLE};
+
+        OPTIONAL_INVALID_TYPE_VALIDATION_SECTION
+        {
+            XrActionSpaceCreateInfo spaceCreateInfoWithoutType = spaceCreateInfo;
+            spaceCreateInfoWithoutType.type = (XrStructureType)0;
+
+            REQUIRE_RESULT(xrCreateActionSpace(compositionHelper.GetSession(), &spaceCreateInfoWithoutType, &space),
+                           XR_ERROR_VALIDATION_FAILURE);
+        }
+
+        OPTIONAL_INVALID_TYPE_VALIDATION_SECTION
+        {
+            XrActionSpaceCreateInfo spaceCreateInfoWithInvalidType = spaceCreateInfo;
+            spaceCreateInfoWithInvalidType.type = XR_TYPE_ACTIONS_SYNC_INFO;
+
+            REQUIRE_RESULT(xrCreateActionSpace(compositionHelper.GetSession(), &spaceCreateInfoWithInvalidType, &space),
+                           XR_ERROR_VALIDATION_FAILURE);
+        }
+    }
+
     TEST_CASE("action_space_creation_pre_suggest", "[actions][interactive]")
     {
         bool useLeftHand = GetGlobalData().leftHandUnderTest;
@@ -3180,7 +3314,7 @@ namespace Conformance
 
         // Create an ActionSpace before xrSuggestInteractionProfileBindings
         XrActionSpaceCreateInfo earlySpaceCreateInfo{XR_TYPE_ACTION_SPACE_CREATE_INFO};
-        earlySpaceCreateInfo.poseInActionSpace = XrPosefCPP();
+        earlySpaceCreateInfo.poseInActionSpace = Pose::Identity;
         earlySpaceCreateInfo.action = poseAction;
         XrSpace earlyActionSpace{XR_NULL_HANDLE};
         REQUIRE_RESULT(xrCreateActionSpace(session, &earlySpaceCreateInfo, &earlyActionSpace), XR_SUCCESS);
@@ -3197,7 +3331,7 @@ namespace Conformance
 
         // Create an ActionSpace after xrSuggestInteractionProfileBindings
         XrActionSpaceCreateInfo lateSpaceCreateInfo{XR_TYPE_ACTION_SPACE_CREATE_INFO};
-        lateSpaceCreateInfo.poseInActionSpace = XrPosefCPP();
+        lateSpaceCreateInfo.poseInActionSpace = Pose::Identity;
         lateSpaceCreateInfo.action = poseAction;
         XrSpace lateActionSpace{XR_NULL_HANDLE};
         REQUIRE_RESULT(xrCreateActionSpace(session, &lateSpaceCreateInfo, &lateActionSpace), XR_SUCCESS);
@@ -3207,7 +3341,7 @@ namespace Conformance
         XrSpace localSpace{XR_NULL_HANDLE};
         XrReferenceSpaceCreateInfo createSpaceInfo{XR_TYPE_REFERENCE_SPACE_CREATE_INFO};
         createSpaceInfo.referenceSpaceType = XR_REFERENCE_SPACE_TYPE_LOCAL;
-        createSpaceInfo.poseInReferenceSpace = XrPosefCPP();
+        createSpaceInfo.poseInReferenceSpace = Pose::Identity;
         REQUIRE_RESULT(xrCreateReferenceSpace(session, &createSpaceInfo, &localSpace), XR_SUCCESS);
 
         handInputDevice->SetDeviceActive(true);
@@ -3500,7 +3634,7 @@ namespace Conformance
 
                 // Tries to locate the controller space, and returns the location flags.
                 auto checkTrackingFlags = [&]() -> XrSpaceLocationFlags {
-                    XrSpaceLocation location{XR_TYPE_SPACE_LOCATION, nullptr, 0, XrPosefCPP{}};
+                    XrSpaceLocation location{XR_TYPE_SPACE_LOCATION, nullptr, 0, Pose::Identity};
                     REQUIRE_RESULT(xrLocateSpace(actionSpaceWithSubactionPath, localSpace,
                                                  actionLayerManager.GetRenderLoop().GetLastPredictedDisplayTime(), &location),
                                    XR_SUCCESS);

@@ -14,8 +14,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "catch2/catch_approx.hpp"
-#include "catch2/catch_message.hpp"
 #include "common/xr_linear.h"
 #include "composition_utils.h"
 #include "conformance_framework.h"
@@ -24,6 +22,8 @@
 #include "utilities/types_and_constants.h"
 
 #include <catch2/catch_test_macros.hpp>
+#include <catch2/catch_approx.hpp>
+#include <catch2/catch_message.hpp>
 #include <openxr/openxr.h>
 
 #include <array>
@@ -36,6 +36,8 @@ using namespace Conformance;
 
 namespace Conformance
 {
+    using namespace openxr::math_operators;
+
     constexpr XrVector3f Up{0, 1, 0};
 
     // Calculate the correct XrSpaceVelocity for a space which is rigidly attached to another space via a known pose offset
@@ -46,7 +48,7 @@ namespace Conformance
 
         if (velocityWithoutOffset.velocityFlags & XR_SPACE_VELOCITY_LINEAR_VALID_BIT) {
             adjustedVelocity.velocityFlags |= XR_SPACE_VELOCITY_LINEAR_VALID_BIT;
-            XrVector3f_Add(&adjustedVelocity.linearVelocity, &adjustedVelocity.linearVelocity, &velocityWithoutOffset.linearVelocity);
+            adjustedVelocity.linearVelocity += velocityWithoutOffset.linearVelocity;
         }
 
         if (velocityWithoutOffset.velocityFlags & XR_SPACE_VELOCITY_ANGULAR_VALID_BIT) {
@@ -58,13 +60,10 @@ namespace Conformance
         if (velocityWithoutOffset.velocityFlags & XR_SPACE_VELOCITY_ANGULAR_VALID_BIT) {
             adjustedVelocity.velocityFlags |= XR_SPACE_VELOCITY_ANGULAR_VALID_BIT;
             adjustedVelocity.velocityFlags |= XR_SPACE_VELOCITY_LINEAR_VALID_BIT;
-            XrVector3f leverArmVelocity;
 
-            XrVector3f leverArmInBaseSpace;
-            XrQuaternionf_RotateVector3f(&leverArmInBaseSpace, &locationWithoutOffset.pose.orientation, &relativePose.position);
-
-            XrVector3f_Cross(&leverArmVelocity, &velocityWithoutOffset.angularVelocity, &leverArmInBaseSpace);
-            XrVector3f_Add(&adjustedVelocity.linearVelocity, &adjustedVelocity.linearVelocity, &leverArmVelocity);
+            XrVector3f leverArmInBaseSpace = Quat::RotateVector(locationWithoutOffset.pose.orientation, relativePose.position);
+            XrVector3f leverArmVelocity = Vector::CrossProduct(velocityWithoutOffset.angularVelocity, leverArmInBaseSpace);
+            adjustedVelocity.linearVelocity += leverArmVelocity;
         }
 
         // velocities are in base space reference frame, so they do not need to be rotated based on the pose of the space
@@ -114,7 +113,7 @@ namespace Conformance
 
         CompositionHelper compositionHelper("Space Offsets");
 
-        const XrSpace localSpace = compositionHelper.CreateReferenceSpace(XR_REFERENCE_SPACE_TYPE_LOCAL, XrPosefCPP{});
+        const XrSpace localSpace = compositionHelper.CreateReferenceSpace(XR_REFERENCE_SPACE_TYPE_LOCAL, Pose::Identity);
 
         // Set up composition projection layer and swapchains (one swapchain per view).
         std::vector<XrSwapchain> swapchains;
@@ -204,7 +203,7 @@ namespace Conformance
             instructionsQuad = compositionHelper.CreateQuadLayer(
                 compositionHelper.CreateStaticSwapchainImage(CreateTextImage(1024, 780, oss.str().c_str(), 48)), localSpace, 1,
                 {Quat::Identity, {-1.5f, 0, -0.3f}});
-            XrQuaternionf_CreateFromAxisAngle(&instructionsQuad->pose.orientation, &Up, 70 * MATH_PI / 180);
+            instructionsQuad->pose.orientation = Quat::FromAxisAngle(Up, DegToRad(70));
         };
         updateInstructions(false);
 
@@ -236,14 +235,14 @@ namespace Conformance
         // Create XrSpaces at various spaces around the grip poses.
 
         XrPosef handRelativePoses[] = {
-            XrPosefCPP(),
-            {Quat::FromAxisAngle({1, 0, 0}, Math::DegToRad(135)), {0, 0, 0}},
-            {Quat::FromAxisAngle({1, 0, 0}, Math::DegToRad(45)), {0.25, 0, 0}},
-            {Quat::FromAxisAngle({1, 0, 0}, Math::DegToRad(45)), {-0.25, 0, 0}},
-            {Quat::FromAxisAngle({1, 0, 0}, Math::DegToRad(30)), {0, 0, -0.25}},
+            Pose::Identity,
+            {Quat::FromAxisAngle({1, 0, 0}, DegToRad(135)), {0, 0, 0}},
+            {Quat::FromAxisAngle({1, 0, 0}, DegToRad(45)), {0.25, 0, 0}},
+            {Quat::FromAxisAngle({1, 0, 0}, DegToRad(45)), {-0.25, 0, 0}},
+            {Quat::FromAxisAngle({1, 0, 0}, DegToRad(30)), {0, 0, -0.25}},
             {Quat::Identity, {0, 0, -0.5}},
-            {Quat::FromAxisAngle({1, 1, 1}, Math::DegToRad(127)), {-0.25, 0, -0.5}},
-            {Quat::FromAxisAngle({1, -1, -1}, Math::DegToRad(38)), {0.25, 0, -0.5}},
+            {Quat::FromAxisAngle({1, 1, 1}, DegToRad(127)), {-0.25, 0, -0.5}},
+            {Quat::FromAxisAngle({1, -1, -1}, DegToRad(38)), {0.25, 0, -0.5}},
         };
 
         for (XrPath subactionPath : subactionPaths) {
@@ -254,7 +253,7 @@ namespace Conformance
             spaceCreateInfo.action = gripPoseAction;
             spaceCreateInfo.subactionPath = subactionPath;
 
-            spaceCreateInfo.poseInActionSpace = XrPosefCPP();
+            spaceCreateInfo.poseInActionSpace = Pose::Identity;
             XRC_CHECK_THROW_XRCMD(xrCreateActionSpace(compositionHelper.GetSession(), &spaceCreateInfo, &handSpaces.spaceWithoutOffset));
 
             for (XrPosef pose : handRelativePoses) {
@@ -363,8 +362,7 @@ namespace Conformance
 
                             if (locationWithoutOffset[i].locationFlags & XR_SPACE_LOCATION_POSITION_VALID_BIT) {
                                 space.lastPredictedLocation = locationWithoutOffset[i];
-                                XrPosef_Multiply(&space.lastPredictedLocation.pose, &locationWithoutOffset[i].pose,
-                                                 &space.poseInActionSpace);
+                                space.lastPredictedLocation.pose = locationWithoutOffset[i].pose * space.poseInActionSpace;
 
                                 space.lastPredictedVelocity = predictedVelocity;
                             }
@@ -380,21 +378,18 @@ namespace Conformance
                             CAPTURE(predictedVelocity.angularVelocity);
                             CAPTURE(spaceVelocity.angularVelocity);
 
-                            CAPTURE(XrVector3f_Length(&spaceVelocity.linearVelocity));
-                            CAPTURE(XrVector3f_Length(&predictedVelocity.linearVelocity));
+                            CAPTURE(Vector::Length(spaceVelocity.linearVelocity));
+                            CAPTURE(Vector::Length(predictedVelocity.linearVelocity));
 
-                            XrVector3f predictedLeverArmVelocity;
-                            XrVector3f reportedLeverArmVelocity;
-                            XrVector3f_Sub(&predictedLeverArmVelocity,  //
-                                           &predictedVelocity.linearVelocity, &velocityWithoutOffset[i].linearVelocity);
-                            XrVector3f_Sub(&reportedLeverArmVelocity,  //
-                                           &spaceVelocity.linearVelocity, &velocityWithoutOffset[i].linearVelocity);
+                            XrVector3f predictedLeverArmVelocity =
+                                predictedVelocity.linearVelocity - velocityWithoutOffset[i].linearVelocity;
+                            XrVector3f reportedLeverArmVelocity = spaceVelocity.linearVelocity - velocityWithoutOffset[i].linearVelocity;
 
-                            CAPTURE(XrVector3f_Length(&predictedLeverArmVelocity));
-                            CAPTURE(XrVector3f_Length(&reportedLeverArmVelocity));
+                            CAPTURE(Vector::Length(predictedLeverArmVelocity));
+                            CAPTURE(Vector::Length(reportedLeverArmVelocity));
 
-                            CAPTURE(XrVector3f_Length(&spaceVelocity.angularVelocity));
-                            CAPTURE(XrVector3f_Length(&predictedVelocity.angularVelocity));
+                            CAPTURE(Vector::Length(spaceVelocity.angularVelocity));
+                            CAPTURE(Vector::Length(predictedVelocity.angularVelocity));
 
                             bool anyVelocityInvalid = ~(velocityWithoutOffset[i].velocityFlags & spaceVelocity.velocityFlags) &
                                                       (XR_SPACE_VELOCITY_ANGULAR_VALID_BIT | XR_SPACE_VELOCITY_LINEAR_VALID_BIT);
@@ -451,7 +446,7 @@ namespace Conformance
                                                           Catch::Approx(predictedVelocity.angularVelocity.z).margin(am).epsilon(ae));
                                 }
                                 {
-                                    float angularSpeed = XrVector3f_Length(&spaceVelocity.angularVelocity);
+                                    float angularSpeed = Vector::Length(spaceVelocity.angularVelocity);
 
                                     float lm = 0.01f                    // 10 mm/s
                                                + angularSpeed * 0.20f;  // + lever arm speed at 20cm (~40% of lever arm effect at 50cm)
@@ -471,10 +466,10 @@ namespace Conformance
                                             continue;
                                         }
                                         float linearMagnitude = std::abs(
-                                            XrVector3f_Dot(&velocityWithoutOffset->linearVelocity, &criterion.linearVelocityComponent));
+                                            Vector::DotProduct(velocityWithoutOffset->linearVelocity, criterion.linearVelocityComponent));
                                         bool linearSatisfied = linearMagnitude >= criterion.linearVelocityMagnitude;
                                         float angularMagnitude = std::abs(
-                                            XrVector3f_Dot(&velocityWithoutOffset->angularVelocity, &criterion.angularVelocityComponent));
+                                            Vector::DotProduct(velocityWithoutOffset->angularVelocity, criterion.angularVelocityComponent));
                                         bool angularSatisfied = angularMagnitude >= criterion.angularVelocityMagnitude;
                                         if (linearSatisfied && angularSatisfied) {
                                             criterion.satisfied = true;

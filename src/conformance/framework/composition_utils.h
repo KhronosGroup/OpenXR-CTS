@@ -19,6 +19,7 @@
 #include "RGBAImage.h"
 #include "utilities/colors.h"
 #include "common/xr_linear.h"
+#include "utilities/xr_math_operators.h"
 #include "conformance_framework.h"
 #include "conformance_utils.h"
 #include "graphics_plugin.h"
@@ -162,7 +163,7 @@ namespace Conformance
         /// It is not used elsewhere in the class.
         ///
         /// @note Do not destroy the handle returned from this method through OpenXR. It is cleaned up on object destruction.
-        XrSpace CreateReferenceSpace(XrReferenceSpaceType type, XrPosef pose = XrPosefCPP());
+        XrSpace CreateReferenceSpace(XrReferenceSpaceType type, XrPosef pose = Pose::Identity);
 
         /// Return the XrSwapchainCreateInfo for a basic color swapchain of given width and height, with optional arguments.
         ///
@@ -240,7 +241,7 @@ namespace Conformance
         /// @param space The space to attach the quad layer to.
         /// @param width The width for the quad layer, goes directly to XrCompositionLayerQuad::size.width
         /// @param pose The pose of the quad in @p space
-        XrCompositionLayerQuad* CreateQuadLayer(XrSwapchain swapchain, XrSpace space, float width, XrPosef pose = XrPosefCPP());
+        XrCompositionLayerQuad* CreateQuadLayer(XrSwapchain swapchain, XrSpace space, float width, XrPosef pose = Pose::Identity);
 
         /// Create a projection layer structure (with projection view) owned by this object, attached to the provided @p space.
         ///
@@ -393,24 +394,7 @@ namespace Conformance
             float percent = (i - sourceMin) / (float)sourceMax;
             return targetMin + ((targetMax - targetMin) * percent);
         }
-
-        static inline constexpr float DegToRad(float degree)
-        {
-            return degree / 180 * MATH_PI;
-        }
     }  // namespace Math
-
-    namespace Quat
-    {
-        constexpr XrQuaternionf Identity{0, 0, 0, 1};
-
-        static inline XrQuaternionf FromAxisAngle(XrVector3f axis, float radians)
-        {
-            XrQuaternionf rowQuat;
-            XrQuaternionf_CreateFromAxisAngle(&rowQuat, &axis, radians);
-            return rowQuat;
-        }
-    }  // namespace Quat
 
     /// Appends composition layers for interacting with interactive composition tests.
     struct InteractiveLayerManager
@@ -418,6 +402,8 @@ namespace Conformance
         InteractiveLayerManager(CompositionHelper& compositionHelper, const char* exampleImage, const char* descriptionText)
             : m_compositionHelper(compositionHelper)
         {
+            using namespace openxr::math_operators;
+
             // Set up the input system for toggling between modes and passing/failing.
             {
                 XrActionSetCreateInfo actionSetInfo{XR_TYPE_ACTION_SET_CREATE_INFO};
@@ -454,15 +440,17 @@ namespace Conformance
 
             // description quad to the left, example image quad to the right, counter-rotated 15 degrees towards the viewer
             m_descriptionQuadSpace = compositionHelper.CreateReferenceSpace(
-                XR_REFERENCE_SPACE_TYPE_VIEW, {Quat::FromAxisAngle(UpVector, 15 * MATH_PI / 180), {-0.5f, 0, -1.5f}});
-            m_exampleQuadSpace = compositionHelper.CreateReferenceSpace(
-                XR_REFERENCE_SPACE_TYPE_VIEW, {Quat::FromAxisAngle(UpVector, -15 * MATH_PI / 180), {0.5f, 0, -1.5f}});
+                XR_REFERENCE_SPACE_TYPE_VIEW, {Quat::FromAxisAngle(UpVector, DegToRad(15)), {-0.5f, 0, -1.5f}});
+            m_exampleQuadSpace = compositionHelper.CreateReferenceSpace(XR_REFERENCE_SPACE_TYPE_VIEW,
+                                                                        {Quat::FromAxisAngle(UpVector, DegToRad(-15)), {0.5f, 0, -1.5f}});
 
             Configure(exampleImage, descriptionText);
         }
 
         void Configure(const char* exampleImage, const char* descriptionText)
         {
+            using namespace openxr::math_operators;
+
             if (m_descriptionQuad != nullptr && m_descriptionQuad->subImage.swapchain != XR_NULL_HANDLE) {
                 m_compositionHelper.DestroySwapchain(m_descriptionQuad->subImage.swapchain);
             }
@@ -497,10 +485,14 @@ namespace Conformance
                 m_descriptionQuadSpace, 0.75f);
             m_descriptionQuad->layerFlags |= XR_COMPOSITION_LAYER_BLEND_TEXTURE_SOURCE_ALPHA_BIT;
 
-            m_sceneActionsSwapchain = m_compositionHelper.CreateStaticSwapchainImage(
-                CreateTextImage(width, actionsHeight, "Press Select to PASS. Press Menu for description", fontHeight));
-            m_helpActionsSwapchain =
-                m_compositionHelper.CreateStaticSwapchainImage(CreateTextImage(width, actionsHeight, "Press select to FAIL", fontHeight));
+            if (m_sceneActionsSwapchain == XR_NULL_HANDLE) {
+                m_sceneActionsSwapchain = m_compositionHelper.CreateStaticSwapchainImage(
+                    CreateTextImage(width, actionsHeight, "Press Select to PASS. Press Menu for description", fontHeight));
+            }
+            if (m_helpActionsSwapchain == XR_NULL_HANDLE) {
+                m_helpActionsSwapchain = m_compositionHelper.CreateStaticSwapchainImage(
+                    CreateTextImage(width, actionsHeight, "Press Select to FAIL", fontHeight));
+            }
 
             // Set up the quad layer and swapchain for showing what actions the user can take in the Scene/Help mode.
             m_actionsQuad =
@@ -565,7 +557,7 @@ namespace Conformance
                         else {
                             // xrLocateSpace didn't return a valid pose, fall back to view space
                             quad->space = quadSpace;
-                            quad->pose = XrPosefCPP{};
+                            quad->pose = Pose::Identity;
                         }
                     };
                     placeQuad(m_descriptionQuad, m_descriptionQuadSpace);
@@ -623,8 +615,8 @@ namespace Conformance
 
         XrSpace m_viewSpace;
         XrSpace m_localSpace;
-        XrSwapchain m_sceneActionsSwapchain;
-        XrSwapchain m_helpActionsSwapchain;
+        XrSwapchain m_sceneActionsSwapchain{XR_NULL_HANDLE};
+        XrSwapchain m_helpActionsSwapchain{XR_NULL_HANDLE};
         LayerMode m_lastLayerMode{LayerMode::Scene};
         XrCompositionLayerQuad* m_actionsQuad;
         XrCompositionLayerQuad* m_descriptionQuad{};

@@ -55,6 +55,60 @@ namespace Conformance
             CHECK(XR_ERROR_SESSION_NOT_RUNNING == xrBeginFrame(session, nullptr));
         }
 
+        OPTIONAL_INVALID_TYPE_VALIDATION_SECTION
+        {
+            AutoBasicSession session(AutoBasicSession::beginSession);
+
+            XrFrameState frameState{XR_TYPE_FRAME_STATE};
+
+            SECTION("XrFrameWaitInfo without type")
+            {
+                XrFrameWaitInfo frameWaitInfoWithoutType{};
+                REQUIRE_RESULT(xrWaitFrame(session, &frameWaitInfoWithoutType, &frameState), XR_ERROR_VALIDATION_FAILURE);
+            }
+            SECTION("XrFrameWaitInfo with wrong type")
+            {
+                XrFrameWaitInfo frameWaitInfoWithInvalidType{XR_TYPE_ACTIONS_SYNC_INFO};
+                REQUIRE_RESULT(xrWaitFrame(session, &frameWaitInfoWithInvalidType, &frameState), XR_ERROR_VALIDATION_FAILURE);
+            }
+
+            SECTION("XrFrameBeginInfo without type")
+            {
+                REQUIRE_RESULT_SUCCEEDED(xrWaitFrame(session, nullptr, &frameState));
+
+                XrFrameBeginInfo frameBeginInfoWithoutType{};
+                REQUIRE_RESULT(xrBeginFrame(session, &frameBeginInfoWithoutType), XR_ERROR_VALIDATION_FAILURE);
+            }
+            SECTION("XrFrameBeginInfo with wrong type")
+            {
+                REQUIRE_RESULT_SUCCEEDED(xrWaitFrame(session, nullptr, &frameState));
+
+                XrFrameBeginInfo frameBeginInfoWithInvalidType{XR_TYPE_ACTIONS_SYNC_INFO};
+                REQUIRE_RESULT(xrBeginFrame(session, &frameBeginInfoWithInvalidType), XR_ERROR_VALIDATION_FAILURE);
+            }
+
+            SECTION("XrFrameEndInfo without type")
+            {
+                REQUIRE_RESULT_SUCCEEDED(xrWaitFrame(session, nullptr, &frameState));
+                REQUIRE_RESULT_SUCCEEDED(xrBeginFrame(session, nullptr));
+
+                XrFrameEndInfo frameEndInfoWithoutType{};
+                frameEndInfoWithoutType.displayTime = frameState.predictedDisplayTime;
+                frameEndInfoWithoutType.environmentBlendMode = globalData.GetOptions().environmentBlendModeValue;
+                REQUIRE_RESULT(xrEndFrame(session, &frameEndInfoWithoutType), XR_ERROR_VALIDATION_FAILURE);
+            }
+            SECTION("XrFrameEndInfo with wrong type")
+            {
+                REQUIRE_RESULT_SUCCEEDED(xrWaitFrame(session, nullptr, &frameState));
+                REQUIRE_RESULT_SUCCEEDED(xrBeginFrame(session, nullptr));
+
+                XrFrameEndInfo frameEndInfoWithInvalidType{XR_TYPE_ACTIONS_SYNC_INFO};
+                frameEndInfoWithInvalidType.displayTime = frameState.predictedDisplayTime;
+                frameEndInfoWithInvalidType.environmentBlendMode = globalData.GetOptions().environmentBlendModeValue;
+                REQUIRE_RESULT(xrEndFrame(session, &frameEndInfoWithInvalidType), XR_ERROR_VALIDATION_FAILURE);
+            }
+        }
+
         SECTION("CallOrder")
         {
             AutoBasicSession session(AutoBasicSession::beginSession);

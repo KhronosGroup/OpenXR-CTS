@@ -15,6 +15,25 @@
 # limitations under the License.
 #
 
+if(APPLE)
+    # Force all compilers to output to binary folder without additional output (like Windows adds "Debug" and "Release" folders)
+    set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
+    set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
+    set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
+    foreach(OUTPUTCONFIG ${CMAKE_CONFIGURATION_TYPES})
+        string(TOUPPER ${OUTPUTCONFIG} OUTPUTCONFIG)
+        set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_${OUTPUTCONFIG}
+            ${CMAKE_CURRENT_BINARY_DIR}
+        )
+        set(CMAKE_LIBRARY_OUTPUT_DIRECTORY_${OUTPUTCONFIG}
+            ${CMAKE_CURRENT_BINARY_DIR}
+        )
+        set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY_${OUTPUTCONFIG}
+            ${CMAKE_CURRENT_BINARY_DIR}
+        )
+    endforeach(OUTPUTCONFIG CMAKE_CONFIGURATION_TYPES)
+endif()
+
 file(
     GLOB
     LOCAL_HEADERS
