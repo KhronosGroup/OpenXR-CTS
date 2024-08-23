@@ -19,8 +19,12 @@
 #include "HandleState.h"
 #include "gen_dispatch.h"
 
+#include <cstring>
+
 namespace
 {
+    static const char* LAYER_NAME = "XR_APILAYER_KHRONOS_runtime_conformance";
+
     XRAPI_ATTR XrResult XRAPI_CALL ConformanceLayer_RegisterInstance(const XrInstanceCreateInfo* createInfo,
                                                                      const XrApiLayerCreateInfo* apiLayerInfo, XrInstance* instance)
     {
@@ -69,7 +73,7 @@ namespace
 // Function used to negotiate an interface betewen the loader and an API layer.  Each library exposing one or
 // more API layers needs to expose at least this function.
 extern "C" LAYER_EXPORT XRAPI_ATTR XrResult XRAPI_CALL xrNegotiateLoaderApiLayerInterface(const XrNegotiateLoaderInfo* loaderInfo,
-                                                                                          const char* /*apiLayerName*/,
+                                                                                          const char* apiLayerName,
                                                                                           XrNegotiateApiLayerRequest* apiLayerRequest)
 {
     if (loaderInfo == nullptr || loaderInfo->structType != XR_LOADER_INTERFACE_STRUCT_LOADER_INFO ||
@@ -89,6 +93,12 @@ extern "C" LAYER_EXPORT XRAPI_ATTR XrResult XRAPI_CALL xrNegotiateLoaderApiLayer
     if (loaderInfo->minApiVersion > XR_CURRENT_API_VERSION || loaderInfo->maxApiVersion < XR_CURRENT_API_VERSION) {
         // TODO: Log reason somehow.
         // LogPlatformUtilsError("loader api version is not in the range [minApiVersion, maxApiVersion]");
+        return XR_ERROR_INITIALIZATION_FAILED;
+    }
+
+    if (strcmp(apiLayerName, LAYER_NAME) != 0) {
+        // TODO: Log reason somehow.
+        // LogPlatformUtilsError("loader layer name does not match expected name");
         return XR_ERROR_INITIALIZATION_FAILED;
     }
 

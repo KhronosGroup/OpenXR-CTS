@@ -31,6 +31,7 @@ set_target_properties(
 add_subdirectory(conformance_layer)
 add_subdirectory(utilities)
 add_subdirectory(framework)
+add_subdirectory(test_layer)
 add_subdirectory(conformance_test)
 if(NOT ANDROID)
     add_subdirectory(conformance_cli)
