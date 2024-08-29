@@ -17,6 +17,63 @@ particular, since it is primarily software, pull requests may be integrated as
 they are accepted even between periodic updates. However, versions that are not
 signed tags on the `approved` branch are not valid for conformance submission.
 
+## OpenXR CTS 1.1.40.0 (2024-08-29)
+
+- Conformance Tests
+  - Fix: Ensure that existing tests for `type` member verification only run when
+    selected, and only test that member as invalid.
+    ([internal MR 3287](https://gitlab.khronos.org/openxr/openxr/merge_requests/3287),
+    [internal issue 2170](https://gitlab.khronos.org/openxr/openxr/issues/2170),
+    [internal issue 2301](https://gitlab.khronos.org/openxr/openxr/issues/2301))
+  - Fix: Swapchain leak in test helper.
+    ([internal MR 3386](https://gitlab.khronos.org/openxr/openxr/merge_requests/3386))
+  - Fix: Resolve some C++ sanitizer issues.
+    ([internal MR 3453](https://gitlab.khronos.org/openxr/openxr/merge_requests/3453))
+  - Fix: Temporarily disable faulty assertions about the Z axis in the
+    grip_surface/palm_ext pose test.
+    ([internal MR 3465](https://gitlab.khronos.org/openxr/openxr/merge_requests/3465))
+  - Improvement: Supply Metal graphics plugin for running conformance test on macOS
+    with `XR_KHR_metal_enable` extension.
+    ([internal MR 3009](https://gitlab.khronos.org/openxr/openxr/merge_requests/3009))
+  - Improvement: Verify more two-call-idiom outputs in the conformance layer.
+    ([internal MR 3282](https://gitlab.khronos.org/openxr/openxr/merge_requests/3282))
+  - Improvement: Update CTS layer to verify that all enumerations of reference
+    spaces contain `LOCAL_FLOOR` if they are required to.
+    ([internal MR 3283](https://gitlab.khronos.org/openxr/openxr/merge_requests/3283))
+  - Improvement: Optionally verify that the runtime validates struct `.type` member
+    in various places.
+    ([internal MR 3287](https://gitlab.khronos.org/openxr/openxr/merge_requests/3287),
+    [internal issue 2170](https://gitlab.khronos.org/openxr/openxr/issues/2170),
+    [internal issue 2301](https://gitlab.khronos.org/openxr/openxr/issues/2301))
+  - Improvement: Simplify grip_surface/palm_ext pose test and support conformance
+    automation extension in it, among other improvements to it.
+    ([internal MR 3331](https://gitlab.khronos.org/openxr/openxr/merge_requests/3331),
+    [internal issue 2259](https://gitlab.khronos.org/openxr/openxr/issues/2259))
+  - Improvement: Clean up usage of RAII mutex lock guards.
+    ([internal MR 3336](https://gitlab.khronos.org/openxr/openxr/merge_requests/3336))
+  - Improvement: Add `xr_math_operators.h` to unify C++ math wrappers for CTS.
+    ([internal MR 3349](https://gitlab.khronos.org/openxr/openxr/merge_requests/3349),
+    [internal MR 3431](https://gitlab.khronos.org/openxr/openxr/merge_requests/3431))
+  - Improvement: Code cleanups in `GetSwapchainCreateTestParameters` and related
+    tests.
+    ([internal MR 3369](https://gitlab.khronos.org/openxr/openxr/merge_requests/3369))
+  - Improvement: Specify names through the debug extension for more Vulkan objects,
+    for improved ease of debugging.
+    ([internal MR 3422](https://gitlab.khronos.org/openxr/openxr/merge_requests/3422))
+  - Improvement: Add basic SNORM formats to table of runtime-supported formats
+    testable on OpenGL.
+    ([internal MR 3427](https://gitlab.khronos.org/openxr/openxr/merge_requests/3427))
+  - New test: Interactive test for new `XR_EXT_composition_layer_inverted_alpha`
+    extension.
+    ([internal MR 3085](https://gitlab.khronos.org/openxr/openxr/merge_requests/3085))
+  - New test: Check that an action with no suggested bindings is not bound/active.
+    ([internal MR 3256](https://gitlab.khronos.org/openxr/openxr/merge_requests/3256),
+    [internal issue 1609](https://gitlab.khronos.org/openxr/openxr/issues/1609))
+  - New test: Verify that the string returned by `xrGetInputSourceLocalizedName` is
+    null-terminated.
+    ([internal MR 3380](https://gitlab.khronos.org/openxr/openxr/merge_requests/3380),
+    [internal issue 2300](https://gitlab.khronos.org/openxr/openxr/issues/2300))
+
 ## OpenXR CTS 1.1.37.0 (2024-06-06)
 
 - Conformance Tests

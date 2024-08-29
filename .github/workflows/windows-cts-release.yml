@@ -32,7 +32,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Retrieve Win32 build
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: openxr-cts-win32
           path: openxr-cts-win32
@@ -40,7 +40,7 @@ jobs:
         run: '7za a "$TAGNAME-win32.zip" openxr-cts-win32'
 
       - name: Retrieve x64 build
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: openxr-cts-x64
           path: openxr-cts-x64

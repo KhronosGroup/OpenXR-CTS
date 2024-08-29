@@ -64,7 +64,7 @@ namespace Conformance
 /// application or runtime.
 ///
 /// Used for validating that runtimes properly ignore unrecognized extension structs.
-#define XRC_UNRECOGNIZABLE_STRUCTURE_TYPE ((XrStructureType)-1)
+#define XRC_UNRECOGNIZABLE_STRUCTURE_TYPE ((XrStructureType)((int)XR_STRUCTURE_TYPE_MAX_ENUM - 1))
 
     /// @}
 

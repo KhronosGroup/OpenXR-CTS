@@ -70,8 +70,7 @@ namespace Conformance
             XrExtent2Df bounds{-1.f, -1.f};
             result = xrGetReferenceSpaceBoundsRect(session, rst, &bounds);
             REQUIRE_THAT(result, In<XrResult>({XR_SUCCESS, XR_SPACE_BOUNDS_UNAVAILABLE}));
-            CAPTURE(bounds.width);
-            CAPTURE(bounds.height);
+            CAPTURE(bounds);
             CHECK(!std::isnan(bounds.width));
             CHECK(!std::isnan(bounds.height));
 
