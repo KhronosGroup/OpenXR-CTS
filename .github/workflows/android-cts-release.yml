@@ -1,0 +1,16 @@
+# Copyright 2021-2024, Collabora, Ltd.
+# SPDX-License-Identifier: CC0-1.0
+
+name: Android OpenXR-CTS - Release
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+jobs:
+  # CTS
+  android-build:
+    uses: "./.github/workflows/android-cts-build.yml"
+    with:
+      gradleTask: assembleRelease
+      gradleOutputDir: src/conformance/build/outputs/apk/release
