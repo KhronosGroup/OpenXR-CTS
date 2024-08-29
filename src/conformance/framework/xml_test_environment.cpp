@@ -145,6 +145,7 @@ namespace Conformance
         }
 
         xml.scopedElement(CTS_XML_NS_PREFIX_QUALIFIER "invalidHandleValidation").writeAttribute("value", options.invalidHandleValidation);
+        xml.scopedElement(CTS_XML_NS_PREFIX_QUALIFIER "invalidTypeValidation").writeAttribute("value", options.invalidTypeValidation);
         xml.scopedElement(CTS_XML_NS_PREFIX_QUALIFIER "nonDisconnectableDevices").writeAttribute("value", options.nonDisconnectableDevices);
         if (options.nonDisconnectableDevices) {
             xml.writeComment("WARNING: turning off disconnectable devices results in skipping mandatory tests!");

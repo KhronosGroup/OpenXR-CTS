@@ -96,6 +96,19 @@ namespace Conformance
                 cleanup.Destroy();
                 graphicsPlugin->ShutdownDevice();
             }
+
+            OPTIONAL_INVALID_TYPE_VALIDATION_SECTION
+            {
+                XrSessionCreateInfo createInfoWithoutType = sessionCreateInfo;
+                createInfoWithoutType.type = (XrStructureType)0;
+                REQUIRE_RESULT(xrCreateSession(instance, &createInfoWithoutType, &session), XR_ERROR_VALIDATION_FAILURE);
+            }
+            OPTIONAL_INVALID_TYPE_VALIDATION_SECTION
+            {
+                XrSessionCreateInfo createInfoWithInvalidType = sessionCreateInfo;
+                createInfoWithInvalidType.type = XR_TYPE_ACTIONS_SYNC_INFO;
+                REQUIRE_RESULT(xrCreateSession(instance, &createInfoWithInvalidType, &session), XR_ERROR_VALIDATION_FAILURE);
+            }
         }
 
         SECTION("XR_ERROR_SYSTEM_INVALID on XR_NULL_SYSTEM_ID")
@@ -144,7 +157,8 @@ namespace Conformance
             for (int i = 0; i < 2; ++i) {
                 CAPTURE(i);
 
-                AutoBasicInstance instance;
+                // Using skipDebugMessenger to avoid leaking a debug messenger during AutoBasicInstance shutdown.
+                AutoBasicInstance instance(AutoBasicInstance::skipDebugMessenger);
                 AutoBasicSession session(AutoBasicSession::createSession, instance);
                 XrResult destroySessionResult = XR_ERROR_RUNTIME_FAILURE;
                 XrResult destroyInstanceResult = XR_ERROR_RUNTIME_FAILURE;

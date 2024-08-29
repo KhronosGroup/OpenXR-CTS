@@ -11,6 +11,7 @@
 #include "PbrHandles.h"
 
 #include "common/xr_linear.h"
+#include "utilities/xr_math_operators.h"
 
 #include <nonstd/span.hpp>
 
@@ -22,6 +23,8 @@
 
 namespace Pbr
 {
+    using namespace openxr::math_operators;
+
     enum class NodeVisibility
     {
         Invisible,
@@ -152,8 +155,7 @@ namespace Pbr
             for (const Node& node : m_model->GetNodes()) {
                 m_nodeLocalTransforms.push_back(node.GetLocalTransform());
             }
-            XrMatrix4x4f identityMatrix;
-            XrMatrix4x4f_CreateIdentity(&identityMatrix);  // or better yet poison it
+            constexpr XrMatrix4x4f identityMatrix = Matrix::Identity;  // or better yet poison it
             m_resolvedTransforms.resize(nodeCount, identityMatrix);
         }
 
@@ -176,10 +178,9 @@ namespace Pbr
         /// Combine a transform with the original transform from the asset
         void SetAdditionalNodeTransform(NodeIndex_t nodeIndex, const XrMatrix4x4f& transform)
         {
-            XrMatrix4x4f compositeTransform;
             // Node transform is the immutable original transform
             const XrMatrix4x4f& originalNodeTransform = m_model->GetNode(nodeIndex).GetLocalTransform();
-            XrMatrix4x4f_Multiply(&compositeTransform, &originalNodeTransform, &transform);
+            XrMatrix4x4f compositeTransform = originalNodeTransform * transform;
             SetNodeTransform(nodeIndex, compositeTransform);
         }
 
@@ -199,8 +200,7 @@ namespace Pbr
             // Nodes are guaranteed to come after their parents, so each node transform can be multiplied by its parent transform in a single pass.
             assert(nodes.size() == m_nodeLocalTransforms.size());
             assert(nodes.size() == m_resolvedTransforms.size());
-            XrMatrix4x4f identityMatrix;
-            XrMatrix4x4f_CreateIdentity(&identityMatrix);
+            constexpr XrMatrix4x4f identityMatrix = Matrix::Identity;
             for (const auto& node : nodes) {
                 bool parentIsRoot = node.GetParentNodeIndex() == Model::RootParentNodeIndex;
                 assert(parentIsRoot || node.GetParentNodeIndex() < node.GetNodeIndex());
@@ -215,12 +215,11 @@ namespace Pbr
                 const XrMatrix4x4f& nodeTransform = m_nodeLocalTransforms[node.GetNodeIndex()];
 
                 if (transpose) {
-                    XrMatrix4x4f nodeTransformTranspose;
-                    XrMatrix4x4f_Transpose(&nodeTransformTranspose, &nodeTransform);
-                    XrMatrix4x4f_Multiply(&m_resolvedTransforms[node.GetNodeIndex()], &nodeTransformTranspose, &parentTransform);
+                    XrMatrix4x4f nodeTransformTranspose = Matrix::Transposed(nodeTransform);
+                    m_resolvedTransforms[node.GetNodeIndex()] = nodeTransformTranspose * parentTransform;
                 }
                 else {
-                    XrMatrix4x4f_Multiply(&m_resolvedTransforms[node.GetNodeIndex()], &parentTransform, &nodeTransform);
+                    m_resolvedTransforms[node.GetNodeIndex()] = parentTransform * nodeTransform;
                 }
             }
 

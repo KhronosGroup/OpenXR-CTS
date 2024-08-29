@@ -24,6 +24,7 @@
 
 #include "common/gfxwrapper_opengl.h"
 #include "utilities/opengl_utils.h"
+#include "utilities/xr_math_operators.h"
 
 #include <nonstd/type.hpp>
 #include <tinygltf/tiny_gltf.h>
@@ -58,6 +59,8 @@ static const char* g_PbrPixelShader =
 #endif
     ;
 // IWYU pragma: end_keep
+
+using namespace openxr::math_operators;
 
 namespace Pbr
 {
@@ -163,23 +166,19 @@ namespace Pbr
 
     static GLenum ConvertMinFilter(int glMinFilter)
     {
-        return glMinFilter == TINYGLTF_TEXTURE_FILTER_NEAREST
-                   ? GL_NEAREST
-                   : glMinFilter == TINYGLTF_TEXTURE_FILTER_LINEAR
-                         ? GL_LINEAR
-                         : glMinFilter == TINYGLTF_TEXTURE_FILTER_NEAREST_MIPMAP_NEAREST
-                               ? GL_NEAREST_MIPMAP_NEAREST
-                               : glMinFilter == TINYGLTF_TEXTURE_FILTER_LINEAR_MIPMAP_NEAREST
-                                     ? GL_LINEAR_MIPMAP_NEAREST
-                                     : glMinFilter == TINYGLTF_TEXTURE_FILTER_NEAREST_MIPMAP_LINEAR
-                                           ? GL_NEAREST_MIPMAP_LINEAR
-                                           : glMinFilter == TINYGLTF_TEXTURE_FILTER_LINEAR_MIPMAP_LINEAR ? GL_LINEAR_MIPMAP_LINEAR
-                                                                                                         : GL_NEAREST;
+        return glMinFilter == TINYGLTF_TEXTURE_FILTER_NEAREST                  ? GL_NEAREST
+               : glMinFilter == TINYGLTF_TEXTURE_FILTER_LINEAR                 ? GL_LINEAR
+               : glMinFilter == TINYGLTF_TEXTURE_FILTER_NEAREST_MIPMAP_NEAREST ? GL_NEAREST_MIPMAP_NEAREST
+               : glMinFilter == TINYGLTF_TEXTURE_FILTER_LINEAR_MIPMAP_NEAREST  ? GL_LINEAR_MIPMAP_NEAREST
+               : glMinFilter == TINYGLTF_TEXTURE_FILTER_NEAREST_MIPMAP_LINEAR  ? GL_NEAREST_MIPMAP_LINEAR
+               : glMinFilter == TINYGLTF_TEXTURE_FILTER_LINEAR_MIPMAP_LINEAR   ? GL_LINEAR_MIPMAP_LINEAR
+                                                                               : GL_NEAREST;
     }
     static GLenum ConvertMagFilter(int glMagFilter)
     {
-        return glMagFilter == TINYGLTF_TEXTURE_FILTER_NEAREST ? GL_NEAREST
-                                                              : glMagFilter == TINYGLTF_TEXTURE_FILTER_LINEAR ? GL_LINEAR : GL_NEAREST;
+        return glMagFilter == TINYGLTF_TEXTURE_FILTER_NEAREST  ? GL_NEAREST
+               : glMagFilter == TINYGLTF_TEXTURE_FILTER_LINEAR ? GL_LINEAR
+                                                               : GL_NEAREST;
     }
 
     // Create a GL sampler from a tinygltf Sampler.
@@ -194,12 +193,12 @@ namespace Pbr
         XRC_CHECK_THROW_GLCMD(glSamplerParameteri(glSampler.get(), GL_TEXTURE_MIN_FILTER, minFilter));
         XRC_CHECK_THROW_GLCMD(glSamplerParameteri(glSampler.get(), GL_TEXTURE_MAG_FILTER, magFilter));
 
-        GLenum addressModeS = sampler.wrapS == TINYGLTF_TEXTURE_WRAP_CLAMP_TO_EDGE
-                                  ? GL_CLAMP_TO_EDGE
-                                  : sampler.wrapS == TINYGLTF_TEXTURE_WRAP_MIRRORED_REPEAT ? GL_MIRRORED_REPEAT : GL_REPEAT;
-        GLenum addressModeT = sampler.wrapT == TINYGLTF_TEXTURE_WRAP_CLAMP_TO_EDGE
-                                  ? GL_CLAMP_TO_EDGE
-                                  : sampler.wrapT == TINYGLTF_TEXTURE_WRAP_MIRRORED_REPEAT ? GL_MIRRORED_REPEAT : GL_REPEAT;
+        GLenum addressModeS = sampler.wrapS == TINYGLTF_TEXTURE_WRAP_CLAMP_TO_EDGE     ? GL_CLAMP_TO_EDGE
+                              : sampler.wrapS == TINYGLTF_TEXTURE_WRAP_MIRRORED_REPEAT ? GL_MIRRORED_REPEAT
+                                                                                       : GL_REPEAT;
+        GLenum addressModeT = sampler.wrapT == TINYGLTF_TEXTURE_WRAP_CLAMP_TO_EDGE     ? GL_CLAMP_TO_EDGE
+                              : sampler.wrapT == TINYGLTF_TEXTURE_WRAP_MIRRORED_REPEAT ? GL_MIRRORED_REPEAT
+                                                                                       : GL_REPEAT;
         GLenum addressModeR = GL_REPEAT;
 
         XRC_CHECK_THROW_GLCMD(glSamplerParameteri(glSampler.get(), GL_TEXTURE_WRAP_S, addressModeS));
@@ -276,10 +275,9 @@ namespace Pbr
 
     void GLResources::SetViewProjection(XrMatrix4x4f view, XrMatrix4x4f projection) const
     {
-        XrMatrix4x4f_Multiply(&m_impl->SceneBuffer.ViewProjection, &projection, &view);
+        m_impl->SceneBuffer.ViewProjection = projection * view;
 
-        XrMatrix4x4f inv;
-        XrMatrix4x4f_Invert(&inv, &view);
+        XrMatrix4x4f inv = Matrix::InvertRigidBody(view);
         m_impl->SceneBuffer.EyePosition = {inv.m[12], inv.m[13], inv.m[14]};
     }
 

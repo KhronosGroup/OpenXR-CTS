@@ -11,6 +11,11 @@ add_library(
     PbrSharedState.cpp
 )
 
+if(APPLE)
+    # use C++17 since there is a depeendency on metal-cpp
+    target_compile_features(conformance_framework_pbr PUBLIC cxx_std_17)
+endif()
+
 set_target_properties(
     conformance_framework_pbr PROPERTIES FOLDER ${CONFORMANCE_TESTS_FOLDER}
 )
@@ -208,6 +213,62 @@ if(XR_USE_GRAPHICS_API_VULKAN)
                 "${GLSLANG_VALIDATOR}"
         )
     endif()
+endif()
+
+if(XR_USE_GRAPHICS_API_METAL)
+
+    target_sources(
+        conformance_framework_pbr
+        PRIVATE
+            Metal/MetalMaterial.cpp
+            Metal/MetalModel.cpp
+            Metal/MetalPrimitive.cpp
+            Metal/MetalResources.cpp
+            Metal/MetalTexture.cpp
+            Metal/MetalTextureCache.cpp
+            Metal/MetalPipelineStates.cpp
+            # headers
+            Metal/MetalMaterial.h
+            Metal/MetalModel.h
+            Metal/MetalPrimitive.h
+            Metal/MetalResources.h
+            Metal/MetalTexture.h
+            Metal/MetalTextureCache.h
+            Metal/MetalPipelineStates.h
+            # shaders
+            Shaders/PbrShader.metal
+    )
+    source_group("Shaders" FILES Shaders/PbrShader.metal)
+
+    # Create Metal library, with optional debug information
+    set(SHADER_INPUT "${CMAKE_CURRENT_SOURCE_DIR}/Shaders/PbrShader.metal")
+    set(SHADER_IR "${CMAKE_CURRENT_BINARY_DIR}/PbrShader.air")
+    set(SHADER_OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/PbrShader.metallib")
+    add_custom_command(
+        DEPENDS "${SHADER_INPUT}"
+        OUTPUT "${SHADER_IR}"
+        COMMAND
+            "${MetalTools_METAL_EXECUTABLE}" #
+            ARGS "$<$<CONFIG:Debug>:-gline-tables-only>"
+            "$<$<CONFIG:Debug>:-frecord-sources>" #
+            -c "${SHADER_INPUT}" -o "${SHADER_IR}"
+    )
+    add_custom_command(
+        DEPENDS "${SHADER_IR}"
+        OUTPUT "${SHADER_OUTPUT}"
+        COMMAND
+            "${MetalTools_METALLIB_EXECUTABLE}" #
+            ARGS "${SHADER_IR}" -o "${SHADER_OUTPUT}"
+    )
+    set_source_files_properties(
+        Shaders/PbrShader.metal PROPERTIES HEADER_FILE_ONLY TRUE
+    )
+    target_sources(conformance_framework_pbr PRIVATE "${SHADER_OUTPUT}")
+
+    target_include_directories(
+        conformance_framework_pbr
+        PRIVATE "${PROJECT_SOURCE_DIR}/src/external/metal-cpp"
+    )
 endif()
 
 target_include_directories(

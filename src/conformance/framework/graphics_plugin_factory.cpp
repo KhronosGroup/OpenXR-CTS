@@ -43,6 +43,10 @@ namespace Conformance
     std::shared_ptr<IGraphicsPlugin> CreateGraphicsPlugin_D3D12(std::shared_ptr<IPlatformPlugin> platformPlugin);
 #endif
 
+#ifdef XR_USE_GRAPHICS_API_METAL
+    std::shared_ptr<IGraphicsPlugin> CreateGraphicsPlugin_Metal(std::shared_ptr<IPlatformPlugin> platformPlugin);
+#endif
+
     using GraphicsPluginFactory = std::function<std::shared_ptr<IGraphicsPlugin>(std::shared_ptr<IPlatformPlugin> platformPlugin)>;
 
     const std::map<std::string, GraphicsPluginFactory, IgnoreCaseStringLess> graphicsPluginMap = {
@@ -67,6 +71,10 @@ namespace Conformance
 
 #ifdef XR_USE_GRAPHICS_API_D3D12
         {"D3D12", [](std::shared_ptr<IPlatformPlugin> platformPlugin) { return CreateGraphicsPlugin_D3D12(std::move(platformPlugin)); }},
+#endif
+
+#ifdef XR_USE_GRAPHICS_API_METAL
+        {"Metal", [](std::shared_ptr<IPlatformPlugin> platformPlugin) { return CreateGraphicsPlugin_Metal(std::move(platformPlugin)); }},
 #endif
     };
 

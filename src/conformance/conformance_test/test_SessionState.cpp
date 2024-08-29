@@ -14,15 +14,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "catch2/matchers/catch_matchers.hpp"
-#include "catch2/matchers/catch_matchers_vector.hpp"
-#include "utilities/utils.h"
 #include "conformance_utils.h"
 #include "conformance_framework.h"
-#include "utilities/throw_helpers.h"
 #include "matchers.h"
+#include "utilities/utils.h"
+#include "utilities/throw_helpers.h"
 
 #include <catch2/catch_test_macros.hpp>
+#include <catch2/matchers/catch_matchers.hpp>
+#include <catch2/matchers/catch_matchers_vector.hpp>
 #include <openxr/openxr.h>
 #include <openxr/openxr_reflection.h>
 

@@ -9,6 +9,7 @@
 #include "PbrCommon.h"
 
 #include "common/xr_linear.h"
+#include "utilities/xr_math_operators.h"
 
 #include <openxr/openxr.h>
 
@@ -22,6 +23,8 @@
 
 namespace Pbr
 {
+    using namespace openxr::math_operators;
+
     namespace Internal
     {
         // for later consolidation
@@ -94,7 +97,7 @@ namespace Pbr
 
                 Pbr::Vertex vert;
                 vert.Normal = {dx, dy, dz};
-                XrVector3f_Scale(&vert.Position, &vert.Normal, radius);
+                vert.Position = vert.Normal * radius;
                 vert.Tangent = {tdx, 0, tdz, 0};
                 vert.TexCoord0 = {u, v};
 
@@ -153,10 +156,8 @@ namespace Pbr
             // Get two vectors perpendicular both to the face normal and to each other.
             XrVector3f basis = (i >= 4) ? XrVector3f{0, 0, 1} : XrVector3f{0, 1, 0};
 
-            XrVector3f side1;
-            XrVector3f_Cross(&side1, &normal, &basis);
-            XrVector3f side2;
-            XrVector3f_Cross(&side2, &normal, &side1);
+            XrVector3f side1 = Vector::CrossProduct(normal, basis);
+            XrVector3f side2 = Vector::CrossProduct(normal, side1);
 
             // Six indices (two triangles) per face.
             size_t vbase = Vertices.size();
@@ -176,17 +177,17 @@ namespace Pbr
                 //                                 {(normal + side1 - side2) * sideLengthHalfVector}};
                 XrVector3f offset;
                 if ((j % 2) == 0) {
-                    XrVector3f_Add(&offset, &side1, &side2);
+                    offset = side1 + side2;
                 }
                 else {
-                    XrVector3f_Sub(&offset, &side1, &side2);
+                    offset = side1 - side2;
                 }
                 XrVector3f offsetNormal;
                 if (j >= 2) {
-                    XrVector3f_Sub(&offsetNormal, &normal, &offset);
+                    offsetNormal = normal - offset;
                 }
                 else {
-                    XrVector3f_Add(&offsetNormal, &normal, &offset);
+                    offsetNormal = normal + offset;
                 }
                 positions[j].x = offsetNormal.x * sideLengthHalfVector.x;
                 positions[j].y = offsetNormal.y * sideLengthHalfVector.y;
@@ -195,7 +196,7 @@ namespace Pbr
 
             for (int j = 0; j < 4; j++) {
                 Pbr::Vertex vert;
-                XrVector3f_Add(&vert.Position, &positions[j], &translation);
+                vert.Position = positions[j] + translation;
                 vert.Normal = normal;
                 // 1. might be wrong, just getting it building
                 vert.Tangent = {side1.x, side1.y, side1.z, 1.};  // TODO arbitrarily picked side 1

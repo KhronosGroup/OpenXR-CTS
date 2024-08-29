@@ -55,6 +55,8 @@ namespace mapbox
 
 namespace Conformance
 {
+    using namespace openxr::math_operators;
+
     static constexpr XrVector3f Up{0, 1, 0};
     static XrPlaneDetectionCapabilityFlagsEXT SystemPlaneDetectionCapabilities(XrInstance instance, XrSystemId systemId)
     {
@@ -187,8 +189,8 @@ namespace Conformance
             GetInstanceExtensionFunction<PFN_xrGetPlaneDetectionStateEXT>(instance, "xrGetPlaneDetectionStateEXT");
         auto xrGetPlaneDetectionsEXT = GetInstanceExtensionFunction<PFN_xrGetPlaneDetectionsEXT>(instance, "xrGetPlaneDetectionsEXT");
 
-        const XrSpace localSpace = compositionHelper.CreateReferenceSpace(XR_REFERENCE_SPACE_TYPE_LOCAL, XrPosefCPP{});
-        const XrSpace viewSpace = compositionHelper.CreateReferenceSpace(XR_REFERENCE_SPACE_TYPE_VIEW, XrPosefCPP{});
+        const XrSpace localSpace = compositionHelper.CreateReferenceSpace(XR_REFERENCE_SPACE_TYPE_LOCAL, Pose::Identity);
+        const XrSpace viewSpace = compositionHelper.CreateReferenceSpace(XR_REFERENCE_SPACE_TYPE_VIEW, Pose::Identity);
 
         // Set up composition projection layer and swapchains (one swapchain per view).
         std::vector<XrSwapchain> swapchains;
@@ -248,7 +250,7 @@ namespace Conformance
         XrCompositionLayerQuad* const instructionsQuad =
             compositionHelper.CreateQuadLayer(compositionHelper.CreateStaticSwapchainImage(CreateTextImage(1024, 512, instructions, 48)),
                                               localSpace, 1.0f, {{0, 0, 0, 1}, {-0.2f, 0, -1.0f}});
-        XrQuaternionf_CreateFromAxisAngle(&instructionsQuad->pose.orientation, &Up, 10 * MATH_PI / 180);
+        instructionsQuad->pose.orientation = Quat::FromAxisAngle(Up, DegToRad(10));
 
         enum DetectState
         {
@@ -494,8 +496,8 @@ namespace Conformance
         auto xrCreatePlaneDetectorEXT = GetInstanceExtensionFunction<PFN_xrCreatePlaneDetectorEXT>(instance, "xrCreatePlaneDetectorEXT");
         auto xrDestroyPlaneDetectorEXT = GetInstanceExtensionFunction<PFN_xrDestroyPlaneDetectorEXT>(instance, "xrDestroyPlaneDetectorEXT");
         auto xrBeginPlaneDetectionEXT = GetInstanceExtensionFunction<PFN_xrBeginPlaneDetectionEXT>(instance, "xrBeginPlaneDetectionEXT");
-        const XrSpace localSpace = compositionHelper.CreateReferenceSpace(XR_REFERENCE_SPACE_TYPE_LOCAL, XrPosefCPP{});
-        const XrSpace viewSpace = compositionHelper.CreateReferenceSpace(XR_REFERENCE_SPACE_TYPE_VIEW, XrPosefCPP{});
+        const XrSpace localSpace = compositionHelper.CreateReferenceSpace(XR_REFERENCE_SPACE_TYPE_LOCAL, Pose::Identity);
+        const XrSpace viewSpace = compositionHelper.CreateReferenceSpace(XR_REFERENCE_SPACE_TYPE_VIEW, Pose::Identity);
 
         // Set up composition projection layer and swapchains (one swapchain per view).
         std::vector<XrSwapchain> swapchains;
@@ -522,7 +524,7 @@ namespace Conformance
             XrCompositionLayerQuad* const instructionsQuad = compositionHelper.CreateQuadLayer(
                 compositionHelper.CreateStaticSwapchainImage(CreateTextImage(1024, 512, instructions, 48)), localSpace, 1.0f,
                 {{0, 0, 0, 1}, {-0.2f, 0, -1.0f}});
-            XrQuaternionf_CreateFromAxisAngle(&instructionsQuad->pose.orientation, &Up, 10 * MATH_PI / 180);
+            instructionsQuad->pose.orientation = Quat::FromAxisAngle(Up, DegToRad(10));
         };
 
         // Configure the XrPlaneDetectorBeginInfoEXT correctly first, before making it invalid in sections.
@@ -635,8 +637,8 @@ namespace Conformance
         auto xrGetPlanePolygonBufferEXT =
             GetInstanceExtensionFunction<PFN_xrGetPlanePolygonBufferEXT>(instance, "xrGetPlanePolygonBufferEXT");
 
-        const XrSpace localSpace = compositionHelper.CreateReferenceSpace(XR_REFERENCE_SPACE_TYPE_LOCAL, XrPosefCPP{});
-        const XrSpace viewSpace = compositionHelper.CreateReferenceSpace(XR_REFERENCE_SPACE_TYPE_VIEW, XrPosefCPP{});
+        const XrSpace localSpace = compositionHelper.CreateReferenceSpace(XR_REFERENCE_SPACE_TYPE_LOCAL, Pose::Identity);
+        const XrSpace viewSpace = compositionHelper.CreateReferenceSpace(XR_REFERENCE_SPACE_TYPE_VIEW, Pose::Identity);
 
         // Set up composition projection layer and swapchains (one swapchain per view).
         std::vector<XrSwapchain> swapchains;
@@ -759,10 +761,6 @@ namespace Conformance
                             REQUIRE(XR_SUCCESS ==
                                     xrGetPlanePolygonBufferEXT(detection, location.planeId, polygonBufferIndex, &polygonBuffer));
 
-                            XrMatrix4x4f transform;
-                            XrVector3f scale{1.0f, 1.0f, 1.0f};
-                            XrMatrix4x4f_CreateTranslationRotationScale(&transform, &location.pose.position, &location.pose.orientation,
-                                                                        &scale);
                             CAPTURE(polygonBufferIndex);
                             if (polygonBufferIndex == 0) {
                                 // hull is counter clock-wise.

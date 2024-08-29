@@ -28,6 +28,8 @@ using namespace Conformance;
 
 namespace Conformance
 {
+    using namespace openxr::math_operators;
+
     static constexpr const char* kEyeGazeInteractionUserPath = "/user/eyes_ext";
     static constexpr const char* kEyeGazeInteractionPoseInputPath = "/user/eyes_ext/input/gaze_ext/pose";
     static constexpr const char* kEyeGazeInteractionProfilePath = "/interaction_profiles/ext/eye_gaze_interaction";
@@ -414,8 +416,8 @@ namespace Conformance
         attachInfo.countActionSets = 1;
         REQUIRE_RESULT(XR_SUCCESS, xrAttachSessionActionSets(compositionHelper.GetSession(), &attachInfo));
 
-        const XrSpace localSpace = compositionHelper.CreateReferenceSpace(XR_REFERENCE_SPACE_TYPE_LOCAL, XrPosefCPP{});
-        const XrSpace viewSpace = compositionHelper.CreateReferenceSpace(XR_REFERENCE_SPACE_TYPE_VIEW, XrPosefCPP{});
+        const XrSpace localSpace = compositionHelper.CreateReferenceSpace(XR_REFERENCE_SPACE_TYPE_LOCAL, Pose::Identity);
+        const XrSpace viewSpace = compositionHelper.CreateReferenceSpace(XR_REFERENCE_SPACE_TYPE_VIEW, Pose::Identity);
 
         XrActionSpaceCreateInfo createActionSpaceInfo{XR_TYPE_ACTION_SPACE_CREATE_INFO};
         createActionSpaceInfo.action = gazeAction;
@@ -450,7 +452,7 @@ namespace Conformance
             XrCompositionLayerQuad* const instructionsQuad = compositionHelper.CreateQuadLayer(
                 compositionHelper.CreateStaticSwapchainImage(CreateTextImage(1024, 512, instructions, 48)), localSpace, 1.0f,
                 {{0, 0, 0, 1}, {-1.5f, 0, -0.3f}});
-            XrQuaternionf_CreateFromAxisAngle(&instructionsQuad->pose.orientation, &kVectorUp, 70 * MATH_PI / 180);
+            instructionsQuad->pose.orientation = Quat::FromAxisAngle(kVectorUp, DegToRad(70));
 
             bool eyeGazeSampleTimeFound = false;
             auto update = [&](const XrFrameState& frameState) {
@@ -474,9 +476,8 @@ namespace Conformance
                     if (viewLoc.locationFlags & XR_SPACE_LOCATION_POSITION_VALID_BIT) {
                         const XrVector3f& headPosition = viewLoc.pose.position;
                         for (size_t i = 0; i < staticCubeLocs.size(); ++i) {
-                            XrVector3f d;
-                            XrVector3f_Sub(&d, &headPosition, &staticCubeLocs[i]);
-                            float distance = XrVector3f_Length(&d);
+                            XrVector3f d = headPosition - staticCubeLocs[i];
+                            float distance = Vector::Length(d);
                             if (distance < (staticCubeScale / 2)) {
                                 // bring your head to the cube
                                 return false;
@@ -537,8 +538,7 @@ namespace Conformance
                         static constexpr XrVector3f rayEdgesScale{0.003f, 0.003f, 1.0f};
                         static constexpr float rayOffsetFromHead = 0.2f;  // 20cm from head
 
-                        XrVector3f gazeDirection{};
-                        XrQuaternionf_RotateVector3f(&gazeDirection, &rayPose.orientation, &kVectorForward);
+                        XrVector3f gazeDirection = Quat::RotateVector(rayPose.orientation, kVectorForward);
                         const float rayOffsetForward = rayEdgesScale.z / 2 + rayOffsetFromHead;
                         rayPose.position = XrVector3f{rayPose.position.x + (rayOffsetForward)*gazeDirection.x,
                                                       rayPose.position.y + (rayOffsetForward)*gazeDirection.y,

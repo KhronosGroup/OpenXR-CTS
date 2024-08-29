@@ -31,6 +31,7 @@
 
 namespace Conformance
 {
+    using namespace openxr::math_operators;
     using namespace std::chrono_literals;
 #ifdef XR_USE_PLATFORM_ANDROID
     const std::chrono::nanoseconds waitDelay = 0ms;
@@ -118,7 +119,7 @@ namespace Conformance
             XrCompositionLayerQuad* const instructionsQuad = m_compositionHelper->CreateQuadLayer(
                 m_compositionHelper->CreateStaticSwapchainImage(CreateTextImage(1024, 256, sMessage.c_str(), 48)), *m_localSpace, 1,
                 {{0, 0, 0, 1}, {-1.5f, 0, -0.3f}});
-            XrQuaternionf_CreateFromAxisAngle(&instructionsQuad->pose.orientation, &Up, 70 * MATH_PI / 180);
+            instructionsQuad->pose.orientation = Quat::FromAxisAngle(Up, DegToRad(70));
 
             m_layers.push_back({reinterpret_cast<XrCompositionLayerBaseHeader*>(instructionsQuad)});
             ReportF("%s", sMessage.c_str());
@@ -771,7 +772,7 @@ namespace Conformance
         REQUIRE(session != XR_NULL_HANDLE);
 
         // Create render loop that handles a quad layer
-        const XrSpace localSpace = compositionHelper->CreateReferenceSpace(XR_REFERENCE_SPACE_TYPE_LOCAL, XrPosefCPP{});
+        const XrSpace localSpace = compositionHelper->CreateReferenceSpace(XR_REFERENCE_SPACE_TYPE_LOCAL, Pose::Identity);
         std::vector<XrCompositionLayerBaseHeader*> layers;
         RenderLoop renderLoop(session, [&](const XrFrameState& frameState) { return EndFrameB(frameState, *compositionHelper, layers); });
 

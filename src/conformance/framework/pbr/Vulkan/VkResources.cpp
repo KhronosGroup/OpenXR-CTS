@@ -27,6 +27,7 @@
 #include "common/vulkan_debug_object_namer.hpp"
 #include "utilities/vulkan_scoped_handle.h"
 #include "utilities/vulkan_utils.h"
+#include "utilities/xr_math_operators.h"
 
 #include <nonstd/type.hpp>
 #include <tinygltf/tiny_gltf.h>
@@ -53,6 +54,8 @@ const uint32_t g_PbrPixelShader[] = SPV_PREFIX
 #include <PbrPixelShader_glsl_spv.h>
     SPV_SUFFIX;
 // IWYU pragma: end_keep
+
+using namespace openxr::math_operators;
 
 namespace
 {
@@ -308,6 +311,7 @@ namespace Pbr
             // Set up the scene constant buffer.
             Resources.SceneBuffer.Init(device, allocator);
             Resources.SceneBuffer.Create(1, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT);
+            XRC_CHECK_THROW_VKCMD(objnamer.SetName(VK_OBJECT_TYPE_BUFFER, (uint64_t)Resources.SceneBuffer.buf, "CTS pbr scene buffer"));
 
             Resources.BrdfSampler.adopt(VulkanTexture::CreateSampler(device), device);
             Resources.EnvironmentMapSampler.adopt(VulkanTexture::CreateSampler(device), device);
@@ -407,41 +411,31 @@ namespace Pbr
 
     static VkFilter ConvertMinFilter(int glMinFilter)
     {
-        return glMinFilter == TINYGLTF_TEXTURE_FILTER_NEAREST
-                   ? VK_FILTER_NEAREST
-                   : glMinFilter == TINYGLTF_TEXTURE_FILTER_LINEAR
-                         ? VK_FILTER_LINEAR
-                         : glMinFilter == TINYGLTF_TEXTURE_FILTER_NEAREST_MIPMAP_NEAREST
-                               ? VK_FILTER_NEAREST
-                               : glMinFilter == TINYGLTF_TEXTURE_FILTER_LINEAR_MIPMAP_NEAREST
-                                     ? VK_FILTER_LINEAR
-                                     : glMinFilter == TINYGLTF_TEXTURE_FILTER_NEAREST_MIPMAP_LINEAR
-                                           ? VK_FILTER_NEAREST
-                                           : glMinFilter == TINYGLTF_TEXTURE_FILTER_LINEAR_MIPMAP_LINEAR ? VK_FILTER_LINEAR
-                                                                                                         : VK_FILTER_NEAREST;
+        return glMinFilter == TINYGLTF_TEXTURE_FILTER_NEAREST                  ? VK_FILTER_NEAREST
+               : glMinFilter == TINYGLTF_TEXTURE_FILTER_LINEAR                 ? VK_FILTER_LINEAR
+               : glMinFilter == TINYGLTF_TEXTURE_FILTER_NEAREST_MIPMAP_NEAREST ? VK_FILTER_NEAREST
+               : glMinFilter == TINYGLTF_TEXTURE_FILTER_LINEAR_MIPMAP_NEAREST  ? VK_FILTER_LINEAR
+               : glMinFilter == TINYGLTF_TEXTURE_FILTER_NEAREST_MIPMAP_LINEAR  ? VK_FILTER_NEAREST
+               : glMinFilter == TINYGLTF_TEXTURE_FILTER_LINEAR_MIPMAP_LINEAR   ? VK_FILTER_LINEAR
+                                                                               : VK_FILTER_NEAREST;
     }
 
     static VkSamplerMipmapMode ConvertMipFilter(int glMinFilter)
     {
-        return glMinFilter == TINYGLTF_TEXTURE_FILTER_NEAREST
-                   ? VK_SAMPLER_MIPMAP_MODE_NEAREST
-                   : glMinFilter == TINYGLTF_TEXTURE_FILTER_LINEAR
-                         ? VK_SAMPLER_MIPMAP_MODE_NEAREST
-                         : glMinFilter == TINYGLTF_TEXTURE_FILTER_NEAREST_MIPMAP_NEAREST
-                               ? VK_SAMPLER_MIPMAP_MODE_NEAREST
-                               : glMinFilter == TINYGLTF_TEXTURE_FILTER_LINEAR_MIPMAP_NEAREST
-                                     ? VK_SAMPLER_MIPMAP_MODE_NEAREST
-                                     : glMinFilter == TINYGLTF_TEXTURE_FILTER_NEAREST_MIPMAP_LINEAR
-                                           ? VK_SAMPLER_MIPMAP_MODE_LINEAR
-                                           : glMinFilter == TINYGLTF_TEXTURE_FILTER_LINEAR_MIPMAP_LINEAR ? VK_SAMPLER_MIPMAP_MODE_LINEAR
-                                                                                                         : VK_SAMPLER_MIPMAP_MODE_NEAREST;
+        return glMinFilter == TINYGLTF_TEXTURE_FILTER_NEAREST                  ? VK_SAMPLER_MIPMAP_MODE_NEAREST
+               : glMinFilter == TINYGLTF_TEXTURE_FILTER_LINEAR                 ? VK_SAMPLER_MIPMAP_MODE_NEAREST
+               : glMinFilter == TINYGLTF_TEXTURE_FILTER_NEAREST_MIPMAP_NEAREST ? VK_SAMPLER_MIPMAP_MODE_NEAREST
+               : glMinFilter == TINYGLTF_TEXTURE_FILTER_LINEAR_MIPMAP_NEAREST  ? VK_SAMPLER_MIPMAP_MODE_NEAREST
+               : glMinFilter == TINYGLTF_TEXTURE_FILTER_NEAREST_MIPMAP_LINEAR  ? VK_SAMPLER_MIPMAP_MODE_LINEAR
+               : glMinFilter == TINYGLTF_TEXTURE_FILTER_LINEAR_MIPMAP_LINEAR   ? VK_SAMPLER_MIPMAP_MODE_LINEAR
+                                                                               : VK_SAMPLER_MIPMAP_MODE_NEAREST;
     }
 
     static VkFilter ConvertMagFilter(int glMagFilter)
     {
-        return glMagFilter == TINYGLTF_TEXTURE_FILTER_NEAREST
-                   ? VK_FILTER_NEAREST
-                   : glMagFilter == TINYGLTF_TEXTURE_FILTER_LINEAR ? VK_FILTER_LINEAR : VK_FILTER_NEAREST;
+        return glMagFilter == TINYGLTF_TEXTURE_FILTER_NEAREST  ? VK_FILTER_NEAREST
+               : glMagFilter == TINYGLTF_TEXTURE_FILTER_LINEAR ? VK_FILTER_LINEAR
+                                                               : VK_FILTER_NEAREST;
     }
 
     /// Create a Vulkan sampler from a tinygltf Sampler.
@@ -452,14 +446,12 @@ namespace Pbr
         info.minFilter = ConvertMinFilter(sampler.minFilter);
         info.mipmapMode = ConvertMipFilter(sampler.minFilter);
         info.magFilter = ConvertMagFilter(sampler.magFilter);
-        info.addressModeU = sampler.wrapS == TINYGLTF_TEXTURE_WRAP_CLAMP_TO_EDGE
-                                ? VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE
-                                : sampler.wrapS == TINYGLTF_TEXTURE_WRAP_MIRRORED_REPEAT ? VK_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT
-                                                                                         : VK_SAMPLER_ADDRESS_MODE_REPEAT;
-        info.addressModeV = sampler.wrapT == TINYGLTF_TEXTURE_WRAP_CLAMP_TO_EDGE
-                                ? VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE
-                                : sampler.wrapT == TINYGLTF_TEXTURE_WRAP_MIRRORED_REPEAT ? VK_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT
-                                                                                         : VK_SAMPLER_ADDRESS_MODE_REPEAT;
+        info.addressModeU = sampler.wrapS == TINYGLTF_TEXTURE_WRAP_CLAMP_TO_EDGE     ? VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE
+                            : sampler.wrapS == TINYGLTF_TEXTURE_WRAP_MIRRORED_REPEAT ? VK_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT
+                                                                                     : VK_SAMPLER_ADDRESS_MODE_REPEAT;
+        info.addressModeV = sampler.wrapT == TINYGLTF_TEXTURE_WRAP_CLAMP_TO_EDGE     ? VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE
+                            : sampler.wrapT == TINYGLTF_TEXTURE_WRAP_MIRRORED_REPEAT ? VK_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT
+                                                                                     : VK_SAMPLER_ADDRESS_MODE_REPEAT;
         info.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
         info.maxAnisotropy = 1;
         info.compareOp = VK_COMPARE_OP_ALWAYS;
@@ -568,10 +560,9 @@ namespace Pbr
 
     void VulkanResources::SetViewProjection(XrMatrix4x4f view, XrMatrix4x4f projection) const
     {
-        XrMatrix4x4f_Multiply(&m_impl->SceneBuffer.ViewProjection, &projection, &view);
+        m_impl->SceneBuffer.ViewProjection = projection * view;
 
-        XrMatrix4x4f inv;
-        XrMatrix4x4f_Invert(&inv, &view);
+        XrMatrix4x4f inv = Matrix::InvertRigidBody(view);
         m_impl->SceneBuffer.EyePosition = {inv.m[12], inv.m[13], inv.m[14]};
     }
 

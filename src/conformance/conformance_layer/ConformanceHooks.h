@@ -17,6 +17,7 @@
 #pragma once
 
 #include "gen_dispatch.h"
+#include <cstdint>
 
 // Implementation of methods are distributed across multiple files, based on the primary handle type.
 // IConformanceHooks provides empty default implementations of all OpenXR functions. Only provide an override
@@ -26,10 +27,7 @@
 // in the base interface, the compiler will yell.
 struct ConformanceHooks : ConformanceHooksBase
 {
-    ConformanceHooks(XrInstance instance, const XrGeneratedDispatchTable dispatchTable, const EnabledExtensions enabledExtensions)
-        : ConformanceHooksBase(instance, dispatchTable, enabledExtensions)
-    {
-    }
+    using ConformanceHooksBase::ConformanceHooksBase;
 
     void ConformanceFailure(XrDebugUtilsMessageSeverityFlagsEXT severity, const char* functionName, const char* fmtMessage, ...) override;
 
@@ -38,6 +36,12 @@ struct ConformanceHooks : ConformanceHooksBase
     //
     // xrCreateInstance is handled by CreateApiLayerInstance()
     //XrResult xrDestroyInstance(XrInstance instance) override;
+    XrResult xrEnumerateViewConfigurations(XrInstance instance, XrSystemId systemId, uint32_t viewConfigurationTypeCapacityInput,
+                                           uint32_t* viewConfigurationTypeCountOutput,
+                                           XrViewConfigurationType* viewConfigurationTypes) override;
+    XrResult xrEnumerateEnvironmentBlendModes(XrInstance instance, XrSystemId systemId, XrViewConfigurationType viewConfigurationType,
+                                              uint32_t environmentBlendModeCapacityInput, uint32_t* environmentBlendModeCountOutput,
+                                              XrEnvironmentBlendMode* environmentBlendModes) override;
     XrResult xrPollEvent(XrInstance instance, XrEventDataBuffer* eventData) override;
 
     XrResult xrGetSystemProperties(XrInstance instance, XrSystemId systemId, XrSystemProperties* properties) override;
@@ -109,9 +113,7 @@ struct ConformanceHooks : ConformanceHooksBase
     XrResult xrResultToString(XrInstance instance, XrResult value, char buffer[XR_MAX_RESULT_STRING_SIZE]) override;
     XrResult xrStructureTypeToString(XrInstance instance, XrStructureType value, char buffer[XR_MAX_STRUCTURE_NAME_SIZE]) override;
     XrResult xrGetSystem(XrInstance instance, const XrSystemGetInfo* getInfo, XrSystemId* systemId) override;
-    XrResult xrEnumerateEnvironmentBlendModes(XrInstance instance, XrSystemId systemId, XrViewConfigurationType viewConfigurationType, uint32_t environmentBlendModeCapacityInput, uint32_t* environmentBlendModeCountOutput, XrEnvironmentBlendMode* environmentBlendModes) override;
     XrResult xrGetReferenceSpaceBoundsRect(XrSession session, XrReferenceSpaceType referenceSpaceType, XrExtent2Df* bounds) override;
-    XrResult xrEnumerateViewConfigurations(XrInstance instance, XrSystemId systemId, uint32_t viewConfigurationTypeCapacityInput, uint32_t* viewConfigurationTypeCountOutput, XrViewConfigurationType* viewConfigurationTypes) override;
     XrResult xrGetViewConfigurationProperties(XrInstance instance, XrSystemId systemId, XrViewConfigurationType viewConfigurationType, XrViewConfigurationProperties* configurationProperties) override;
     XrResult xrEnumerateViewConfigurationViews(XrInstance instance, XrSystemId systemId, XrViewConfigurationType viewConfigurationType, uint32_t viewCapacityInput, uint32_t* viewCountOutput, XrViewConfigurationView* views) override;
     XrResult xrStringToPath(XrInstance instance, const char* pathString, XrPath* path) override;
@@ -129,6 +131,9 @@ struct ConformanceHooks : ConformanceHooksBase
 #endif
 
 private:
+    /// returns true if there are array outputs to validate.
+    bool checkTwoCallIdiomFunc(const char* function, XrResult result, uint32_t capacityInput, const uint32_t* countOutput, void* array);
+
     /// fallback for event types for which we have no further verification
     void checkEventPayload(const void*)
     {

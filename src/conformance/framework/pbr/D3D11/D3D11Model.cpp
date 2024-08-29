@@ -57,8 +57,6 @@ namespace Pbr
             pbrResources.GetDevice()->CreateBuffer(&modelConstantBufferDesc, nullptr, m_modelConstantBuffer.ReleaseAndGetAddressOf()));
 
         // Set up the transforms buffer.
-        XrMatrix4x4f identityMatrix;
-        XrMatrix4x4f_CreateIdentity(&identityMatrix);  // or better yet poison it
         size_t nodeCount = GetModel().GetNodes().size();
 
         // Create/recreate the structured buffer and SRV which holds the node transforms.

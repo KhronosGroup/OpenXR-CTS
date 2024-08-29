@@ -23,6 +23,7 @@
 #include <openxr/openxr_loader_negotiation.h>
 #include <openxr/openxr_reflection_parent_structs.h>
 #include <atomic>
+#include <cstdint>
 
 namespace instance
 {
@@ -36,6 +37,44 @@ namespace instance
 /////////////////
 // ABI
 /////////////////
+
+XrResult ConformanceHooks::xrEnumerateViewConfigurations(XrInstance instance, XrSystemId systemId,
+                                                         uint32_t viewConfigurationTypeCapacityInput,
+                                                         uint32_t* viewConfigurationTypeCountOutput,
+                                                         XrViewConfigurationType* viewConfigurationTypes)
+{
+    const XrResult result = ConformanceHooksBase::xrEnumerateViewConfigurations(instance, systemId, viewConfigurationTypeCapacityInput,
+                                                                                viewConfigurationTypeCountOutput, viewConfigurationTypes);
+    if (checkTwoCallIdiomFunc(__func__, result, viewConfigurationTypeCapacityInput, viewConfigurationTypeCountOutput,
+                              viewConfigurationTypes)) {
+        // We have some output to check
+        for (uint32_t i = 0; i < *viewConfigurationTypeCountOutput; ++i) {
+            VALIDATE_XRENUM(viewConfigurationTypes[i]);
+        }
+    }
+
+    return result;
+}
+
+XrResult ConformanceHooks::xrEnumerateEnvironmentBlendModes(XrInstance instance, XrSystemId systemId,
+                                                            XrViewConfigurationType viewConfigurationType,
+                                                            uint32_t environmentBlendModeCapacityInput,
+                                                            uint32_t* environmentBlendModeCountOutput,
+                                                            XrEnvironmentBlendMode* environmentBlendModes)
+{
+    const XrResult result =
+        ConformanceHooksBase::xrEnumerateEnvironmentBlendModes(instance, systemId, viewConfigurationType, environmentBlendModeCapacityInput,
+                                                               environmentBlendModeCountOutput, environmentBlendModes);
+    if (checkTwoCallIdiomFunc(__func__, result, environmentBlendModeCapacityInput, environmentBlendModeCountOutput,
+                              environmentBlendModes)) {
+        // We have some output to check
+        for (uint32_t i = 0; i < *environmentBlendModeCountOutput; ++i) {
+            VALIDATE_XRENUM(environmentBlendModes[i]);
+        }
+    }
+
+    return result;
+}
 
 XrResult ConformanceHooks::xrPollEvent(XrInstance instance, XrEventDataBuffer* eventData)
 {
@@ -111,6 +150,36 @@ XrResult ConformanceHooks::xrPollEvent(XrInstance instance, XrEventDataBuffer* e
     }
 
     return result;
+}
+
+bool ConformanceHooks::checkTwoCallIdiomFunc(const char* function, XrResult result, uint32_t capacityInput, const uint32_t* countOutput,
+                                             void* array)
+{
+    if (result != XR_SUCCESS) {
+        return false;
+    }
+    if (countOutput == nullptr) {
+        this->ConformanceFailure(XR_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT, function,
+                                 "Must not return XR_SUCCESS for a null CountOutput");
+        return false;
+    }
+    if (capacityInput == 0) {
+        // just a capacity check
+        return false;
+    }
+    if (array == nullptr) {
+        this->ConformanceFailure(XR_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT, function,
+                                 "Must not return success from a two call idiom call with non-zero capacity but null array");
+        return false;
+    }
+    if (*countOutput > capacityInput) {
+        this->ConformanceFailure(XR_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT, function,
+                                 "Must not return success from a two call idiom call with non-zero capacity and larger count output.");
+        // may read out of bounds if we validate all *countOutput so:
+        return false;
+    }
+    // If we get here, it was successful and should have actually returned data.
+    return true;
 }
 
 // Helpers

@@ -269,7 +269,8 @@ namespace Conformance
         {
             for (int i = 0; i < 2; ++i) {
                 CAPTURE(i);
-                AutoBasicInstance instance;
+                // Using skipDebugMessenger to avoid leaking a debug messenger during AutoBasicInstance shutdown.
+                AutoBasicInstance instance(AutoBasicInstance::skipDebugMessenger);
                 XrResult destroyResult = XR_ERROR_RUNTIME_FAILURE;
                 std::thread t([&destroyResult, &instance] { destroyResult = xrDestroyInstance(instance); });
                 t.join();

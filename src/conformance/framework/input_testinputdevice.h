@@ -37,8 +37,9 @@ namespace Conformance
 
         /// Set device active or inactive
         ///
-        /// This will run xrSyncActions with an internally-defined action set to detect when the device is on/off!
-        /// (unless skipInteraction)
+        /// Unless @p skipInteraction is set,
+        /// This will run xrSyncActions with an internally-defined action set to detect when the device is on/off,
+        /// and iterate frames showing a message until the session is focused and the action is active/inactive.
         ///
         /// @param state activation or deactivate device
         /// @param skipInteraction Skip human interaction (i.e. this is a hint for the conformance extension)

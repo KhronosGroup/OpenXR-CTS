@@ -133,6 +133,27 @@ namespace Conformance
         return {};
     }
 
+    /// Custom matcher for use with ???_THAT() assertions, which ensures that the checked value (a vector<char> from a two-call idiom C string) is
+    /// null terminated.
+    class NullTerminatedVec : public Catch::Matchers::MatcherBase<const std::vector<char>&>
+    {
+    public:
+        NullTerminatedVec() = default;
+
+        virtual bool match(const std::vector<char>& buf) const override
+        {
+            using std::begin;
+            using std::end;
+            auto it = std::find(begin(buf), end(buf), '\0');
+            return end(buf) != it && (it + 1) == end(buf);
+        }
+
+        virtual std::string describe() const override
+        {
+            return "has a null-terminator only as its last element";
+        }
+    };
+
     /// Custom matcher for vectors of values, to identify if there are any duplicates.
     template <typename ValueType>
     class VectorHasOnlyUniqueElements : public Catch::Matchers::MatcherBase<std::vector<ValueType>>

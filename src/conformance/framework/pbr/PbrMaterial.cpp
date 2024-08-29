@@ -44,12 +44,12 @@ namespace Pbr
         m_alphaBlended = alphaBlended;
     }
 
-    DoubleSided Material::GetDoubleSided()
+    DoubleSided Material::GetDoubleSided() const
     {
         return m_doubleSided;
     }
 
-    BlendState Material::GetAlphaBlended()
+    BlendState Material::GetAlphaBlended() const
     {
         return m_alphaBlended;
     }

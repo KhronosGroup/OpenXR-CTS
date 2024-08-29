@@ -25,8 +25,12 @@
 #include <initializer_list>
 #include <string>
 #include <vector>
+
+#include "utilities/xr_math_operators.h"
+
 namespace Conformance
 {
+    using namespace openxr::math_operators;
 
     TEST_CASE("xrCreateReferenceSpace", "")
     {
@@ -39,7 +43,7 @@ namespace Conformance
             INFO("Reference space type is " << refSpaceType);
             XrSpace localSpace = XR_NULL_HANDLE_CPP;
             XrReferenceSpaceCreateInfo reference_space_create_info{XR_TYPE_REFERENCE_SPACE_CREATE_INFO, nullptr, refSpaceType,
-                                                                   XrPosefCPP()};
+                                                                   Pose::Identity};
 
             // Test a success case.
             CHECK(XR_SUCCESS == xrCreateReferenceSpace(session, &reference_space_create_info, &localSpace));
@@ -56,7 +60,7 @@ namespace Conformance
             // Exercise XR_ERROR_POSE_INVALID.
             reference_space_create_info.poseInReferenceSpace.orientation.w = 0;  // Make the quaternion invalid.
             CHECK(xrCreateReferenceSpace(session, &reference_space_create_info, &localSpace) == XR_ERROR_POSE_INVALID);
-            reference_space_create_info.poseInReferenceSpace = XrPosefCPP();  // Restore it.
+            reference_space_create_info.poseInReferenceSpace = Pose::Identity;  // Restore it.
 
             // Exercise other invalid handles.
             OPTIONAL_INVALID_HANDLE_VALIDATION_SECTION
@@ -74,7 +78,7 @@ namespace Conformance
         {
             XrSpace localSpace = XR_NULL_HANDLE_CPP;
             XrReferenceSpaceCreateInfo reference_space_create_info{XR_TYPE_REFERENCE_SPACE_CREATE_INFO, nullptr,
-                                                                   XR_REFERENCE_SPACE_TYPE_MAX_ENUM, XrPosefCPP()};
+                                                                   XR_REFERENCE_SPACE_TYPE_MAX_ENUM, Pose::Identity};
             CHECK(XR_ERROR_REFERENCE_SPACE_UNSUPPORTED == xrCreateReferenceSpace(session, &reference_space_create_info, &localSpace));
             REQUIRE(localSpace == XR_NULL_HANDLE_CPP);
 

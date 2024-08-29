@@ -14,11 +14,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "catch2/matchers/catch_matchers_vector.hpp"
 #include "conformance_utils.h"
 #include "conformance_framework.h"
 #include "matchers.h"
+
 #include <catch2/catch_test_macros.hpp>
+#include <catch2/matchers/catch_matchers_vector.hpp>
+
 #include <openxr/openxr.h>
 
 #define AS_LIST(name, val) {name, #name},
@@ -96,7 +98,7 @@ namespace Conformance
                 CHECK(XR_ERROR_TIME_INVALID == xrLocateViews(session, &locateInfo, &viewState, viewCount, &viewCountOut, views.data()));
             }
 
-            SECTION("Bad struct type")
+            OPTIONAL_INVALID_TYPE_VALIDATION_SECTION
             {
                 std::vector<XrView> invalidViews(viewCount, {XR_TYPE_UNKNOWN});
                 REQUIRE(xrLocateViews(session, &locateInfo, &viewState, viewCount, &viewCountOut, invalidViews.data()) ==

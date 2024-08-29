@@ -524,13 +524,17 @@ namespace Conformance
 
         VertexBuffer<Geometry::Vertex> m_DrawBuffer;
 
-        VulkanMesh(VkDevice device, const MemoryAllocator* memAllocator,  //
+        VulkanMesh(VkDevice device, const VulkanDebugObjectNamer& namer,  //
+                   const MemoryAllocator* memAllocator,                   //
                    const uint16_t* idx_data, uint32_t idx_count,          //
                    const Geometry::Vertex* vtx_data, uint32_t vtx_count)
         {
             std::vector<VkVertexInputAttributeDescription> attrDesc(std::begin(c_attrDesc), std::end(c_attrDesc));
             m_DrawBuffer.Init(device, memAllocator, attrDesc);
             m_DrawBuffer.Create(idx_count, vtx_count);
+            XRC_CHECK_THROW_VKCMD(namer.SetName(VK_OBJECT_TYPE_BUFFER, (uint64_t)m_DrawBuffer.idx.buf, "CTS mesh draw index buffer"));
+            XRC_CHECK_THROW_VKCMD(namer.SetName(VK_OBJECT_TYPE_BUFFER, (uint64_t)m_DrawBuffer.vtx.buf, "CTS mesh draw vertex buffer"));
+
             m_DrawBuffer.UpdateIndices(nonstd::span<const uint16_t>(idx_data, idx_count), 0);
             m_DrawBuffer.UpdateVertices(nonstd::span<const Geometry::Vertex>(vtx_data, vtx_count), 0);
         }
@@ -624,8 +628,7 @@ namespace Conformance
 
         bool IsImageFormatKnown(int64_t imageFormat) const override;
 
-        bool GetSwapchainCreateTestParameters(XrInstance instance, XrSession session, XrSystemId systemId, int64_t imageFormat,
-                                              SwapchainCreateTestParameters* swapchainTestParameters) override;
+        bool GetSwapchainCreateTestParameters(int64_t imageFormat, SwapchainCreateTestParameters* swapchainTestParameters) override;
 
         bool ValidateSwapchainImages(int64_t imageFormat, const SwapchainCreateTestParameters* tp, XrSwapchain swapchain,
                                      uint32_t* imageCount) const override;
@@ -1332,6 +1335,8 @@ namespace Conformance
             XRC_THROW("Failed to create command buffer");
 
         m_pipelineLayout.Create(m_vkDevice);
+        XRC_CHECK_THROW_VKCMD(
+            m_namer.SetName(VK_OBJECT_TYPE_PIPELINE_LAYOUT, (uint64_t)m_pipelineLayout.layout, "CTS graphics pipeline layout"));
 
         static_assert(sizeof(Geometry::Vertex) == 24, "Unexpected Vertex size");
 
@@ -1595,8 +1600,7 @@ namespace Conformance
         return ::Conformance::IsImageFormatKnown(GetSwapchainFormatData(), imageFormat);
     }
 
-    bool VulkanGraphicsPlugin::GetSwapchainCreateTestParameters(XrInstance /*instance*/, XrSession /*session*/, XrSystemId /*systemId*/,
-                                                                int64_t imageFormat, SwapchainCreateTestParameters* swapchainTestParameters)
+    bool VulkanGraphicsPlugin::GetSwapchainCreateTestParameters(int64_t imageFormat, SwapchainCreateTestParameters* swapchainTestParameters)
     {
         *swapchainTestParameters = ::Conformance::GetSwapchainCreateTestParameters(GetSwapchainFormatData(), imageFormat);
         return true;
@@ -1973,7 +1977,7 @@ namespace Conformance
     MeshHandle VulkanGraphicsPlugin::MakeSimpleMesh(span<const uint16_t> idx, span<const Geometry::Vertex> vtx)
     {
         auto handle =
-            m_meshes.emplace_back(m_vkDevice, &m_memAllocator, idx.data(), (uint32_t)idx.size(), vtx.data(), (uint32_t)vtx.size());
+            m_meshes.emplace_back(m_vkDevice, m_namer, &m_memAllocator, idx.data(), (uint32_t)idx.size(), vtx.data(), (uint32_t)vtx.size());
 
         return handle;
     }
@@ -2045,12 +2049,9 @@ namespace Conformance
         const auto& pose = layerView.pose;
         XrMatrix4x4f proj;
         XrMatrix4x4f_CreateProjectionFov(&proj, GRAPHICS_VULKAN, layerView.fov, 0.05f, 100.0f);
-        XrMatrix4x4f toView;
-        XrMatrix4x4f_CreateFromRigidTransform(&toView, &pose);
-        XrMatrix4x4f view;
-        XrMatrix4x4f_InvertRigidBody(&view, &toView);
-        XrMatrix4x4f vp;
-        XrMatrix4x4f_Multiply(&vp, &proj, &view);
+        XrMatrix4x4f toView = Matrix::FromPose(pose);
+        XrMatrix4x4f view = Matrix::InvertRigidBody(toView);
+        XrMatrix4x4f vp = proj * view;
         MeshHandle lastMeshHandle;
 
         const auto drawMesh = [this, &vp, &lastMeshHandle](const MeshDrawable mesh) {
@@ -2071,12 +2072,11 @@ namespace Conformance
             }
 
             // Compute the model-view-projection transform and push it.
-            XrMatrix4x4f model;
-            XrMatrix4x4f_CreateTranslationRotationScale(&model, &mesh.params.pose.position, &mesh.params.pose.orientation,
-                                                        &mesh.params.scale);
+            XrMatrix4x4f model =
+                Matrix::FromTranslationRotationScale(mesh.params.pose.position, mesh.params.pose.orientation, mesh.params.scale);
             VulkanUniformBuffer ubuf;
             ubuf.tintColor = mesh.tintColor;
-            XrMatrix4x4f_Multiply(&ubuf.mvp, &vp, &model);
+            ubuf.mvp = vp * model;
             vkCmdPushConstants(m_cmdBuffer.buf, m_pipelineLayout.layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(VulkanUniformBuffer), &ubuf);
 
             CHECKPOINT();
@@ -2102,14 +2102,10 @@ namespace Conformance
             VulkanGLTF& gltf = m_gltfInstances[gltfDrawable.handle];
             // Compute and update the model transform.
 
-            XrMatrix4x4f modelToWorld;
-            XrMatrix4x4f_CreateTranslationRotationScale(&modelToWorld, &gltfDrawable.params.pose.position,
-                                                        &gltfDrawable.params.pose.orientation, &gltfDrawable.params.scale);
-            // XrMatrix4x4f viewMatrix;
-            // XrVector3f unitScale = {1, 1, 1};
-            // XrMatrix4x4f_CreateTranslationRotationScale(&viewMatrix, &layerView.pose.position, &layerView.pose.orientation, &unitScale);
-            // XrMatrix4x4f viewMatrixInverse;
-            // XrMatrix4x4f_Invert(&viewMatrixInverse, &viewMatrix);
+            XrMatrix4x4f modelToWorld = Matrix::FromTranslationRotationScale(
+                gltfDrawable.params.pose.position, gltfDrawable.params.pose.orientation, gltfDrawable.params.scale);
+            // XrMatrix4x4f viewMatrix = Matrix::FromPose(layerView.pose);
+            // XrMatrix4x4f viewMatrixInverse = Matrix::InvertRigidBody(viewMatrix);
             m_pbrResources->SetViewProjection(view, proj);
 
             gltf.Render(m_cmdBuffer, *m_pbrResources, modelToWorld, renderPassBeginInfo.renderPass,

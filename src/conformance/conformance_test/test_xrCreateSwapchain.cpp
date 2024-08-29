@@ -43,7 +43,7 @@ namespace Conformance
         CAPTURE(formatName);
 
         SwapchainCreateTestParameters tp{};
-        CHECK(graphicsPlugin->GetSwapchainCreateTestParameters(session.GetInstance(), session, session.GetSystemId(), format, &tp));
+        CHECK(graphicsPlugin->GetSwapchainCreateTestParameters(format, &tp));
 
         XrSwapchainCreateInfo createInfo{
             XR_TYPE_SWAPCHAIN_CREATE_INFO,

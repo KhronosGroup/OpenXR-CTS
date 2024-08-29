@@ -16,6 +16,7 @@
 
 #include "Common.h"
 #include "ConformanceHooks.h"
+#include "HandleState.h"
 #include "gen_dispatch.h"
 
 namespace
@@ -43,7 +44,7 @@ namespace
             GeneratedXrPopulateDispatchTable(&dispatchTable, *instance, apiLayerInfo->nextInfo->nextGetInstanceProcAddr);
 
             std::shared_ptr<ConformanceHooksBase> conformanceHooks =
-                std::make_shared<ConformanceHooks>(*instance, dispatchTable, EnabledExtensions(createInfo));
+                std::make_shared<ConformanceHooks>(*instance, dispatchTable, EnabledVersions(createInfo), EnabledExtensions(createInfo));
 
             // Register the instance handle in the lookup table.
             RegisterHandleState(std::unique_ptr<HandleState>(

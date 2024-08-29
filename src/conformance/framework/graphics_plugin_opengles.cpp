@@ -276,8 +276,7 @@ namespace Conformance
 
         bool IsImageFormatKnown(int64_t imageFormat) const override;
 
-        bool GetSwapchainCreateTestParameters(XrInstance instance, XrSession session, XrSystemId systemId, int64_t imageFormat,
-                                              SwapchainCreateTestParameters* swapchainTestParameters) override;
+        bool GetSwapchainCreateTestParameters(int64_t imageFormat, SwapchainCreateTestParameters* swapchainTestParameters) override;
 
         bool ValidateSwapchainImages(int64_t imageFormat, const SwapchainCreateTestParameters* tp, XrSwapchain swapchain,
                                      uint32_t* imageCount) const override;
@@ -968,8 +967,7 @@ namespace Conformance
     // Retrieves SwapchainCreateTestParameters for the caller, handling plaform-specific functionality
     // internally.
     // Executes testing CHECK/REQUIRE directives, and may throw a Catch2 failure exception.
-    bool OpenGLESGraphicsPlugin::GetSwapchainCreateTestParameters(XrInstance /*instance*/, XrSession /*session*/, XrSystemId /*systemId*/,
-                                                                  int64_t imageFormat,
+    bool OpenGLESGraphicsPlugin::GetSwapchainCreateTestParameters(int64_t imageFormat,
                                                                   SwapchainCreateTestParameters* swapchainTestParameters) noexcept(false)
     {
         // Swapchain image format support by the runtime is specified by the xrEnumerateSwapchainFormats function.
@@ -1256,12 +1254,9 @@ namespace Conformance
         const auto& pose = layerView.pose;
         XrMatrix4x4f proj;
         XrMatrix4x4f_CreateProjectionFov(&proj, GRAPHICS_OPENGL_ES, layerView.fov, 0.05f, 100.0f);
-        XrMatrix4x4f toView;
-        XrMatrix4x4f_CreateFromRigidTransform(&toView, &pose);
-        XrMatrix4x4f view;
-        XrMatrix4x4f_InvertRigidBody(&view, &toView);
-        XrMatrix4x4f vp;
-        XrMatrix4x4f_Multiply(&vp, &proj, &view);
+        XrMatrix4x4f toView = Matrix::FromPose(pose);
+        XrMatrix4x4f view = Matrix::InvertRigidBody(toView);
+        XrMatrix4x4f vp = proj * view;
 
         MeshHandle lastMeshHandle;
 
@@ -1277,11 +1272,9 @@ namespace Conformance
             }
 
             // Compute the model-view-projection transform and set it..
-            XrMatrix4x4f model;
-            XrMatrix4x4f_CreateTranslationRotationScale(&model, &mesh.params.pose.position, &mesh.params.pose.orientation,
-                                                        &mesh.params.scale);
-            XrMatrix4x4f mvp;
-            XrMatrix4x4f_Multiply(&mvp, &vp, &model);
+            XrMatrix4x4f model =
+                Matrix::FromTranslationRotationScale(mesh.params.pose.position, mesh.params.pose.orientation, mesh.params.scale);
+            XrMatrix4x4f mvp = vp * model;
             GL(glUniformMatrix4fv(m_modelViewProjectionUniformLocation, 1, GL_FALSE, reinterpret_cast<const GLfloat*>(&mvp)));
             GL(glUniform4fv(m_tintColorUniformLocation, 1, reinterpret_cast<const GLfloat*>(&mesh.tintColor)));
 
@@ -1304,9 +1297,8 @@ namespace Conformance
             GLGLTF& gltf = m_gltfInstances[gltfDrawable.handle];
             // Compute and update the model transform.
 
-            XrMatrix4x4f modelToWorld;
-            XrMatrix4x4f_CreateTranslationRotationScale(&modelToWorld, &gltfDrawable.params.pose.position,
-                                                        &gltfDrawable.params.pose.orientation, &gltfDrawable.params.scale);
+            XrMatrix4x4f modelToWorld = Matrix::FromTranslationRotationScale(
+                gltfDrawable.params.pose.position, gltfDrawable.params.pose.orientation, gltfDrawable.params.scale);
 
             m_pbrResources->SetViewProjection(view, proj);
 

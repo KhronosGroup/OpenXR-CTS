@@ -161,7 +161,7 @@ namespace Conformance
                                                                   vcvArray.data()) == XR_SUCCESS);
                     }
 
-                    SECTION("Bad struct type")
+                    OPTIONAL_INVALID_TYPE_VALIDATION_SECTION
                     {
                         const XrViewConfigurationView invalidInitView{XR_TYPE_UNKNOWN, nullptr,    UINT32_MAX, UINT32_MAX,
                                                                       UINT32_MAX,      UINT32_MAX, UINT32_MAX, UINT32_MAX};

@@ -51,6 +51,7 @@ add_library(
     d3d_common.cpp
     d3d12_queue_wrapper.cpp
     d3d12_utils.cpp
+    metal_utils.cpp
     event_reader.cpp
     feature_availability.cpp
     opengl_utils.cpp
@@ -64,6 +65,11 @@ add_library(
     "${CMAKE_CURRENT_BINARY_DIR}/git_revision.cpp"
 )
 
+if(APPLE)
+    # use C++17 since there is a depeendency on metal-cpp
+    target_compile_features(conformance_utilities PUBLIC cxx_std_17)
+endif()
+
 target_include_directories(
     conformance_utilities
     PUBLIC
@@ -72,6 +78,8 @@ target_include_directories(
         ${PROJECT_SOURCE_DIR}/src/external/span-lite/include
         # for GL:
         ${PROJECT_SOURCE_DIR}/external/include
+        # for metal-cpp
+        ${PROJECT_SOURCE_DIR}/src/external/metal-cpp
         # for common/
         ${PROJECT_SOURCE_DIR}/src
 )

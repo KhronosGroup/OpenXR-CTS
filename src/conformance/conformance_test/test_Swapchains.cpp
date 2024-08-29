@@ -238,8 +238,7 @@ namespace Conformance
         return createInfo;
     }
 
-    static XrSwapchainCreateInfo FindDefaultColorSwapchainCreateInfo(const std::vector<int64_t>& imageFormatArray, XrInstance instance,
-                                                                     XrSystemId systemId, XrSession session)
+    static XrSwapchainCreateInfo FindDefaultColorSwapchainCreateInfo(const std::vector<int64_t>& imageFormatArray, XrSession session)
     {
 
         // Find a color format to use "by default" when testing a depth format.
@@ -247,7 +246,7 @@ namespace Conformance
         bool foundColorCreateInfo = false;
         for (int64_t imageFormat : imageFormatArray) {
             SwapchainCreateTestParameters tp;
-            REQUIRE(GetGlobalData().graphicsPlugin->GetSwapchainCreateTestParameters(instance, session, systemId, imageFormat, &tp));
+            REQUIRE(GetGlobalData().graphicsPlugin->GetSwapchainCreateTestParameters(imageFormat, &tp));
             if (tp.colorFormat) {
                 XrSwapchainCreateInfo swapchainCreateInfo = MakeDefaultSwapchainCreateInfo(imageFormat, tp);
                 XrSwapchain swapchainRaw{XR_NULL_HANDLE_CPP};
@@ -433,11 +432,25 @@ namespace Conformance
                 REQUIRE_THAT(imageFormatArray, VectorHasOnlyUniqueElements<int64_t>());
                 REQUIRE_THAT(imageFormatArray, !Catch::Matchers::VectorContains(kImageFormatInvalid));
 
-                XrInstance instance = session.GetInstance();
-                XrSystemId systemId = session.GetSystemId();
-
                 SECTION("Swapchain creation test parameters")
                 {
+                    OPTIONAL_INVALID_TYPE_VALIDATION_SECTION
+                    {
+                        XrSwapchainCreateInfo createInfoWithoutType = FindDefaultColorSwapchainCreateInfo(imageFormatArray, session);
+                        createInfoWithoutType.type = (XrStructureType)0;
+
+                        XrSwapchain swapchainRaw{XR_NULL_HANDLE_CPP};
+                        REQUIRE_RESULT(xrCreateSwapchain(session, &createInfoWithoutType, &swapchainRaw), XR_ERROR_VALIDATION_FAILURE);
+                    }
+                    OPTIONAL_INVALID_TYPE_VALIDATION_SECTION
+                    {
+                        XrSwapchainCreateInfo createInfoWithInvalidType = FindDefaultColorSwapchainCreateInfo(imageFormatArray, session);
+                        createInfoWithInvalidType.type = XR_TYPE_ACTIONS_SYNC_INFO;
+
+                        XrSwapchain swapchainRaw{XR_NULL_HANDLE_CPP};
+                        REQUIRE_RESULT(xrCreateSwapchain(session, &createInfoWithInvalidType, &swapchainRaw), XR_ERROR_VALIDATION_FAILURE);
+                    }
+
                     // At this point, session.viewConfigurationViewVector has the system's set of view configurations,
                     // and imageFormatArray has the supported set of image formats.
 
@@ -449,11 +462,10 @@ namespace Conformance
                     for (int64_t imageFormat : imageFormatArray) {
 
                         SwapchainCreateTestParameters tp;
-                        REQUIRE(globalData.graphicsPlugin->GetSwapchainCreateTestParameters(instance, session, systemId, imageFormat, &tp));
+                        REQUIRE(globalData.graphicsPlugin->GetSwapchainCreateTestParameters(imageFormat, &tp));
 
-                        // TODO remove this when we can mark it as a stencil-only format.
-                        if (tp.imageFormatName == "VK_FORMAT_S8_UINT") {
-                            // Skip for now since we would use the wrong image aspects
+                        if (!tp.colorFormat && !tp.useAsDepth) {
+                            // Image does not have a usable color or depth aspect
                             continue;
                         }
 
@@ -487,8 +499,6 @@ namespace Conformance
 
         // Set up the session we will use for the testing
         AutoBasicSession session(AutoBasicSession::OptionFlags::beginSession);
-        XrInstance instance = session.GetInstance();
-        XrSystemId systemId = session.GetSystemId();
 
         // Enumerate formats
         std::vector<int64_t> imageFormatArray;
@@ -501,8 +511,7 @@ namespace Conformance
                     xrEnumerateSwapchainFormats(session, countOutput, &countOutput, imageFormatArray.data()));
             }
         }
-        const XrSwapchainCreateInfo defaultColorCreateInfo =
-            FindDefaultColorSwapchainCreateInfo(imageFormatArray, instance, systemId, session);
+        const XrSwapchainCreateInfo defaultColorCreateInfo = FindDefaultColorSwapchainCreateInfo(imageFormatArray, session);
 
         // In the past, bugs in the CTS have made this fail when called back to back (or called right before graphics shutdown)
         // Because it can be hard to debug failures in these tests, try to provoke this particular issue early,
@@ -513,16 +522,15 @@ namespace Conformance
         for (int64_t imageFormat : imageFormatArray) {
 
             SwapchainCreateTestParameters tp;
-            REQUIRE(globalData.graphicsPlugin->GetSwapchainCreateTestParameters(instance, session, systemId, imageFormat, &tp));
+            REQUIRE(globalData.graphicsPlugin->GetSwapchainCreateTestParameters(imageFormat, &tp));
 
             if (!tp.supportsRendering) {
                 // skip this format
                 continue;
             }
 
-            // TODO remove this when we can mark it as a stencil-only format.
-            if (tp.imageFormatName == "VK_FORMAT_S8_UINT") {
-                // Skip for now since we would use the wrong image aspects
+            if (!tp.colorFormat && !tp.useAsDepth) {
+                // Image does not have a usable color or depth aspect
                 continue;
             }
 

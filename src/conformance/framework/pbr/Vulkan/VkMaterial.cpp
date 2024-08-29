@@ -29,6 +29,8 @@ namespace Pbr
         static_assert((sizeof(ConstantBufferData) % 16) == 0, "Constant Buffer must be divisible by 16 bytes");
         m_constantBuffer.Init(pbrResources.GetDevice(), pbrResources.GetMemoryAllocator());
         m_constantBuffer.Create(1, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT);
+        XRC_CHECK_THROW_VKCMD(
+            pbrResources.GetDebugNamer().SetName(VK_OBJECT_TYPE_BUFFER, (uint64_t)m_constantBuffer.buf, "CTS material constant buffer"));
     }
 
     std::shared_ptr<VulkanMaterial> VulkanMaterial::Clone(Pbr::VulkanResources const& pbrResources) const

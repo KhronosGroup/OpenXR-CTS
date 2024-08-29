@@ -21,6 +21,7 @@
 #include "utilities/throw_helpers.h"
 #include "utilities/types_and_constants.h"
 #include "utilities/xrduration_literals.h"
+#include "utilities/xr_math_operators.h"
 
 #include <openxr/openxr.h>
 #include <catch2/catch_test_macros.hpp>
@@ -33,6 +34,8 @@
 
 namespace Conformance
 {
+    using namespace openxr::math_operators;
+
     TEST_CASE("XrCompositionLayerQuad", "")
     {
         GlobalData& globalData = GetGlobalData();
@@ -58,7 +61,7 @@ namespace Conformance
 
         auto makeSimpleQuad = [&] {
             XrCompositionLayerQuad quad{XR_TYPE_COMPOSITION_LAYER_QUAD};
-            quad.pose = XrPosefCPP{};
+            quad.pose = Pose::Identity;
             quad.space = session.spaceVector.front();
             quad.size = {1, 1};
             quad.subImage.imageRect = {{0, 0}, swapchainExtent};

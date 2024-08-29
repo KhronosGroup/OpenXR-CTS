@@ -18,7 +18,7 @@
 #include "ConformanceHooks.h"
 #include "CustomHandleState.h"
 #include "RuntimeFailure.h"
-#include "openxr/openxr.h"
+#include <openxr/openxr.h>
 
 namespace
 {
@@ -175,6 +175,7 @@ XrResult ConformanceHooks::xrCreateSession(XrInstance instance, const XrSessionC
             XR_TYPE_GRAPHICS_BINDING_VULKAN_KHR,
             XR_TYPE_GRAPHICS_BINDING_D3D11_KHR,
             XR_TYPE_GRAPHICS_BINDING_D3D12_KHR,
+            XR_TYPE_GRAPHICS_BINDING_METAL_KHR,
         };
         auto it = std::find_first_of(customSessionState->creationExtensionTypes.begin(), customSessionState->creationExtensionTypes.end(),
                                      graphicsBindingStructures.begin(), graphicsBindingStructures.end());
@@ -412,11 +413,14 @@ XrResult ConformanceHooks::xrEnumerateReferenceSpaces(XrSession session, uint32_
             NONCONFORMANT_IF(!referenceSpaceInspect.ContainsValue(XR_REFERENCE_SPACE_TYPE_VIEW),
                              "View space must be a supported reference space");
 
-            /* TODO: Needs to be generated since this is already stale with MSFT UNBOUNDED reference space.
-            NONCONFORMANT_IF(referenceSpaceInspect.ContainsAnyNotIn(
-                                 {XR_REFERENCE_SPACE_TYPE_LOCAL, XR_REFERENCE_SPACE_TYPE_STAGE, XR_REFERENCE_SPACE_TYPE_VIEW}),
-                             "References spaces include an unknown value.");
-            */
+            if (enabledVersions.version_1_1_compatible || enabledExtensions.ext_local_floor) {
+                NONCONFORMANT_IF(!referenceSpaceInspect.ContainsValue(XR_REFERENCE_SPACE_TYPE_LOCAL_FLOOR),
+                                 "Local floor space must be a supported reference space");
+            }
+
+            for (XrReferenceSpaceType refSpace : referenceSpaceCopy) {
+                VALIDATE_XRENUM(refSpace);
+            }
 
             CustomSessionState* const customSessionState = GetCustomSessionState(session);
             std::unique_lock<std::mutex> lock(customSessionState->lock);

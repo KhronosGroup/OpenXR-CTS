@@ -26,6 +26,8 @@
 
 namespace Conformance
 {
+    using namespace openxr::math_operators;
+
     TEST_CASE("glTFRendering", "[self_test][interactive][no_auto]")
     {
         GlobalData& globalData = GetGlobalData();
@@ -38,7 +40,7 @@ namespace Conformance
         // Each test case will configure the layer manager with its own instructions and image
         InteractiveLayerManager interactiveLayerManager(compositionHelper, nullptr, "glTF rendering");
 
-        const XrSpace localSpace = compositionHelper.CreateReferenceSpace(XR_REFERENCE_SPACE_TYPE_LOCAL, XrPosefCPP{});
+        const XrSpace localSpace = compositionHelper.CreateReferenceSpace(XR_REFERENCE_SPACE_TYPE_LOCAL, Pose::Identity);
 
         // Set up composition projection layer and swapchains (one swapchain per view).
         std::vector<XrSwapchain> swapchains;
@@ -93,7 +95,7 @@ namespace Conformance
                 XrActionSpaceCreateInfo spaceCreateInfo{XR_TYPE_ACTION_SPACE_CREATE_INFO};
                 spaceCreateInfo.action = gripPoseAction;
                 spaceCreateInfo.subactionPath = subactionPaths[i];
-                spaceCreateInfo.poseInActionSpace = XrPosefCPP{};
+                spaceCreateInfo.poseInActionSpace = Pose::Identity;
                 XRC_CHECK_THROW_XRCMD(xrCreateActionSpace(session, &spaceCreateInfo, &space));
                 gripSpaces.emplace_back(space);
             }
@@ -114,7 +116,7 @@ namespace Conformance
              "Vertex Color Test",
              "Ensure that each box in the \"Test\" row matches the \"Sample pass\" box below.",
              "VertexColorTest.png",
-             {Quat::FromAxisAngle({1, 0, 0}, Math::DegToRad(-90)), {0, 0, 0}},
+             {Quat::FromAxisAngle({1, 0, 0}, DegToRad(-90)), {0, 0, 0}},
              0.15f},
             {"MetalRoughSpheres.glb",
              "Metal Rough Spheres",
@@ -122,7 +124,7 @@ namespace Conformance
              " and from metallic (like a steel ball) to dielectric (like a pool ball) on the other axis"
              " like on the example image provided.",
              "MetalRoughSpheres.png",
-             {Quat::FromAxisAngle({1, 0, 0}, Math::DegToRad(-90)), {0, 0, 0}},
+             {Quat::FromAxisAngle({1, 0, 0}, DegToRad(-90)), {0, 0, 0}},
              0.03f},
             {"MetalRoughSpheresNoTextures.glb",
              "Metal Rough Spheres (no textures)",
@@ -130,7 +132,7 @@ namespace Conformance
              " and from metallic (like a steel ball) to dielectric (like a pool ball) on the other axis"
              " like on the example image provided.",
              "MetalRoughSpheresNoTextures.png",
-             {Quat::FromAxisAngle({1, 0, 0}, Math::DegToRad(-90)), {-0.11f, 0, 0.11f}},
+             {Quat::FromAxisAngle({1, 0, 0}, DegToRad(-90)), {-0.11f, 0, 0.11f}},
              35.f},
             {"NormalTangentTest.glb",
              "Normal Tangent Test",
@@ -138,7 +140,7 @@ namespace Conformance
              " the lighting moves \"correctly\" (counter to controller rotation) and is consistent"
              " between adjacent squares. The lighting should appear to be coming from diagonally above.",
              "NormalTangentTest.png",
-             {Quat::FromAxisAngle({1, 0, 0}, Math::DegToRad(-90)), {0, 0, 0}},
+             {Quat::FromAxisAngle({1, 0, 0}, DegToRad(-90)), {0, 0, 0}},
              0.075f},
             {"NormalTangentMirrorTest.glb",
              "Normal Tangent Mirror Test",
@@ -146,20 +148,20 @@ namespace Conformance
              " the lighting moves \"correctly\" (counter to controller rotation) and is consistent"
              " between adjacent squares. The lighting should appear to be coming from diagonally above.",
              "NormalTangentMirrorTest.png",
-             {Quat::FromAxisAngle({1, 0, 0}, Math::DegToRad(-90)), {0, 0, 0}},
+             {Quat::FromAxisAngle({1, 0, 0}, DegToRad(-90)), {0, 0, 0}},
              0.075f},
             {"TextureSettingsTest.glb",
              "Texture Settings Test",
              "Ensure that the \"Test\" box in each row matches the \"Sample pass\" box.",
              "TextureSettingsTest.png",
-             {Quat::FromAxisAngle({1, 0, 0}, Math::DegToRad(-90)), {0, 0, 0}},
+             {Quat::FromAxisAngle({1, 0, 0}, DegToRad(-90)), {0, 0, 0}},
              0.025f},
             {"AlphaBlendModeTest.glb",
              "Alpha Blend Mode Test",
              "Ensure that the first rectangle is opaque, the second has a smooth gradient from transparent"
              " at the top to opaque at the bottom, and that the last three are filled up to the green marker.",
              "AlphaBlendModeTest.png",
-             {Quat::FromAxisAngle({1, 0, 0}, Math::DegToRad(-90)), {0, 0, 0}},
+             {Quat::FromAxisAngle({1, 0, 0}, DegToRad(-90)), {0, 0, 0}},
              0.075f},
         };
 
@@ -214,8 +216,7 @@ namespace Conformance
                     if ((location.locationFlags & XR_SPACE_LOCATION_POSITION_VALID_BIT) &&
                         (location.locationFlags & XR_SPACE_LOCATION_ORIENTATION_VALID_BIT)) {
 
-                        XrPosef adjustedPose;
-                        XrPosef_Multiply(&adjustedPose, &location.pose, &testCase.poseInGripSpace);
+                        XrPosef adjustedPose = location.pose * testCase.poseInGripSpace;
                         renderedGLTFs.push_back(
                             GLTFDrawable{gltfModelInstances[i], adjustedPose, {testCase.scale, testCase.scale, testCase.scale}});
                     }

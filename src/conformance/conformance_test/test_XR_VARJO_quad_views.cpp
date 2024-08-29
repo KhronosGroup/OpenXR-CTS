@@ -22,6 +22,8 @@ using Catch::Matchers::VectorContains;
 
 namespace Conformance
 {
+    using namespace openxr::math_operators;
+
     namespace
     {
         const auto kExtensionRequirements = FeatureSet{FeatureBitIndex::BIT_XR_VERSION_1_0, FeatureBitIndex::BIT_XR_VARJO_quad_views};
@@ -141,7 +143,7 @@ namespace Conformance
                                                 true);
             XrSession session = compositionHelper.GetSession();
 
-            XrSpace viewSpace = compositionHelper.CreateReferenceSpace(XR_REFERENCE_SPACE_TYPE_VIEW, XrPosefCPP());
+            XrSpace viewSpace = compositionHelper.CreateReferenceSpace(XR_REFERENCE_SPACE_TYPE_VIEW, Pose::Identity);
 
             InteractionManager& interactionManager = compositionHelper.GetInteractionManager();
             interactionManager.AttachActionSets();
@@ -210,7 +212,7 @@ namespace Conformance
             InteractiveLayerManager interactiveLayerManager(compositionHelper, "projection_separate.png", "Stereo inset views.");
             XrSession session = compositionHelper.GetSession();
 
-            XrSpace viewSpace = compositionHelper.CreateReferenceSpace(XR_REFERENCE_SPACE_TYPE_VIEW, XrPosefCPP());
+            XrSpace viewSpace = compositionHelper.CreateReferenceSpace(XR_REFERENCE_SPACE_TYPE_VIEW, Pose::Identity);
 
             InteractionManager& interactionManager = compositionHelper.GetInteractionManager();
             interactionManager.AttachActionSets();

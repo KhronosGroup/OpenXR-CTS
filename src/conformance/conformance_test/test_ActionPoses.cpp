@@ -42,6 +42,8 @@ using namespace Conformance;
 
 namespace Conformance
 {
+    using namespace openxr::math_operators;
+
     constexpr XrVector3f Up{0, 1, 0};
 
     // Purpose: Ensure that the action space for grip can be used for a grippable object, in this case a sword, and the action space for aim can be used for comfortable aiming.
@@ -58,7 +60,7 @@ namespace Conformance
 
         CompositionHelper compositionHelper("Grip and Aim Pose");
 
-        const XrSpace localSpace = compositionHelper.CreateReferenceSpace(XR_REFERENCE_SPACE_TYPE_LOCAL, XrPosefCPP{});
+        const XrSpace localSpace = compositionHelper.CreateReferenceSpace(XR_REFERENCE_SPACE_TYPE_LOCAL, Pose::Identity);
 
         // Set up composition projection layer and swapchains (one swapchain per view).
         std::vector<XrSwapchain> swapchains;
@@ -157,19 +159,19 @@ namespace Conformance
         XrCompositionLayerQuad* const instructionsQuad =
             compositionHelper.CreateQuadLayer(compositionHelper.CreateStaticSwapchainImage(CreateTextImage(1024, 512, instructions, 48)),
                                               localSpace, 1.0f, {{0, 0, 0, 1}, {-1.5f, -0.33f, -0.3f}});
-        XrQuaternionf_CreateFromAxisAngle(&instructionsQuad->pose.orientation, &Up, 70 * MATH_PI / 180);
+        instructionsQuad->pose.orientation = Quat::FromAxisAngle(Up, DegToRad(70));
 
         // Create the diagram quad layer placed to the left top.
         XrCompositionLayerQuad* const diagramQuad =
             compositionHelper.CreateQuadLayer(compositionHelper.CreateStaticSwapchainImage(RGBAImage::Load(diagramImage)), localSpace, 1.0f,
                                               {{0, 0, 0, 1}, {-1.5f, 0.33f, -0.3f}});
-        XrQuaternionf_CreateFromAxisAngle(&diagramQuad->pose.orientation, &Up, 70 * MATH_PI / 180);
+        diagramQuad->pose.orientation = Quat::FromAxisAngle(Up, DegToRad(70));
 
         // Create a sample image quad layer placed to the right.
         XrCompositionLayerQuad* const exampleQuad =
             compositionHelper.CreateQuadLayer(compositionHelper.CreateStaticSwapchainImage(RGBAImage::Load(exampleImage)), localSpace,
                                               1.25f, {{0, 0, 0, 1}, {1.5f, 0, -0.3f}});
-        XrQuaternionf_CreateFromAxisAngle(&exampleQuad->pose.orientation, &Up, -70 * MATH_PI / 180);
+        exampleQuad->pose.orientation = Quat::FromAxisAngle(Up, DegToRad(-70));
 
         const float PointerLength = 4.00f;
         const float PointerThickness = 0.01f;

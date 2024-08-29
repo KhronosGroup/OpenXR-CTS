@@ -65,8 +65,6 @@ namespace Pbr
         XRC_CHECK_THROW_GLCMD(glBufferData(GL_UNIFORM_BUFFER, sizeof(Glsl::ModelConstantBuffer), nullptr, GL_DYNAMIC_DRAW));
 
         // Set up the transforms buffer.
-        XrMatrix4x4f identityMatrix;
-        XrMatrix4x4f_CreateIdentity(&identityMatrix);  // or better yet poison it
         size_t nodeCount = GetModel().GetNodes().size();
 
         size_t elemSize = sizeof(XrMatrix4x4f);

@@ -28,6 +28,8 @@ using namespace Conformance;
 
 namespace Conformance
 {
+    using namespace openxr::math_operators;
+
     constexpr XrVector3f Up{0, 1, 0};
     constexpr int LEFT_HAND = 0;
     constexpr int RIGHT_HAND = 1;
@@ -133,7 +135,7 @@ namespace Conformance
             XrSpace localSpace = XR_NULL_HANDLE;
 
             XrReferenceSpaceCreateInfo localSpaceCreateInfo{XR_TYPE_REFERENCE_SPACE_CREATE_INFO};
-            localSpaceCreateInfo.poseInReferenceSpace = XrPosefCPP();
+            localSpaceCreateInfo.poseInReferenceSpace = Pose::Identity;
             localSpaceCreateInfo.referenceSpaceType = XR_REFERENCE_SPACE_TYPE_LOCAL;
             REQUIRE_RESULT(xrCreateReferenceSpace(session, &localSpaceCreateInfo, &localSpace), XR_SUCCESS);
 
@@ -173,7 +175,7 @@ namespace Conformance
             XrSpace localSpace = XR_NULL_HANDLE;
 
             XrReferenceSpaceCreateInfo localSpaceCreateInfo{XR_TYPE_REFERENCE_SPACE_CREATE_INFO};
-            localSpaceCreateInfo.poseInReferenceSpace = XrPosefCPP();
+            localSpaceCreateInfo.poseInReferenceSpace = Pose::Identity;
             localSpaceCreateInfo.referenceSpaceType = XR_REFERENCE_SPACE_TYPE_LOCAL;
             REQUIRE_RESULT(xrCreateReferenceSpace(session, &localSpaceCreateInfo, &localSpace), XR_SUCCESS);
 
@@ -239,7 +241,7 @@ namespace Conformance
             XrSpace localSpace = XR_NULL_HANDLE;
 
             XrReferenceSpaceCreateInfo localSpaceCreateInfo{XR_TYPE_REFERENCE_SPACE_CREATE_INFO};
-            localSpaceCreateInfo.poseInReferenceSpace = XrPosefCPP();
+            localSpaceCreateInfo.poseInReferenceSpace = Pose::Identity;
             localSpaceCreateInfo.referenceSpaceType = XR_REFERENCE_SPACE_TYPE_LOCAL;
             REQUIRE_RESULT(xrCreateReferenceSpace(session, &localSpaceCreateInfo, &localSpace), XR_SUCCESS);
 
@@ -321,7 +323,7 @@ namespace Conformance
         auto xrDestroyHandTrackerEXT = GetInstanceExtensionFunction<PFN_xrDestroyHandTrackerEXT>(instance, "xrDestroyHandTrackerEXT");
         auto xrLocateHandJointsEXT = GetInstanceExtensionFunction<PFN_xrLocateHandJointsEXT>(instance, "xrLocateHandJointsEXT");
 
-        const XrSpace localSpace = compositionHelper.CreateReferenceSpace(XR_REFERENCE_SPACE_TYPE_LOCAL, XrPosefCPP{});
+        const XrSpace localSpace = compositionHelper.CreateReferenceSpace(XR_REFERENCE_SPACE_TYPE_LOCAL, Pose::Identity);
 
         // Set up composition projection layer and swapchains (one swapchain per view).
         std::vector<XrSwapchain> swapchains;
@@ -351,7 +353,7 @@ namespace Conformance
         XrCompositionLayerQuad* const instructionsQuad =
             compositionHelper.CreateQuadLayer(compositionHelper.CreateStaticSwapchainImage(CreateTextImage(1024, 512, instructions, 48)),
                                               localSpace, 1.0f, {{0, 0, 0, 1}, {-1.5f, 0, -0.3f}});
-        XrQuaternionf_CreateFromAxisAngle(&instructionsQuad->pose.orientation, &Up, 70 * MATH_PI / 180);
+        instructionsQuad->pose.orientation = Quat::FromAxisAngle(Up, DegToRad(70));
 
         auto update = [&](const XrFrameState& frameState) {
             std::vector<Cube> renderedCubes;
@@ -380,11 +382,10 @@ namespace Conformance
                         (middleProximal.locationFlags & XR_SPACE_LOCATION_POSITION_VALID_BIT) != 0) {
 
                         // The palm joint is located at the center of the middle finger’s metacarpal bone.
-                        XrPosef expectedPalmPose;
-                        XrVector3f_Lerp(&expectedPalmPose.position, &middleMetacarpal.pose.position, &middleProximal.pose.position, 0.5f);
-                        REQUIRE_THAT(palm.pose.position.x, Catch::Matchers::WithinRel(expectedPalmPose.position.x, 0.01f));
-                        REQUIRE_THAT(palm.pose.position.y, Catch::Matchers::WithinRel(expectedPalmPose.position.y, 0.01f));
-                        REQUIRE_THAT(palm.pose.position.z, Catch::Matchers::WithinRel(expectedPalmPose.position.z, 0.01f));
+                        XrVector3f expectedPalmPose = Vector::Lerp(middleMetacarpal.pose.position, middleProximal.pose.position, 0.5f);
+                        REQUIRE_THAT(palm.pose.position.x, Catch::Matchers::WithinRel(expectedPalmPose.x, 0.01f));
+                        REQUIRE_THAT(palm.pose.position.y, Catch::Matchers::WithinRel(expectedPalmPose.y, 0.01f));
+                        REQUIRE_THAT(palm.pose.position.z, Catch::Matchers::WithinRel(expectedPalmPose.z, 0.01f));
                     }
 
                     // Check the palm orientation for each hand if we have valid orientation.
@@ -394,25 +395,22 @@ namespace Conformance
                         // The backward (+Z) direction is parallel to the middle finger’s metacarpal bone, and points away from the
                         // fingertips.
                         XrVector3f zAxis{0, 0, 1.0f};
-                        XrVector3f palmZAxis, middleMetacarpalZAxis;
-                        XrQuaternionf_RotateVector3f(&palmZAxis, &palm.pose.orientation, &zAxis);
-                        XrQuaternionf_RotateVector3f(&middleMetacarpalZAxis, &middleMetacarpal.pose.orientation, &zAxis);
-                        REQUIRE_THAT(XrVector3f_Dot(&palmZAxis, &middleMetacarpalZAxis), Catch::Matchers::WithinRel(1.0f, 0.01f));
+                        XrVector3f palmZAxis = Quat::RotateVector(palm.pose.orientation, zAxis);
+                        XrVector3f middleMetacarpalZAxis = Quat::RotateVector(middleMetacarpal.pose.orientation, zAxis);
+                        REQUIRE_THAT(Vector::DotProduct(palmZAxis, middleMetacarpalZAxis), Catch::Matchers::WithinRel(1.0f, 0.01f));
 
                         // The up (+Y) direction is perpendicular to palm surface and pointing towards the back of the hand.
                         // We can compare this to the +Y axis of the middle metacarpal bone to check gross direction.
                         XrVector3f yAxis{0, 1.0f, 0};
-                        XrVector3f palmYAxis, middleMetacarpalYAxis;
-                        XrQuaternionf_RotateVector3f(&palmYAxis, &palm.pose.orientation, &yAxis);
-                        XrQuaternionf_RotateVector3f(&middleMetacarpalYAxis, &middleMetacarpal.pose.orientation, &yAxis);
-                        REQUIRE_THAT(XrVector3f_Dot(&palmYAxis, &middleMetacarpalYAxis), Catch::Matchers::WithinRel(1.0f, 0.1f));
+                        XrVector3f palmYAxis = Quat::RotateVector(palm.pose.orientation, yAxis);
+                        XrVector3f middleMetacarpalYAxis = Quat::RotateVector(middleMetacarpal.pose.orientation, yAxis);
+                        REQUIRE_THAT(Vector::DotProduct(palmYAxis, middleMetacarpalYAxis), Catch::Matchers::WithinRel(1.0f, 0.1f));
 
                         // The X direction is perpendicular to the Y and Z directions and follows the right hand rule.
                         XrVector3f xAxis{0, 1.0f, 0};
-                        XrVector3f palmXAxis, middleMetacarpalXAxis;
-                        XrQuaternionf_RotateVector3f(&palmXAxis, &palm.pose.orientation, &xAxis);
-                        XrQuaternionf_RotateVector3f(&middleMetacarpalXAxis, &middleMetacarpal.pose.orientation, &xAxis);
-                        REQUIRE_THAT(XrVector3f_Dot(&palmXAxis, &middleMetacarpalXAxis), Catch::Matchers::WithinRel(1.0f, 0.1f));
+                        XrVector3f palmXAxis = Quat::RotateVector(palm.pose.orientation, xAxis);
+                        XrVector3f middleMetacarpalXAxis = Quat::RotateVector(middleMetacarpal.pose.orientation, xAxis);
+                        REQUIRE_THAT(Vector::DotProduct(palmXAxis, middleMetacarpalXAxis), Catch::Matchers::WithinRel(1.0f, 0.1f));
                     }
 
                     // Check the orientation of the wrist pose is correct for each hand, we can only reliably test the +Z direction
@@ -423,14 +421,13 @@ namespace Conformance
                         // The (wrist) backward (+Z) direction is parallel to the line from wrist joint to middle finger metacarpal joint,
                         // and points away from the fingertips.
                         XrVector3f zAxis{0, 0, 1.0f};
-                        XrVector3f wristZAxis, fromMiddleMetacarpalToWrist;
-                        XrQuaternionf_RotateVector3f(&wristZAxis, &wrist.pose.orientation, &zAxis);
-                        XrVector3f_Sub(&fromMiddleMetacarpalToWrist, &wrist.pose.position, &middleMetacarpal.pose.position);
-                        XrVector3f_Normalize(&fromMiddleMetacarpalToWrist);
+                        XrVector3f wristZAxis = Quat::RotateVector(wrist.pose.orientation, zAxis);
+                        XrVector3f fromMiddleMetacarpalToWrist = wrist.pose.position - middleMetacarpal.pose.position;
+                        Vector::Normalize(fromMiddleMetacarpalToWrist);
                         // 0.1 here represents 26 degrees variance between these orientations; which is more than can reasonable be
                         // explained by numerical inaccuracy...
-                        REQUIRE_THAT(XrVector3f_Dot(&wristZAxis, &fromMiddleMetacarpalToWrist), Catch::Matchers::WithinRel(1.0f, 0.1f));
-                        if (std::abs(1.0 - XrVector3f_Dot(&wristZAxis, &fromMiddleMetacarpalToWrist)) > 0.03) {
+                        REQUIRE_THAT(Vector::DotProduct(wristZAxis, fromMiddleMetacarpalToWrist), Catch::Matchers::WithinRel(1.0f, 0.1f));
+                        if (std::abs(1.0 - Vector::DotProduct(wristZAxis, fromMiddleMetacarpalToWrist)) > 0.03) {
                             WARN("Variance between wrist z axis orientation and metacarpal greater than 14 degrees!");
                         }
                     }
@@ -444,9 +441,8 @@ namespace Conformance
 
                 if ((leftIndexTip.locationFlags & XR_SPACE_LOCATION_POSITION_VALID_BIT) != 0 &&
                     (rightIndexTip.locationFlags & XR_SPACE_LOCATION_POSITION_VALID_BIT) != 0) {
-                    XrVector3f distance;
-                    XrVector3f_Sub(&distance, &leftIndexTip.pose.position, &rightIndexTip.pose.position);
-                    float len = XrVector3f_Length(&distance);
+                    XrVector3f distance = leftIndexTip.pose.position - rightIndexTip.pose.position;
+                    float len = Vector::Length(distance);
                     // bring center of index fingers to within 1cm. Probably fine for most humans, unless
                     // they have huge fingers.
                     if (len < 0.01f) {

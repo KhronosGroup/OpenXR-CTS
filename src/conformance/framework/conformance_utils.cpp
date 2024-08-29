@@ -533,7 +533,7 @@ namespace Conformance
                 XRC_CHECK_THROW_XRCMD(doTwoCallInPlace(referenceSpaceTypes, xrEnumerateReferenceSpaces, session));
 
                 for (XrReferenceSpaceType referenceSpace : referenceSpaceTypes) {
-                    XrReferenceSpaceCreateInfo createInfo{XR_TYPE_REFERENCE_SPACE_CREATE_INFO, nullptr, referenceSpace, XrPosefCPP()};
+                    XrReferenceSpaceCreateInfo createInfo{XR_TYPE_REFERENCE_SPACE_CREATE_INFO, nullptr, referenceSpace, Pose::Identity};
                     XrSpace space;
                     XRC_CHECK_THROW_XRCMD(xrCreateReferenceSpace(session, &createInfo, &space));
                     spaceVector.push_back(space);

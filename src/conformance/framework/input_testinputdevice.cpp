@@ -245,7 +245,7 @@ namespace Conformance
             };
 
             auto checkTracking = [&]() -> XrSpaceLocationFlags {
-                XrSpaceLocation location{XR_TYPE_SPACE_LOCATION, nullptr, 0, XrPosefCPP{}};
+                XrSpaceLocation location{XR_TYPE_SPACE_LOCATION, nullptr, 0, Pose::Identity};
                 const XrResult res = xrLocateSpace(space, baseSpace, makeTimestamp(), &location);
                 if (res != XR_SUCCESS) {
                     XRC_THROW_XRRESULT(res, xrLocateSpace);

@@ -14,7 +14,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "catch2/catch_approx.hpp"
 #include "composition_utils.h"
 #include "conformance_framework.h"
 #include "conformance_utils.h"
@@ -23,6 +22,7 @@
 #include "utilities/xrduration_literals.h"
 
 #include <catch2/catch_test_macros.hpp>
+#include <catch2/catch_approx.hpp>
 #include <openxr/openxr.h>
 
 #include <algorithm>
@@ -30,6 +30,8 @@
 
 namespace Conformance
 {
+    using namespace openxr::math_operators;
+
     TEST_CASE("xrLocateSpace", "")
     {
         // Get a session started.
@@ -74,12 +76,12 @@ namespace Conformance
         // which is important to get the offset between the spaces right.
         XrReferenceSpaceCreateInfo spaceCreateInfo = {XR_TYPE_REFERENCE_SPACE_CREATE_INFO};
         spaceCreateInfo.referenceSpaceType = XR_REFERENCE_SPACE_TYPE_VIEW;  // view has to be supported
-        spaceCreateInfo.poseInReferenceSpace = XrPosefCPP();
+        spaceCreateInfo.poseInReferenceSpace = Pose::Identity;
 
         // initialized to NULL to avoid compiler warnings later
         XrSpace spaceA = XR_NULL_HANDLE_CPP;
         XrSpace spaceB = XR_NULL_HANDLE_CPP;
-        XrSpaceLocation location = {XR_TYPE_SPACE_LOCATION, nullptr, 0, XrPosefCPP()};
+        XrSpaceLocation location = {XR_TYPE_SPACE_LOCATION, nullptr, 0, Pose::Identity};
         XrTime time = frameIterator.frameState.predictedDisplayTime;
         CHECK(time != 0);
 
@@ -194,7 +196,7 @@ namespace Conformance
 
             // Independent on tracking, it should be possible to get the relative pose of two
             // Spaces which are in the same reference space.
-            XrPosef identity = XrPosefCPP();
+            XrPosef identity = Pose::Identity;
 
             // Exercise identical spaces at the reference space origin.
             LocateAndTest(identity, identity, identity);
@@ -204,7 +206,7 @@ namespace Conformance
             LocateAndTest(space, space, identity);
 
             // Exercise identical spaces which also have a rotation.
-            space = {{Quat::FromAxisAngle({1, 0, 0}, Math::DegToRad(45))}, {7, 8, 9}};
+            space = {{Quat::FromAxisAngle({1, 0, 0}, DegToRad(45))}, {7, 8, 9}};
             LocateAndTest(space, space, identity);
 
             // Exercise different spaces without a rotation.
@@ -213,11 +215,11 @@ namespace Conformance
             // Another test with different spaces.
             LocateAndTest({Quat::Identity, {-1, -2, -3}}, {Quat::Identity, {1, 2, 3}}, {Quat::Identity, {-2, -4, -6}});
 
-            XrQuaternionf rot_90_x = Quat::FromAxisAngle({1, 0, 0}, Math::DegToRad(90));
-            XrQuaternionf rot_m90_x = Quat::FromAxisAngle({1, 0, 0}, Math::DegToRad(-90));
+            XrQuaternionf rot_90_x = Quat::FromAxisAngle({1, 0, 0}, DegToRad(90));
+            XrQuaternionf rot_m90_x = Quat::FromAxisAngle({1, 0, 0}, DegToRad(-90));
 
-            XrQuaternionf rot_90_y = Quat::FromAxisAngle({0, 1, 0}, Math::DegToRad(90));
-            XrQuaternionf rot_m90_y = Quat::FromAxisAngle({0, 1, 0}, Math::DegToRad(-90));
+            XrQuaternionf rot_90_y = Quat::FromAxisAngle({0, 1, 0}, DegToRad(90));
+            XrQuaternionf rot_m90_y = Quat::FromAxisAngle({0, 1, 0}, DegToRad(-90));
 
             // Different positions, different orientations
             LocateAndTest({{0, 0, 0, 1}, {0, 0, 0}}, {{rot_90_x}, {5, 0, 0}}, {{rot_m90_x}, {-5, 0, 0}});
@@ -235,7 +237,7 @@ namespace Conformance
         {
             for (XrSpace space1 : session.spaceVector) {
                 for (XrSpace space2 : session.spaceVector) {
-                    location = {XR_TYPE_SPACE_LOCATION, nullptr, 0, XrPosefCPP()};
+                    location = {XR_TYPE_SPACE_LOCATION, nullptr, 0, Pose::Identity};
                     CHECK(XR_SUCCESS == xrLocateSpace(space1, space2, time, &location));
 
                     // Note: the actual relation between these spaces can be anything as they are based on different

@@ -34,10 +34,10 @@ jobs:
           lfs: true
 
       - name: Get modern CMake and Ninja
-        uses: lukka/get-cmake@v3.28.3
+        uses: lukka/get-cmake@v3.30.2
 
       - name: Add msbuild to PATH
-        uses: microsoft/setup-msbuild@v1.3
+        uses: microsoft/setup-msbuild@v2
 
       - name: Install Vulkan SDK
         run: ./.github/scripts/install_vulkan.ps1
@@ -57,7 +57,7 @@ jobs:
         run: "cmake --build $env:RUNNER_TEMP --parallel --config ${{ inputs.buildType }} --target install"
 
       - name: Upload Artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         if: inputs.artifactName
         with:
           name: "${{ inputs.artifactName }}"
