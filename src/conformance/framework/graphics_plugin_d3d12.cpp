@@ -33,6 +33,7 @@
 #include "utilities/d3d12_queue_wrapper.h"
 #include "utilities/d3d12_utils.h"
 #include "utilities/d3d_common.h"
+#include "utilities/destruction_queue.h"
 #include "utilities/swapchain_parameters.h"
 #include "utilities/throw_helpers.h"
 
@@ -211,7 +212,7 @@ namespace Conformance
 
     private:
         ComPtr<ID3D12Resource> m_texture{};
-        XrSwapchainImageD3D12KHR m_xrImage{XR_TYPE_SWAPCHAIN_IMAGE_D3D11_KHR, nullptr, nullptr};
+        XrSwapchainImageD3D12KHR m_xrImage{XR_TYPE_SWAPCHAIN_IMAGE_D3D11_KHR};
     };
 
     class D3D12SwapchainImageData : public SwapchainImageDataBase<XrSwapchainImageD3D12KHR>
@@ -358,7 +359,7 @@ namespace Conformance
 
         MeshHandle MakeSimpleMesh(span<const uint16_t> idx, span<const Geometry::Vertex> vtx) override;
 
-        GLTFModelHandle LoadGLTF(std::shared_ptr<tinygltf::Model> tinygltfModel) override;
+        GLTFModelHandle LoadGLTF(Gltf::ModelBuilder&& modelBuilder) override;
         std::shared_ptr<Pbr::Model> GetPbrModel(GLTFModelHandle handle) const override;
         GLTFModelInstanceHandle CreateGLTFModelInstance(GLTFModelHandle handle) override;
         Pbr::ModelInstance& GetModelInstance(GLTFModelInstanceHandle handle) override;
@@ -374,6 +375,8 @@ namespace Conformance
         D3D12_CPU_DESCRIPTOR_HANDLE CreateDepthStencilView(ID3D12Resource* depthStencilTexture, uint32_t imageArrayIndex,
                                                            DXGI_FORMAT depthSwapchainFormat);
 
+        D3D12ResourceWithSRVDesc WaitLoadPBRTextureFromFile(const char* fileName, bool sRGB);
+
         void SetupBasePipelineStateDesc(D3D12_GRAPHICS_PIPELINE_STATE_DESC& pipelineStateDesc);
         ID3D12PipelineState* GetOrCreatePipelineState(DXGI_FORMAT colorSwapchainFormat, DXGI_FORMAT dsvSwapchainFormat);
         void WaitForGpu() const;
@@ -385,7 +388,6 @@ namespace Conformance
         std::shared_ptr<D3D12QueueWrapper> m_queueWrapper;
 
         SwapchainImageDataMap<D3D12SwapchainImageData> m_swapchainImageDataMap;
-        const XrSwapchainImageBaseHeader* lastSwapchainImage = nullptr;
 
         // Resources needed for rendering cubes
         const ComPtr<ID3DBlob> vertexShaderBytes;
@@ -401,6 +403,8 @@ namespace Conformance
         VectorWithGenerationCountedHandles<std::shared_ptr<Pbr::Model>, GLTFModelHandle> m_gltfModels;
         VectorWithGenerationCountedHandles<D3D12GLTF, GLTFModelInstanceHandle> m_gltfInstances;
         std::unique_ptr<Pbr::D3D12Resources> m_pbrResources;
+        DestructionQueue<ComPtr<ID3D12CommandAllocator>> m_commandAllocatorDestructionQueue;
+        DestructionQueue<ComPtr<ID3D12Resource>> m_resourceDestructionQueue;
     };
 
     D3D12GraphicsPlugin::D3D12GraphicsPlugin(std::shared_ptr<IPlatformPlugin>)
@@ -561,10 +565,7 @@ namespace Conformance
             m_pbrResources->SetLight({0.0f, 0.7071067811865475f, 0.7071067811865475f}, Pbr::RGB::White);
 
             // Read the BRDF Lookup Table used by the PBR system into a DirectX texture.
-            std::vector<byte> brdfLutFileData = ReadFileBytes("brdf_lut.png");
-            D3D12ResourceWithSRVDesc brdLutResourceView =
-                Pbr::D3D12Texture::LoadTextureImage(*m_pbrResources, brdfLutFileData.data(), (uint32_t)brdfLutFileData.size());
-            m_pbrResources->SetBrdfLut(brdLutResourceView);
+            m_pbrResources->SetBrdfLut(WaitLoadPBRTextureFromFile("brdf_lut.png", false));
 
             graphicsBinding.device = d3d12Device.Get();
             graphicsBinding.queue = m_queueWrapper->GetCommandQueue().Get();
@@ -581,7 +582,6 @@ namespace Conformance
     void D3D12GraphicsPlugin::ClearSwapchainCache()
     {
         m_swapchainImageDataMap.Reset();
-        lastSwapchainImage = nullptr;
     }
 
     void D3D12GraphicsPlugin::ShutdownDevice()
@@ -601,7 +601,6 @@ namespace Conformance
 
         m_pbrResources.reset();
         d3d12Device.Reset();
-        lastSwapchainImage = nullptr;
     }
 
     void D3D12GraphicsPlugin::CopyRGBAImage(const XrSwapchainImageBaseHeader* swapchainImage, uint32_t arraySlice, const RGBAImage& image)
@@ -946,6 +945,7 @@ namespace Conformance
         uint32_t imageIndex;
 
         std::tie(swapchainData, imageIndex) = m_swapchainImageDataMap.GetDataAndIndexFromBasePointer(colorSwapchainImage);
+        swapchainData->ResetCommandAllocator();
 
         ID3D12Resource* const colorTexture = swapchainData->GetTypedImage(imageIndex).texture;
 
@@ -982,10 +982,31 @@ namespace Conformance
         return handle;
     }
 
-    GLTFModelHandle D3D12GraphicsPlugin::LoadGLTF(std::shared_ptr<tinygltf::Model> tinygltfModel)
+    GLTFModelHandle D3D12GraphicsPlugin::LoadGLTF(Gltf::ModelBuilder&& modelBuilder)
     {
-        std::shared_ptr<Pbr::Model> pbrModel = Gltf::FromGltfObject(*m_pbrResources, *tinygltfModel);
-        auto handle = m_gltfModels.emplace_back(std::move(pbrModel));
+        ComPtr<ID3D12CommandAllocator> commandAllocator;
+
+        XRC_CHECK_THROW_HRCMD(d3d12Device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, __uuidof(ID3D12CommandAllocator),
+                                                                  reinterpret_cast<void**>(commandAllocator.ReleaseAndGetAddressOf())));
+        XRC_CHECK_THROW_HRCMD(commandAllocator->SetName(L"LoadGLTF command allocator"));
+
+        ComPtr<ID3D12GraphicsCommandList> cmdList;
+        XRC_CHECK_THROW_HRCMD(d3d12Device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, commandAllocator.Get(), nullptr,
+                                                             __uuidof(ID3D12GraphicsCommandList),
+                                                             reinterpret_cast<void**>(cmdList.ReleaseAndGetAddressOf())));
+        XRC_CHECK_THROW_HRCMD(cmdList->SetName(L"LoadGLTF command list"));
+
+        auto builder = m_pbrResources->MakeGltfBuilder(cmdList.Get());
+        auto handle = m_gltfModels.emplace_back(modelBuilder.Build(builder));
+        m_commandAllocatorDestructionQueue.PushResource(m_queueWrapper->GetSignaledFenceValue(), std::move(commandAllocator));
+        m_resourceDestructionQueue.PushResources(m_queueWrapper->GetSignaledFenceValue(), builder.TakeStagingResources());
+
+        // this is intended to be written so that it /should/ be possible to swap out with
+        // a copy command queue (and CPU wait on that queue on another thread) in the future.
+        // in that case, the destruction queue should be changed to track that queue.
+        XRC_CHECK_THROW_HRCMD(cmdList->Close());
+        XRC_CHECK_THROW(m_queueWrapper->ExecuteCommandList(cmdList.Get()));
+
         return handle;
     }
 
@@ -1155,13 +1176,13 @@ namespace Conformance
             DXGI_FORMAT depthSwapchainFormatDX = GetDepthStencilFormatOrDefault(depthCreateInfo);
 
             gltf.Render(cmdList, *m_pbrResources, modelToWorld, (DXGI_FORMAT)swapchainData->GetCreateInfo().format, depthSwapchainFormatDX);
-
-            // wait in the direct queue for resources' internal copy queue to complete
-            m_queueWrapper->GPUWaitOnOtherFence(m_pbrResources->GetFenceAndValue());
         }
 
         XRC_CHECK_THROW_HRCMD(cmdList->Close());
         XRC_CHECK_THROW(m_queueWrapper->ExecuteCommandList(cmdList.Get()));
+
+        m_commandAllocatorDestructionQueue.ReleaseForFenceValue(m_queueWrapper->GetCompletedFenceValue());
+        m_resourceDestructionQueue.ReleaseForFenceValue(m_queueWrapper->GetCompletedFenceValue());
 
         // TODO: Track down exactly why this wait is needed.
         // On some drivers and/or hardware the test is generating the same image for the left and right eye,
@@ -1174,6 +1195,33 @@ namespace Conformance
     {
         if (m_queueWrapper) {
             m_queueWrapper->CPUWaitOnFence();
+        }
+    }
+
+    D3D12ResourceWithSRVDesc D3D12GraphicsPlugin::WaitLoadPBRTextureFromFile(const char* fileName, bool sRGB)
+    {
+        {
+            ComPtr<ID3D12CommandAllocator> commandAllocator;
+
+            XRC_CHECK_THROW_HRCMD(d3d12Device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, __uuidof(ID3D12CommandAllocator),
+                                                                      reinterpret_cast<void**>(commandAllocator.ReleaseAndGetAddressOf())));
+            XRC_CHECK_THROW_HRCMD(commandAllocator->SetName(L"CTS PBR image upload command allocator"));
+
+            ComPtr<ID3D12GraphicsCommandList> cmdList;
+            XRC_CHECK_THROW_HRCMD(d3d12Device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, commandAllocator.Get(), nullptr,
+                                                                 __uuidof(ID3D12GraphicsCommandList),
+                                                                 reinterpret_cast<void**>(cmdList.ReleaseAndGetAddressOf())));
+            XRC_CHECK_THROW_HRCMD(cmdList->SetName(L"CTS PBR image upload command list"));
+
+            std::vector<byte> fileData = ReadFileBytes(fileName);
+            std::vector<ComPtr<ID3D12Resource>> stagingResources{};
+            D3D12ResourceWithSRVDesc texture = Pbr::D3D12Texture::LoadTextureImage(
+                *m_pbrResources, cmdList.Get(), std::back_inserter(stagingResources), sRGB, fileData.data(), (uint32_t)fileData.size());
+            XRC_CHECK_THROW_HRCMD(cmdList->Close());
+            XRC_CHECK_THROW(m_queueWrapper->ExecuteCommandList(cmdList.Get()));
+            m_queueWrapper->CPUWaitOnFence();
+
+            return texture;
         }
     }
 

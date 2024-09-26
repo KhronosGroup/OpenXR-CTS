@@ -205,7 +205,7 @@ namespace Conformance
 
     }  // namespace deleters
 
-    static XrBaseInStructure unrecognizedExtension{XRC_UNRECOGNIZABLE_STRUCTURE_TYPE, nullptr};
+    static XrBaseInStructure unrecognizedExtension{XRC_UNRECOGNIZABLE_STRUCTURE_TYPE};
 
     const void* GetUnrecognizableExtension()
     {
@@ -265,13 +265,13 @@ namespace Conformance
     }
     static inline XrDebugUtilsMessengerCreateInfoEXT MakeMessengerCreateInfo()
     {
-        return {XR_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT,
-                nullptr,
-                XR_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT | XR_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT |
-                    XR_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT | XR_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT,
-                XR_DEBUG_UTILS_MESSAGE_TYPE_CONFORMANCE_BIT_EXT,
-                &ConformanceLayerCallback,
-                nullptr};
+        XrDebugUtilsMessengerCreateInfoEXT createInfo{XR_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT};
+        createInfo.messageSeverities = XR_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT | XR_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT |
+                                       XR_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT | XR_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
+        createInfo.messageTypes = XR_DEBUG_UTILS_MESSAGE_TYPE_CONFORMANCE_BIT_EXT;
+        createInfo.userCallback = &ConformanceLayerCallback;
+        createInfo.userData = nullptr;
+        return createInfo;
     }
     ////////////////////////////////////////////////////////////////////////////////////////////////
     // CreateBasicInstance
@@ -427,7 +427,10 @@ namespace Conformance
                 return XR_ERROR_RUNTIME_FAILURE;
             }
 
-            XrSessionCreateInfo sessionCreateInfo{XR_TYPE_SESSION_CREATE_INFO, graphicsBinding, 0, *systemId};
+            XrSessionCreateInfo sessionCreateInfo{XR_TYPE_SESSION_CREATE_INFO};
+            sessionCreateInfo.next = graphicsBinding;
+            sessionCreateInfo.createFlags = 0;
+            sessionCreateInfo.systemId = *systemId;
             result = xrCreateSession(instance, &sessionCreateInfo, session);
         }
 
@@ -504,9 +507,9 @@ namespace Conformance
             XRC_CHECK_THROW_XRCMD(doTwoCallInPlace(viewConfigurationTypeVector, xrEnumerateViewConfigurations, instance, systemId));
 
             // We use globalData.options.viewConfigurationValue as the type we enumerate with, despite that the runtime may support others.
-            XRC_CHECK_THROW_XRCMD(doTwoCallInPlaceWithEmptyElement(
-                viewConfigurationViewVector, {XR_TYPE_VIEW_CONFIGURATION_VIEW, nullptr, 0, 0, 0, 0, 0, 0},
-                xrEnumerateViewConfigurationViews, instance, systemId, globalData.options.viewConfigurationValue));
+            XRC_CHECK_THROW_XRCMD(doTwoCallInPlaceWithEmptyElement(viewConfigurationViewVector, {XR_TYPE_VIEW_CONFIGURATION_VIEW},
+                                                                   xrEnumerateViewConfigurationViews, instance, systemId,
+                                                                   globalData.options.viewConfigurationValue));
 
             XRC_CHECK_THROW_XRCMD(doTwoCallInPlace(environmentBlendModeVector, xrEnumerateEnvironmentBlendModes, instance, systemId,
                                                    globalData.options.viewConfigurationValue));
@@ -533,7 +536,9 @@ namespace Conformance
                 XRC_CHECK_THROW_XRCMD(doTwoCallInPlace(referenceSpaceTypes, xrEnumerateReferenceSpaces, session));
 
                 for (XrReferenceSpaceType referenceSpace : referenceSpaceTypes) {
-                    XrReferenceSpaceCreateInfo createInfo{XR_TYPE_REFERENCE_SPACE_CREATE_INFO, nullptr, referenceSpace, Pose::Identity};
+                    XrReferenceSpaceCreateInfo createInfo{XR_TYPE_REFERENCE_SPACE_CREATE_INFO};
+                    createInfo.referenceSpaceType = referenceSpace;
+                    createInfo.poseInReferenceSpace = Pose::Identity;
                     XrSpace space;
                     XRC_CHECK_THROW_XRCMD(xrCreateReferenceSpace(session, &createInfo, &space));
                     spaceVector.push_back(space);
@@ -797,7 +802,7 @@ namespace Conformance
             for (size_t v = 0; v < viewVector.size(); ++v) {
                 projectionViewVector[v].pose = viewVector[v].pose;
                 projectionViewVector[v].fov = viewVector[v].fov;
-                // Currently this swapchain handling is dumb; we just use the first swapchain image.
+                // Currently this swapchain handling is minimal; we just use the first swapchain image.
                 projectionViewVector[v].subImage.swapchain =
                     autoBasicSession->swapchainVector[0];  // Intentionally use just [0], in order to simplify our logic here.
                 projectionViewVector[v].subImage.imageRect = {
@@ -1041,6 +1046,11 @@ namespace Conformance
     {
         //! @todo This function should be auto-generated from the spec.
 
+        GlobalData& globalData = GetGlobalData();
+
+        FeatureSet enabled;
+        globalData.PopulateVersionAndEnabledExtensions(enabled);
+
         switch (viewType) {
         case XR_VIEW_CONFIGURATION_TYPE_PRIMARY_MONO:
         case XR_VIEW_CONFIGURATION_TYPE_PRIMARY_STEREO:
@@ -1050,9 +1060,10 @@ namespace Conformance
             // This is never a valid XrViewConfigurationType.
             return false;
         case XR_VIEW_CONFIGURATION_TYPE_PRIMARY_QUAD_VARJO:
-            return IsInstanceExtensionEnabled("XR_VARJO_quad_views");
+            // XR_VIEW_CONFIGURATION_TYPE_PRIMARY_STEREO_WITH_FOVEATED_INSET promoted to 1.1
+            return enabled.get_XR_VARJO_quad_views() || enabled.get_XR_VERSION_1_1();
         case XR_VIEW_CONFIGURATION_TYPE_SECONDARY_MONO_FIRST_PERSON_OBSERVER_MSFT:
-            return IsInstanceExtensionEnabled("XR_MSFT_first_person_observer");
+            return enabled.get_XR_MSFT_first_person_observer();
         default:
             assert(false);
             return false;

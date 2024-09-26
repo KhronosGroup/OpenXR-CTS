@@ -34,7 +34,8 @@ namespace Conformance
         AutoBasicInstance instance;
 
         XrResult result;
-        XrSystemGetInfo systemGetInfo{XR_TYPE_SYSTEM_GET_INFO, nullptr, globalData.options.formFactorValue};
+        XrSystemGetInfo systemGetInfo{XR_TYPE_SYSTEM_GET_INFO};
+        systemGetInfo.formFactor = globalData.options.formFactorValue;
 
         // We require that for the conformance test to successfully complete, a system of the specified form factor must be present.
         XrSystemId systemId;

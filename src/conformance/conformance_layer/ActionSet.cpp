@@ -27,7 +27,7 @@ namespace actionset
 
     CustomActionSetState* GetCustomActionSetState(XrActionSet handle)
     {
-        return dynamic_cast<CustomActionSetState*>(GetActionSetState(handle)->customState.get());
+        return dynamic_cast<CustomActionSetState*>(GetActionSetState(handle)->GetCustomState());
     }
 
     void OnSyncActionData(XrResult syncResult, const XrActiveActionSet* activeActionSet)
@@ -62,7 +62,7 @@ XrResult ConformanceHooks::xrCreateActionSet(XrInstance instance, const XrAction
     const XrResult result = ConformanceHooksBase::xrCreateActionSet(instance, createInfo, actionSet);
     if (XR_SUCCEEDED(result)) {
         // Tag on the custom action set state to the generated handle state.
-        GetActionSetState(*actionSet)->customState = std::unique_ptr<CustomActionSetState>(new CustomActionSetState(createInfo));
+        GetActionSetState(*actionSet)->SetCustomState(std::make_unique<CustomActionSetState>(createInfo));
     }
     return result;
 }

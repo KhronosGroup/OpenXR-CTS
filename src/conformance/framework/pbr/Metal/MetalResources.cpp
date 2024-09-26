@@ -8,16 +8,32 @@
 
 #if defined(XR_USE_GRAPHICS_API_METAL)
 
-#include "MetalResources.h"
+#include "MetalFormats.h"
 #include "MetalMaterial.h"
-#include "MetalTexture.h"
 #include "MetalPipelineStates.h"
+#include "MetalResources.h"
+#include "MetalTexture.h"
 
 #include "utilities/metal_utils.h"
 
 #include "../../gltf/GltfHelper.h"
 #include <tinygltf/tiny_gltf.h>
 #include "../../report.h"
+
+namespace
+{
+    std::vector<Conformance::Image::FormatParams> MakeSupportedFormatsList(MTL::Device* device)
+    {
+        std::vector<Conformance::Image::FormatParams> supported;
+        for (auto& format : Pbr::GetMetalFormatMap()) {
+            if (!Pbr::IsKnownFormatSupportedByDriver(device, format.second)) {
+                continue;
+            }
+            supported.push_back(format.first);
+        }
+        return supported;
+    }
+}  // namespace
 
 namespace Pbr
 {
@@ -34,7 +50,7 @@ namespace Pbr
         ReleaseDeviceDependentResources();
     }
 
-    /* IResources implementations */
+    /* IGltfBuilder implementations */
     std::shared_ptr<Material> MetalResources::CreateFlatMaterial(RGBAColor baseColorFactor, float roughnessFactor, float metallicFactor,
                                                                  RGBColor emissiveFactor)
     {
@@ -44,10 +60,10 @@ namespace Pbr
     {
         return std::make_shared<MetalMaterial>(*this);
     }
-    std::shared_ptr<ITexture> MetalResources::CreateSolidColorTexture(RGBAColor color)
+    std::shared_ptr<ITexture> MetalResources::CreateSolidColorTexture(RGBAColor color, bool sRGB)
     {
         auto ret = std::make_shared<Pbr::MetalTextureAndSampler>();
-        ret->mtlTexture = CreateTypedSolidColorTexture(color);
+        ret->mtlTexture = CreateTypedSolidColorTexture(color, sRGB);
         return ret;
     }
 
@@ -63,13 +79,9 @@ namespace Pbr
 
         // First convert the image to RGBA if it isn't already.
         std::vector<uint8_t> tempBuffer;
-        const uint8_t* rgbaBuffer = GltfHelper::ReadImageAsRGBA(image, &tempBuffer);
-        if (rgbaBuffer == nullptr) {
-            return result;
-        }
+        Conformance::Image::Image decodedImage = GltfHelper::DecodeImage(image, sRGB, pbrResources.GetSupportedFormats(), tempBuffer);
 
-        const MTL::PixelFormat format = sRGB ? MTL::PixelFormatRGBA8Unorm_sRGB : MTL::PixelFormatRGBA8Unorm;
-        return Pbr::MetalTexture::CreateTexture(pbrResources, rgbaBuffer, 4, image.width, image.height, format, label);
+        return Pbr::MetalTexture::CreateTexture(pbrResources, decodedImage, label);
     }
 
     static MTL::SamplerMinMagFilter MetalConvertFilter(int glMinMagFilter)
@@ -130,7 +142,7 @@ namespace Pbr
         // Find or load the image referenced by the texture.
         const ImageKey imageKey = std::make_tuple(image, sRGB);
         NS::SharedPtr<MTL::Texture> texture =
-            image != nullptr ? m_LoaderResources.imageMap[imageKey] : CreateTypedSolidColorTexture(defaultRGBA);
+            image != nullptr ? m_LoaderResources.imageMap[imageKey] : CreateTypedSolidColorTexture(defaultRGBA, sRGB);
         if (!texture)  // If not cached, load the image and store it in the texture cache.
         {
             // TODO: Generate mipmaps if sampler's minification filter (minFilter) uses mipmapping.
@@ -225,6 +237,8 @@ namespace Pbr
             m_Resources.PbrVertexShader.get(), m_Resources.PbrPixelShader.get(), m_Resources.VertexDescriptor.get());
 
         m_Resources.SolidColorTextureCache = MetalTextureCache(device);
+
+        m_Resources.SupportedTextureFormats = MakeSupportedFormatsList(device);
     }
 
     void MetalResources::ReleaseDeviceDependentResources()
@@ -285,9 +299,17 @@ namespace Pbr
         m_Resources.DiffuseEnvironmentMap = NS::RetainPtr(diffuseEnvironmentMap);
     }
 
-    NS::SharedPtr<MTL::Texture> MetalResources::CreateTypedSolidColorTexture(RGBAColor color) const
+    NS::SharedPtr<MTL::Texture> MetalResources::CreateTypedSolidColorTexture(RGBAColor color, bool sRGB) const
     {
-        return m_Resources.SolidColorTextureCache.CreateTypedSolidColorTexture(color);
+        return m_Resources.SolidColorTextureCache.CreateTypedSolidColorTexture(*this, color, sRGB);
+    }
+
+    span<const Conformance::Image::FormatParams> MetalResources::GetSupportedFormats() const
+    {
+        if (m_Resources.SupportedTextureFormats.size() == 0) {
+            throw std::logic_error("SupportedTextureFormats empty or not yet populated");
+        }
+        return m_Resources.SupportedTextureFormats;
     }
 
     void MetalResources::Bind(MTL::RenderCommandEncoder* renderCommandEncoder) const

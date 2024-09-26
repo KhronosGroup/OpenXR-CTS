@@ -169,7 +169,7 @@ namespace Conformance
                 CheckStereoInsetLocateViews(compositionHelper, viewSpace, frameState.predictedDisplayTime);
                 bool keepRunning = (frameCount < maxFrames) && !countdownTimer.IsTimeUp();
                 ++frameCount;
-                keepRunning &= compositionHelper.PollEvents();
+                compositionHelper.PollEvents();
                 compositionHelper.EndFrame(frameState.predictedDisplayTime, std::move(layers));
                 return keepRunning;
             };

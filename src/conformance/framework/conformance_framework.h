@@ -394,7 +394,7 @@ namespace Conformance
 
         ConformanceReport conformanceReport;
 
-        XrInstanceProperties instanceProperties{XR_TYPE_INSTANCE_PROPERTIES, nullptr};
+        XrInstanceProperties instanceProperties{XR_TYPE_INSTANCE_PROPERTIES};
 
         FunctionInfo nullFunctionInfo;
 

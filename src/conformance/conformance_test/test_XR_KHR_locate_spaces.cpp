@@ -98,27 +98,17 @@ namespace Conformance
 
         XrResult result;
 
-        // ugly magic number:
-        // some variance due to numeric inaccuracies is OK
-        constexpr float epsilon = 0.001f;
-
         // compare the calculated pose with the expected pose
-        auto ValidateSpaceLocation = [epsilon](XrSpaceLocationDataKHR& spaceLocation, XrPosef& expectedPose) -> void {
+        auto ValidateSpaceLocation = [](XrSpaceLocationDataKHR& spaceLocation, XrPosef& expectedPose) -> void {
             CAPTURE(XrSpaceLocationFlagsCPP(spaceLocation.locationFlags));
             CHECK((spaceLocation.locationFlags & XR_SPACE_LOCATION_POSITION_VALID_BIT) != 0);
             CHECK((spaceLocation.locationFlags & XR_SPACE_LOCATION_ORIENTATION_VALID_BIT) != 0);
 
-            static auto QuaternionsAreEquivalent = [](const XrQuaternionf& q1, const XrQuaternionf& q2, float epsilon) {
-                return std::abs(q1.x * q2.x + q1.y * q2.y + q1.z * q2.z + q1.w * q2.w) == Catch::Approx(1.f).margin(epsilon);
-            };
-
             if (spaceLocation.locationFlags & XR_SPACE_LOCATION_POSITION_VALID_BIT) {
-                REQUIRE(spaceLocation.pose.position.x == Catch::Approx(expectedPose.position.x).margin(epsilon));
-                REQUIRE(spaceLocation.pose.position.y == Catch::Approx(expectedPose.position.y).margin(epsilon));
-                REQUIRE(spaceLocation.pose.position.z == Catch::Approx(expectedPose.position.z).margin(epsilon));
+                REQUIRE(Vector::ApproxEqual(spaceLocation.pose.position, expectedPose.position));
             }
             if (spaceLocation.locationFlags & XR_SPACE_LOCATION_ORIENTATION_VALID_BIT) {
-                CHECK(QuaternionsAreEquivalent(spaceLocation.pose.orientation, expectedPose.orientation, epsilon));
+                CHECK(Quat::ApproxEqual(spaceLocation.pose.orientation, expectedPose.orientation));
             }
         };
 
@@ -503,13 +493,8 @@ namespace Conformance
                 // velocity between identical spaces must be known and zero
                 REQUIRE(velocitiesValid);
 
-                REQUIRE(velocity.linearVelocity.x == Catch::Approx(0.0f).margin(epsilon));
-                REQUIRE(velocity.linearVelocity.y == Catch::Approx(0.0f).margin(epsilon));
-                REQUIRE(velocity.linearVelocity.z == Catch::Approx(0.0f).margin(epsilon));
-
-                REQUIRE(velocity.angularVelocity.x == Catch::Approx(0.0f).margin(epsilon));
-                REQUIRE(velocity.angularVelocity.y == Catch::Approx(0.0f).margin(epsilon));
-                REQUIRE(velocity.angularVelocity.z == Catch::Approx(0.0f).margin(epsilon));
+                REQUIRE(Vector::ApproxEqual(velocity.linearVelocity, XrVector3f{0, 0, 0}));
+                REQUIRE(Vector::ApproxEqual(velocity.angularVelocity, XrVector3f{0, 0, 0}));
             }
         }
 

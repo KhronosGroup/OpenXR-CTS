@@ -17,8 +17,8 @@ using Microsoft::WRL::ComPtr;
 namespace Conformance
 {
     ComPtr<ID3D12Resource> D3D12CreateResource(ID3D12Device* d3d12Device, uint32_t width, uint32_t height, uint16_t depth,
-                                               D3D12_RESOURCE_DIMENSION dimension, DXGI_FORMAT format, D3D12_TEXTURE_LAYOUT layout,
-                                               D3D12_HEAP_TYPE heapType)
+                                               uint16_t mipLevels, D3D12_RESOURCE_DIMENSION dimension, DXGI_FORMAT format,
+                                               D3D12_TEXTURE_LAYOUT layout, D3D12_HEAP_TYPE heapType)
     {
         D3D12_RESOURCE_STATES d3d12ResourceState;
         if (heapType == D3D12_HEAP_TYPE_UPLOAD) {
@@ -40,7 +40,7 @@ namespace Conformance
         buffDesc.Width = width;
         buffDesc.Height = height;
         buffDesc.DepthOrArraySize = depth;
-        buffDesc.MipLevels = 1;
+        buffDesc.MipLevels = mipLevels;
         buffDesc.Format = format;
         buffDesc.SampleDesc.Count = 1;
         buffDesc.SampleDesc.Quality = 0;
@@ -56,14 +56,14 @@ namespace Conformance
 
     ComPtr<ID3D12Resource> D3D12CreateBuffer(ID3D12Device* d3d12Device, uint32_t size, D3D12_HEAP_TYPE heapType)
     {
-        return D3D12CreateResource(d3d12Device, size, 1, 1, D3D12_RESOURCE_DIMENSION_BUFFER, DXGI_FORMAT_UNKNOWN,
+        return D3D12CreateResource(d3d12Device, size, 1, 1, 1, D3D12_RESOURCE_DIMENSION_BUFFER, DXGI_FORMAT_UNKNOWN,
                                    D3D12_TEXTURE_LAYOUT_ROW_MAJOR, heapType);
     }
 
     ComPtr<ID3D12Resource> D3D12CreateImage(ID3D12Device* d3d12Device, uint32_t width, uint32_t height, uint16_t arraySize,
-                                            DXGI_FORMAT format, D3D12_HEAP_TYPE heapType)
+                                            uint16_t mipLevels, DXGI_FORMAT format, D3D12_HEAP_TYPE heapType)
     {
-        return D3D12CreateResource(d3d12Device, width, height, arraySize, D3D12_RESOURCE_DIMENSION_TEXTURE2D, format,
+        return D3D12CreateResource(d3d12Device, width, height, arraySize, mipLevels, D3D12_RESOURCE_DIMENSION_TEXTURE2D, format,
                                    D3D12_TEXTURE_LAYOUT_UNKNOWN, heapType);
     }
 }  // namespace Conformance

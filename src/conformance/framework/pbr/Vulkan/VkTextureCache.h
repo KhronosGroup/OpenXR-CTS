@@ -31,24 +31,15 @@ namespace Pbr
     class VulkanTextureCache
     {
     public:
-        /// Default constructor makes an invalid cache.
-        VulkanTextureCache() = default;
+        VulkanTextureCache();
 
         VulkanTextureCache(VulkanTextureCache&&) = default;
         VulkanTextureCache& operator=(VulkanTextureCache&&) = default;
 
-        explicit VulkanTextureCache(VkDevice device);
-
-        bool IsValid() const noexcept
-        {
-            return m_device != nullptr;
-        }
-
         /// Find or create a single pixel texture of the given color
-        std::shared_ptr<VulkanTextureBundle> CreateTypedSolidColorTexture(Pbr::VulkanResources& pbrResources, XrColor4f color);
+        std::shared_ptr<VulkanTextureBundle> CreateTypedSolidColorTexture(Pbr::VulkanResources& pbrResources, XrColor4f color, bool sRGB);
 
     private:
-        VkDevice m_device;
         // in unique_ptr to make it moveable
         std::unique_ptr<std::mutex> m_cacheMutex;
         std::map<uint32_t, std::shared_ptr<VulkanTextureBundle>> m_solidColorTextureCache;

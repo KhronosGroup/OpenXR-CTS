@@ -301,7 +301,7 @@ namespace Conformance
 
         MeshHandle MakeSimpleMesh(span<const uint16_t> idx, span<const Geometry::Vertex> vtx) override;
 
-        GLTFModelHandle LoadGLTF(std::shared_ptr<tinygltf::Model> tinygltfModel) override;
+        GLTFModelHandle LoadGLTF(Gltf::ModelBuilder&& modelBuilder) override;
         std::shared_ptr<Pbr::Model> GetPbrModel(GLTFModelHandle handle) const override;
         GLTFModelInstanceHandle CreateGLTFModelInstance(GLTFModelHandle handle) override;
         Pbr::ModelInstance& GetModelInstance(GLTFModelInstanceHandle handle) override;
@@ -575,13 +575,13 @@ namespace Conformance
         m_pbrResources = std::make_unique<Pbr::GLResources>();
         m_pbrResources->SetLight({0.0f, 0.7071067811865475f, 0.7071067811865475f}, Pbr::RGB::White);
 
-        auto blackCubeMap = std::make_shared<Pbr::ScopedGLTexture>(Pbr::GLTexture::CreateFlatCubeTexture(Pbr::RGBA::Black, GL_RGBA8));
+        auto blackCubeMap = std::make_shared<Pbr::ScopedGLTexture>(Pbr::GLTexture::CreateFlatCubeTexture(Pbr::RGBA::Black, false));
         m_pbrResources->SetEnvironmentMap(blackCubeMap, blackCubeMap);
 
-        // Read the BRDF Lookup Table used by the PBR system into a DirectX texture.
+        // Read the BRDF Lookup Table used by the PBR system into a GL texture.
         std::vector<unsigned char> brdfLutFileData = ReadFileBytes("brdf_lut.png");
         auto brdLutResourceView = std::make_shared<Pbr::ScopedGLTexture>(
-            Pbr::GLTexture::LoadTextureImage(brdfLutFileData.data(), (uint32_t)brdfLutFileData.size()));
+            Pbr::GLTexture::LoadTextureImage(*m_pbrResources, false, brdfLutFileData.data(), (uint32_t)brdfLutFileData.size()));
         m_pbrResources->SetBrdfLut(brdLutResourceView);
     }
 
@@ -994,7 +994,7 @@ namespace Conformance
         REQUIRE(result == XR_SUCCESS);
         REQUIRE(countOutput > 0);
 
-        swapchainImageVector.resize(countOutput, XrSwapchainImageOpenGLESKHR{XR_TYPE_SWAPCHAIN_IMAGE_OPENGL_ES_KHR, nullptr});
+        swapchainImageVector.resize(countOutput, XrSwapchainImageOpenGLESKHR{XR_TYPE_SWAPCHAIN_IMAGE_OPENGL_ES_KHR});
 
         // Exercise XR_ERROR_SIZE_INSUFFICIENT
         if (countOutput >= 2) {  // Need at least two in order to exercise XR_ERROR_SIZE_INSUFFICIENT
@@ -1184,10 +1184,9 @@ namespace Conformance
         return handle;
     }
 
-    GLTFModelHandle OpenGLESGraphicsPlugin::LoadGLTF(std::shared_ptr<tinygltf::Model> tinygltfModel)
+    GLTFModelHandle OpenGLESGraphicsPlugin::LoadGLTF(Gltf::ModelBuilder&& modelBuilder)
     {
-        std::shared_ptr<Pbr::Model> pbrModel = Gltf::FromGltfObject(*m_pbrResources, *tinygltfModel);
-        auto handle = m_gltfModels.emplace_back(std::move(pbrModel));
+        auto handle = m_gltfModels.emplace_back(modelBuilder.Build(*m_pbrResources));
         return handle;
     }
 

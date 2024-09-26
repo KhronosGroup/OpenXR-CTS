@@ -11,12 +11,15 @@
 #include "MetalTextureCache.h"
 #include "MetalPipelineStates.h"
 
-#include "../IResources.h"
+#include "../IGltfBuilder.h"
 #include "../PbrCommon.h"
 #include "../PbrHandles.h"
 #include "../PbrSharedState.h"
 
+#include <utilities/image.h>
 #include "utilities/metal_utils.h"
+
+#include <nonstd/span.hpp>
 
 #include <Foundation/Foundation.hpp>
 #include <Metal/Metal.hpp>
@@ -30,6 +33,7 @@
 
 namespace Pbr
 {
+    using nonstd::span;
 
     struct Primitive;
     class MetalPipelineStates;
@@ -74,7 +78,7 @@ namespace Pbr
     };
 
     /// Global PBR resources required for rendering a scene.
-    struct MetalResources final : public IResources
+    struct MetalResources final : public IGltfBuilder
     {
         explicit MetalResources(MTL::Device* mtlDevice);
         MetalResources(MetalResources&&);
@@ -84,7 +88,7 @@ namespace Pbr
         std::shared_ptr<Material> CreateFlatMaterial(RGBAColor baseColorFactor, float roughnessFactor = 1.0f, float metallicFactor = 0.0f,
                                                      RGBColor emissiveFactor = RGB::Black) override;
         std::shared_ptr<Material> CreateMaterial() override;
-        std::shared_ptr<ITexture> CreateSolidColorTexture(RGBAColor color);
+        std::shared_ptr<ITexture> CreateSolidColorTexture(RGBAColor color, bool sRGB);
 
         void LoadTexture(const std::shared_ptr<Material>& pbrMaterial, Pbr::ShaderSlots::PSMaterial slot, const tinygltf::Image* image,
                          const tinygltf::Sampler* sampler, bool sRGB, Pbr::RGBAColor defaultRGBA) override;
@@ -120,7 +124,11 @@ namespace Pbr
 
         /// Many 1x1 pixel colored textures are used in the PBR system. This is used to create textures backed by a cache to reduce the
         /// number of textures created.
-        NS::SharedPtr<MTL::Texture> CreateTypedSolidColorTexture(RGBAColor color) const;
+        NS::SharedPtr<MTL::Texture> CreateTypedSolidColorTexture(RGBAColor color, bool sRGB) const;
+
+        /// Get the cached list of texture formats supported by the device
+        /// Note: these formats are not guaranteed to support cubemap
+        span<const Conformance::Image::FormatParams> GetSupportedFormats() const;
 
         /// Bind the the PBR resources to the current RenderCommandEncoder.
         void Bind(MTL::RenderCommandEncoder* renderCommandEncoder) const;
@@ -160,6 +168,8 @@ namespace Pbr
             NS::SharedPtr<MTL::Texture> DiffuseEnvironmentMap;
             std::unique_ptr<MetalPipelineStates> PipelineStates;
             mutable MetalTextureCache SolidColorTextureCache;
+
+            std::vector<Conformance::Image::FormatParams> SupportedTextureFormats;
         };
         PrimitiveCollection<MetalPrimitive> m_Primitives;
 

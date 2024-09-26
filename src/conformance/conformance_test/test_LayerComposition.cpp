@@ -527,8 +527,9 @@ namespace Conformance
                 XRC_CHECK_THROW_XRCMD(xrCreateActionSpace(session, &spaceCreateInfo, &space));
             }
             else {
-                XrReferenceSpaceCreateInfo spaceCreateInfo{XR_TYPE_REFERENCE_SPACE_CREATE_INFO, nullptr, XR_REFERENCE_SPACE_TYPE_LOCAL,
-                                                           Pose::Identity};
+                XrReferenceSpaceCreateInfo spaceCreateInfo{XR_TYPE_REFERENCE_SPACE_CREATE_INFO};
+                spaceCreateInfo.referenceSpaceType = XR_REFERENCE_SPACE_TYPE_LOCAL;
+                spaceCreateInfo.poseInReferenceSpace = Pose::Identity;
                 XRC_CHECK_THROW_XRCMD(xrCreateReferenceSpace(session, &spaceCreateInfo, &space));
             }
             gripSpaces.push_back(space);

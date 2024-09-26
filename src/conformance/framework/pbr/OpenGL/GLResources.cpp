@@ -11,6 +11,7 @@
 #include "GLResources.h"
 
 #include "GLCommon.h"
+#include "GLFormats.h"
 #include "GLMaterial.h"
 #include "GLPrimitive.h"
 #include "GLTexture.h"
@@ -61,6 +62,36 @@ static const char* g_PbrPixelShader =
 // IWYU pragma: end_keep
 
 using namespace openxr::math_operators;
+
+namespace
+{
+    std::vector<Conformance::Image::FormatParams> MakeSupportedFormatsList()
+    {
+        std::vector<Conformance::Image::FormatParams> supported;
+
+        for (auto& format : Pbr::GetGLFormatMap()) {
+            switch (format.first.codec) {
+            case Conformance::Image::Codec::Raw8bpc:
+                break;
+            case Conformance::Image::Codec::BC7:
+                // TODO: implement extension checking once GL loader changes land
+#ifdef XR_USE_GRAPHICS_API_OPENGL
+                break;  // core as of OpenGL 4.2
+#elif XR_USE_GRAPHICS_API_OPENGL_ES
+                continue;  // requires GL_EXT_texture_compression_bptc
+#endif
+            case Conformance::Image::Codec::ETC:
+                break;  // core as of OpenGL 4.3 and OpenGL ES 3.0
+            case Conformance::Image::Codec::ASTC:
+                continue;  // requires KHR_texture_compression_astc_hdr or GL_KHR_texture_compression_astc_ldr
+            default:
+                continue;
+            }
+            supported.push_back(format.first);
+        }
+        return supported;
+    }
+}  // namespace
 
 namespace Pbr
 {
@@ -115,7 +146,7 @@ namespace Pbr
             Resources.BrdfSampler = GLTexture::CreateSampler();
             Resources.EnvironmentMapSampler = GLTexture::CreateSampler();
 
-            Resources.SolidColorTextureCache.Init();
+            Resources.SupportedTextureFormats = MakeSupportedFormatsList();
         }
 
         struct DeviceResources
@@ -127,6 +158,7 @@ namespace Pbr
             std::shared_ptr<ScopedGLTexture> BrdfLut;
             std::shared_ptr<ScopedGLTexture> SpecularEnvironmentMap;
             std::shared_ptr<ScopedGLTexture> DiffuseEnvironmentMap;
+            std::vector<Conformance::Image::FormatParams> SupportedTextureFormats;
             mutable GLTextureCache SolidColorTextureCache{};
         };
         PrimitiveCollection<GLPrimitive> Primitives;
@@ -153,15 +185,13 @@ namespace Pbr
     GLResources::~GLResources() = default;
 
     // Create a GL texture from a tinygltf Image.
-    static ScopedGLTexture LoadGLTFImage(const tinygltf::Image& image, bool sRGB)
+    static ScopedGLTexture LoadGLTFImage(const GLResources& pbrResources, const tinygltf::Image& image, bool sRGB)
     {
         // First convert the image to RGBA if it isn't already.
         std::vector<uint8_t> tempBuffer;
-        const uint8_t* rgbaBuffer = GltfHelper::ReadImageAsRGBA(image, &tempBuffer);
-        Internal::ThrowIf(rgbaBuffer == nullptr, "Failed to read image");
+        Conformance::Image::Image decodedImage = GltfHelper::DecodeImage(image, sRGB, pbrResources.GetSupportedFormats(), tempBuffer);
 
-        const GLenum format = sRGB ? GL_SRGB8_ALPHA8 : GL_RGBA8;
-        return Pbr::GLTexture::CreateTexture(rgbaBuffer, 4, image.width, image.height, format);
+        return Pbr::GLTexture::CreateTexture(decodedImage);
     }
 
     static GLenum ConvertMinFilter(int glMinFilter)
@@ -208,7 +238,7 @@ namespace Pbr
         return glSampler;
     }
 
-    /* IResources implementations */
+    /* IGltfBuilder implementations */
     std::shared_ptr<Material> GLResources::CreateFlatMaterial(RGBAColor baseColorFactor, float roughnessFactor, float metallicFactor,
                                                               RGBColor emissiveFactor)
     {
@@ -218,14 +248,6 @@ namespace Pbr
     {
         return std::make_shared<GLMaterial>(*this);
     }
-    std::shared_ptr<ITexture> GLResources::CreateSolidColorTexture(RGBAColor color)
-    {
-        // TODO maybe unused
-        auto ret = std::make_shared<Pbr::GLTextureAndSampler>();
-        ret->srv = CreateTypedSolidColorTexture(color);
-        return ret;
-    }
-
     void GLResources::LoadTexture(const std::shared_ptr<Material>& material, Pbr::ShaderSlots::PSMaterial slot,
                                   const tinygltf::Image* image, const tinygltf::Sampler* sampler, bool sRGB, Pbr::RGBAColor defaultRGBA)
     {
@@ -236,13 +258,13 @@ namespace Pbr
         // Find or load the image referenced by the texture.
         const ImageKey imageKey = std::make_tuple(image, sRGB);
         std::shared_ptr<ScopedGLTexture> textureView =
-            image != nullptr ? m_impl->loaderResources.imageMap[imageKey] : CreateTypedSolidColorTexture(defaultRGBA);
+            image != nullptr ? m_impl->loaderResources.imageMap[imageKey] : CreateTypedSolidColorTexture(defaultRGBA, sRGB);
         if (!textureView)  // If not cached, load the image and store it in the texture cache.
         {
             // TODO: Generate mipmaps if sampler's minification filter (minFilter) uses mipmapping.
             // TODO: If texture is not power-of-two and (sampler has wrapping=repeat/mirrored_repeat OR minFilter uses
             // mipmapping), resize to power-of-two.
-            textureView = std::make_shared<ScopedGLTexture>(LoadGLTFImage(*image, sRGB));
+            textureView = std::make_shared<ScopedGLTexture>(LoadGLTFImage(*this, *image, sRGB));
             m_impl->loaderResources.imageMap[imageKey] = textureView;
         }
 
@@ -291,9 +313,17 @@ namespace Pbr
         m_impl->Resources.DiffuseEnvironmentMap = std::move(diffuseEnvironmentMap);
     }
 
-    std::shared_ptr<ScopedGLTexture> GLResources::CreateTypedSolidColorTexture(RGBAColor color) const
+    std::shared_ptr<ScopedGLTexture> GLResources::CreateTypedSolidColorTexture(RGBAColor color, bool sRGB) const
     {
-        return m_impl->Resources.SolidColorTextureCache.CreateTypedSolidColorTexture(color);
+        return m_impl->Resources.SolidColorTextureCache.CreateTypedSolidColorTexture(color, sRGB);
+    }
+
+    span<const Conformance::Image::FormatParams> GLResources::GetSupportedFormats() const
+    {
+        if (m_impl->Resources.SupportedTextureFormats.size() == 0) {
+            throw std::logic_error("SupportedTextureFormats empty or not yet populated");
+        }
+        return m_impl->Resources.SupportedTextureFormats;
     }
 
     void GLResources::Bind() const
@@ -393,9 +423,9 @@ namespace Pbr
 #ifdef XR_USE_GRAPHICS_API_OPENGL
         // This does not set double-sided rendering, it says we control both front and back
         XRC_CHECK_THROW_GLCMD(glPolygonMode(GL_FRONT_AND_BACK, m_sharedState.GetFillMode() == FillMode::Wireframe ? GL_LINE : GL_FILL));
-#elif XR_USE_GRAPHICS_API_OPENGL_ES
-        // done during rendering using GL_LINES instead
 #endif
+        // For OpenGL ES:
+        // This is done during rendering using GL_LINES instead
     }
 
     void GLResources::SetDepthStencilState(bool disableDepthWrite) const

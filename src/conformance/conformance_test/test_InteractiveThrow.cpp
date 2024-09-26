@@ -298,7 +298,8 @@ namespace Conformance
 
             compositionHelper.EndFrame(frameState.predictedDisplayTime, layers);
 
-            return compositionHelper.PollEvents();
+            compositionHelper.PollEvents();
+            return true;
         };
 
         RenderLoop(compositionHelper.GetSession(), update).Loop();

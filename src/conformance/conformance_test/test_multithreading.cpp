@@ -390,11 +390,16 @@ namespace Conformance
             env.lastFrameTime = frameIterator.frameState.predictedDisplayTime;
 
             GlobalData& globalData = GetGlobalData();
-            globalData.GetGraphicsPlugin()->MakeCurrent(false);
+
+            if (globalData.GetGraphicsPlugin()) {
+                globalData.GetGraphicsPlugin()->MakeCurrent(false);
+            }
 
             RunTestEnvironment(env);
 
-            globalData.GetGraphicsPlugin()->MakeCurrent(true);
+            if (globalData.GetGraphicsPlugin()) {
+                globalData.GetGraphicsPlugin()->MakeCurrent(true);
+            }
         }
     }
 
@@ -476,7 +481,9 @@ namespace Conformance
     void Exercise_xrGetSystem(ThreadTestEnvironment& env)
     {
         GlobalData& globalData = GetGlobalData();
-        XrSystemGetInfo getInfo{XR_TYPE_SYSTEM_GET_INFO, nullptr, globalData.GetOptions().formFactorValue};
+        XrSystemGetInfo getInfo{XR_TYPE_SYSTEM_GET_INFO};
+        getInfo.formFactor = globalData.GetOptions().formFactorValue;
+
         XrSystemId systemId;
         XRC_CHECK_THROW_XRCMD(xrGetSystem(env.GetAutoBasicSession().GetInstance(), &getInfo, &systemId));
     }
@@ -538,7 +545,10 @@ namespace Conformance
     void Exercise_xrCreateReferenceSpace(ThreadTestEnvironment& env)
     {
         // To do: make the reference space type dynamically chosen.
-        XrReferenceSpaceCreateInfo createInfo{XR_TYPE_REFERENCE_SPACE_CREATE_INFO, nullptr, XR_REFERENCE_SPACE_TYPE_VIEW, Pose::Identity};
+        XrReferenceSpaceCreateInfo createInfo{XR_TYPE_REFERENCE_SPACE_CREATE_INFO};
+        createInfo.referenceSpaceType = XR_REFERENCE_SPACE_TYPE_VIEW;
+        createInfo.poseInReferenceSpace = Pose::Identity;
+
         XrSpace space;
         XrResult result = xrCreateReferenceSpace(env.GetAutoBasicSession().GetSession(), &createInfo, &space);
         XRC_CHECK_THROW_XRRESULT_SUCCESS_OR_LIMIT_REACHED(result, "xrCreateReferenceSpace");
@@ -883,8 +893,9 @@ namespace Conformance
         const size_t iterationCount = 100;  // To do: Make this configurable.
 
         for (size_t i = 0; i < iterationCount; ++i) {
-            XrActionsSyncInfo actionsSyncInfo{XR_TYPE_ACTIONS_SYNC_INFO, nullptr, (uint32_t)activeActionSetVector.size(),
-                                              activeActionSetVector.data()};
+            XrActionsSyncInfo actionsSyncInfo{XR_TYPE_ACTIONS_SYNC_INFO};
+            actionsSyncInfo.countActiveActionSets = (uint32_t)activeActionSetVector.size();
+            actionsSyncInfo.activeActionSets = activeActionSetVector.data();
 
             XRC_CHECK_THROW_XRCMD(xrSyncActions(session, &actionsSyncInfo));
 

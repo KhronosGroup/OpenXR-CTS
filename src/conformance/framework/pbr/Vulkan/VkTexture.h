@@ -19,7 +19,6 @@
 #include <openxr/openxr.h>
 #include <vulkan/vulkan_core.h>
 
-#include <array>
 #include <stdint.h>
 #include <vector>
 
@@ -29,14 +28,11 @@ namespace Pbr
 
     namespace VulkanTexture
     {
-        std::array<uint8_t, 4> LoadRGBAUI4(RGBAColor color);
+        VulkanTextureBundle LoadTextureImage(VulkanResources& pbrResources, bool sRGB, const uint8_t* fileData, uint32_t fileSize);
 
-        VulkanTextureBundle LoadTextureImage(VulkanResources& pbrResources, const uint8_t* fileData, uint32_t fileSize);
+        VulkanTextureBundle CreateFlatCubeTexture(VulkanResources& pbrResources, RGBAColor color, bool sRGB);
 
-        VulkanTextureBundle CreateFlatCubeTexture(VulkanResources& pbrResources, RGBAColor color, VkFormat format);
-
-        VulkanTextureBundle CreateTexture(VulkanResources& pbrResources, const uint8_t* rgba, int elemSize, int width, int height,
-                                          VkFormat format);
+        VulkanTextureBundle CreateTexture(VulkanResources& pbrResources, const Conformance::Image::Image& image);
 
         VkSamplerCreateInfo DefaultSamplerCreateInfo();
         VkSampler CreateSampler(VkDevice device, VkSamplerAddressMode addressMode = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE);

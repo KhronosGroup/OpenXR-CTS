@@ -8,7 +8,7 @@
 
 #pragma once
 
-#include "IResources.h"
+#include "IGltfBuilder.h"
 #include "PbrCommon.h"
 #include "PbrSharedState.h"
 

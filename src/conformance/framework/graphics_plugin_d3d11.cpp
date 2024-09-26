@@ -107,7 +107,7 @@ namespace Conformance
 
     private:
         ComPtr<ID3D11Texture2D> m_texture{};
-        XrSwapchainImageD3D11KHR m_xrImage{XR_TYPE_SWAPCHAIN_IMAGE_D3D11_KHR, NULL, nullptr};
+        XrSwapchainImageD3D11KHR m_xrImage{XR_TYPE_SWAPCHAIN_IMAGE_D3D11_KHR};
     };
 
     class D3D11SwapchainImageData : public SwapchainImageDataBase<XrSwapchainImageD3D11KHR>
@@ -208,7 +208,7 @@ namespace Conformance
 
         MeshHandle MakeSimpleMesh(span<const uint16_t> idx, span<const Geometry::Vertex> vtx) override;
 
-        GLTFModelHandle LoadGLTF(std::shared_ptr<tinygltf::Model> tinygltfModel) override;
+        GLTFModelHandle LoadGLTF(Gltf::ModelBuilder&& modelBuilder) override;
         std::shared_ptr<Pbr::Model> GetPbrModel(GLTFModelHandle handle) const override;
         GLTFModelInstanceHandle CreateGLTFModelInstance(GLTFModelHandle handle) override;
         Pbr::ModelInstance& GetModelInstance(GLTFModelInstanceHandle handle) override;
@@ -394,7 +394,7 @@ namespace Conformance
                 // Read the BRDF Lookup Table used by the PBR system into a DirectX texture.
                 std::vector<byte> brdfLutFileData = ReadFileBytes("brdf_lut.png");
                 Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> brdfLutResourceView =
-                    Pbr::D3D11Texture::LoadTextureImage(d3d11Device.Get(), brdfLutFileData.data(), (uint32_t)brdfLutFileData.size());
+                    Pbr::D3D11Texture::LoadTextureImage(*m_pbrResources, false, brdfLutFileData.data(), (uint32_t)brdfLutFileData.size());
                 m_pbrResources->SetBrdfLut(brdfLutResourceView.Get());
             }
 
@@ -709,10 +709,9 @@ namespace Conformance
         return handle;
     }
 
-    GLTFModelHandle D3D11GraphicsPlugin::LoadGLTF(std::shared_ptr<tinygltf::Model> tinygltfModel)
+    GLTFModelHandle D3D11GraphicsPlugin::LoadGLTF(Gltf::ModelBuilder&& modelBuilder)
     {
-        std::shared_ptr<Pbr::Model> pbrModel = Gltf::FromGltfObject(*m_pbrResources, *tinygltfModel);
-        auto handle = m_gltfModels.emplace_back(std::move(pbrModel));
+        auto handle = m_gltfModels.emplace_back(modelBuilder.Build(*m_pbrResources));
         return handle;
     }
 

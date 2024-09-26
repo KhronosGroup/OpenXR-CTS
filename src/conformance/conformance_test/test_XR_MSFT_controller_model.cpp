@@ -14,6 +14,7 @@
 #include "two_call.h"
 #include "two_call_struct_metadata.h"
 #include "two_call_struct_tests.h"
+#include "gltf/GltfHelper.h"
 
 #include "common/hex_and_handles.h"
 #include "utilities/throw_helpers.h"
@@ -173,6 +174,9 @@ namespace Conformance
             REQUIRE_RESULT_UNQUALIFIED_SUCCESS(xrCreateAction(actionSet, &actionInfo, &gripPoseAction));
         }
 
+        // Do this early to reduce unnecessary hitch during model loading.
+        Image::InitKTX2();
+
         compositionHelper.BeginSession();
         actionLayerManager.WaitForSessionFocusWithMessage();
 
@@ -279,6 +283,7 @@ namespace Conformance
 
             tinygltf::Model model;
             tinygltf::TinyGLTF loader;
+            loader.SetImageLoader(GltfHelper::PassThroughKTX2, nullptr);
             std::string err;
             std::string warn;
             bool loadedModel = loader.LoadBinaryFromMemory(&model, &err, &warn, modelBuffer.data(), (unsigned int)modelBuffer.size());
@@ -529,7 +534,8 @@ namespace Conformance
 
             compositionHelper.EndFrame(frameState.predictedDisplayTime, layers);
 
-            return compositionHelper.PollEvents();
+            compositionHelper.PollEvents();
+            return true;
         };
 
         RenderLoop(compositionHelper.GetSession(), update).Loop();

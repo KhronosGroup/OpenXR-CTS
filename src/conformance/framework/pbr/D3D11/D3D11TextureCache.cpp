@@ -14,6 +14,7 @@
 #include "D3D11Texture.h"
 
 #include "../PbrMaterial.h"
+#include "../PbrTexture.h"
 
 #include <array>
 #include <memory>
@@ -22,17 +23,14 @@
 
 namespace Pbr
 {
-    D3D11TextureCache::D3D11TextureCache(ID3D11Device* device) : m_cacheMutex(std::make_unique<std::mutex>())
+    D3D11TextureCache::D3D11TextureCache() : m_cacheMutex(std::make_unique<std::mutex>())
     {
-        m_device = device;
     }
 
-    ComPtr<ID3D11ShaderResourceView> D3D11TextureCache::CreateTypedSolidColorTexture(XrColor4f color)
+    ComPtr<ID3D11ShaderResourceView> D3D11TextureCache::CreateTypedSolidColorTexture(const Pbr::D3D11Resources& pbrResources,
+                                                                                     XrColor4f color, bool sRGB)
     {
-        if (!IsValid()) {
-            throw std::logic_error("D3D11TextureCache accessed before initialization");
-        }
-        const std::array<uint8_t, 4> rgba = D3D11Texture::LoadRGBAUI4(color);
+        const std::array<uint8_t, 4> rgba = LoadRGBAUI4(color);
 
         // Check cache to see if this flat texture already exists.
         const uint32_t colorKey = *reinterpret_cast<const uint32_t*>(rgba.data());
@@ -44,8 +42,11 @@ namespace Pbr
             }
         }
 
-        Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> texture =
-            Pbr::D3D11Texture::CreateTexture(m_device.Get(), rgba.data(), 1, 1, 1, DXGI_FORMAT_R8G8B8A8_UNORM);
+        auto formatParams = Conformance::Image::FormatParams::R8G8B8A8(sRGB);
+        auto metadata = Conformance::Image::ImageLevelMetadata::MakeUncompressed(1, 1);
+        auto image = Conformance::Image::Image{formatParams, {{metadata, rgba}}};
+
+        Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> texture = Pbr::D3D11Texture::CreateTexture(pbrResources, image);
 
         std::lock_guard<std::mutex> guard(*m_cacheMutex);
         // If the key already exists then the existing texture will be returned.

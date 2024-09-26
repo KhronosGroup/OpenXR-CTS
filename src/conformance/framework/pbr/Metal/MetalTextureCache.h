@@ -24,6 +24,8 @@
 namespace Pbr
 {
 
+    struct MetalResources;
+
     /// Cache of single-color textures.
     ///
     /// Device-dependent, drop when device is lost or destroyed.
@@ -44,7 +46,7 @@ namespace Pbr
         }
 
         /// Find or create a single pixel texture of the given color
-        NS::SharedPtr<MTL::Texture> CreateTypedSolidColorTexture(XrColor4f color);
+        NS::SharedPtr<MTL::Texture> CreateTypedSolidColorTexture(const MetalResources& pbrResources, XrColor4f color, bool sRGB);
 
     private:
         NS::SharedPtr<MTL::Device> m_device;

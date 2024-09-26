@@ -8,7 +8,7 @@
 
 #include "GltfLoader.h"
 
-#include "IResources.h"
+#include "IGltfBuilder.h"
 #include "PbrCommon.h"
 #include "PbrMaterial.h"
 #include "PbrModel.h"
@@ -32,15 +32,10 @@
 
 namespace
 {
-    // Maps a glTF material to a PrimitiveBuilder. This optimization combines all primitives which use
-    // the same material into a single primitive for reduced draw calls. Each primitive's vertex specifies
-    // which node it corresponds to any appropriate node transformation be happen in the shader.
-    using PrimitiveBuilderMap = std::map<int, Pbr::PrimitiveBuilder>;
-
     // Load a glTF node from the tinygltf object model. This will process the node's mesh (if specified) and then recursively load the child
     // nodes too.
     void LoadNode(Pbr::NodeIndex_t parentNodeIndex, const tinygltf::Model& gltfModel, int nodeId,
-                  GltfHelper::PrimitiveCache& primitiveCache, PrimitiveBuilderMap& primitiveBuilderMap, Pbr::Model& model)
+                  GltfHelper::PrimitiveCache& primitiveCache, Gltf::PrimitiveBuilderMap& primitiveBuilderMap, Pbr::Model& model)
     {
         const tinygltf::Node& gltfNode = gltfModel.nodes.at(nodeId);
 
@@ -101,19 +96,46 @@ namespace
 
 namespace Gltf
 {
-    void PopulateFromGltfObject(Pbr::Model& model, Pbr::IResources& pbrResources, const tinygltf::Model& gltfModel)
+    void ModelBuilder::SharedInit()
     {
-        // Read and transform mesh/node data. Primitives with the same material are merged to reduce draw calls.
-        PrimitiveBuilderMap primitiveBuilderMap;
-        GltfHelper::PrimitiveCache primitiveCache{gltfModel};
-        {
-            const int defaultSceneId = (gltfModel.defaultScene == -1) ? 0 : gltfModel.defaultScene;
-            const tinygltf::Scene& defaultScene = gltfModel.scenes.at(defaultSceneId);
+        m_pbrModel = std::make_shared<Pbr::Model>();
 
-            // Process the root scene nodes. The children will be processed recursively.
-            for (const int rootNodeId : defaultScene.nodes) {
-                LoadNode(Pbr::RootNodeIndex, gltfModel, rootNodeId, primitiveCache, primitiveBuilderMap, model);
-            }
+        GltfHelper::PrimitiveCache primitiveCache{*m_gltfModel};
+
+        const int defaultSceneId = (m_gltfModel->defaultScene == -1) ? 0 : m_gltfModel->defaultScene;
+        const tinygltf::Scene& defaultScene = m_gltfModel->scenes.at(defaultSceneId);
+
+        // Process the root scene nodes. The children will be processed recursively.
+        for (const int rootNodeId : defaultScene.nodes) {
+            LoadNode(Pbr::RootNodeIndex, *m_gltfModel, rootNodeId, primitiveCache, m_primitiveBuilderMap, *m_pbrModel);
+        }
+    }
+
+    ModelBuilder::ModelBuilder(std::shared_ptr<const tinygltf::Model> gltfModel) : m_gltfModel(std::move(gltfModel))
+    {
+        SharedInit();
+    }
+    ModelBuilder::ModelBuilder(const uint8_t* buffer, uint32_t bufferBytes)
+    {
+        // Parse the GLB buffer data into a tinygltf model object.
+        auto gltfModel = std::make_shared<tinygltf::Model>();
+        std::string errorMessage;
+        tinygltf::TinyGLTF loader;
+        loader.SetImageLoader(GltfHelper::PassThroughKTX2, nullptr);
+        if (!loader.LoadBinaryFromMemory(&*gltfModel, &errorMessage, nullptr /*warn*/, buffer, bufferBytes, ".")) {
+            const auto msg =
+                std::string("\r\nFailed to load gltf model (") + std::to_string(bufferBytes) + " bytes). Error: " + errorMessage;
+            throw std::runtime_error(msg.c_str());
+        }
+
+        m_gltfModel = std::move(gltfModel);
+        SharedInit();
+    }
+
+    std::shared_ptr<Pbr::Model> ModelBuilder::Build(Pbr::IGltfBuilder& gltfBuilder)
+    {
+        if (m_pbrModel == nullptr) {
+            throw std::logic_error("ModelBuilder::Build has no model - must not be called more than once");
         }
 
         // Load the materials referenced by the primitives
@@ -121,26 +143,26 @@ namespace Gltf
         {
             // primitiveBuilderMap is grouped by material. Loop through the referenced materials and load their resources. This will only
             // load materials which are used by the active scene.
-            for (const auto& primitiveBuilderPair : primitiveBuilderMap) {
+            for (const auto& primitiveBuilderPair : m_primitiveBuilderMap) {
                 std::shared_ptr<Pbr::Material> pbrMaterial;
 
                 const int materialIndex = primitiveBuilderPair.first;
                 if (materialIndex == -1)  // No material was referenced. Make up a material for it.
                 {
                     // Default material is a grey material, 50% roughness, non-metallic.
-                    pbrMaterial = pbrResources.CreateFlatMaterial({0.5f, 0.5f, 0.5f, 0.5f}, 0.5f);
+                    pbrMaterial = gltfBuilder.CreateFlatMaterial({0.5f, 0.5f, 0.5f, 0.5f}, 0.5f);
                 }
                 else {
-                    const tinygltf::Material& gltfMaterial = gltfModel.materials.at(materialIndex);
+                    const tinygltf::Material& gltfMaterial = m_gltfModel->materials.at(materialIndex);
 
-                    const GltfHelper::Material material = GltfHelper::ReadMaterial(gltfModel, gltfMaterial);
-                    pbrMaterial = pbrResources.CreateMaterial();
+                    const GltfHelper::Material material = GltfHelper::ReadMaterial(*m_gltfModel, gltfMaterial);
+                    pbrMaterial = gltfBuilder.CreateMaterial();
 
                     pbrMaterial->Name = gltfMaterial.name;
 
                     auto loadTexture = [&](Pbr::ShaderSlots::PSMaterial slot, const GltfHelper::Material::Texture& texture, bool sRGB,
                                            Pbr::RGBAColor defaultRGBA) {
-                        pbrResources.LoadTexture(pbrMaterial, slot, texture.Image, texture.Sampler, sRGB, defaultRGBA);
+                        gltfBuilder.LoadTexture(pbrMaterial, slot, texture.Image, texture.Sampler, sRGB, defaultRGBA);
                     };
                     loadTexture(Pbr::ShaderSlots::BaseColor, material.BaseColorTexture, true /* sRGB */, Pbr::RGBA::White);
                     loadTexture(Pbr::ShaderSlots::MetallicRoughness, material.MetallicRoughnessTexture, false /* sRGB */, Pbr::RGBA::White);
@@ -168,28 +190,18 @@ namespace Gltf
         }
 
         // Convert the primitive builders into primitives with their respective material and add it into the Pbr Model.
-        for (const auto& primitiveBuilderPair : primitiveBuilderMap) {
+        for (const auto& primitiveBuilderPair : m_primitiveBuilderMap) {
             const Pbr::PrimitiveBuilder& primitiveBuilder = primitiveBuilderPair.second;
             const std::shared_ptr<Pbr::Material>& material = materialMap.find(primitiveBuilderPair.first)->second;
-            auto handle = pbrResources.MakePrimitive(primitiveBuilder, material);
-            model.AddPrimitive(handle);
+            auto handle = gltfBuilder.MakePrimitive(primitiveBuilder, material);
+            m_pbrModel->AddPrimitive(handle);
         }
 
-        pbrResources.DropLoaderCaches();
-    }
+        gltfBuilder.DropLoaderCaches();
 
-    void PopulateFromGltfBinary(Pbr::Model& model, Pbr::IResources& pbrResources, const uint8_t* buffer, uint32_t bufferBytes)
-    {
-        // Parse the GLB buffer data into a tinygltf model object.
-        tinygltf::Model gltfModel;
-        std::string errorMessage;
-        tinygltf::TinyGLTF loader;
-        if (!loader.LoadBinaryFromMemory(&gltfModel, &errorMessage, nullptr /*warn*/, buffer, bufferBytes, ".")) {
-            const auto msg =
-                std::string("\r\nFailed to load gltf model (") + std::to_string(bufferBytes) + " bytes). Error: " + errorMessage;
-            throw std::runtime_error(msg.c_str());
-        }
+        m_gltfModel = nullptr;
+        m_primitiveBuilderMap = {};
 
-        PopulateFromGltfObject(model, pbrResources, gltfModel);
+        return std::move(m_pbrModel);
     }
 }  // namespace Gltf

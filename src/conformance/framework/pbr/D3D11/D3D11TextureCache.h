@@ -21,6 +21,7 @@ namespace Pbr
 {
     template <typename T>
     using ComPtr = Microsoft::WRL::ComPtr<T>;
+    struct D3D11Resources;
 
     /// Cache of single-color textures.
     ///
@@ -28,21 +29,15 @@ namespace Pbr
     class D3D11TextureCache
     {
     public:
-        /// Default constructor makes an invalid cache.
-        D3D11TextureCache() = default;
+        D3D11TextureCache();
 
         D3D11TextureCache(D3D11TextureCache&&) = default;
         D3D11TextureCache& operator=(D3D11TextureCache&&) = default;
 
         explicit D3D11TextureCache(ID3D11Device* device);
 
-        bool IsValid() const noexcept
-        {
-            return m_device != nullptr;
-        }
-
         /// Find or create a single pixel texture of the given color
-        ComPtr<ID3D11ShaderResourceView> CreateTypedSolidColorTexture(XrColor4f color);
+        ComPtr<ID3D11ShaderResourceView> CreateTypedSolidColorTexture(const Pbr::D3D11Resources& pbrResources, XrColor4f color, bool sRGB);
 
     private:
         ComPtr<ID3D11Device> m_device;

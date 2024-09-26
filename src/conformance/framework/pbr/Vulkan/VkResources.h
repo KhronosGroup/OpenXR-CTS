@@ -10,7 +10,8 @@
 
 #include "VkCommon.h"
 
-#include "../IResources.h"
+#include <utilities/image.h>
+#include "../IGltfBuilder.h"
 #include "../PbrCommon.h"
 #include "../PbrHandles.h"
 #include "../PbrSharedState.h"
@@ -46,6 +47,8 @@ namespace tinygltf
 
 namespace Pbr
 {
+    using nonstd::span;
+
     struct Primitive;
     struct Material;
     struct VulkanTextureBundle;
@@ -94,7 +97,7 @@ namespace Pbr
     };
 
     /// Global PBR resources required for rendering a scene.
-    struct VulkanResources final : public IResources
+    struct VulkanResources final : public IGltfBuilder
     {
         VulkanResources(const VulkanDebugObjectNamer& namer, VkPhysicalDevice physicalDevice, VkDevice device, uint32_t queueFamilyIndex);
         VulkanResources(VulkanResources&&) noexcept;
@@ -104,7 +107,6 @@ namespace Pbr
         std::shared_ptr<Material> CreateFlatMaterial(RGBAColor baseColorFactor, float roughnessFactor = 1.0f, float metallicFactor = 0.0f,
                                                      RGBColor emissiveFactor = RGB::Black) override;
         std::shared_ptr<Material> CreateMaterial() override;
-        std::shared_ptr<ITexture> CreateSolidColorTexture(RGBAColor color);
 
         void LoadTexture(const std::shared_ptr<Material>& pbrMaterial, Pbr::ShaderSlots::PSMaterial slot, const tinygltf::Image* image,
                          const tinygltf::Sampler* sampler, bool sRGB, Pbr::RGBAColor defaultRGBA) override;
@@ -132,7 +134,11 @@ namespace Pbr
 
         /// Many 1x1 pixel colored textures are used in the PBR system. This is used to create textures backed by a cache to reduce the
         /// number of textures created.
-        std::shared_ptr<VulkanTextureBundle> CreateTypedSolidColorTexture(RGBAColor color);
+        std::shared_ptr<VulkanTextureBundle> CreateTypedSolidColorTexture(RGBAColor color, bool sRGB);
+
+        /// Get the cached list of texture formats supported by the device
+        /// Note: these formats are not guaranteed to support cubemap
+        span<const Conformance::Image::FormatParams> GetSupportedFormats() const;
 
         /// Update the scene buffer in GPU memory.
         void UpdateBuffer() const;
@@ -162,10 +168,11 @@ namespace Pbr
         void DestroyAfterRender(Conformance::BufferAndMemory buffer) const;
 
     private:
-        std::unique_ptr<VulkanWriteDescriptorSets>
-        BuildWriteDescriptorSets(VkDescriptorBufferInfo modelConstantBuffer, VkDescriptorBufferInfo materialConstantBuffer,
-                                 VkDescriptorBufferInfo transformBuffer, nonstd::span<VkDescriptorImageInfo> materialCombinedImageSamplers,
-                                 VkDescriptorSet dstSet);
+        std::unique_ptr<VulkanWriteDescriptorSets> BuildWriteDescriptorSets(VkDescriptorBufferInfo modelConstantBuffer,
+                                                                            VkDescriptorBufferInfo materialConstantBuffer,
+                                                                            VkDescriptorBufferInfo transformBuffer,
+                                                                            span<VkDescriptorImageInfo> materialCombinedImageSamplers,
+                                                                            VkDescriptorSet dstSet);
         friend struct VulkanMaterial;
         friend struct VulkanPrimitive;
 

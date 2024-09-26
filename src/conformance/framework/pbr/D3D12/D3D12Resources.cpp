@@ -15,6 +15,7 @@
 #include "D3D12Texture.h"
 #include "D3D12TextureCache.h"
 
+#include "../D3DCommon.h"
 #include "../../RGBAImage.h"
 #include "../../gltf/GltfHelper.h"
 #include "../PbrMaterial.h"
@@ -69,6 +70,23 @@ namespace
 
     const CD3DX12_DESCRIPTOR_RANGE s_constantBufferDesc = CD3DX12_DESCRIPTOR_RANGE{D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, 0};
 
+    std::vector<Conformance::Image::FormatParams> MakeSupportedFormatsList(ID3D12Device* device)
+    {
+        std::vector<Conformance::Image::FormatParams> supported;
+        for (auto& format : Pbr::GetDXGIFormatMap()) {
+            D3D12_FEATURE_DATA_FORMAT_SUPPORT formatSupport = {format.second, D3D12_FORMAT_SUPPORT1_NONE, D3D12_FORMAT_SUPPORT2_NONE};
+            HRESULT result = device->CheckFeatureSupport(D3D12_FEATURE_FORMAT_SUPPORT, &formatSupport, sizeof(formatSupport));
+            if (result != S_OK) {
+                continue;
+            }
+            if (~formatSupport.Support1 &
+                (D3D12_FORMAT_SUPPORT1_TEXTURE2D | D3D12_FORMAT_SUPPORT1_SHADER_SAMPLE | D3D12_FORMAT_SUPPORT1_MIP)) {
+                continue;
+            }
+            supported.push_back(format.first);
+        }
+        return supported;
+    }
 }  // namespace
 
 namespace Pbr
@@ -141,12 +159,6 @@ namespace Pbr
         {
             Resources.Device = device;
 
-            Resources.CopyQueue = std::make_unique<Conformance::D3D12QueueWrapper>(device, D3D12_COMMAND_LIST_TYPE_COPY);
-
-            XRC_CHECK_THROW_HRCMD(
-                device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_COPY, __uuidof(ID3D12CommandAllocator),
-                                               reinterpret_cast<void**>(Resources.CopyAllocator.ReleaseAndGetAddressOf())));
-
             Resources.RootSignature = RootSig::CreateRootSig(device);
             Resources.PipelineStates = std::make_unique<D3D12PipelineStates>(Resources.RootSignature, basePipelineStateDesc, s_vertexDesc,
                                                                              g_PbrVertexShader, g_PbrPixelShader);
@@ -196,7 +208,7 @@ namespace Pbr
             D3D12Texture::CreateSampler(device, Resources.BrdfSamplerDescriptor);
             D3D12Texture::CreateSampler(device, Resources.EnvironmentMapSamplerDescriptor);
 
-            Resources.SolidColorTextureCache = D3D12TextureCache{device};
+            Resources.SupportedTextureFormats = MakeSupportedFormatsList(device);
         }
 
         /// Things we might want per frame eventually
@@ -215,9 +227,6 @@ namespace Pbr
         {
             Microsoft::WRL::ComPtr<ID3D12Device> Device;
 
-            std::unique_ptr<Conformance::D3D12QueueWrapper> CopyQueue;
-            Microsoft::WRL::ComPtr<ID3D12CommandAllocator> CopyAllocator;
-            Conformance::DestructionQueue<Microsoft::WRL::ComPtr<ID3D12Resource>> DestructionQueue;
             Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> TransformHeap;
             Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> TextureHeap;
             Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> SamplerHeap;
@@ -232,6 +241,7 @@ namespace Pbr
             Microsoft::WRL::ComPtr<ID3D12RootSignature> RootSignature;
             Conformance::D3D12BufferWithUpload<SceneConstantBuffer> SceneConstantBuffer;
             std::unique_ptr<D3D12PipelineStates> PipelineStates{};
+            std::vector<Conformance::Image::FormatParams> SupportedTextureFormats;
             mutable D3D12TextureCache SolidColorTextureCache;
         };
         PrimitiveCollection<D3D12Primitive> Primitives;
@@ -259,34 +269,28 @@ namespace Pbr
 
     D3D12Resources::~D3D12Resources() = default;
 
-    /* IResources implementations */
-    std::shared_ptr<Material> D3D12Resources::CreateFlatMaterial(RGBAColor baseColorFactor, float roughnessFactor, float metallicFactor,
-                                                                 RGBColor emissiveFactor)
+    /* IGltfBuilder implementations */
+    std::shared_ptr<Material> D3D12Resources::CreateFlatMaterial(ID3D12GraphicsCommandList* copyCommandList,
+                                                                 StagingResources stagingResources, RGBAColor baseColorFactor,
+                                                                 float roughnessFactor, float metallicFactor, RGBColor emissiveFactor)
     {
-        return D3D12Material::CreateFlat(*this, baseColorFactor, roughnessFactor, metallicFactor, emissiveFactor);
+        return D3D12Material::CreateFlat(*this, copyCommandList, stagingResources, baseColorFactor, roughnessFactor, metallicFactor,
+                                         emissiveFactor);
     }
     std::shared_ptr<Material> D3D12Resources::CreateMaterial()
     {
         return std::make_shared<D3D12Material>(*this);
     }
-    std::shared_ptr<ITexture> D3D12Resources::CreateSolidColorTexture(RGBAColor color)
-    {
-        // TODO maybe unused
-        auto ret = std::make_shared<Pbr::D3D12TextureAndSampler>();
-        ret->texture = CreateTypedSolidColorTexture(color);
-        return ret;
-    }
 
     // Create a DirectX texture view from a tinygltf Image.
-    static Conformance::D3D12ResourceWithSRVDesc LoadGLTFImage(D3D12Resources& pbrResources, const tinygltf::Image& image, bool sRGB)
+    static Conformance::D3D12ResourceWithSRVDesc LoadGLTFImage(D3D12Resources& pbrResources, ID3D12GraphicsCommandList* copyCommandList,
+                                                               StagingResources stagingResources, const tinygltf::Image& image, bool sRGB)
     {
         // First convert the image to RGBA if it isn't already.
         std::vector<uint8_t> tempBuffer;
-        const uint8_t* rgbaBuffer = GltfHelper::ReadImageAsRGBA(image, &tempBuffer);
-        Internal::ThrowIf(rgbaBuffer == nullptr, "Failed to read image");
+        Conformance::Image::Image decodedImage = GltfHelper::DecodeImage(image, sRGB, pbrResources.GetSupportedFormats(), tempBuffer);
 
-        const DXGI_FORMAT format = sRGB ? DXGI_FORMAT_R8G8B8A8_UNORM_SRGB : DXGI_FORMAT_R8G8B8A8_UNORM;
-        return D3D12Texture::CreateTexture(pbrResources, rgbaBuffer, 4, image.width, image.height, format);
+        return Pbr::D3D12Texture::CreateTexture(pbrResources, copyCommandList, stagingResources, decodedImage);
     }
 
     static D3D12_FILTER ConvertFilter(int glMinFilter, int glMagFilter)
@@ -333,7 +337,8 @@ namespace Pbr
 
         return samplerDesc;
     }
-    void D3D12Resources::LoadTexture(const std::shared_ptr<Material>& material, Pbr::ShaderSlots::PSMaterial slot,
+    void D3D12Resources::LoadTexture(ID3D12GraphicsCommandList* copyCommandList, StagingResources stagingResources,
+                                     const std::shared_ptr<Material>& material, Pbr::ShaderSlots::PSMaterial slot,
                                      const tinygltf::Image* image, const tinygltf::Sampler* sampler, bool sRGB, Pbr::RGBAColor defaultRGBA)
     {
         auto pbrMaterial = std::dynamic_pointer_cast<D3D12Material>(material);
@@ -344,13 +349,15 @@ namespace Pbr
         const ImageKey imageKey = std::make_tuple(image, sRGB);
         std::shared_ptr<Conformance::D3D12ResourceWithSRVDesc> textureView =
             image != nullptr ? m_impl->loaderResources.imageMap[imageKey]
-                             : std::make_shared<Conformance::D3D12ResourceWithSRVDesc>(CreateTypedSolidColorTexture(defaultRGBA));
+                             : std::make_shared<Conformance::D3D12ResourceWithSRVDesc>(
+                                   CreateTypedSolidColorTexture(copyCommandList, stagingResources, defaultRGBA, sRGB));
         if (!textureView)  // If not cached, load the image and store it in the texture cache.
         {
             // TODO: Generate mipmaps if sampler's minification filter (minFilter) uses mipmapping.
             // TODO: If texture is not power-of-two and (sampler has wrapping=repeat/mirrored_repeat OR minFilter uses
             // mipmapping), resize to power-of-two.
-            textureView = std::make_shared<Conformance::D3D12ResourceWithSRVDesc>(LoadGLTFImage(*this, *image, sRGB));
+            textureView = std::make_shared<Conformance::D3D12ResourceWithSRVDesc>(
+                LoadGLTFImage(*this, copyCommandList, stagingResources, *image, sRGB));
             m_impl->loaderResources.imageMap[imageKey] = textureView;
         }
 
@@ -394,22 +401,6 @@ namespace Pbr
     Microsoft::WRL::ComPtr<ID3D12Device> D3D12Resources::GetDevice() const
     {
         return m_impl->Resources.Device;
-    }
-
-    Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> D3D12Resources::CreateCopyCommandList() const
-    {
-        Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmdList;
-        XRC_CHECK_THROW_HRCMD(GetDevice()->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_COPY, m_impl->Resources.CopyAllocator.Get(),
-                                                             nullptr, __uuidof(ID3D12GraphicsCommandList),
-                                                             reinterpret_cast<void**>(cmdList.ReleaseAndGetAddressOf())));
-        return cmdList;
-    }
-
-    void D3D12Resources::ExecuteCopyCommandList(ID3D12GraphicsCommandList* cmdList,
-                                                std::vector<Microsoft::WRL::ComPtr<ID3D12Resource>> destroyAfterCopy) const
-    {
-        Internal::ThrowIf(!m_impl->Resources.CopyQueue->ExecuteCommandList(cmdList), "ExecuteCommandList failed");
-        m_impl->Resources.DestructionQueue.PushResources(m_impl->Resources.CopyQueue->GetSignaledFenceValue(), std::move(destroyAfterCopy));
     }
 
     void D3D12Resources::SetTransforms(D3D12_CPU_DESCRIPTOR_HANDLE transformDescriptor)
@@ -479,17 +470,30 @@ namespace Pbr
                                               m_impl->Resources.DiffuseEnvMapTextureDescriptor);
     }
 
-    Conformance::D3D12ResourceWithSRVDesc D3D12Resources::CreateTypedSolidColorTexture(RGBAColor color)
+    Conformance::D3D12ResourceWithSRVDesc D3D12Resources::CreateTypedSolidColorTexture(ID3D12GraphicsCommandList* copyCommandList,
+                                                                                       StagingResources stagingResources, RGBAColor color,
+                                                                                       bool sRGB)
     {
-        return m_impl->Resources.SolidColorTextureCache.CreateTypedSolidColorTexture(*this, color);
+        return m_impl->Resources.SolidColorTextureCache.CreateTypedSolidColorTexture(*this, copyCommandList, stagingResources, color, sRGB);
+    }
+
+    span<const Conformance::Image::FormatParams> D3D12Resources::GetSupportedFormats() const
+    {
+        if (m_impl->Resources.SupportedTextureFormats.size() == 0) {
+            throw std::logic_error("SupportedTextureFormats empty or not yet populated");
+        }
+        return m_impl->Resources.SupportedTextureFormats;
     }
 
     void D3D12Resources::Bind(_In_ ID3D12GraphicsCommandList* directCommandList) const
     {
         directCommandList->SetGraphicsRootSignature(m_impl->Resources.RootSignature.Get());
 
-        WithCopyCommandList(
-            [&](ID3D12GraphicsCommandList* cmdList) { m_impl->Resources.SceneConstantBuffer.AsyncUpload(cmdList, &m_impl->SceneBuffer); });
+        m_impl->Resources.SceneConstantBuffer.AsyncUpload(directCommandList, &m_impl->SceneBuffer);
+        D3D12_RESOURCE_BARRIER barrier = CD3DX12_RESOURCE_BARRIER::Transition(
+            m_impl->Resources.SceneConstantBuffer.GetResource(), D3D12_RESOURCE_STATE_COPY_DEST,
+            D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE | D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+        directCommandList->ResourceBarrier(1, &barrier);
     }
 
     void D3D12Resources::BindConstantBufferViews(_In_ ID3D12GraphicsCommandList* directCommandList,
@@ -523,19 +527,14 @@ namespace Pbr
                                                           samplerDescriptorHeap->GetGPUDescriptorHandleForHeapStart());
     }
 
-    std::pair<ID3D12Fence*, uint64_t> D3D12Resources::GetFenceAndValue() const
-    {
-        return std::make_pair(m_impl->Resources.CopyQueue->GetFence().Get(), m_impl->Resources.CopyQueue->GetSignaledFenceValue());
-    }
-
-    PrimitiveHandle D3D12Resources::MakePrimitive(const Pbr::PrimitiveBuilder& primitiveBuilder,
+    PrimitiveHandle D3D12Resources::MakePrimitive(ID3D12GraphicsCommandList* copyCommandList, const Pbr::PrimitiveBuilder& primitiveBuilder,
                                                   const std::shared_ptr<Pbr::Material>& material)
     {
         auto typedMaterial = std::dynamic_pointer_cast<Pbr::D3D12Material>(material);
         if (!typedMaterial) {
             throw std::logic_error("Got the wrong type of material");
         }
-        return m_impl->Primitives.emplace_back(*this, primitiveBuilder, typedMaterial);
+        return m_impl->Primitives.emplace_back(*this, copyCommandList, primitiveBuilder, typedMaterial);
     }
 
     D3D12Primitive& D3D12Resources::GetPrimitive(PrimitiveHandle p)
@@ -571,6 +570,51 @@ namespace Pbr
     void D3D12Resources::SetDepthDirection(DepthDirection depthDirection)
     {
         m_sharedState.SetDepthDirection(depthDirection);
+    }
+
+    D3D12GltfBuilder D3D12Resources::MakeGltfBuilder(ID3D12GraphicsCommandList* copyCommandList)
+    {
+        return D3D12GltfBuilder{*this, copyCommandList};
+    }
+
+    D3D12GltfBuilder::D3D12GltfBuilder(D3D12Resources& pbrResources, ID3D12GraphicsCommandList* copyCommandList)
+        : m_pbrResources(pbrResources), m_copyCmdList(copyCommandList)
+    {
+    }
+    D3D12GltfBuilder::~D3D12GltfBuilder()
+    {
+    }
+
+    std::shared_ptr<Material> D3D12GltfBuilder::CreateFlatMaterial(RGBAColor baseColorFactor, float roughnessFactor, float metallicFactor,
+                                                                   RGBColor emissiveFactor)
+    {
+        return m_pbrResources.CreateFlatMaterial(m_copyCmdList, std::back_inserter(m_stagingResources), baseColorFactor, roughnessFactor,
+                                                 metallicFactor, emissiveFactor);
+    }
+    std::shared_ptr<Material> D3D12GltfBuilder::CreateMaterial()
+    {
+        return m_pbrResources.CreateMaterial();
+    }
+
+    void D3D12GltfBuilder::LoadTexture(const std::shared_ptr<Material>& pbrMaterial, Pbr::ShaderSlots::PSMaterial slot,
+                                       const tinygltf::Image* image, const tinygltf::Sampler* sampler, bool sRGB,
+                                       Pbr::RGBAColor defaultRGBA)
+    {
+        return m_pbrResources.LoadTexture(m_copyCmdList, std::back_inserter(m_stagingResources), pbrMaterial, slot, image, sampler, sRGB,
+                                          defaultRGBA);
+    }
+    PrimitiveHandle D3D12GltfBuilder::MakePrimitive(const Pbr::PrimitiveBuilder& primitiveBuilder,
+                                                    const std::shared_ptr<Pbr::Material>& material)
+    {
+        return m_pbrResources.MakePrimitive(m_copyCmdList, primitiveBuilder, material);
+    }
+    void D3D12GltfBuilder::DropLoaderCaches()
+    {
+        return m_pbrResources.DropLoaderCaches();
+    }
+    std::vector<Microsoft::WRL::ComPtr<ID3D12Resource>> D3D12GltfBuilder::TakeStagingResources()
+    {
+        return std::move(m_stagingResources);
     }
 }  // namespace Pbr
 

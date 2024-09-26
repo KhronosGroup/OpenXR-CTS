@@ -61,17 +61,17 @@ namespace Pbr
 
         auto defaultSampler = std::make_shared<Conformance::ScopedVkSampler>(Pbr::VulkanTexture::CreateSampler(pbrResources.GetDevice()),
                                                                              pbrResources.GetDevice());
-        auto setDefaultTexture = [&](Pbr::ShaderSlots::PSMaterial slot, Pbr::RGBAColor defaultRGBA) {
-            material->SetTexture(slot, pbrResources.CreateTypedSolidColorTexture(defaultRGBA), defaultSampler);
+        auto setDefaultTexture = [&](Pbr::ShaderSlots::PSMaterial slot, Pbr::RGBAColor defaultRGBA, bool sRGB) {
+            material->SetTexture(slot, pbrResources.CreateTypedSolidColorTexture(defaultRGBA, sRGB), defaultSampler);
         };
 
-        setDefaultTexture(ShaderSlots::BaseColor, RGBA::White);
-        setDefaultTexture(ShaderSlots::MetallicRoughness, RGBA::White);
+        setDefaultTexture(ShaderSlots::BaseColor, RGBA::White, true);
+        setDefaultTexture(ShaderSlots::MetallicRoughness, RGBA::White, false);
         // No occlusion.
-        setDefaultTexture(ShaderSlots::Occlusion, RGBA::White);
+        setDefaultTexture(ShaderSlots::Occlusion, RGBA::White, false);
         // Flat normal.
-        setDefaultTexture(ShaderSlots::Normal, RGBA::FlatNormal);
-        setDefaultTexture(ShaderSlots::Emissive, RGBA::White);
+        setDefaultTexture(ShaderSlots::Normal, RGBA::FlatNormal, false);
+        setDefaultTexture(ShaderSlots::Emissive, RGBA::White, true);
 
         return material;
     }

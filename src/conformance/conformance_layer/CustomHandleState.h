@@ -16,10 +16,17 @@
 
 #pragma once
 
-#include "Common.h"
 #include "HandleState.h"
 
+#include <openxr/openxr.h>
+
 #include <atomic>
+#include <mutex>
+#include <queue>
+#include <stdint.h>
+#include <vector>
+
+struct HandleState;
 
 //
 // XrInstance

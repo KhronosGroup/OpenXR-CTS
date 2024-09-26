@@ -27,7 +27,7 @@ namespace action
 
     CustomActionState* GetCustomActionState(XrAction handle)
     {
-        return dynamic_cast<CustomActionState*>(GetActionState(handle)->customState.get());
+        return dynamic_cast<CustomActionState*>(GetActionState(handle)->GetCustomState());
     }
 }  // namespace action
 
@@ -42,7 +42,7 @@ XrResult ConformanceHooks::xrCreateAction(XrActionSet actionSet, const XrActionC
     const XrResult result = ConformanceHooksBase::xrCreateAction(actionSet, createInfo, action);
     if (XR_SUCCEEDED(result)) {
         // Tag on the custom action state to the generated handle state.
-        GetActionState(*action)->customState = std::unique_ptr<CustomActionState>(new CustomActionState(createInfo));
+        GetActionState(*action)->SetCustomState(std::make_unique<CustomActionState>(createInfo));
     }
     return result;
 }

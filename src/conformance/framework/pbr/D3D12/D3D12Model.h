@@ -35,7 +35,7 @@ namespace Pbr
 
     private:
         /// Update the transforms used to render the model. This needs to be called any time a node transform is changed.
-        void UpdateTransforms(Pbr::D3D12Resources& pbrResources);
+        void UpdateTransforms(Pbr::D3D12Resources& pbrResources, ID3D12GraphicsCommandList* directCommandList);
 
         ModelConstantBuffer m_modelBuffer;
         Conformance::D3D12BufferWithUpload<ModelConstantBuffer> m_modelConstantBuffer;

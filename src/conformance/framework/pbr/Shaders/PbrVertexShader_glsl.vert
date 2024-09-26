@@ -68,10 +68,6 @@ void main()
     vec3 bitangentW = cross(normalW, tangentW) * in_var_TANGENT.w;
     varying_TANGENT = mat3(tangentW, bitangentW, normalW);
 
-#ifdef VULKAN
     varying_TEXCOORD0 = in_var_TEXCOORD0;
-#else
-    varying_TEXCOORD0 = vec2(in_var_TEXCOORD0.x, (1.0 - in_var_TEXCOORD0.y));
-#endif
     varying_COLOR0 = in_var_COLOR0;
 }

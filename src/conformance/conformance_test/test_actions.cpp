@@ -986,9 +986,10 @@ namespace Conformance
                 getInfo.action = poseAction;
                 REQUIRE_RESULT(xrGetActionStatePose(session, &getInfo, &poseState), XR_ERROR_ACTIONSET_NOT_ATTACHED);
 
-                REQUIRE_RESULT(xrApplyHapticFeedback(session, &hapticActionInfo, reinterpret_cast<XrHapticBaseHeader*>(&hapticPacket)),
-                               XR_ERROR_ACTIONSET_NOT_ATTACHED);
-                REQUIRE_RESULT(xrStopHapticFeedback(session, &hapticActionInfo), XR_ERROR_ACTIONSET_NOT_ATTACHED);
+                XrResult result = xrApplyHapticFeedback(session, &hapticActionInfo, reinterpret_cast<XrHapticBaseHeader*>(&hapticPacket));
+                REQUIRE_THAT(result, In<XrResult>({XR_SESSION_NOT_FOCUSED, XR_ERROR_ACTIONSET_NOT_ATTACHED}));
+                result = xrStopHapticFeedback(session, &hapticActionInfo);
+                REQUIRE_THAT(result, In<XrResult>({XR_SESSION_NOT_FOCUSED, XR_ERROR_ACTIONSET_NOT_ATTACHED}));
 
                 REQUIRE_RESULT(xrAttachSessionActionSets(session, &attachInfo), XR_SUCCESS);
 
@@ -3238,7 +3239,7 @@ namespace Conformance
 
     TEST_CASE("action_space_creation-noninteractive", "[actions]")
     {
-        CompositionHelper compositionHelper("action_space_creation-noninteractive");
+        CompositionHelper compositionHelper("action_space_creation-noni");
         compositionHelper.BeginSession();
         ActionLayerManager actionLayerManager(compositionHelper);
 
@@ -3352,8 +3353,8 @@ namespace Conformance
         syncInfo.activeActionSets = &activeActionSet;
         actionLayerManager.SyncActionsUntilFocusWithMessage(syncInfo);
 
-        XrSpaceLocation earlyLocation{XR_TYPE_SPACE_LOCATION, nullptr};
-        XrSpaceLocation lateLocation{XR_TYPE_SPACE_LOCATION, nullptr};
+        XrSpaceLocation earlyLocation{XR_TYPE_SPACE_LOCATION};
+        XrSpaceLocation lateLocation{XR_TYPE_SPACE_LOCATION};
         REQUIRE(actionLayerManager.WaitForLocatability(useLeftHand ? "left" : "right", lateActionSpace, localSpace, &lateLocation, true));
 
         XrTime locateTime =
@@ -3462,16 +3463,6 @@ namespace Conformance
             syncInfo.countActiveActionSets = 2;
             syncInfo.activeActionSets = bothSets;
 
-            auto PosesAreEqual = [](XrPosef a, XrPosef b) -> bool {
-                constexpr float e = 0.002f;  // 1mm (margin below means absolute delta)
-                return (a.position.x == Catch::Approx(b.position.x).margin(e)) && (a.position.y == Catch::Approx(b.position.y).margin(e)) &&
-                       (a.position.z == Catch::Approx(b.position.z).margin(e)) &&
-                       (a.orientation.x == Catch::Approx(b.orientation.x).margin(e)) &&
-                       (a.orientation.y == Catch::Approx(b.orientation.y).margin(e)) &&
-                       (a.orientation.z == Catch::Approx(b.orientation.z).margin(e)) &&
-                       (a.orientation.w == Catch::Approx(b.orientation.w).margin(e));
-            };
-
             if (globalData.leftHandUnderTest && globalData.rightHandUnderTest) {
                 // two-handed tests
                 // If we tell them to place the controllers somewhere they don't move,
@@ -3515,8 +3506,8 @@ namespace Conformance
                 REQUIRE_RESULT(xrLocateSpace(rightSpace, localSpace, locateTime, &rightRelation), XR_SUCCESS);
                 REQUIRE(currentRelation.locationFlags != 0);
                 REQUIRE(leftRelation.locationFlags != 0);
-                REQUIRE(PosesAreEqual(currentRelation.pose, leftRelation.pose));
-                REQUIRE_FALSE(PosesAreEqual(leftRelation.pose, rightRelation.pose));
+                REQUIRE(Pose::ApproxEqual(currentRelation.pose, leftRelation.pose));
+                REQUIRE_FALSE(Pose::ApproxEqual(leftRelation.pose, rightRelation.pose));
 
                 // Try making sure action spaces don't un-stick from actions without an xrSyncActions
                 // Making right active to tempt the runtime
@@ -3634,7 +3625,10 @@ namespace Conformance
 
                 // Tries to locate the controller space, and returns the location flags.
                 auto checkTrackingFlags = [&]() -> XrSpaceLocationFlags {
-                    XrSpaceLocation location{XR_TYPE_SPACE_LOCATION, nullptr, 0, Pose::Identity};
+                    XrSpaceLocation location{XR_TYPE_SPACE_LOCATION};
+                    location.locationFlags = 0;
+                    location.pose = Pose::Identity;
+
                     REQUIRE_RESULT(xrLocateSpace(actionSpaceWithSubactionPath, localSpace,
                                                  actionLayerManager.GetRenderLoop().GetLastPredictedDisplayTime(), &location),
                                    XR_SUCCESS);
@@ -3643,7 +3637,10 @@ namespace Conformance
 
                 // Gets the action state for the pose action, and returns whether isActive is XR_TRUE.
                 auto getActionStatePoseActive = [&] {
-                    const auto getInfo = XrActionStateGetInfo{XR_TYPE_ACTION_STATE_GET_INFO, nullptr, poseAction, controllerSubactionPath};
+                    XrActionStateGetInfo getInfo{XR_TYPE_ACTION_STATE_GET_INFO};
+                    getInfo.action = poseAction;
+                    getInfo.subactionPath = controllerSubactionPath;
+
                     XrActionStatePose statePose{XR_TYPE_ACTION_STATE_POSE};
                     REQUIRE_RESULT(xrGetActionStatePose(session, &getInfo, &statePose), XR_SUCCESS);
                     return statePose.isActive == XR_TRUE;
@@ -3717,7 +3714,7 @@ namespace Conformance
                     REQUIRE(relationWithoutSubactionPath.locationFlags != 0);
                     CAPTURE(relationWithoutSubactionPath.pose);
 
-                    REQUIRE(PosesAreEqual(relationWithoutSubactionPath.pose, relationWithSubactionPath.pose));
+                    REQUIRE(Pose::ApproxEqual(relationWithoutSubactionPath.pose, relationWithSubactionPath.pose));
                 }
 
                 {
@@ -3767,8 +3764,10 @@ namespace Conformance
                     {
                         INFO("xrGetActionStatePose with subactionPath populated: must be inactive");
 
-                        const auto getInfo =
-                            XrActionStateGetInfo{XR_TYPE_ACTION_STATE_GET_INFO, nullptr, poseAction, controllerSubactionPath};
+                        XrActionStateGetInfo getInfo{XR_TYPE_ACTION_STATE_GET_INFO};
+                        getInfo.action = poseAction;
+                        getInfo.subactionPath = controllerSubactionPath;
+
                         XrActionStatePose statePose{XR_TYPE_ACTION_STATE_POSE};
                         REQUIRE_RESULT(xrGetActionStatePose(session, &getInfo, &statePose), XR_SUCCESS);
                         REQUIRE(statePose.isActive == XR_FALSE);
@@ -3778,7 +3777,10 @@ namespace Conformance
                             "xrGetActionStatePose with subactionPath empty: must be inactive"
                             " (previously bound controller now off, and no other controller to bind to)");
 
-                        const auto getInfo = XrActionStateGetInfo{XR_TYPE_ACTION_STATE_GET_INFO, nullptr, poseAction, XR_NULL_PATH};
+                        XrActionStateGetInfo getInfo{XR_TYPE_ACTION_STATE_GET_INFO};
+                        getInfo.action = poseAction;
+                        getInfo.subactionPath = XR_NULL_PATH;
+
                         XrActionStatePose statePose{XR_TYPE_ACTION_STATE_POSE};
                         REQUIRE_RESULT(xrGetActionStatePose(session, &getInfo, &statePose), XR_SUCCESS);
                         REQUIRE(statePose.isActive == XR_FALSE);

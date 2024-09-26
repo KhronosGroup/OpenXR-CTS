@@ -57,7 +57,10 @@ namespace Conformance
 
         // We'll use this XrSession and XrSessionCreateInfo for testing below.
         XrSession session = XR_NULL_HANDLE_CPP;
-        XrSessionCreateInfo sessionCreateInfo{XR_TYPE_SESSION_CREATE_INFO, nullptr, 0, systemId};
+        XrSessionCreateInfo sessionCreateInfo{XR_TYPE_SESSION_CREATE_INFO};
+        sessionCreateInfo.createFlags = 0;
+        sessionCreateInfo.systemId = systemId;
+
         CleanupSessionOnScopeExit cleanup(session);
 
         SECTION("Missing graphics binding implies XR_ERROR_GRAPHICS_DEVICE_INVALID")
@@ -188,12 +191,17 @@ namespace Conformance
                     REQUIRE_NOTHROW(graphicsPlugin = Conformance::CreateGraphicsPlugin(globalData.options.graphicsPlugin.c_str(),
                                                                                        globalData.GetPlatformPlugin()));
                     REQUIRE(graphicsPlugin->Initialize());
+
+                    REQUIRE(graphicsPlugin->InitializeDevice(instance, systemId));
                 }
 
-                REQUIRE(graphicsPlugin->InitializeDevice(instance, systemId));
+                XrSessionCreateInfo sessionCreateInfo{XR_TYPE_SESSION_CREATE_INFO};
+                sessionCreateInfo.createFlags = 0;
+                sessionCreateInfo.systemId = systemId;
 
-                XrSessionCreateInfo sessionCreateInfo{XR_TYPE_SESSION_CREATE_INFO, nullptr, 0, systemId};
-                sessionCreateInfo.next = graphicsPlugin->GetGraphicsBinding();
+                if (!globalData.options.graphicsPlugin.empty()) {
+                    sessionCreateInfo.next = graphicsPlugin->GetGraphicsBinding();
+                }
 
                 XrSession session = XR_NULL_HANDLE_CPP;
                 REQUIRE(xrCreateSession(instance, &sessionCreateInfo, &session) == XR_SUCCESS);

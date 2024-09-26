@@ -94,10 +94,10 @@ namespace Conformance
         for (auto viewConfig : viewConfigTypes) {
             DYNAMIC_SECTION("Using enumerated view config " << viewConfig)
             {
-                // const XrViewConfigurationView empty = {XR_TYPE_VIEW_CONFIGURATION_VIEW, nullptr, }
+                // const XrViewConfigurationView empty = {XR_TYPE_VIEW_CONFIGURATION_VIEW}
                 auto viewConfigViews =
-                    REQUIRE_TWO_CALL(XrViewConfigurationView, {XR_TYPE_VIEW_CONFIGURATION_VIEW, nullptr, 0, 0, 0, 0, 0, 0},
-                                     xrEnumerateViewConfigurationViews, session.GetInstance(), session.GetSystemId(), viewConfig);
+                    REQUIRE_TWO_CALL(XrViewConfigurationView, {XR_TYPE_VIEW_CONFIGURATION_VIEW}, xrEnumerateViewConfigurationViews,
+                                     session.GetInstance(), session.GetSystemId(), viewConfig);
 
                 for (auto format : formats) {
                     // runtimes might support formats which are unknown to the conformance tests

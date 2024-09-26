@@ -27,13 +27,10 @@ namespace Pbr
     class GLTextureCache
     {
     public:
-        /// Default constructor makes an invalid cache.
-        GLTextureCache() = default;
+        GLTextureCache();
 
         GLTextureCache(GLTextureCache&&) = default;
         GLTextureCache& operator=(GLTextureCache&&) = default;
-
-        void Init();
 
         bool IsValid() const noexcept
         {
@@ -41,7 +38,7 @@ namespace Pbr
         }
 
         /// Find or create a single pixel texture of the given color
-        std::shared_ptr<ScopedGLTexture> CreateTypedSolidColorTexture(XrColor4f color);
+        std::shared_ptr<ScopedGLTexture> CreateTypedSolidColorTexture(XrColor4f color, bool sRGB);
 
     private:
         // in unique_ptr to make it moveable

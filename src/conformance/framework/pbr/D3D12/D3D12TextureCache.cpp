@@ -15,6 +15,7 @@
 #include "D3D12Texture.h"
 
 #include "../PbrMaterial.h"
+#include "../PbrTexture.h"
 
 #include "utilities/d3d12_utils.h"
 
@@ -24,18 +25,16 @@
 
 namespace Pbr
 {
-    D3D12TextureCache::D3D12TextureCache(ID3D12Device* device) : m_cacheMutex(std::make_unique<std::mutex>())
+    D3D12TextureCache::D3D12TextureCache() : m_cacheMutex(std::make_unique<std::mutex>())
     {
-        m_device = device;
     }
 
     Conformance::D3D12ResourceWithSRVDesc D3D12TextureCache::CreateTypedSolidColorTexture(Pbr::D3D12Resources& pbrResources,
-                                                                                          XrColor4f color)
+                                                                                          ID3D12GraphicsCommandList* copyCommandList,
+                                                                                          StagingResources stagingResources,
+                                                                                          XrColor4f color, bool sRGB)
     {
-        if (!IsValid()) {
-            throw std::logic_error("D3D12TextureCache accessed before initialization");
-        }
-        const std::array<uint8_t, 4> rgba = D3D12Texture::LoadRGBAUI4(color);
+        const std::array<uint8_t, 4> rgba = LoadRGBAUI4(color);
 
         // Check cache to see if this flat texture already exists.
         const uint32_t colorKey = *reinterpret_cast<const uint32_t*>(rgba.data());
@@ -47,8 +46,11 @@ namespace Pbr
             }
         }
 
-        Conformance::D3D12ResourceWithSRVDesc texture =
-            D3D12Texture::CreateTexture(pbrResources, rgba.data(), 4, 1, 1, DXGI_FORMAT_R8G8B8A8_UNORM);
+        auto formatParams = Conformance::Image::FormatParams::R8G8B8A8(sRGB);
+        auto metadata = Conformance::Image::ImageLevelMetadata::MakeUncompressed(1, 1);
+        auto image = Conformance::Image::Image{formatParams, {{metadata, rgba}}};
+
+        Conformance::D3D12ResourceWithSRVDesc texture = D3D12Texture::CreateTexture(pbrResources, copyCommandList, stagingResources, image);
 
         std::lock_guard<std::mutex> guard(*m_cacheMutex);
         // If the key already exists then the existing texture will be returned.

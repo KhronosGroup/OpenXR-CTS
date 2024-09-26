@@ -35,14 +35,14 @@ namespace Pbr
     {
     }
 
-    D3D12Primitive::D3D12Primitive(Pbr::D3D12Resources& pbrResources, const Pbr::PrimitiveBuilder& primitiveBuilder,
-                                   const std::shared_ptr<Pbr::D3D12Material>& material)
+    D3D12Primitive::D3D12Primitive(Pbr::D3D12Resources& pbrResources, ID3D12GraphicsCommandList* copyCommandList,
+                                   const Pbr::PrimitiveBuilder& primitiveBuilder, const std::shared_ptr<Pbr::D3D12Material>& material)
         : D3D12Primitive((UINT)primitiveBuilder.Indices.size(), {}, (UINT)primitiveBuilder.Vertices.size(), {}, std::move(material),
                          primitiveBuilder.NodeIndicesVector())
     {
         m_indexBuffer.Allocate(pbrResources.GetDevice().Get(), primitiveBuilder.Indices.size());
         m_vertexBuffer.Allocate(pbrResources.GetDevice().Get(), primitiveBuilder.Vertices.size());
-        UpdateBuffers(pbrResources, primitiveBuilder);
+        UpdateBuffers(pbrResources, copyCommandList, primitiveBuilder);
 
         D3D12_DESCRIPTOR_HEAP_DESC srvHeapDesc;
         srvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
@@ -64,16 +64,14 @@ namespace Pbr
         return D3D12Primitive(m_indexCount, m_indexBuffer, m_vertexCount, m_vertexBuffer, m_material->Clone(pbrResources), m_nodeIndices);
     }
 
-    void D3D12Primitive::UpdateBuffers(Pbr::D3D12Resources& pbrResources, const Pbr::PrimitiveBuilder& primitiveBuilder)
+    void D3D12Primitive::UpdateBuffers(Pbr::D3D12Resources& pbrResources, ID3D12GraphicsCommandList* copyCommandList,
+                                       const Pbr::PrimitiveBuilder& primitiveBuilder)
     {
         // Update vertex buffer.
         {
             size_t elemCount = primitiveBuilder.Vertices.size();
             if (m_vertexBuffer.Fits(elemCount)) {
-
-                pbrResources.WithCopyCommandList([&](ID3D12GraphicsCommandList* cmdList) {
-                    m_vertexBuffer.AsyncUpload(cmdList, primitiveBuilder.Vertices.data(), elemCount);
-                });
+                m_vertexBuffer.AsyncUpload(copyCommandList, primitiveBuilder.Vertices.data(), elemCount);
             }
             else {
                 m_vertexBuffer.Allocate(pbrResources.GetDevice().Get(), elemCount);
@@ -84,10 +82,7 @@ namespace Pbr
         {
             size_t elemCount = primitiveBuilder.Indices.size();
             if (m_indexBuffer.Fits(elemCount)) {
-
-                pbrResources.WithCopyCommandList([&](ID3D12GraphicsCommandList* cmdList) {
-                    m_indexBuffer.AsyncUpload(cmdList, primitiveBuilder.Indices.data(), elemCount);
-                });
+                m_indexBuffer.AsyncUpload(copyCommandList, primitiveBuilder.Indices.data(), elemCount);
             }
             else {
                 m_indexBuffer.Allocate(pbrResources.GetDevice().Get(), elemCount);

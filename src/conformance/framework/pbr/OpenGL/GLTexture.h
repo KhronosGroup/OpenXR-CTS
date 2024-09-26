@@ -12,25 +12,24 @@
 #pragma once
 
 #include "GLCommon.h"
+#include "GLResources.h"
 
+#include <utilities/image.h>
 #include "../PbrCommon.h"
 
 #include "common/gfxwrapper_opengl.h"
 
 #include <openxr/openxr.h>
 
-#include <array>
 #include <stdint.h>
 
 namespace Pbr
 {
     namespace GLTexture
     {
-        std::array<uint8_t, 4> LoadRGBAUI4(RGBAColor color);
-
-        ScopedGLTexture LoadTextureImage(const uint8_t* fileData, uint32_t fileSize);
-        ScopedGLTexture CreateFlatCubeTexture(RGBAColor color, GLenum format = GL_RGBA8);
-        ScopedGLTexture CreateTexture(const uint8_t* rgba, uint32_t elemSize, uint32_t width, uint32_t height, GLenum format);
+        ScopedGLTexture LoadTextureImage(const GLResources& pbrResources, bool sRGB, const uint8_t* fileData, uint32_t fileSize);
+        ScopedGLTexture CreateFlatCubeTexture(RGBAColor color, bool sRGB);
+        ScopedGLTexture CreateTexture(const Conformance::Image::Image& image);
         ScopedGLSampler CreateSampler(GLenum edgeSamplingMode = GL_CLAMP_TO_EDGE);
     }  // namespace GLTexture
 }  // namespace Pbr

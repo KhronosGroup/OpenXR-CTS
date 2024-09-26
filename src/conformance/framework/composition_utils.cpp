@@ -354,7 +354,7 @@ namespace Conformance
         return *m_eventQueue;
     }
 
-    bool CompositionHelper::PollEvents()
+    void CompositionHelper::PollEvents()
     {
         XrEventDataBuffer eventBuffer;
         while (m_privateEventReader->TryReadNext(eventBuffer)) {
@@ -366,13 +366,10 @@ namespace Conformance
                 if (sessionState->state != XR_SESSION_STATE_READY && sessionState->state != XR_SESSION_STATE_SYNCHRONIZED &&
                     sessionState->state != XR_SESSION_STATE_VISIBLE && sessionState->state != XR_SESSION_STATE_FOCUSED) {
                     FAIL("Unexpected transition to session state " << sessionState->state);
-                    return false;  // Stop running.
                 }
                 m_sessionState = sessionState->state;
             }
         }
-
-        return true;
     }
 
     void CompositionHelper::AcquireWaitReleaseImage(XrSwapchain swapchain,
@@ -597,7 +594,7 @@ namespace Conformance
         std::lock_guard<std::mutex> lock(m_mutex);
 
         // Allocate projection views and store.
-        assert(m_projectionViewCount > 0);
+        XRC_CHECK_THROW_MSG(m_projectionViewCount > 0, "m_projectionViewCount empty");
         XrCompositionLayerProjectionView init{XR_TYPE_COMPOSITION_LAYER_PROJECTION_VIEW};
         // Make sure the pose is valid
         init.pose.orientation.w = 1.0f;

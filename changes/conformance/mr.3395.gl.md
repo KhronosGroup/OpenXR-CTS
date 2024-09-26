@@ -1,0 +1,2 @@
+- Improvement: Split up glTF model loading, to allow the first stage to be asynchronous on the CPU.
+- Improvement: In the glTF self-test, show a spinner while waiting for (pathological) models to load in a background thread.

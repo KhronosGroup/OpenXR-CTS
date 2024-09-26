@@ -7,6 +7,7 @@
 #include "graphics_plugin.h"
 
 #include "common/xr_linear.h"
+#include "gltf/GltfHelper.h"
 #include "utilities/array_size.h"
 #include "utilities/throw_helpers.h"
 #include "utilities/types_and_constants.h"
@@ -17,6 +18,7 @@
 
 #include <cstdint>
 #include <fstream>
+#include <future>
 #include <memory>
 #include <sstream>
 #include <string>
@@ -83,6 +85,10 @@ namespace Conformance
                                              }});
 
         interactionManager.AttachActionSets();
+
+        // Do this early to reduce unnecessary hitch during model loading.
+        Image::InitKTX2();
+
         compositionHelper.BeginSession();
 
         // Spaces where we will draw the active gltf. Default to one on each controller.
@@ -163,29 +169,36 @@ namespace Conformance
              "AlphaBlendModeTest.png",
              {Quat::FromAxisAngle({1, 0, 0}, DegToRad(-90)), {0, 0, 0}},
              0.075f},
+            {"AnisotropyBarnLamp.glb",
+             "Barn Lamp KTX2 Texture Test",
+             "This model uses many unimplemented extensions."
+             " To pass, simply ensure that text is visible on the side of the lamp.",
+             nullptr,
+             {Quat::FromAxisAngle({1, 0, 0}, DegToRad(-90)), {0, 0, 0}},
+             1.0f},
         };
 
         size_t testCaseIdx = 0;
         auto testCase = testCases[testCaseIdx];
 
         bool testCaseInitialized = false;
+        std::future<Gltf::ModelBuilder> makeModelBuilderTask;
         GLTFModelHandle gltfModel;
-        std::vector<GLTFModelInstanceHandle> gltfModelInstances;
-        gltfModelInstances.reserve(gripSpaces.size());
+        std::vector<GLTFModelInstanceHandle> gltfModelInstances(gripSpaces.size(), GLTFModelInstanceHandle{});
 
-        auto setupTest = [&]() {
+        auto makeModelBuilder = [](const glTFTestCase& tCase) -> Gltf::ModelBuilder {
             // Load the model file into memory
-            auto modelData = ReadFileBytes(testCase.filePath, "glTF binary");
+            auto modelData = ReadFileBytes(tCase.filePath, "glTF binary");
 
-            // Load the model
-            gltfModel = GetGlobalData().graphicsPlugin->LoadGLTF(modelData);
+            // Load the model into an intermediate form
+            // This does parsing and tangent generation, which can take a while
+            return Gltf::ModelBuilder(LoadGLTF(modelData));
+        };
+        auto setupTest = [&]() {
+            std::fill(gltfModelInstances.begin(), gltfModelInstances.end(), GLTFModelInstanceHandle{});
 
-            gltfModelInstances.clear();
+            makeModelBuilderTask = std::async(std::launch::async, makeModelBuilder, testCase);
 
-            for (const auto& space : gripSpaces) {
-                (void)space;
-                gltfModelInstances.push_back(GetGlobalData().graphicsPlugin->CreateGLTFModelInstance(gltfModel));
-            }
             // Configure the interactive layer manager with the corresponding description and image
             std::ostringstream oss;
             oss << "Subtest " << (testCaseIdx + 1) << "/" << ArraySize(testCases) << ": " << testCase.name << std::endl;
@@ -194,35 +207,66 @@ namespace Conformance
 
             testCaseInitialized = true;
         };
+        auto loadModelToGPU = [&](Gltf::ModelBuilder&& gltfModelBuilder) {
+            // Load the model onto the GPU
+            gltfModel = GetGlobalData().graphicsPlugin->LoadGLTF(std::move(gltfModelBuilder));
 
-        setupTest();
+            for (size_t i = 0; i < gripSpaces.size(); ++i) {
+                gltfModelInstances[i] = GetGlobalData().graphicsPlugin->CreateGLTFModelInstance(gltfModel);
+            }
+        };
 
         auto updateLayers = [&](const XrFrameState& frameState) {
             // do this first so if models take time to load, xrLocateViews doesn't complain about an old time
             auto viewData = compositionHelper.LocateViews(localSpace, frameState.predictedDisplayTime);
             const auto& viewState = std::get<XrViewState>(viewData);
 
-            if (!testCaseInitialized) {
+            if (!testCaseInitialized && !makeModelBuilderTask.valid()) {
                 testCase = testCases[testCaseIdx];
                 setupTest();
             }
+            if (makeModelBuilderTask.valid()) {
+                if (makeModelBuilderTask.wait_for(0s) == std::future_status::ready) {
+                    loadModelToGPU(makeModelBuilderTask.get());
+                }
+            }
 
+            std::vector<Cube> renderedCubes;
             std::vector<GLTFDrawable> renderedGLTFs;
 
-            for (size_t i = 0; i < gripSpaces.size(); ++i) {
+            for (size_t i = 0; i < gltfModelInstances.size(); ++i) {
                 const auto& space = gripSpaces[i];
                 XrSpaceLocation location{XR_TYPE_SPACE_LOCATION};
                 if (XR_SUCCEEDED(xrLocateSpace(space, localSpace, frameState.predictedDisplayTime, &location))) {
                     if ((location.locationFlags & XR_SPACE_LOCATION_POSITION_VALID_BIT) &&
                         (location.locationFlags & XR_SPACE_LOCATION_ORIENTATION_VALID_BIT)) {
 
-                        XrPosef adjustedPose = location.pose * testCase.poseInGripSpace;
-                        renderedGLTFs.push_back(
-                            GLTFDrawable{gltfModelInstances[i], adjustedPose, {testCase.scale, testCase.scale, testCase.scale}});
+                        if (gltfModelInstances[i] != GLTFModelInstanceHandle{}) {
+                            XrPosef adjustedPose = location.pose * testCase.poseInGripSpace;
+                            renderedGLTFs.push_back(
+                                GLTFDrawable{gltfModelInstances[i], adjustedPose, {testCase.scale, testCase.scale, testCase.scale}});
+                        }
+                        else {
+                            // loading spinner
+                            constexpr int zones = 12;
+                            constexpr int darkenCount = 3;
+                            auto now = std::chrono::system_clock::now();
+                            auto msSinceEpoch = std::chrono::time_point_cast<std::chrono::milliseconds>(now).time_since_epoch();
+                            int offset = uint64_t(msSinceEpoch / 250ms) % zones;
+                            for (int zone = 0; zone < zones; ++zone) {
+                                int darken = std::max(darkenCount - (zone + offset) % zones, 0);
+                                float value = 0.5f - 0.125f * darken;
+                                auto tintColor = XrColor4f{value, value, value, 1.0f};
+                                XrPosef relativePose = {Quat::FromAxisAngle({0, 1, 0}, (2 * MATH_PI / zones) * zone)};
+                                XrVector3f radialOffset = {0, 0, 0.1f};
+                                XrPosef_TransformVector3f(&relativePose.position, &relativePose, &radialOffset);
+                                XrPosef adjustedPose = location.pose * testCase.poseInGripSpace;
+                                renderedCubes.push_back(Cube{adjustedPose, {0.02f, 0.02f, 0.1f}, tintColor});
+                            }
+                        }
                     }
                 }
             }
-
             std::vector<XrCompositionLayerBaseHeader*> layers;
             if (viewState.viewStateFlags & XR_VIEW_STATE_POSITION_VALID_BIT &&
                 viewState.viewStateFlags & XR_VIEW_STATE_ORIENTATION_VALID_BIT) {
@@ -235,7 +279,7 @@ namespace Conformance
                         const_cast<XrFovf&>(projLayer->views[view].fov) = views[view].fov;
                         const_cast<XrPosef&>(projLayer->views[view].pose) = views[view].pose;
                         GetGlobalData().graphicsPlugin->RenderView(projLayer->views[view], swapchainImage,
-                                                                   RenderParams().Draw(renderedGLTFs));
+                                                                   RenderParams().Draw(renderedCubes).Draw(renderedGLTFs));
                     });
                 }
 
@@ -244,9 +288,13 @@ namespace Conformance
 
             if (!interactiveLayerManager.EndFrame(frameState, layers)) {
                 // user has marked this test as complete
-                testCaseIdx++;
-                testCaseInitialized = false;
-                return (testCaseIdx < ArraySize(testCases));
+                if (!std::all_of(gltfModelInstances.begin(), gltfModelInstances.end(),
+                                 [](auto v) { return v == GLTFModelInstanceHandle{}; })) {
+                    // at least one model handle is valid
+                    testCaseIdx++;
+                    testCaseInitialized = false;
+                    return (testCaseIdx < ArraySize(testCases));
+                }
             }
             return true;
         };

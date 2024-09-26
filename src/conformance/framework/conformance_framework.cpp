@@ -347,7 +347,8 @@ namespace Conformance
 
         // Find XrSystemId (for later use and to ensure device is connected/available for whatever that means in a given runtime)
         XrSystemId systemId = XR_NULL_SYSTEM_ID;
-        const XrSystemGetInfo systemGetInfo = {XR_TYPE_SYSTEM_GET_INFO, nullptr, options.formFactorValue};
+        XrSystemGetInfo systemGetInfo = {XR_TYPE_SYSTEM_GET_INFO};
+        systemGetInfo.formFactor = options.formFactorValue;
 
         auto tryGetSystem = [&] {
             XrResult result = xrGetSystem(autoInstance, &systemGetInfo, &systemId);

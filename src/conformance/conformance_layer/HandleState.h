@@ -21,6 +21,7 @@
 
 #include <openxr/openxr.h>
 
+#include <functional>
 #include <memory>
 #include <mutex>
 #include <stdexcept>
@@ -45,7 +46,11 @@ struct EnabledVersions
 /// Base class for "custom" handle state that differs between handle types
 struct ICustomHandleState
 {
+    ICustomHandleState() = default;
     virtual ~ICustomHandleState() = default;
+
+    ICustomHandleState(const ICustomHandleState&) = delete;
+    ICustomHandleState& operator=(ICustomHandleState&) = delete;
 };
 
 using IntHandle = uint64_t;   // A common type for all handles so a single map can be used.
@@ -66,11 +71,23 @@ struct HandleState
         auto childState = std::unique_ptr<HandleState>(new HandleState(handle_, childType, this /* parent */, conformanceHooks));
 
         {
-            std::unique_lock<std::mutex> lock(mutex);
+            std::unique_lock<std::recursive_mutex> lock(childrenMutex);
             children.push_back(childState.get());
         }
 
         return childState;
+    }
+
+    void SetCustomState(std::unique_ptr<ICustomHandleState>&& newCustomState)
+    {
+        std::unique_lock<std::mutex> lock(customStateMutex);
+        customState = std::move(newCustomState);
+    }
+
+    ICustomHandleState* GetCustomState() const
+    {
+        std::unique_lock<std::mutex> lock(customStateMutex);
+        return customState.get();
     }
 
     const IntHandle handle;
@@ -81,12 +98,13 @@ struct HandleState
 
     HandleState* const parent;
 
-    mutable std::mutex mutex;
-
     /// Non-owning pointers to handle state of child handles.
+    mutable std::recursive_mutex childrenMutex;
     std::vector<HandleState*> children;
 
+private:
     /// Additional data stored by the hand-coded validations.
+    mutable std::mutex customStateMutex;
     std::unique_ptr<ICustomHandleState> customState;
 };
 
@@ -107,7 +125,6 @@ struct HandleNotFoundException : public HandleException
 
 using HandleStateKey = std::pair<IntHandle, XrObjectType>;
 
-void UnregisterHandleStateInternal(std::unique_lock<std::mutex>& lockProof, HandleStateKey key);
 void UnregisterHandleState(HandleStateKey key);
 void RegisterHandleState(std::unique_ptr<HandleState> handleState);
 

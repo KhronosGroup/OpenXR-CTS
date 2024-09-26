@@ -9,19 +9,23 @@
 #include "GltfHelper.h"
 
 #include "common/xr_linear.h"
+#include <utilities/image.h>
 #include "utilities/xr_math_operators.h"
 
 #include <openxr/openxr.h>
+#include <nonstd/span.hpp>
 #include <tinygltf/tiny_gltf.h>
+#include <mikktspace.h>
 
 #include <assert.h>
+#include <cctype>
 #include <cstdint>
 #include <functional>
+#include <iostream>
 #include <iterator>
 #include <limits>
 #include <map>
 #include <memory>
-#include <mikktspace.h>
 #include <stdexcept>
 #include <string.h>
 #include <string>
@@ -663,37 +667,125 @@ namespace GltfHelper
         return material;
     }
 
-    const uint8_t* ReadImageAsRGBA(const tinygltf::Image& image, std::vector<uint8_t>* tempBuffer)
+    static bool CaseInsensitiveCompare(char a, char b)
     {
-        // The image vector (image.image) will be populated if the image was successfully loaded by glTF.
-        if (image.width > 0 && image.height > 0) {
-            if ((size_t)(image.width * image.height * image.component) != image.image.size()) {
-                throw std::runtime_error("Invalid image buffer size");
-            }
+        return std::tolower(static_cast<unsigned char>(a)) == std::tolower(static_cast<unsigned char>(b));
+    }
 
-            // Not supported: STBI_grey (DXGI_FORMAT_R8_UNORM?) and STBI_grey_alpha.
-            if (image.component == 3) {
-                // Convert RGB to RGBA.
-                tempBuffer->resize(image.width * image.height * 4);
-                for (int y = 0; y < image.height; ++y) {
-                    const uint8_t* src = image.image.data() + y * image.width * 3;
-                    uint8_t* dest = tempBuffer->data() + y * image.width * 4;
-                    for (int x = image.width - 1; x >= 0; --x, src += 3, dest += 4) {
-                        dest[0] = src[0];
-                        dest[1] = src[1];
-                        dest[2] = src[2];
-                        dest[3] = 255;
-                    }
-                }
+    static bool IsKTX2(const tinygltf::Image& image)
+    {
+        if (!image.mimeType.empty()) {
+            return image.mimeType == "image/ktx2";
+        }
+        if (!image.name.empty()) {
+            static const std::string ext{".ktx2"};
+            return image.name.size() >= ext.size() &&
+                   std::equal(ext.begin(), ext.end(), image.name.end() - ext.size(), image.name.end(), CaseInsensitiveCompare);
+        }
+        return false;
+    }
 
-                return tempBuffer->data();
+    bool PassThroughKTX2(tinygltf::Image* image, const int image_idx, std::string* err, std::string* warn, int req_width, int req_height,
+                         const unsigned char* bytes, int size, void* /* user_data */) noexcept
+    {
+        if (image == nullptr || bytes == nullptr) {
+            if (err) {
+                (*err) += "PassThroughKTX2 received nullptr image or bytes for image[" + std::to_string(image_idx) + "] name = \"" +
+                          image->name + "\".\n";
             }
-            else if (image.component == 4) {
-                // Already RGBA, no conversion needed
-                return image.image.data();
-            }
+            return false;
         }
 
-        return nullptr;
+        if (!IsKTX2(*image)) {
+            // forward to base implementation if the image isn't ktx2
+            return tinygltf::LoadImageData(image, image_idx, err, warn, req_width, req_height, bytes, size, nullptr);
+        }
+
+        image->image = std::vector<unsigned char>(bytes, bytes + size);
+
+        image->as_is = true;
+        return true;
+    }
+
+    Conformance::Image::Image ReadImageAsRGBA(const tinygltf::Image& image, bool sRGB,
+                                              span<const Conformance::Image::FormatParams> supportedFormats,
+                                              std::vector<uint8_t>& tempBuffer)
+    {
+        namespace Image = Conformance::Image;
+
+        if (image.as_is) {
+            throw std::logic_error("ReadImageAsRGBA called on un-decoded image");
+        }
+
+        assert(image.component >= 3);
+        assert(image.component <= 4);
+
+        auto colorSpaceType = sRGB ? Image::ColorSpaceType::sRGB : Image::ColorSpaceType::Linear;
+        auto formatParams = FindRawFormat((Image::Channels)image.component, colorSpaceType, supportedFormats);
+
+        auto metadata = Image::ImageLevelMetadata::MakeUncompressed(image.width, image.height);
+
+        if (image.width < 1 || image.height < 1) {
+            // The image vector (image.image) will be populated if the image was successfully loaded by glTF.
+            throw std::runtime_error("Image has zero or negative dimension");
+        }
+
+        if ((size_t)(image.width * image.height * image.component) != image.image.size()) {
+            throw std::runtime_error("Invalid image buffer size");
+        }
+
+        // Not supported: STBI_grey (DXGI_FORMAT_R8_UNORM?) and STBI_grey_alpha.
+        if (image.component == 3 && formatParams.channels == Image::Channels::RGBA) {
+            // Convert RGB to RGBA.
+            tempBuffer.resize(image.width * image.height * 4);
+            for (int y = 0; y < image.height; ++y) {
+                const uint8_t* src = image.image.data() + y * image.width * 3;
+                uint8_t* dest = tempBuffer.data() + y * image.width * 4;
+                for (int x = image.width - 1; x >= 0; --x, src += 3, dest += 4) {
+                    dest[0] = src[0];
+                    dest[1] = src[1];
+                    dest[2] = src[2];
+                    dest[3] = 255;
+                }
+            }
+
+            std::vector<Image::ImageLevel> imageLevels = {Image::ImageLevel{metadata, tempBuffer}};
+            return Image::Image{formatParams, imageLevels};
+        }
+        else if (image.component == formatParams.channels) {
+            // Already same channel count, no conversion needed
+            // static_assert(sizeof(decltype(image.image)::value_type) == sizeof(uint8_t)); // C++17
+            return Conformance::Image::Image{formatParams, {{metadata, span<uint8_t>{(uint8_t*)image.image.data(), image.image.size()}}}};
+        }
+        else {
+            throw std::runtime_error("Unexpected number of image components");
+        }
+    }
+
+    Conformance::Image::Image DecodeImageKTX2(const tinygltf::Image& image, bool sRGB,
+                                              span<const Conformance::Image::FormatParams> supportedFormats,
+                                              std::vector<uint8_t>& tempBuffer)
+    {
+        if (!IsKTX2(image)) {
+            throw std::logic_error("DecodeImageKTX2 called on un-decoded image");
+        }
+
+        if (!image.as_is) {
+            throw std::logic_error("DecodeImageKTX2 called on non-as-is image");
+        }
+
+        return Conformance::Image::Image::LoadAndTranscodeKTX2(image.image, sRGB, supportedFormats, tempBuffer, image.name.c_str());
+    }
+
+    Conformance::Image::Image DecodeImage(const tinygltf::Image& image, bool sRGB,
+                                          span<const Conformance::Image::FormatParams> supportedFormats, std::vector<uint8_t>& tempBuffer)
+    {
+        if (!image.as_is) {
+            return ReadImageAsRGBA(image, sRGB, supportedFormats, tempBuffer);
+        }
+        if (IsKTX2(image)) {
+            return DecodeImageKTX2(image, sRGB, supportedFormats, tempBuffer);
+        }
+        throw std::logic_error("Unknown as-is image type: IsKTX2 returned false.");
     }
 }  // namespace GltfHelper

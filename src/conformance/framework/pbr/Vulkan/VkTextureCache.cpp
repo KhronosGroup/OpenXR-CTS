@@ -14,6 +14,9 @@
 #include "VkCommon.h"
 #include "VkTexture.h"
 
+#include "../PbrTexture.h"
+#include <utilities/image.h>
+
 #include <openxr/openxr.h>
 
 #include <array>
@@ -27,18 +30,14 @@ namespace Pbr
 {
     struct VulkanResources;
 
-    VulkanTextureCache::VulkanTextureCache(VkDevice device) : m_device(device), m_cacheMutex(std::make_unique<std::mutex>())
+    VulkanTextureCache::VulkanTextureCache() : m_cacheMutex(std::make_unique<std::mutex>())
     {
-        m_device = device;
     }
 
     std::shared_ptr<VulkanTextureBundle> VulkanTextureCache::CreateTypedSolidColorTexture(Pbr::VulkanResources& pbrResources,
-                                                                                          XrColor4f color)
+                                                                                          XrColor4f color, bool sRGB)
     {
-        if (!IsValid()) {
-            throw std::logic_error("VulkanTextureCache accessed before initialization");
-        }
-        const std::array<uint8_t, 4> rgba = VulkanTexture::LoadRGBAUI4(color);
+        const std::array<uint8_t, 4> rgba = LoadRGBAUI4(color);
 
         // Check cache to see if this flat texture already exists.
         const uint32_t colorKey = *reinterpret_cast<const uint32_t*>(rgba.data());
@@ -50,8 +49,11 @@ namespace Pbr
             }
         }
 
-        auto texture = std::make_shared<VulkanTextureBundle>(
-            VulkanTexture::CreateTexture(pbrResources, rgba.data(), 4, 1, 1, VK_FORMAT_R8G8B8A8_UNORM));
+        auto formatParams = Conformance::Image::FormatParams::R8G8B8A8(sRGB);
+        auto metadata = Conformance::Image::ImageLevelMetadata::MakeUncompressed(1, 1);
+        auto image = Conformance::Image::Image{formatParams, {{metadata, rgba}}};
+
+        auto texture = std::make_shared<VulkanTextureBundle>(VulkanTexture::CreateTexture(pbrResources, image));
 
         std::lock_guard<std::mutex> guard(*m_cacheMutex);
         // If the key already exists then the existing texture will be returned.

@@ -84,12 +84,13 @@ XrResult ConformanceHooks::xrPollEvent(XrInstance instance, XrEventDataBuffer* e
         const HandleState* const instanceState = instance::GetInstanceState(instance);
 
         // Clear the "xrSyncActions called" flag for all known sessions
+        std::unique_lock<std::recursive_mutex> lock(instanceState->childrenMutex);
         for (HandleState* childState : instanceState->children) {
             if (childState->type != XR_OBJECT_TYPE_SESSION) {
                 continue;
             }
             session::CustomSessionState* const customSessionState =
-                dynamic_cast<session::CustomSessionState*>(childState->customState.get());
+                dynamic_cast<session::CustomSessionState*>(childState->GetCustomState());
 
             // avoid setting queue exhaust flag while xrSyncActions is ongoing
             // caveat: it is technically possible but unlikely that an entire xrSyncActions has happened

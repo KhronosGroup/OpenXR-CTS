@@ -53,14 +53,18 @@ namespace Pbr
         parameters.RoughnessFactor = roughnessFactor;
 
         NS::SharedPtr<MTL::SamplerState> defaultSampler = Pbr::MetalTexture::CreateSampler(pbrResources.GetDevice().get());
-        material->SetTexture(ShaderSlots::BaseColor, pbrResources.CreateTypedSolidColorTexture(RGBA::White).get(), defaultSampler.get());
-        material->SetTexture(ShaderSlots::MetallicRoughness, pbrResources.CreateTypedSolidColorTexture(RGBA::White).get(),
+        material->SetTexture(ShaderSlots::BaseColor, pbrResources.CreateTypedSolidColorTexture(RGBA::White, true).get(),
+                             defaultSampler.get());
+        material->SetTexture(ShaderSlots::MetallicRoughness, pbrResources.CreateTypedSolidColorTexture(RGBA::White, false).get(),
                              defaultSampler.get());
         /// No occlusion.
-        material->SetTexture(ShaderSlots::Occlusion, pbrResources.CreateTypedSolidColorTexture(RGBA::White).get(), defaultSampler.get());
+        material->SetTexture(ShaderSlots::Occlusion, pbrResources.CreateTypedSolidColorTexture(RGBA::White, false).get(),
+                             defaultSampler.get());
         /// Flat normal.
-        material->SetTexture(ShaderSlots::Normal, pbrResources.CreateTypedSolidColorTexture(RGBA::FlatNormal).get(), defaultSampler.get());
-        material->SetTexture(ShaderSlots::Emissive, pbrResources.CreateTypedSolidColorTexture(RGBA::White).get(), defaultSampler.get());
+        material->SetTexture(ShaderSlots::Normal, pbrResources.CreateTypedSolidColorTexture(RGBA::FlatNormal, false).get(),
+                             defaultSampler.get());
+        material->SetTexture(ShaderSlots::Emissive, pbrResources.CreateTypedSolidColorTexture(RGBA::White, true).get(),
+                             defaultSampler.get());
 
         return material;
     }

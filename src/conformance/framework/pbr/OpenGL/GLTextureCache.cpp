@@ -14,6 +14,8 @@
 #include "GLCommon.h"
 #include "GLTexture.h"
 
+#include "../PbrTexture.h"
+
 #include "common/gfxwrapper_opengl.h"
 
 #include <openxr/openxr.h>
@@ -26,17 +28,16 @@
 
 namespace Pbr
 {
-    void GLTextureCache::Init()
+    GLTextureCache::GLTextureCache() : m_cacheMutex(std::make_unique<std::mutex>())
     {
-        m_cacheMutex = std::make_unique<std::mutex>();
     }
 
-    std::shared_ptr<ScopedGLTexture> GLTextureCache::CreateTypedSolidColorTexture(XrColor4f color)
+    std::shared_ptr<ScopedGLTexture> GLTextureCache::CreateTypedSolidColorTexture(XrColor4f color, bool sRGB)
     {
         if (!IsValid()) {
             throw std::logic_error("GLTextureCache accessed before initialization");
         }
-        const std::array<uint8_t, 4> rgba = GLTexture::LoadRGBAUI4(color);
+        const std::array<uint8_t, 4> rgba = LoadRGBAUI4(color);
 
         // Check cache to see if this flat texture already exists.
         const uint32_t colorKey = *reinterpret_cast<const uint32_t*>(rgba.data());
@@ -48,7 +49,11 @@ namespace Pbr
             }
         }
 
-        auto texture = std::make_shared<ScopedGLTexture>(GLTexture::CreateTexture(rgba.data(), 4, 1, 1, GL_RGBA8));
+        auto formatParams = Conformance::Image::FormatParams::R8G8B8A8(sRGB);
+        auto metadata = Conformance::Image::ImageLevelMetadata::MakeUncompressed(1, 1);
+        auto image = Conformance::Image::Image{formatParams, {{metadata, rgba}}};
+
+        auto texture = std::make_shared<ScopedGLTexture>(GLTexture::CreateTexture(image));
 
         std::lock_guard<std::mutex> guard(*m_cacheMutex);
         // If the key already exists then the existing texture will be returned.

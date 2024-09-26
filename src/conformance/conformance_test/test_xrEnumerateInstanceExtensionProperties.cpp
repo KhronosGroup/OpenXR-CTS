@@ -69,7 +69,7 @@ namespace Conformance
         REQUIRE(ValidateResultAllowed("xrEnumerateInstanceExtensionProperties", result));
         REQUIRE(result == XR_SUCCESS);
 
-        REQUIRE_NOTHROW(v.resize(propertyCount, XrExtensionProperties{XR_TYPE_EXTENSION_PROPERTIES, nullptr}));
+        REQUIRE_NOTHROW(v.resize(propertyCount, XrExtensionProperties{XR_TYPE_EXTENSION_PROPERTIES}));
 
         result = xrEnumerateInstanceExtensionProperties(nullptr, propertyCount, &propertyCount, v.data());
         REQUIRE(ValidateResultAllowed("xrEnumerateInstanceExtensionProperties", result));
@@ -89,7 +89,7 @@ namespace Conformance
         // less than needed. If input capacity is 0 then XR_SUCCESS is returned.
         if (propertyCount > 1)  // No way to test XR_ERROR_SIZE_INSUFFICIENT unless propertyCount > 1.
         {
-            v = std::vector<XrExtensionProperties>(propertyCount, XrExtensionProperties{XR_TYPE_EXTENSION_PROPERTIES, nullptr});
+            v = std::vector<XrExtensionProperties>(propertyCount, XrExtensionProperties{XR_TYPE_EXTENSION_PROPERTIES});
             result = xrEnumerateInstanceExtensionProperties(nullptr, propertyCount - 1, &propertyCount, v.data());
             REQUIRE(ValidateResultAllowed("xrEnumerateInstanceExtensionProperties", result));
             CHECK(result == XR_ERROR_SIZE_INSUFFICIENT);
@@ -97,7 +97,7 @@ namespace Conformance
 
         // Exercise that the property count doesn't change based on the input capacity.
         uint32_t propertyCount2 = (propertyCount * 2);
-        v = std::vector<XrExtensionProperties>(propertyCount2, XrExtensionProperties{XR_TYPE_EXTENSION_PROPERTIES, nullptr});
+        v = std::vector<XrExtensionProperties>(propertyCount2, XrExtensionProperties{XR_TYPE_EXTENSION_PROPERTIES});
         result = xrEnumerateInstanceExtensionProperties(nullptr, propertyCount2, &propertyCount2, v.data());
         REQUIRE(ValidateResultAllowed("xrEnumerateInstanceExtensionProperties", result));
         REQUIRE(result == XR_SUCCESS);

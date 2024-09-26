@@ -149,8 +149,8 @@ namespace Conformance
 
         /// Check for OpenXR events and handle them.
         ///
-        /// @return false if an unexpected session state transition means the test should exit early
-        bool PollEvents();
+        /// FAILs if an unexpected session state transition means the test should exit early
+        void PollEvents();
 
         EventQueue& GetEventQueue() const;
 
@@ -515,7 +515,7 @@ namespace Conformance
         bool EndFrame(const XrFrameState& frameState, std::vector<XrCompositionLayerBaseHeader*> layers = {})
         {
             bool keepRunning = AppendLayers(layers, frameState.predictedDisplayTime);
-            keepRunning &= m_compositionHelper.PollEvents();
+            m_compositionHelper.PollEvents();
             m_compositionHelper.EndFrame(frameState.predictedDisplayTime, std::move(layers));
             return keepRunning;
         }

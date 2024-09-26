@@ -1,0 +1,1 @@
+Fix: IsViewConfigurationTypeEnumValid needs to check for XR_VERSION_1_1 when validating for XR_VIEW_CONFIGURATION_TYPE_PRIMARY_STEREO_WITH_FOVEATED_INSET

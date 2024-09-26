@@ -71,7 +71,7 @@ namespace Conformance
         REQUIRE(ValidateResultAllowed("xrEnumerateApiLayerProperties", result));
         REQUIRE(result == XR_SUCCESS);
 
-        REQUIRE_NOTHROW(v.resize(propertyCount, XrApiLayerProperties{XR_TYPE_API_LAYER_PROPERTIES, nullptr}));
+        REQUIRE_NOTHROW(v.resize(propertyCount, XrApiLayerProperties{XR_TYPE_API_LAYER_PROPERTIES}));
 
         result = xrEnumerateApiLayerProperties(propertyCount, &propertyCount, v.data());
         REQUIRE(ValidateResultAllowed("xrEnumerateApiLayerProperties", result));
@@ -88,7 +88,7 @@ namespace Conformance
         // "Independent of elementCapacityInput or elements parameters, elementCountOutput must be a valid pointer,
         // and the function sets elementCountOutput." - 2.11
         if (propertyCount > 0) {
-            v = std::vector<XrApiLayerProperties>(propertyCount, XrApiLayerProperties{XR_TYPE_API_LAYER_PROPERTIES, nullptr});
+            v = std::vector<XrApiLayerProperties>(propertyCount, XrApiLayerProperties{XR_TYPE_API_LAYER_PROPERTIES});
             result = xrEnumerateApiLayerProperties(propertyCount, nullptr, v.data());
             REQUIRE(ValidateResultAllowed("xrEnumerateApiLayerProperties", result));
             REQUIRE(result == XR_ERROR_VALIDATION_FAILURE);
@@ -98,7 +98,7 @@ namespace Conformance
         // less than needed. If input capacity is 0 then XR_SUCCESS is returned.
         if (propertyCount > 1)  // No way to test XR_ERROR_SIZE_INSUFFICIENT unless propertyCount > 1.
         {
-            v = std::vector<XrApiLayerProperties>(propertyCount, XrApiLayerProperties{XR_TYPE_API_LAYER_PROPERTIES, nullptr});
+            v = std::vector<XrApiLayerProperties>(propertyCount, XrApiLayerProperties{XR_TYPE_API_LAYER_PROPERTIES});
             result = xrEnumerateApiLayerProperties(propertyCount - 1, &propertyCount, v.data());
             REQUIRE(ValidateResultAllowed("xrEnumerateApiLayerProperties", result));
             CHECK(result == XR_ERROR_SIZE_INSUFFICIENT);
@@ -106,7 +106,7 @@ namespace Conformance
 
         // Exercise that the property count doesn't change based on the input capacity.
         uint32_t propertyCount2 = (propertyCount * 2);
-        v = std::vector<XrApiLayerProperties>(propertyCount2, XrApiLayerProperties{XR_TYPE_API_LAYER_PROPERTIES, nullptr});
+        v = std::vector<XrApiLayerProperties>(propertyCount2, XrApiLayerProperties{XR_TYPE_API_LAYER_PROPERTIES});
         result = xrEnumerateApiLayerProperties(propertyCount2, &propertyCount2, v.data());
         REQUIRE(ValidateResultAllowed("xrEnumerateApiLayerProperties", result));
         REQUIRE(result == XR_SUCCESS);
