@@ -872,25 +872,15 @@ namespace Conformance
         return RunResult::Success;
     }
 
-    FrameIterator::RunResult FrameIterator::WaitAndBeginFrame()
+    void FrameIterator::WaitAndBeginFrame()
     {
-        if (autoBasicSession->spaceVector.empty()) {
-            // AutoBasicSession must be created with flags including AutoBasicSession::createSpaces
-            m_lastErrorSource = "Space vector empty, logic error in test";
-            return RunResult::Error;
-        }
+        XRC_CHECK_THROW(!autoBasicSession->spaceVector.empty());
 
-        XrResult result;
         XrSession session = autoBasicSession->GetSession();
         // xrWaitFrame may block.
         XrFrameWaitInfo frameWaitInfo{XR_TYPE_FRAME_WAIT_INFO};
         frameState = XrFrameState{XR_TYPE_FRAME_STATE};
-        result = xrWaitFrame(session, &frameWaitInfo, &frameState);
-        if (XR_FAILED(result)) {
-            m_lastErrorSource = "xrWaitFrame";
-            m_lastError = result;
-            return RunResult::Error;
-        }
+        XRC_CHECK_THROW_XRCMD(xrWaitFrame(session, &frameWaitInfo, &frameState));
 
         XrViewLocateInfo viewLocateInfo{XR_TYPE_VIEW_LOCATE_INFO};
         viewLocateInfo.viewConfigurationType = autoBasicSession->viewConfigurationType;
@@ -899,37 +889,20 @@ namespace Conformance
         XrViewState viewState{XR_TYPE_VIEW_STATE};
         uint32_t viewCount = (uint32_t)autoBasicSession->viewConfigurationViewVector.size();
         viewVector.resize(viewCount, {XR_TYPE_VIEW});
-        result = xrLocateViews(session, &viewLocateInfo, &viewState, viewCount, &viewCount, viewVector.data());
-        if (XR_FAILED(result)) {
-            m_lastErrorSource = "xrLocateViews";
-            m_lastError = result;
-            return RunResult::Error;
-        }
+        XRC_CHECK_THROW_XRCMD(xrLocateViews(session, &viewLocateInfo, &viewState, viewCount, &viewCount, viewVector.data()));
+
         viewVector.resize(viewCount);
 
         XrFrameBeginInfo frameBeginInfo{XR_TYPE_FRAME_BEGIN_INFO};
-        result = xrBeginFrame(session, &frameBeginInfo);
-        if (XR_FAILED(result)) {
-            m_lastErrorSource = "xrBeginFrame";
-            m_lastError = result;
-            return RunResult::Error;
-        }
-
-        return RunResult::Success;
+        XRC_CHECK_THROW_XRCMD(xrBeginFrame(session, &frameBeginInfo));
     }
 
-    FrameIterator::RunResult FrameIterator::PrepareFrameEndInfo()
+    void FrameIterator::PrepareFrameEndInfo()
     {
-        if (autoBasicSession->spaceVector.empty()) {
-            // AutoBasicSession must be created with flags including AutoBasicSession::createSpaces
-            m_lastErrorSource = "No spaces, logic error in test";
-            return RunResult::Error;
-        }
+        // AutoBasicSession must be created with flags including AutoBasicSession::createSpaces
+        XRC_CHECK_THROW(!autoBasicSession->spaceVector.empty());
 
-        if (GetGlobalData().IsUsingGraphicsPlugin() && autoBasicSession->swapchainVector.empty()) {
-            m_lastErrorSource = "No swapchains, logic error in test";
-            return RunResult::Error;
-        }
+        XRC_CHECK_THROW(!GetGlobalData().IsUsingGraphicsPlugin() || !autoBasicSession->swapchainVector.empty());
 
         frameEndInfo = XrFrameEndInfo{XR_TYPE_FRAME_END_INFO};
         frameEndInfo.displayTime = frameState.predictedDisplayTime;
@@ -961,23 +934,17 @@ namespace Conformance
         compositionLayerProjection.space = autoBasicSession->spaceVector[0];
         compositionLayerProjection.viewCount = (uint32_t)projectionViewVector.size();
         compositionLayerProjection.views = projectionViewVector.data();
-
-        return RunResult::Success;
     }
 
     FrameIterator::RunResult FrameIterator::PrepareSubmitFrame()
     {
-        RunResult runResult = WaitAndBeginFrame();
+        WaitAndBeginFrame();
+
+        RunResult runResult = CycleToNextSwapchainImage();
         if (runResult != RunResult::Success)
             return runResult;
 
-        runResult = CycleToNextSwapchainImage();
-        if (runResult != RunResult::Success)
-            return runResult;
-
-        runResult = PrepareFrameEndInfo();
-        if (runResult != RunResult::Success)
-            return runResult;
+        PrepareFrameEndInfo();
 
         return RunResult::Success;
     }
@@ -985,20 +952,14 @@ namespace Conformance
     FrameIterator::RunResult FrameIterator::SubmitFrame()
     {
         RunResult runResult = PrepareSubmitFrame();
-        if (runResult != RunResult::Success)
-            return runResult;
+        XRC_CHECK_THROW(runResult == RunResult::Success);
 
         const XrCompositionLayerBaseHeader* headerPtrArray[1] = {
             reinterpret_cast<const XrCompositionLayerBaseHeader*>(&compositionLayerProjection)};
         frameEndInfo.layerCount = 1;
         frameEndInfo.layers = headerPtrArray;
 
-        XrResult result = xrEndFrame(autoBasicSession->GetSession(), &frameEndInfo);
-        if (XR_FAILED(result)) {
-            m_lastErrorSource = "xrEndFrame";
-            m_lastError = result;
-            return RunResult::Error;
-        }
+        XRC_CHECK_THROW_XRCMD(xrEndFrame(autoBasicSession->GetSession(), &frameEndInfo));
 
         return RunResult::Success;
     }
