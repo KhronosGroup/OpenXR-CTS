@@ -889,6 +889,8 @@ namespace Conformance
         XrFrameEndInfo frameEndInfo;                                         //< PrepareFrameEndInfo sets this up.
         std::vector<XrCompositionLayerProjectionView> projectionViewVector;  //< PrepareFrameEndInfo sets this up.
         XrCompositionLayerProjection compositionLayerProjection;             //< PrepareFrameEndInfo sets this up.
+        std::string m_lastErrorSource{};                                     //< Populated on failure
+        XrResult m_lastError{};                                              //< Populated on failure
     };
 
     /// Overwrites all members of an OpenXR tagged/chainable struct with "bad" data.

@@ -876,6 +876,7 @@ namespace Conformance
     {
         if (autoBasicSession->spaceVector.empty()) {
             // AutoBasicSession must be created with flags including AutoBasicSession::createSpaces
+            m_lastErrorSource = "Space vector empty, logic error in test";
             return RunResult::Error;
         }
 
@@ -885,8 +886,11 @@ namespace Conformance
         XrFrameWaitInfo frameWaitInfo{XR_TYPE_FRAME_WAIT_INFO};
         frameState = XrFrameState{XR_TYPE_FRAME_STATE};
         result = xrWaitFrame(session, &frameWaitInfo, &frameState);
-        if (XR_FAILED(result))
+        if (XR_FAILED(result)) {
+            m_lastErrorSource = "xrWaitFrame";
+            m_lastError = result;
             return RunResult::Error;
+        }
 
         XrViewLocateInfo viewLocateInfo{XR_TYPE_VIEW_LOCATE_INFO};
         viewLocateInfo.viewConfigurationType = autoBasicSession->viewConfigurationType;
@@ -896,14 +900,20 @@ namespace Conformance
         uint32_t viewCount = (uint32_t)autoBasicSession->viewConfigurationViewVector.size();
         viewVector.resize(viewCount, {XR_TYPE_VIEW});
         result = xrLocateViews(session, &viewLocateInfo, &viewState, viewCount, &viewCount, viewVector.data());
-        if (XR_FAILED(result))
+        if (XR_FAILED(result)) {
+            m_lastErrorSource = "xrLocateViews";
+            m_lastError = result;
             return RunResult::Error;
+        }
         viewVector.resize(viewCount);
 
         XrFrameBeginInfo frameBeginInfo{XR_TYPE_FRAME_BEGIN_INFO};
         result = xrBeginFrame(session, &frameBeginInfo);
-        if (XR_FAILED(result))
+        if (XR_FAILED(result)) {
+            m_lastErrorSource = "xrBeginFrame";
+            m_lastError = result;
             return RunResult::Error;
+        }
 
         return RunResult::Success;
     }
@@ -912,11 +922,14 @@ namespace Conformance
     {
         if (autoBasicSession->spaceVector.empty()) {
             // AutoBasicSession must be created with flags including AutoBasicSession::createSpaces
+            m_lastErrorSource = "No spaces, logic error in test";
             return RunResult::Error;
         }
 
-        if (GetGlobalData().IsUsingGraphicsPlugin() && autoBasicSession->swapchainVector.empty())
+        if (GetGlobalData().IsUsingGraphicsPlugin() && autoBasicSession->swapchainVector.empty()) {
+            m_lastErrorSource = "No swapchains, logic error in test";
             return RunResult::Error;
+        }
 
         frameEndInfo = XrFrameEndInfo{XR_TYPE_FRAME_END_INFO};
         frameEndInfo.displayTime = frameState.predictedDisplayTime;
@@ -981,8 +994,11 @@ namespace Conformance
         frameEndInfo.layers = headerPtrArray;
 
         XrResult result = xrEndFrame(autoBasicSession->GetSession(), &frameEndInfo);
-        if (XR_FAILED(result))
+        if (XR_FAILED(result)) {
+            m_lastErrorSource = "xrEndFrame";
+            m_lastError = result;
             return RunResult::Error;
+        }
 
         return RunResult::Success;
     }
@@ -1017,6 +1033,9 @@ namespace Conformance
             // XR_SESSION_STATE_VISIBLE, XR_SESSION_STATE_FOCUSED. We proceed based on the
             // current state.
 
+            CAPTURE(sessionState);
+            CAPTURE(m_lastError);
+            CAPTURE(m_lastErrorSource);
             switch (sessionState) {
             case XR_SESSION_STATE_UNKNOWN:
                 // Wait until we timeout or are moved to a new state.
