@@ -64,15 +64,18 @@ void UnregisterHandleStateInternal(std::unique_lock<std::mutex>& lockProof, Hand
     }
 
     // Unregister children from map (recursively)
-    while (!it->second->children.empty()) {
-        // Unregistering the child will cause it to be removed from the list of children.
-        HandleState* const frontChild = it->second->children.front();
-        UnregisterHandleStateInternal(lockProof, HandleStateKey(frontChild->handle, frontChild->type));
+    {
+        std::unique_lock<std::recursive_mutex> lock(it->second->childrenMutex);
+        while (!it->second->children.empty()) {
+            // Unregistering the child will cause it to be removed from the list of children.
+            HandleState* const frontChild = it->second->children.front();
+            UnregisterHandleStateInternal(lockProof, HandleStateKey(frontChild->handle, frontChild->type));
+        }
     }
 
     if (it->second->parent != nullptr) {  // XrInstance has no parent
         // Remove self from parent's list of children
-        std::unique_lock<std::mutex> lock(it->second->parent->mutex);
+        std::unique_lock<std::recursive_mutex> lock(it->second->parent->childrenMutex);
         std::vector<HandleState*>& siblings = it->second->parent->children;
         siblings.erase(std::remove(siblings.begin(), siblings.end(), it->second.get()), siblings.end());
     }

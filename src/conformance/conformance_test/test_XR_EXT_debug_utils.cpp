@@ -1211,7 +1211,8 @@ namespace Conformance
                 CHK_XR(xrGetInstanceProcAddr(instance, "xrSessionInsertDebugUtilsLabelEXT",
                                              reinterpret_cast<PFN_xrVoidFunction*>(&pfnSessionInsertDebugUtilsLabelEXT)));
 
-                XrSessionBeginInfo session_begin_info = {XR_TYPE_SESSION_BEGIN_INFO, nullptr, XR_VIEW_CONFIGURATION_TYPE_PRIMARY_STEREO};
+                XrSessionBeginInfo session_begin_info = {XR_TYPE_SESSION_BEGIN_INFO};
+                session_begin_info.primaryViewConfigurationType = XR_VIEW_CONFIGURATION_TYPE_PRIMARY_STEREO;
                 CHK_XR(xrBeginSession(session, &session_begin_info));
 
                 const XrDebugUtilsLabelEXT session_active_region_label = {
@@ -1236,7 +1237,7 @@ namespace Conformance
                     pfnSessionInsertDebugUtilsLabelEXT(session, &individual_label);
 
                     XrFrameWaitInfo wait_frame_info{XR_TYPE_FRAME_WAIT_INFO};
-                    XrFrameState frame_state = {XR_TYPE_FRAME_STATE, nullptr};
+                    XrFrameState frame_state = {XR_TYPE_FRAME_STATE};
                     CHK_XR(xrWaitFrame(session, &wait_frame_info, &frame_state));
 
                     // Do stuff 1

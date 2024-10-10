@@ -1,0 +1,104 @@
+// Copyright (c) 2019-2024, The Khronos Group Inc.
+//
+// SPDX-License-Identifier: CC-BY-4.0
+
+[[code]]
+== Test Source Code
+
+The CTS uses https://github.com/catchorg/Catch2[Catch2] as the testing
+framework.
+In addition to mechanisms provided by Catch2, the conformance framework
+provides substantial features both for testing as well as for setting up
+preconditions to be able to test OpenXR functionality.
+
+[[code-assigning-tags]]
+=== Assigning Tags
+
+
+Tests should be categorized using tags.
+The following common tags are used:
+
+* `[interactive]`: indicates that a larger set of requirements apply,
+  requiring interaction at some level.
+** Each test labeled interactive **must** have one of the following tags in
+   addition.
+*** `[actions]`: indicates that this test is an "Action" test.
+    The additional tag `[gamepad]` selects only the tests relevant to
+    testing a gamepad (rather than a handed motion controller).
+*** `[composition]`: indicates that this test requires the tester to do a
+    visual comparison.
+*** `[scenario]`: indicates that the tester **must** perform a certain set
+    of actions to pass the test.
+*** `[self_test]`: indicates that the test is primarily a test of mechanisms
+    within the CTS, rather than runtime functionality, and are not required
+    in a conformance submission.
+    See <<selftests>>
+** A test labeled "interactive" **may** have the following tag to assist
+   running tests in unattended environments:
+**** `[no_auto]`: indicates that this interactive test cannot be automated
+     by the `XR_EXT_conformance_automation` extension nor by the
+     `--autoSkipTimeout` argument..
+* The name of an extension whose behavior is tested, e.g.
+  `[XR_KHR_visibility_mask]`.
+  This **may** be a required extension for the test, or simply an extension
+  that modifies the behavior and thus interacts with the test.
+  These tags are not used in conformance submissions but are useful in
+  development and testing.
+* `[XR_VERSION_1_1]`: indicates a test evaluates functionality specific to
+  OpenXR 1.1.
+  This tag is not used in conformance submissions but is useful in
+  development and testing.
+
+
+[[code-choosing-assertion]]
+=== Choosing an assertion
+
+It provides `CHECK`, `REQUIRE`, and `WARN` families of macros, among others.
+In addition, the CTS framework provides a collection of `XRC_THROW_...`
+macros.
+When should each be used?
+
+* All of these assertions except for `WARN` are considered a conformance
+  failure.
+* The difference between `CHECK` and `REQUIRE` is whether the current test
+  case run (that is, a run through a test case up to a given leaf in the
+  section tree) continues after a failed assertion.
+** If it makes no sense for the test to continue (e.g. because preconditions
+   have failed), use `REQUIRE`.
+** Otherwise, use `CHECK`: this still fails the test but allows more than
+   one failure to be logged from a single pass, making it easier in many
+   cases to diagnose and fix the failure.
+* Both `CHECK` and `REQUIRE` are considered testing assertions, so they
+  should only be used when the check is relevant to the subject of a given
+  test.
+  That is, they both increment the logged assertion count, and both will log
+  the assertion even if passed if the appropriate command line arguments are
+  passed.
+** For other preconditions, or shared helper code, use an `XRC_THROW` macro:
+   throwing an exception works just like `REQUIRE` (halting that test case
+   run) but checking with them or throwing does not increment the assertion
+   count or log all the data associated with an assertion.
+
+So, to summarize:
+
+`WARN`::
+  For a check relevant to the current test that requires an explanation by
+  the runtime vendor, as it might be non-conformant.
+
+`CHECK`...::
+  For most assertions relevant to the current test that should not
+  immediately halt execution of a test case.
+
+`REQUIRE`...::
+  For assertions relevant to the current test that **do** require
+  immediately halting execution of a test case.
+
+`XRC_THROW_`...::
+  For things that require stopping the test if they fail, but are not
+  directly relevant to the current test, such as setup code or shared
+  helpers.
+
+See also:
+
+* https://github.com/catchorg/Catch2/blob/devel/docs/assertions.md[Catch2
+  assertion documentation]

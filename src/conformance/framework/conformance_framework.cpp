@@ -347,7 +347,8 @@ namespace Conformance
 
         // Find XrSystemId (for later use and to ensure device is connected/available for whatever that means in a given runtime)
         XrSystemId systemId = XR_NULL_SYSTEM_ID;
-        const XrSystemGetInfo systemGetInfo = {XR_TYPE_SYSTEM_GET_INFO, nullptr, options.formFactorValue};
+        XrSystemGetInfo systemGetInfo = {XR_TYPE_SYSTEM_GET_INFO};
+        systemGetInfo.formFactor = options.formFactorValue;
 
         auto tryGetSystem = [&] {
             XrResult result = xrGetSystem(autoInstance, &systemGetInfo, &systemId);
@@ -543,6 +544,11 @@ namespace Conformance
         return IsGraphicsPluginRequired() || !options.graphicsPlugin.empty();
     }
 
+    bool GlobalData::IsUsingConformanceAutomation() const
+    {
+        return IsInstanceExtensionEnabled(XR_EXT_CONFORMANCE_AUTOMATION_EXTENSION_NAME);
+    }
+
     void GlobalData::PushSwapchainFormat(int64_t format, const std::string& name)
     {
         std::unique_lock<std::recursive_mutex> lock(dataMutex);
@@ -583,6 +589,17 @@ namespace Conformance
 std::string Catch::StringMaker<XrUuidEXT>::convert(XrUuidEXT const& value)
 {
     return to_string(value);
+}
+
+std::string Catch::StringMaker<XrQuaternionf>::convert(XrQuaternionf const& value)
+{
+    std::ostringstream oss;
+    oss << "(w=" << value.w;
+    oss << ", xyz=(" << value.x;
+    oss << ", " << value.y;
+    oss << ", " << value.z;
+    oss << "))";
+    return oss.str();
 }
 
 std::string Catch::StringMaker<XrVector3f>::convert(XrVector3f const& value)

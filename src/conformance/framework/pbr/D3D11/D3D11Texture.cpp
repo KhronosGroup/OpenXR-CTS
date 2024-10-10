@@ -10,6 +10,10 @@
 
 #include "D3D11Texture.h"
 
+#include "D3D11Resources.h"
+#include "../D3DCommon.h"
+#include "../PbrTexture.h"
+
 #include "stb_image.h"
 
 #include "utilities/throw_helpers.h"
@@ -23,32 +27,16 @@ namespace Pbr
 {
     namespace D3D11Texture
     {
-        std::array<uint8_t, 4> LoadRGBAUI4(RGBAColor color)
-        {
-            return std::array<uint8_t, 4>{(uint8_t)(color.r * 255.), (uint8_t)(color.g * 255.), (uint8_t)(color.b * 255.),
-                                          (uint8_t)(color.a * 255.)};
-        }
-
-        Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> LoadTextureImage(_In_ ID3D11Device* device,
+        Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> LoadTextureImage(const D3D11Resources& pbrResources, bool sRGB,
                                                                           _In_reads_bytes_(fileSize) const uint8_t* fileData,
                                                                           uint32_t fileSize)
         {
-            auto freeImageData = [](unsigned char* ptr) { ::free(ptr); };
-            using stbi_unique_ptr = std::unique_ptr<unsigned char, decltype(freeImageData)>;
-
-            constexpr uint32_t DesiredComponentCount = 4;
-
-            int w, h, c;
-            // If c == 3, a component will be padded with 1.0f
-            stbi_unique_ptr rgbaData(stbi_load_from_memory(fileData, fileSize, &w, &h, &c, DesiredComponentCount), freeImageData);
-            if (!rgbaData) {
-                throw std::runtime_error("Failed to load image file data.");
-            }
-
-            return CreateTexture(device, rgbaData.get(), w * h * DesiredComponentCount, w, h, DXGI_FORMAT_R8G8B8A8_UNORM);
+            StbiLoader::OwningImage<StbiLoader::stbi_unique_ptr> owningImage =
+                StbiLoader::LoadTextureImage(pbrResources.GetSupportedFormats(), sRGB, fileData, fileSize);
+            return CreateTexture(pbrResources, owningImage.image);
         }
 
-        Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> CreateFlatCubeTexture(_In_ ID3D11Device* device, RGBAColor color,
+        Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> CreateFlatCubeTexture(const D3D11Resources& pbrResources, RGBAColor color,
                                                                                DXGI_FORMAT format)
         {
             D3D11_TEXTURE2D_DESC desc{};
@@ -72,7 +60,7 @@ namespace Pbr
             }
 
             Microsoft::WRL::ComPtr<ID3D11Texture2D> cubeTexture;
-            XRC_CHECK_THROW_HRCMD(device->CreateTexture2D(&desc, initData, cubeTexture.ReleaseAndGetAddressOf()));
+            XRC_CHECK_THROW_HRCMD(pbrResources.GetDevice()->CreateTexture2D(&desc, initData, cubeTexture.ReleaseAndGetAddressOf()));
 
             D3D11_SHADER_RESOURCE_VIEW_DESC srvDesc{};
             srvDesc.Format = desc.Format;
@@ -81,42 +69,50 @@ namespace Pbr
             srvDesc.Texture2D.MostDetailedMip = 0;
 
             Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> textureView;
-            XRC_CHECK_THROW_HRCMD(device->CreateShaderResourceView(cubeTexture.Get(), &srvDesc, textureView.ReleaseAndGetAddressOf()));
+            XRC_CHECK_THROW_HRCMD(
+                pbrResources.GetDevice()->CreateShaderResourceView(cubeTexture.Get(), &srvDesc, textureView.ReleaseAndGetAddressOf()));
 
             return textureView;
         }
 
-        Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> CreateTexture(_In_ ID3D11Device* device,
-                                                                       _In_reads_bytes_(size) const uint8_t* rgba, uint32_t size, int width,
-                                                                       int height, DXGI_FORMAT format)
+        Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> CreateTexture(const D3D11Resources& pbrResources,
+                                                                       const Conformance::Image::Image& image)
         {
+            auto dxgiFormat = ToDXGIFormat(image.format);
             D3D11_TEXTURE2D_DESC desc{};
-            desc.Width = width;
-            desc.Height = height;
-            desc.MipLevels = 1;
+            desc.Width = image.levels[0].metadata.physicalDimensions.width;
+            desc.Height = image.levels[0].metadata.physicalDimensions.height;
+            desc.MipLevels = image.levels.size();
             desc.ArraySize = 1;
-            desc.Format = format;
+            desc.Format = dxgiFormat;
             desc.SampleDesc.Count = 1;
             desc.SampleDesc.Quality = 0;
             desc.Usage = D3D11_USAGE_DEFAULT;
             desc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
 
-            D3D11_SUBRESOURCE_DATA initData{};
-            initData.pSysMem = rgba;
-            initData.SysMemPitch = size / height;
-            initData.SysMemSlicePitch = size;
+            auto subData = std::vector<D3D11_SUBRESOURCE_DATA>{};
+            subData.reserve(image.levels.size());
+            for (auto& level : image.levels) {
+                D3D11_SUBRESOURCE_DATA levelData{};
+                levelData.pSysMem = level.data.data();
+                levelData.SysMemPitch =
+                    ((level.metadata.physicalDimensions.width * image.format.BytesPerBlockOrPixel()) / level.metadata.blockSize.width);
+                levelData.SysMemSlicePitch = level.data.size();
+                subData.push_back(levelData);
+            }
 
             Microsoft::WRL::ComPtr<ID3D11Texture2D> texture2D;
-            XRC_CHECK_THROW_HRCMD(device->CreateTexture2D(&desc, &initData, texture2D.ReleaseAndGetAddressOf()));
+            XRC_CHECK_THROW_HRCMD(pbrResources.GetDevice()->CreateTexture2D(&desc, subData.data(), texture2D.ReleaseAndGetAddressOf()));
 
             D3D11_SHADER_RESOURCE_VIEW_DESC srvDesc{};
             srvDesc.Format = desc.Format;
             srvDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
+            srvDesc.Texture2D.MostDetailedMip = 0;
             srvDesc.Texture2D.MipLevels = desc.MipLevels;
-            srvDesc.Texture2D.MostDetailedMip = desc.MipLevels - 1;
 
             Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> textureView;
-            XRC_CHECK_THROW_HRCMD(device->CreateShaderResourceView(texture2D.Get(), &srvDesc, textureView.ReleaseAndGetAddressOf()));
+            XRC_CHECK_THROW_HRCMD(
+                pbrResources.GetDevice()->CreateShaderResourceView(texture2D.Get(), &srvDesc, textureView.ReleaseAndGetAddressOf()));
 
             return textureView;
         }

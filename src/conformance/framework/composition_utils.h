@@ -149,8 +149,8 @@ namespace Conformance
 
         /// Check for OpenXR events and handle them.
         ///
-        /// @return false if an unexpected session state transition means the test should exit early
-        bool PollEvents();
+        /// FAILs if an unexpected session state transition means the test should exit early
+        void PollEvents();
 
         EventQueue& GetEventQueue() const;
 
@@ -400,7 +400,7 @@ namespace Conformance
     struct InteractiveLayerManager
     {
         InteractiveLayerManager(CompositionHelper& compositionHelper, const char* exampleImage, const char* descriptionText)
-            : m_compositionHelper(compositionHelper)
+            : m_compositionHelper(compositionHelper), m_testStopwatch(true)
         {
             using namespace openxr::math_operators;
 
@@ -515,7 +515,7 @@ namespace Conformance
         bool EndFrame(const XrFrameState& frameState, std::vector<XrCompositionLayerBaseHeader*> layers = {})
         {
             bool keepRunning = AppendLayers(layers, frameState.predictedDisplayTime);
-            keepRunning &= m_compositionHelper.PollEvents();
+            m_compositionHelper.PollEvents();
             m_compositionHelper.EndFrame(frameState.predictedDisplayTime, std::move(layers));
             return keepRunning;
         }
@@ -604,6 +604,13 @@ namespace Conformance
                 mode = LayerMode::Complete;
             }
 
+            if (GetGlobalData().options.autoSkipTimeout != std::chrono::milliseconds(0)) {
+                if (m_testStopwatch.Elapsed() > GetGlobalData().options.autoSkipTimeout) {
+                    WARN("Automatically skipping test due to timeout");
+                    mode = LayerMode::Complete;
+                }
+            }
+
             return mode;
         }
 
@@ -625,5 +632,7 @@ namespace Conformance
         XrSpace m_exampleQuadSpace;
         std::vector<XrCompositionLayerBaseHeader*> m_sceneLayers;
         std::vector<XrCompositionLayerBaseHeader*> m_backgroundLayers;
+
+        Stopwatch m_testStopwatch;
     };
 }  // namespace Conformance

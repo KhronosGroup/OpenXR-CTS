@@ -7,13 +7,16 @@
 // SPDX-License-Identifier: MIT AND Apache-2.0
 #pragma once
 
-#include "../IResources.h"
+#include "../../gltf/GltfHelper.h"
+#include "../IGltfBuilder.h"
 #include "../PbrCommon.h"
 #include "../PbrHandles.h"
 #include "../PbrSharedState.h"
 
 #include "utilities/d3d12_utils.h"
 #include "utilities/throw_helpers.h"
+
+#include <nonstd/span.hpp>
 
 #include <DirectXMath.h>
 #include <d3d12.h>
@@ -26,10 +29,14 @@
 
 namespace Pbr
 {
+    using nonstd::span;
+
     struct Primitive;
     using Duration = std::chrono::high_resolution_clock::duration;
     struct D3D12Primitive;
     struct D3D12Material;
+    struct D3D12GltfBuilder;
+    using StagingResources = std::back_insert_iterator<std::vector<Microsoft::WRL::ComPtr<ID3D12Resource>>>;
 
     struct D3D12TextureAndSampler : public ITexture
     {
@@ -43,23 +50,28 @@ namespace Pbr
     };
 
     /// Global PBR resources required for rendering a scene.
-    struct D3D12Resources final : public IResources
+    struct D3D12Resources final
     {
         D3D12Resources(_In_ ID3D12Device* device, const D3D12_GRAPHICS_PIPELINE_STATE_DESC& basePipelineStateDesc);
         D3D12Resources(D3D12Resources&&);
 
-        ~D3D12Resources() override;
+        ~D3D12Resources();
 
-        std::shared_ptr<Material> CreateFlatMaterial(RGBAColor baseColorFactor, float roughnessFactor = 1.0f, float metallicFactor = 0.0f,
-                                                     RGBColor emissiveFactor = RGB::Black) override;
-        std::shared_ptr<Material> CreateMaterial() override;
-        std::shared_ptr<ITexture> CreateSolidColorTexture(RGBAColor color);
+        /// D3D12Resources does not implement IGltfBuilder directly, but uses a wrapper type, D3D12GltfBuilder,
+        /// which also holds a copy command list that is passed to the underlying APIs.
+        D3D12GltfBuilder MakeGltfBuilder(ID3D12GraphicsCommandList* copyCommandList);
 
-        void LoadTexture(const std::shared_ptr<Material>& pbrMaterial, Pbr::ShaderSlots::PSMaterial slot, const tinygltf::Image* image,
-                         const tinygltf::Sampler* sampler, bool sRGB, Pbr::RGBAColor defaultRGBA) override;
-        PrimitiveHandle MakePrimitive(const Pbr::PrimitiveBuilder& primitiveBuilder,
-                                      const std::shared_ptr<Pbr::Material>& material) override;
-        void DropLoaderCaches() override;
+        std::shared_ptr<Material> CreateFlatMaterial(ID3D12GraphicsCommandList* copyCommandList, StagingResources stagingResources,
+                                                     RGBAColor baseColorFactor, float roughnessFactor = 1.0f, float metallicFactor = 0.0f,
+                                                     RGBColor emissiveFactor = RGB::Black);
+        std::shared_ptr<Material> CreateMaterial();
+
+        void LoadTexture(ID3D12GraphicsCommandList* copyCommandList, StagingResources stagingResources,
+                         const std::shared_ptr<Material>& pbrMaterial, Pbr::ShaderSlots::PSMaterial slot, const tinygltf::Image* image,
+                         const tinygltf::Sampler* sampler, bool sRGB, Pbr::RGBAColor defaultRGBA);
+        PrimitiveHandle MakePrimitive(ID3D12GraphicsCommandList* copyCommandList, const Pbr::PrimitiveBuilder& primitiveBuilder,
+                                      const std::shared_ptr<Pbr::Material>& material);
+        void DropLoaderCaches();
 
         /// Sets the Bidirectional Reflectance Distribution Function Lookup Table texture, required by the shader to compute surface
         /// reflectance from the IBL.
@@ -73,26 +85,6 @@ namespace Pbr
 
         /// Get the D3D12Device that the PBR resources are associated with.
         Microsoft::WRL::ComPtr<ID3D12Device> GetDevice() const;
-
-        /// Create a new copy command list, which can later be executed with ExecuteCopyCommandList
-        Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> CreateCopyCommandList() const;
-
-        /// Execute a copy command list on the internal copy queue, which can be waited on using GetFenceAndValue
-        void ExecuteCopyCommandList(ID3D12GraphicsCommandList* cmdList,
-                                    std::vector<Microsoft::WRL::ComPtr<ID3D12Resource>> destroyAfterCopy = {}) const;
-
-        /// Create a command list, apply the functor to it, close it, and execute it.
-        /// Functor must take a single argument of type ID3D12GraphicsCommandList* or compatible.
-        template <typename F>
-        void WithCopyCommandList(F&& commandListFunctor) const
-        {
-            Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> cmdList = CreateCopyCommandList();
-
-            commandListFunctor(cmdList.Get());
-
-            XRC_CHECK_THROW_HRCMD(cmdList->Close());
-            ExecuteCopyCommandList(cmdList.Get());
-        }
 
         /// Get a pipeline state matching some parameters as well as the current settings inside D3D12Resources.
         Microsoft::WRL::ComPtr<ID3D12PipelineState> GetOrCreatePipelineState(DXGI_FORMAT colorRenderTargetFormat,
@@ -111,13 +103,14 @@ namespace Pbr
 
         /// Many 1x1 pixel colored textures are used in the PBR system. This is used to create textures backed by a cache to reduce the
         /// number of textures created.
-        Conformance::D3D12ResourceWithSRVDesc CreateTypedSolidColorTexture(RGBAColor color);
+        Conformance::D3D12ResourceWithSRVDesc CreateTypedSolidColorTexture(ID3D12GraphicsCommandList* copyCommandList,
+                                                                           StagingResources stagingResources, RGBAColor color, bool sRGB);
+
+        /// Get the cached list of texture formats supported by the device
+        span<const Conformance::Image::FormatParams> GetSupportedFormats() const;
 
         /// Bind the the PBR resources to the current context.
         void Bind(_In_ ID3D12GraphicsCommandList* directCommandList) const;
-
-        /// Get the fence to wait on before executing any command list built on this Resources.
-        std::pair<ID3D12Fence*, uint64_t> GetFenceAndValue() const;
 
         /// Get the D3D12Primitive from a primitive handle.
         D3D12Primitive& GetPrimitive(PrimitiveHandle p);
@@ -152,5 +145,28 @@ namespace Pbr
         std::unique_ptr<Impl> m_impl;
 
         SharedState m_sharedState;
+    };
+
+    struct D3D12GltfBuilder : IGltfBuilder
+    {
+        D3D12GltfBuilder(D3D12Resources& pbrResources, ID3D12GraphicsCommandList* copyCommandList);
+        ~D3D12GltfBuilder() override;
+
+        std::shared_ptr<Material> CreateFlatMaterial(RGBAColor baseColorFactor, float roughnessFactor = 1.0f, float metallicFactor = 0.0f,
+                                                     RGBColor emissiveFactor = RGB::Black) override;
+        std::shared_ptr<Material> CreateMaterial() override;
+
+        void LoadTexture(const std::shared_ptr<Material>& pbrMaterial, Pbr::ShaderSlots::PSMaterial slot, const tinygltf::Image* image,
+                         const tinygltf::Sampler* sampler, bool sRGB, Pbr::RGBAColor defaultRGBA) override;
+        PrimitiveHandle MakePrimitive(const Pbr::PrimitiveBuilder& primitiveBuilder,
+                                      const std::shared_ptr<Pbr::Material>& material) override;
+        void DropLoaderCaches() override;
+
+        std::vector<Microsoft::WRL::ComPtr<ID3D12Resource>> TakeStagingResources();
+
+    private:
+        D3D12Resources& m_pbrResources;
+        ID3D12GraphicsCommandList* m_copyCmdList;
+        std::vector<Microsoft::WRL::ComPtr<ID3D12Resource>> m_stagingResources;
     };
 }  // namespace Pbr

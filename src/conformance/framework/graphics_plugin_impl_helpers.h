@@ -44,12 +44,17 @@ namespace Conformance
 
         T& operator[](HandleType h)
         {
-            return m_data[checkHandleAndGetIndex(h)];
+            return m_data[checkHandleInBoundsAndGetIndex(h)];
         }
 
         const T& operator[](HandleType h) const
         {
-            return m_data[checkHandleAndGetIndex(h)];
+            return m_data[checkHandleInBoundsAndGetIndex(h)];
+        }
+
+        void assertContains(HandleType h) const
+        {
+            checkHandleInBoundsAndGetIndex(h);
         }
 
         void clear()
@@ -72,6 +77,14 @@ namespace Conformance
             }
             // TODO implicit mask is here by truncating!
             auto index = static_cast<uint32_t>(h.get());
+            return index;
+        }
+        uint32_t checkHandleInBoundsAndGetIndex(HandleType h) const
+        {
+            auto index = checkHandleAndGetIndex(h);
+            if (index >= m_data.size()) {
+                throw std::logic_error("Internal CTS error: Out-of-bounds handle");
+            }
             return index;
         }
         static constexpr size_t kGenerationShift = 32;

@@ -54,6 +54,7 @@ add_library(
     metal_utils.cpp
     event_reader.cpp
     feature_availability.cpp
+    image.cpp
     opengl_utils.cpp
     string_utils.cpp
     stringification.cpp
@@ -83,7 +84,7 @@ target_include_directories(
         # for common/
         ${PROJECT_SOURCE_DIR}/src
 )
-target_link_libraries(conformance_utilities PUBLIC OpenXR::headers)
+target_link_libraries(conformance_utilities PUBLIC OpenXR::headers PRIVATE conformance_framework_basisu)
 
 if(TARGET openxr-gfxwrapper)
     target_link_libraries(conformance_utilities PRIVATE openxr-gfxwrapper)

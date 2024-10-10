@@ -163,6 +163,10 @@ namespace Conformance
         bool leftHandEnabled{true};
         bool rightHandEnabled{true};
 
+        /// Description of how long to wait before skipping tests which support auto skip
+        /// or 0 when auto skip is disabled.
+        std::chrono::milliseconds autoSkipTimeout{0};
+
         /// Options include "stereo" "mono". See enum XrViewConfigurationType.
         /// Default is stereo.
         std::string viewConfiguration{"Stereo"};
@@ -367,6 +371,9 @@ namespace Conformance
         /// Returns true if a graphics plugin was supplied, or if IsGraphicsPluginRequired() is true.
         bool IsUsingGraphicsPlugin() const;
 
+        /// Returns true if using XR_EXT_conformance_automation
+        bool IsUsingConformanceAutomation() const;
+
         /// Record a swapchain format as being supported and tested.
         void PushSwapchainFormat(int64_t format, const std::string& name);
 
@@ -394,7 +401,7 @@ namespace Conformance
 
         ConformanceReport conformanceReport;
 
-        XrInstanceProperties instanceProperties{XR_TYPE_INSTANCE_PROPERTIES, nullptr};
+        XrInstanceProperties instanceProperties{XR_TYPE_INSTANCE_PROPERTIES};
 
         FunctionInfo nullFunctionInfo;
 
@@ -629,6 +636,11 @@ namespace Catch
     struct StringMaker<XrPosef>
     {
         static std::string convert(XrPosef const& value);
+    };
+    template <>
+    struct StringMaker<XrQuaternionf>
+    {
+        static std::string convert(XrQuaternionf const& value);
     };
     template <>
     struct StringMaker<XrVector3f>

@@ -1,0 +1,171 @@
+// Copyright (c) 2019-2024, The Khronos Group Inc.
+//
+// SPDX-License-Identifier: CC-BY-4.0
+
+[[configuration]]
+== Configuration
+
+:uri-catch2-cli: https://github.com/catchorg/Catch2/blob/devel/docs/command-line.md
+
+The canonical interface to the OpenXR CTS is through a command line
+application, `conformance_cli`.
+This presents a modified version of the link:{uri-catch2-cli}[Catch2 command
+line interface] that adds parameters.
+Other frontends, such as the Android APK, internally convert their
+configuration into the equivalent command line arguments to pass to the CTS
+shared library.
+
+All shorthand versions of added options use capital (uppercase) letters, to
+avoid conflicting with the underlying Catch2 options.
+
+[source]
+----
+  -G, --graphicsPlugin <Vulkan|Vulkan2      Specify a graphics plugin to use.
+  |OpenGLES|OpenGL|D3D11|D3D12|Metal>       Required.
+  --apiVersion <1.0|1.1>                    Specify the OpenXR API version to
+                                            use. Default is 1.1.
+  -S, --randSeed <uint64_t random seed>     Specify a random seed to use
+                                            (decimal or hex). Default is a
+                                            dynamically chosen value.
+  -F, --formFactor <HMD|Handheld>           Specify a form factor to use.
+                                            Default is HMD.
+  --hands <left|right|both>                 Choose which hands to test: left,
+                                            right, or both. Default is both.
+  -V, --viewConfiguration <Stereo|Mono>     Specify view configuration.
+                                            Default is Stereo.
+  -B, --environmentBlendMode <Opaque        Specify blend mode. Default is
+  |Additive|AlphaBlend>                     Opaque.
+  -L, --enabledAPILayer <API layer name>    Specify API layer. May repeat for
+                                            multiple layers. Default is none.
+  -E, --enabledInstanceExtension            Specify instance extension. May
+  <extension name>                          repeat for multiple extensions.
+                                            Default is none.
+  -I, --interactionProfiles <interaction    Specify interaction profiles. May
+  profile>                                  repeat for multiple profiles.
+                                            Default is /interaction_profiles/
+                                            khr/simple_controller.
+  -H, --invalidHandleValidation             Enables testing of invalid handle
+                                            checking.
+  -T, --invalidTypeValidation               Enables testing of invalid type
+                                            checking.
+  --nonDisconnectableDevices                Disables tests that requires
+                                            disconnectable devices (for
+                                            debugging).
+  -F, --disableFileLineLogging              Disables logging file/line data.
+  --pollGetSystem                           Retry xrGetSystem until success
+                                            or timeout expires before running
+                                            tests.
+  --autoSkipTimeout <uint64_t auto skip     Automatic Skip Timeout (in
+  timeout milliseconds>                     milliseconds) for tests which
+                                            support it
+  -D, --debugMode                           Sets debug mode as enabled or
+                                            disabled.
+----
+
+
+=== Instance Configuration
+
+The correct value to use for these options may be dictated by the testing
+step you are on and the features and versions of OpenXR you support.
+See <<submissions-testing-steps>>.
+
+==== API Version
+
+The same basic instance configuration is used across the test suite for a
+single execution.
+Specify the desired OpenXR API version with `--apiVersion <major.minor>`.
+
+* `--apiversion 1.0` - Create OpenXR 1.0.x `XrInstance` handles
+* `--apiversion 1.1` - Create OpenXR 1.1.x `XrInstance` handles
+
+==== Graphics Plugin
+
+Specify with the `--graphicsPlugin <plugin>` or `-G <plugin>` option.
+
+* `vulkan` - uses `XR_KHR_vulkan_enable`
+* `vulkan2` - uses `XR_KHR_vulkan_enable2`
+* `opengl` - uses `XR_KHR_opengl_enable`
+* `opengles` - uses `XR_KHR_opengl_es_enable`
+* `d3d11` - uses `XR_KHR_D3D11_enable`
+* `d3d12` - uses `XR_KHR_D3D12_enable`
+* `metal` - uses `XR_KHR_metal_enable`
+
+If a testing step does not require you to run every supported graphics
+plugin, you may select an arbitrary one to use for that step.
+However, your runtime must: be able to pass all tests in that step with any
+supported graphics plugin.
+The Working Group has simply designated the tests in that step as not
+heavily depending on the graphics API.
+
+The only case in which a graphics plugin is not specified, is if a
+"headless" or no-display extension is in use (via the `-E` option) and is
+being tested.
+
+==== Interaction Profiles
+
+Some tests use a user-specified interaction profile.
+
+Pass `-I` or `--interactionProfiles` followed by an interaction profile to
+test, without the leading `/interaction_profile/` (omitted due to technical
+reasons).
+
+**Any extension** required to permit the use of a given interaction profile
+specified this way is **automatically enabled** (for all tests, not just the
+ones that use a user-specified interaction profile).
+
+[[configuration-optional]]
+=== Optional Assertions
+
+The Conformance Test Suite contains a variety of checks of optional runtime
+behavior, in addition to the required behavior.
+This is primarily checking to see if a runtime validates application input
+in a way that the specification *permits* but does not require.
+Performing this optional validation makes a runtime more useful in the
+software development process and is generally encouraged from a perspective
+of improving the health of the ecosystem.
+As these options only add assertions, they **may** be used when running the
+CTS for submission purposes.
+
+The subsequent documentation assumes the use of `conformance_cli`.
+If running on Android, these can be appended to the comma-separated `--esa
+args` string array as shown in the example ADB command lines.
+If using a different frontend, pass these to `xrcRunConformanceTests` as
+additional elements of the `argv`/`argc` array in
+`ConformanceLaunchSettings`.
+
+==== Handle Validation
+
+To verify that the runtime under test checks handle values for validity and
+returns `XR_ERROR_INVALID_HANDLE` if a handle provided is invalid, add
+`--invalidHandleValidation` (or `-H`, its shorthand version) to your
+`conformance_cli` command line.
+
+==== Structure Type Enumerant Validation
+
+To verify that the runtime under test checks the `type` member of structures
+passed and returns `XR_ERROR_VALIDATION_FAILURE` if the given enumerant is
+invalid, add `--invalidTypeValidation` (or `-T`, its shorthand version) to
+your `conformance_cli` command line.
+
+=== Compatibility Options
+
+* `--pollGetSystem` - Will poll `xrGetSystem` at test suite startup until it
+  succeeds, then proceeds with tests as usual.
+  As not all applications will perform this behavior, runtimes that require
+  it may see decreased compatibility.
+  **Must be called out and justified if used in a submission!**
+* `--hands <left|right|both>` - The test by default assumes there is a
+  controller or other interaction method available for both hands.
+  (That is, this option defaults to `both`.) If there is only a single
+  controller/interaction method, pass this option and the hand that it is
+  expected to be associated with.
+  If the controller can be used in both hands, **run the "Interactive action
+  tests" twice** - once with `--hands left` and once with `--hands right`.
+  **TODO** improve this -
+  <https://gitlab.khronos.org/openxr/openxr/-/issues/2385>
+* `--nonDisconnectableDevices` - If you cannot turn off or otherwise
+  disconnect input devices on request, this skips some assertions that
+  requires a person to do that.
+  Applies only to the interactive tests tagged `[actions]` and
+  `[interactive]`.
+  **Must be called out and justified if used in a submission!**

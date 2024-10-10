@@ -31,12 +31,14 @@ namespace Pbr
                                     DirectX::FXMMATRIX modelToWorld)
     {
         XMStoreFloat4x4(&m_modelBuffer.ModelToWorld, XMMatrixTranspose(modelToWorld));
-        pbrResources.WithCopyCommandList(
-            [&](ID3D12GraphicsCommandList* cmdList) { m_modelConstantBuffer.AsyncUpload(cmdList, &m_modelBuffer); });
+        m_modelConstantBuffer.AsyncUpload(directCommandList, &m_modelBuffer);
+        auto barrier = CD3DX12_RESOURCE_BARRIER::Transition(m_modelConstantBuffer.GetResource(), D3D12_RESOURCE_STATE_COPY_DEST,
+                                                            D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+        directCommandList->ResourceBarrier(1, &barrier);
         // xxx: why do we copy the transform descriptor to a separate heap, again? is that relevant here?
         pbrResources.BindConstantBufferViews(directCommandList, m_modelConstantBuffer.GetResource()->GetGPUVirtualAddress());
 
-        UpdateTransforms(pbrResources);
+        UpdateTransforms(pbrResources, directCommandList);
 
         pbrResources.SetTransforms(m_modelTransformsResourceViewHeap->GetCPUDescriptorHandleForHeapStart());
 
@@ -92,7 +94,7 @@ namespace Pbr
             CD3DX12_CPU_DESCRIPTOR_HANDLE(m_modelTransformsResourceViewHeap->GetCPUDescriptorHandleForHeapStart()));
     }
 
-    void D3D12ModelInstance::UpdateTransforms(Pbr::D3D12Resources& pbrResources)
+    void D3D12ModelInstance::UpdateTransforms(Pbr::D3D12Resources& /* pbrResources */, ID3D12GraphicsCommandList* directCommandList)
     {
         // If none of the node transforms have changed, no need to recompute/update the model transform structured buffer.
         if (ResolvedTransformsNeedUpdate()) {
@@ -100,9 +102,11 @@ namespace Pbr
 
             // Update node transform structured buffer.
             auto& resolvedTransforms = GetResolvedTransforms();
-            pbrResources.WithCopyCommandList([&](ID3D12GraphicsCommandList* cmdList) {
-                m_modelTransformsStructuredBuffer.AsyncUpload(cmdList, resolvedTransforms.data(), resolvedTransforms.size());
-            });
+            m_modelTransformsStructuredBuffer.AsyncUpload(directCommandList, resolvedTransforms.data(), resolvedTransforms.size());
+            auto barrier =
+                CD3DX12_RESOURCE_BARRIER::Transition(m_modelTransformsStructuredBuffer.GetResource(), D3D12_RESOURCE_STATE_COPY_DEST,
+                                                     D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+            directCommandList->ResourceBarrier(1, &barrier);
             MarkResolvedTransformsUpdated();
         }
     }

@@ -245,12 +245,13 @@ namespace
                     }
 
                     {
-                        INFO("Interactive tests are typically either [actions] or [no_auto]");
+                        INFO("Interactive tests are typically either [actions], [composition], or [no_auto]");
                         // [interactive] tests are almost always not automatable [no_auto] except when
                         // they are [actions] tests using `XR_EXT_conformance_automation`
                         bool isNoAuto = testTags.find("[no_auto]") != std::string::npos;
+                        bool isComposition = testTags.find("[composition]") != std::string::npos;
                         bool isActions = testTags.find("[actions]") != std::string::npos;
-                        REQUIRE((isNoAuto || isActions));
+                        REQUIRE((isNoAuto || isComposition || isActions));
                     }
                 }
             }
@@ -365,6 +366,19 @@ namespace
             return ParserResult::ok(ParseResultType::Matched);
         };
 
+        /// Handle auto skip timeout
+        auto const parseAutoSkipTimeout = [&](std::string const& arg) {
+            GlobalData& globalData = GetGlobalData();
+            uint64_t skipTimeoutValue = std::strtoull(arg.c_str(), nullptr, 0);
+            if (errno == ERANGE) {
+                ReportConsoleOnlyF("invalid arg: %s", arg.c_str());
+                return ParserResult::runtimeError("invalid uint64_t autoSkipTimeout '" + arg + "' passed on command line");
+            }
+
+            globalData.options.autoSkipTimeout = std::chrono::milliseconds(skipTimeoutValue);
+            return ParserResult::ok(ParseResultType::Matched);
+        };
+
         // NOTE: End of line comments are to encourage clang-format to work the way we want it to for this mini embedded DSL.
         // Clara requires that the "short" args be a single letter - we use capital letters here to avoid colliding with Catch2-provided
         // options.
@@ -445,6 +459,10 @@ namespace
                   ["--pollGetSystem"]     //
               ("Retry xrGetSystem until success or timeout expires before running tests.")
                   .optional()
+
+            | Opt(parseAutoSkipTimeout, "uint64_t auto skip timeout milliseconds")  //
+                  ["--autoSkipTimeout"]("Automatic Skip Timeout (in milliseconds) for tests which support it")
+                      .optional()
 
             //
             | Opt([&](bool enabled) { options.debugMode = enabled; })  //

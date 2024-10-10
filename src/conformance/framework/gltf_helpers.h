@@ -25,9 +25,9 @@ namespace Conformance
     using nonstd::span;
 
     /// Load a glTF file from memory into a shared pointer, throwing on errors.
-    std::shared_ptr<tinygltf::Model> LoadGLTF(span<const uint8_t> data);
+    std::shared_ptr<const tinygltf::Model> LoadGLTF(span<const uint8_t> data);
 
     /// Load a glTF file from memory into a shared pointer, throwing on errors, using the provided loader.
-    std::shared_ptr<tinygltf::Model> LoadGLTF(span<const uint8_t> data, tinygltf::TinyGLTF& loader);
+    std::shared_ptr<const tinygltf::Model> LoadGLTF(span<const uint8_t> data, tinygltf::TinyGLTF& loader);
 
 }  // namespace Conformance

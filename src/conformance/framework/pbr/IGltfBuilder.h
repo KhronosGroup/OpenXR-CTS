@@ -33,17 +33,13 @@ namespace Pbr
     };
 
     /// TODO add a swapchain length param and ignore it for d3d11?
-    struct IResources
+    struct IGltfBuilder
     {
-        virtual ~IResources() = default;
+        virtual ~IGltfBuilder() = default;
         virtual std::shared_ptr<Material> CreateFlatMaterial(RGBAColor baseColorFactor, float roughnessFactor = 1.0f,
                                                              float metallicFactor = 0.0f, RGBColor emissiveFactor = RGB::Black) = 0;
 
         virtual std::shared_ptr<Material> CreateMaterial() = 0;
-
-        // virtual std::shared_ptr<ITexture> CreateSolidColorTexture(RGBAColor color) = 0;
-
-        // Do we also need CreateSampler?
 
         virtual void LoadTexture(const std::shared_ptr<Material>& material, Pbr::ShaderSlots::PSMaterial slot, const tinygltf::Image* image,
                                  const tinygltf::Sampler* sampler, bool sRGB, Pbr::RGBAColor defaultRGBA) = 0;
@@ -52,12 +48,13 @@ namespace Pbr
                                               const std::shared_ptr<Pbr::Material>& material) = 0;
 
         /// Optional optimization, can call at the end of loading a model to drop per-model caches.
+        // If IGltfBuilder is ever one-per-model on all backends, this can be replaced with a destructor.
         virtual void DropLoaderCaches()
         {
         }
 
     protected:
         // cannot instantiate except from derived class
-        IResources() = default;
+        IGltfBuilder() = default;
     };
 }  // namespace Pbr

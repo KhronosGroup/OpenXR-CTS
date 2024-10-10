@@ -9,6 +9,8 @@ add_library(
     PbrMaterial.cpp
     PbrModel.cpp
     PbrSharedState.cpp
+    PbrTexture.cpp
+    D3DCommon.cpp
 )
 
 if(APPLE)
@@ -137,12 +139,13 @@ if(XR_USE_GRAPHICS_API_OPENGL OR XR_USE_GRAPHICS_API_OPENGL_ES)
             "${CMAKE_CURRENT_BINARY_DIR}/PbrPixelShader_glsl_src.h"
             "${CMAKE_CURRENT_BINARY_DIR}/PbrVertexShader_glsl_src.h"
             OpenGL/GLResources.cpp
+            OpenGL/GLFormats.cpp
             OpenGL/GLTexture.cpp
             OpenGL/GLTextureCache.cpp
             OpenGL/GLMaterial.cpp
             OpenGL/GLModel.cpp
             OpenGL/GLPrimitive.cpp
-    )
+            )
 endif()
 
 if(TARGET openxr-gfxwrapper)
@@ -197,6 +200,7 @@ if(XR_USE_GRAPHICS_API_VULKAN)
             "${CMAKE_CURRENT_BINARY_DIR}/PbrVertexShader_glsl_spv.h"
             Vulkan/VkPipelineStates.cpp
             Vulkan/VkResources.cpp
+            Vulkan/VkFormats.cpp
             Vulkan/VkTexture.cpp
             Vulkan/VkTextureCache.cpp
             Vulkan/VkMaterial.cpp
@@ -208,7 +212,7 @@ if(XR_USE_GRAPHICS_API_VULKAN)
         add_test(
             NAME pbr_glsl_offsets
             COMMAND
-                "${PYTHON_EXECUTABLE}"
+                "${Python3_EXECUTABLE}"
                 "${CMAKE_CURRENT_SOURCE_DIR}/check-offsets.py"
                 "${GLSLANG_VALIDATOR}"
         )
@@ -224,6 +228,8 @@ if(XR_USE_GRAPHICS_API_METAL)
             Metal/MetalModel.cpp
             Metal/MetalPrimitive.cpp
             Metal/MetalResources.cpp
+            Metal/MetalFormats.cpp
+            Metal/MetalTexture.cpp
             Metal/MetalTexture.cpp
             Metal/MetalTextureCache.cpp
             Metal/MetalPipelineStates.cpp

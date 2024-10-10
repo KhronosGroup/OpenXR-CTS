@@ -57,14 +57,18 @@ namespace Pbr
         parameters.RoughnessFactor = roughnessFactor;
 
         const Microsoft::WRL::ComPtr<ID3D11SamplerState> defaultSampler = Pbr::D3D11Texture::CreateSampler(pbrResources.GetDevice().Get());
-        material->SetTexture(ShaderSlots::BaseColor, pbrResources.CreateTypedSolidColorTexture(RGBA::White).Get(), defaultSampler.Get());
-        material->SetTexture(ShaderSlots::MetallicRoughness, pbrResources.CreateTypedSolidColorTexture(RGBA::White).Get(),
+        material->SetTexture(ShaderSlots::BaseColor, pbrResources.CreateTypedSolidColorTexture(RGBA::White, true).Get(),
+                             defaultSampler.Get());
+        material->SetTexture(ShaderSlots::MetallicRoughness, pbrResources.CreateTypedSolidColorTexture(RGBA::White, false).Get(),
                              defaultSampler.Get());
         // No occlusion.
-        material->SetTexture(ShaderSlots::Occlusion, pbrResources.CreateTypedSolidColorTexture(RGBA::White).Get(), defaultSampler.Get());
+        material->SetTexture(ShaderSlots::Occlusion, pbrResources.CreateTypedSolidColorTexture(RGBA::White, false).Get(),
+                             defaultSampler.Get());
         // Flat normal.
-        material->SetTexture(ShaderSlots::Normal, pbrResources.CreateTypedSolidColorTexture(RGBA::FlatNormal).Get(), defaultSampler.Get());
-        material->SetTexture(ShaderSlots::Emissive, pbrResources.CreateTypedSolidColorTexture(RGBA::White).Get(), defaultSampler.Get());
+        material->SetTexture(ShaderSlots::Normal, pbrResources.CreateTypedSolidColorTexture(RGBA::FlatNormal, false).Get(),
+                             defaultSampler.Get());
+        material->SetTexture(ShaderSlots::Emissive, pbrResources.CreateTypedSolidColorTexture(RGBA::White, true).Get(),
+                             defaultSampler.Get());
 
         return material;
     }

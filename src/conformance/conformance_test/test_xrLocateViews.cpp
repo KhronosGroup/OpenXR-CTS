@@ -162,6 +162,10 @@ namespace Conformance
                         WARN(
                             "Runtime accepted an invalid enum value as unsupported, which makes it harder for apps to reason about the error.");
                     }
+                    else if (valid && result == XR_ERROR_VALIDATION_FAILURE) {
+                        WARN(
+                            "Runtime accepted an valid but unsupported enum value as unsupported, which makes it harder for apps to reason about the error.");
+                    }
                 }
             }
         }

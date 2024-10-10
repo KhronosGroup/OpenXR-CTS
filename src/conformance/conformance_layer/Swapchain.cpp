@@ -49,7 +49,7 @@ namespace swapchain
 
     CustomSwapchainState* GetCustomSwapchainState(XrSwapchain handle)
     {
-        return dynamic_cast<CustomSwapchainState*>(GetSwapchainState(handle)->customState.get());
+        return dynamic_cast<CustomSwapchainState*>(GetSwapchainState(handle)->GetCustomState());
     }
 
 }  // namespace swapchain
@@ -64,8 +64,8 @@ XrResult ConformanceHooks::xrCreateSwapchain(XrSession session, const XrSwapchai
     if (XR_SUCCEEDED(result)) {
         // Tag on the custom swapchain state to the generated handle state.
         session::CustomSessionState* const customSessionState = session::GetCustomSessionState(session);
-        GetSwapchainState(*swapchain)->customState =
-            std::make_unique<CustomSwapchainState>(createInfo, customSessionState->graphicsBinding);
+        GetSwapchainState(*swapchain)
+            ->SetCustomState(std::make_unique<CustomSwapchainState>(createInfo, customSessionState->graphicsBinding));
     }
     return result;
 }

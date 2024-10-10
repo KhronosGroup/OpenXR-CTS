@@ -17,6 +17,102 @@ particular, since it is primarily software, pull requests may be integrated as
 they are accepted even between periodic updates. However, versions that are not
 signed tags on the `approved` branch are not valid for conformance submission.
 
+## OpenXR CTS 1.1.41.0 (2024-10-10)
+
+An important feature of this release is the new usage guide for the Conformance
+Test Suite. The instructions for running the suite are now in that guide, rather
+than in the README. Approved releases will contain HTML and PDF artifacts
+generated from this usage guide. Additionally, the AsciiDoc sources and Makefile
+are also included in the CTS source tree, under `src/conformance/usage`.
+
+- Conformance Tests
+  - Addition: Document the assumptions about the testing environment in a
+    centralized location in the "Usage" document.
+    ([internal MR 3325](https://gitlab.khronos.org/openxr/openxr/merge_requests/3325))
+  - Fix: Resolve D3D12 command list leak.
+    ([internal MR 3387](https://gitlab.khronos.org/openxr/openxr/merge_requests/3387),
+    [internal issue 2298](https://gitlab.khronos.org/openxr/openxr/issues/2298))
+  - Fix: Do not apply ambient occlusion to direct lighting in PBR shader, per the
+    glTF specification.
+    ([internal MR 3419](https://gitlab.khronos.org/openxr/openxr/merge_requests/3419))
+  - Fix: Avoid crashes/errors when running in a headless mode.
+    ([internal MR 3446](https://gitlab.khronos.org/openxr/openxr/merge_requests/3446))
+  - Fix: Resolve some thread races in the conformance layer as identified by TSAN.
+    ([internal MR 3477](https://gitlab.khronos.org/openxr/openxr/merge_requests/3477))
+  - Fix: Add support for `XR_KHR_maintenance1` to the `GripSurface-objective` test.
+    ([internal MR 3478](https://gitlab.khronos.org/openxr/openxr/merge_requests/3478))
+  - Fix: Typo in subtest name in multithreading test.
+    ([internal MR 3479](https://gitlab.khronos.org/openxr/openxr/merge_requests/3479))
+  - Fix: `IsViewConfigurationTypeEnumValid` needs to check for `XR_VERSION_1_1`
+    when validating for
+    `XR_VIEW_CONFIGURATION_TYPE_PRIMARY_STEREO_WITH_FOVEATED_INSET`
+    ([internal MR 3492](https://gitlab.khronos.org/openxr/openxr/merge_requests/3492))
+  - Fix: Remove checks for `input/aim_activate_ext/value` which check more than the
+    specification allows. This value can be bool or float but the tests required
+    float values.
+    ([internal MR 3508](https://gitlab.khronos.org/openxr/openxr/merge_requests/3508),
+    [internal issue 2368](https://gitlab.khronos.org/openxr/openxr/issues/2368))
+  - Fix: Correct typo causing incorrect matrix to be used when rendering on OpenGL
+    ([internal MR 3509](https://gitlab.khronos.org/openxr/openxr/merge_requests/3509))
+  - Fix: Correct generated interaction tests through corrected XML description of
+    OpenXR 1.1 related additions to the promoted Meta Touch Plus, Touch Pro, and
+    Touch (Rift CV1) controller interaction profiles.
+    ([internal MR 3513](https://gitlab.khronos.org/openxr/openxr/merge_requests/3513),
+    [internal issue 2350](https://gitlab.khronos.org/openxr/openxr/issues/2350),
+    [internal issue 2375](https://gitlab.khronos.org/openxr/openxr/issues/2375))
+  - Fix: Ensure that the correct `XrViewConfigurationType` is used in the
+    `xrLocateViews` call.
+    ([internal MR 3519](https://gitlab.khronos.org/openxr/openxr/merge_requests/3519))
+  - Improvement: Move detailed usage documentation from README to a separate
+    "Usage" AsciiDoc book.
+    ([internal MR 3325](https://gitlab.khronos.org/openxr/openxr/merge_requests/3325))
+  - Improvement: Support KTX2 compressed textures in glTF files using basis
+    universal, transcoding to GPU supported compressed textures where possible.
+    ([internal MR 3394](https://gitlab.khronos.org/openxr/openxr/merge_requests/3394),
+    [internal issue 2105](https://gitlab.khronos.org/openxr/openxr/issues/2105),
+    [internal MR 3510](https://gitlab.khronos.org/openxr/openxr/merge_requests/3510),
+    [internal MR 3522](https://gitlab.khronos.org/openxr/openxr/merge_requests/3522),
+    [internal MR 3532](https://gitlab.khronos.org/openxr/openxr/merge_requests/3532))
+  - Improvement: Split up glTF model loading, to allow the first stage to be
+    asynchronous on the CPU.
+    ([internal MR 3395](https://gitlab.khronos.org/openxr/openxr/merge_requests/3395))
+  - Improvement: In the glTF self-test, show a spinner while waiting for
+    (pathological) models to load in a background thread.
+    ([internal MR 3395](https://gitlab.khronos.org/openxr/openxr/merge_requests/3395))
+  - Improvement: Add `ApproxEqual` functions to `xr_math_operators.h`, and `Approx`
+    wrappers in `xr_math_approx.h`, to fix equality checks in the CTS.
+    ([internal MR 3437](https://gitlab.khronos.org/openxr/openxr/merge_requests/3437),
+    [internal MR 3485](https://gitlab.khronos.org/openxr/openxr/merge_requests/3485),
+    [internal MR 3480](https://gitlab.khronos.org/openxr/openxr/merge_requests/3480))
+  - Improvement: Update codebase to use struct initialization convention for
+    clarity.
+    ([internal MR 3445](https://gitlab.khronos.org/openxr/openxr/merge_requests/3445))
+  - Improvement: Clarify/add (for consistency) some WARN messages in the CTS.
+    ([internal MR 3447](https://gitlab.khronos.org/openxr/openxr/merge_requests/3447))
+  - Improvement: Remove confusing return value only used by dead code after a
+    `FAIL`.
+    ([internal MR 3467](https://gitlab.khronos.org/openxr/openxr/merge_requests/3467))
+  - Improvement: Skip waiting for human input when using
+    `XR_EXT_conformance_automation` to make the tests run faster.
+    ([internal MR 3471](https://gitlab.khronos.org/openxr/openxr/merge_requests/3471))
+  - Improvement: Refactor the d-pad extension test to fix issues and make it more
+    consistent with other tests.
+    ([internal MR 3474](https://gitlab.khronos.org/openxr/openxr/merge_requests/3474))
+  - Improvement: Add quaternion output support.
+    ([internal MR 3480](https://gitlab.khronos.org/openxr/openxr/merge_requests/3480))
+  - Improvement: Remove usage of deprecated `std::is_pod` in CTS.
+    ([internal MR 3483](https://gitlab.khronos.org/openxr/openxr/merge_requests/3483))
+  - Improvement: Allow `[composition]` tests to be rendered then skipped (with a
+    warning) after a timeout, for automation purposes.
+    ([internal MR 3487](https://gitlab.khronos.org/openxr/openxr/merge_requests/3487))
+  - Improvement: Warning fixes.
+    ([internal MR 3500](https://gitlab.khronos.org/openxr/openxr/merge_requests/3500))
+  - Improvement: Migrate CMake build system away from using
+    `find_package(PythonInterpreter)`, deprecated since CMake 3.12. Use
+    `find_package(Python3 COMPONENTS Interpreter)` instead.
+    ([OpenXR-SDK-Source PR 486](https://github.com/KhronosGroup/OpenXR-SDK-Source/pull/486),
+    [internal MR 3472](https://gitlab.khronos.org/openxr/openxr/merge_requests/3472))
+
 ## OpenXR CTS 1.1.40.0 (2024-08-29)
 
 - Conformance Tests

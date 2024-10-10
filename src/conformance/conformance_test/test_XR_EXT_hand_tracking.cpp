@@ -150,13 +150,13 @@ namespace Conformance
                     jointLocations[hand][i].locationFlags = 0;
                 }
 
-                XrHandJointLocationsEXT locations{XR_TYPE_HAND_JOINT_LOCATIONS_EXT, nullptr};
+                XrHandJointLocationsEXT locations{XR_TYPE_HAND_JOINT_LOCATIONS_EXT};
                 // isActive should not change after invoking `xrLocateHandJointsEXT` with invalid parameters.
                 locations.isActive = XR_FALSE;
                 locations.jointCount = XR_HAND_JOINT_COUNT_EXT;
                 locations.jointLocations = jointLocations[hand].data();
 
-                XrHandJointsLocateInfoEXT locateInfo{XR_TYPE_HAND_JOINTS_LOCATE_INFO_EXT, nullptr};
+                XrHandJointsLocateInfoEXT locateInfo{XR_TYPE_HAND_JOINTS_LOCATE_INFO_EXT};
                 locateInfo.baseSpace = localSpace;
                 locateInfo.time = 0;  // Zero XrTimes should never be valid or return valid results.
                 REQUIRE(XR_ERROR_TIME_INVALID == xrLocateHandJointsEXT(handTracker[hand], &locateInfo, &locations));
@@ -495,7 +495,8 @@ namespace Conformance
 
             compositionHelper.EndFrame(frameState.predictedDisplayTime, layers);
 
-            return compositionHelper.PollEvents();
+            compositionHelper.PollEvents();
+            return true;
         };
 
         RenderLoop(compositionHelper.GetSession(), update).Loop();

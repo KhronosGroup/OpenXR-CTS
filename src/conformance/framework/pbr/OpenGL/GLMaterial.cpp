@@ -56,13 +56,13 @@ namespace Pbr
         parameters.RoughnessFactor = roughnessFactor;
 
         auto defaultSampler = std::make_shared<ScopedGLSampler>(Pbr::GLTexture::CreateSampler());
-        material->SetTexture(ShaderSlots::BaseColor, pbrResources.CreateTypedSolidColorTexture(RGBA::White), defaultSampler);
-        material->SetTexture(ShaderSlots::MetallicRoughness, pbrResources.CreateTypedSolidColorTexture(RGBA::White), defaultSampler);
+        material->SetTexture(ShaderSlots::BaseColor, pbrResources.CreateTypedSolidColorTexture(RGBA::White, true), defaultSampler);
+        material->SetTexture(ShaderSlots::MetallicRoughness, pbrResources.CreateTypedSolidColorTexture(RGBA::White, false), defaultSampler);
         // No occlusion.
-        material->SetTexture(ShaderSlots::Occlusion, pbrResources.CreateTypedSolidColorTexture(RGBA::White), defaultSampler);
+        material->SetTexture(ShaderSlots::Occlusion, pbrResources.CreateTypedSolidColorTexture(RGBA::White, false), defaultSampler);
         // Flat normal.
-        material->SetTexture(ShaderSlots::Normal, pbrResources.CreateTypedSolidColorTexture(RGBA::FlatNormal), defaultSampler);
-        material->SetTexture(ShaderSlots::Emissive, pbrResources.CreateTypedSolidColorTexture(RGBA::White), defaultSampler);
+        material->SetTexture(ShaderSlots::Normal, pbrResources.CreateTypedSolidColorTexture(RGBA::FlatNormal, false), defaultSampler);
+        material->SetTexture(ShaderSlots::Emissive, pbrResources.CreateTypedSolidColorTexture(RGBA::White, true), defaultSampler);
 
         return material;
     }

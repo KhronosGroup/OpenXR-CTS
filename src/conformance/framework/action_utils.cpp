@@ -146,7 +146,8 @@ namespace Conformance
             layers.push_back(reinterpret_cast<XrCompositionLayerBaseHeader*>(m_messageQuad.get()));
         }
         m_compositionHelper.EndFrame(frameState.predictedDisplayTime, std::move(layers));
-        return m_compositionHelper.PollEvents();
+        m_compositionHelper.PollEvents();
+        return true;
     }
 
     void ActionLayerManager::IterateFrame()

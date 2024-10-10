@@ -661,7 +661,7 @@ namespace Conformance
 
         MeshHandle MakeSimpleMesh(span<const uint16_t> idx, span<const Geometry::Vertex> vtx) override;
 
-        GLTFModelHandle LoadGLTF(std::shared_ptr<tinygltf::Model> tinygltfModel) override;
+        GLTFModelHandle LoadGLTF(Gltf::ModelBuilder&& modelBuilder) override;
         std::shared_ptr<Pbr::Model> GetPbrModel(GLTFModelHandle handle) const override;
         GLTFModelInstanceHandle CreateGLTFModelInstance(GLTFModelHandle handle) override;
         Pbr::ModelInstance& GetModelInstance(GLTFModelInstanceHandle handle) override;
@@ -1345,14 +1345,14 @@ namespace Conformance
         m_pbrResources = std::make_unique<Pbr::VulkanResources>(m_namer, m_vkPhysicalDevice, m_vkDevice, m_queueFamilyIndex);
         m_pbrResources->SetLight({0.0f, 0.7071067811865475f, 0.7071067811865475f}, Pbr::RGB::White);
 
-        auto blackCubeMap = std::make_shared<Pbr::VulkanTextureBundle>(
-            Pbr::VulkanTexture::CreateFlatCubeTexture(*m_pbrResources, Pbr::RGBA::Black, VK_FORMAT_R8G8B8A8_UNORM));
+        auto blackCubeMap =
+            std::make_shared<Pbr::VulkanTextureBundle>(Pbr::VulkanTexture::CreateFlatCubeTexture(*m_pbrResources, Pbr::RGBA::Black, false));
         m_pbrResources->SetEnvironmentMap(blackCubeMap, blackCubeMap);
 
-        // Read the BRDF Lookup Table used by the PBR system into a DirectX texture.
+        // Read the BRDF Lookup Table used by the PBR system into a Vulkan texture.
         std::vector<unsigned char> brdfLutFileData = ReadFileBytes("brdf_lut.png");
         auto brdLutResourceView = std::make_shared<Pbr::VulkanTextureBundle>(
-            Pbr::VulkanTexture::LoadTextureImage(*m_pbrResources, brdfLutFileData.data(), (uint32_t)brdfLutFileData.size()));
+            Pbr::VulkanTexture::LoadTextureImage(*m_pbrResources, false, brdfLutFileData.data(), (uint32_t)brdfLutFileData.size()));
         m_pbrResources->SetBrdfLut(brdLutResourceView);
 
 #if defined(USE_MIRROR_WINDOW)
@@ -1982,10 +1982,9 @@ namespace Conformance
         return handle;
     }
 
-    GLTFModelHandle VulkanGraphicsPlugin::LoadGLTF(std::shared_ptr<tinygltf::Model> tinygltfModel)
+    GLTFModelHandle VulkanGraphicsPlugin::LoadGLTF(Gltf::ModelBuilder&& modelBuilder)
     {
-        std::shared_ptr<Pbr::Model> pbrModel = Gltf::FromGltfObject(*m_pbrResources, *tinygltfModel);
-        auto handle = m_gltfModels.emplace_back(std::move(pbrModel));
+        auto handle = m_gltfModels.emplace_back(modelBuilder.Build(*m_pbrResources));
         return handle;
     }
 

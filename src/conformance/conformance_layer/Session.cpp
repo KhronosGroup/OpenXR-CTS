@@ -51,7 +51,7 @@ namespace session
 
     CustomSessionState* GetCustomSessionState(XrSession handle)
     {
-        return dynamic_cast<CustomSessionState*>(GetSessionState(handle)->customState.get());
+        return dynamic_cast<CustomSessionState*>(GetSessionState(handle)->GetCustomState());
     }
 
     void SessionStateChanged(ConformanceHooksBase* conformanceHooks, const XrEventDataSessionStateChanged* sessionStateChanged)
@@ -159,7 +159,7 @@ XrResult ConformanceHooks::xrCreateSession(XrInstance instance, const XrSessionC
     // Call generated base implementation, which will check return codes, create (common) handle state, set up parent/child relationships, etc.
     const XrResult result = ConformanceHooksBase::xrCreateSession(instance, createInfo, session);
     if (XR_SUCCEEDED(result)) {
-        std::unique_ptr<CustomSessionState> customSessionState = std::unique_ptr<CustomSessionState>(new CustomSessionState());
+        auto customSessionState = std::make_unique<CustomSessionState>();
         customSessionState->systemId = createInfo->systemId;
 
         ForEachExtension(createInfo->next,
@@ -193,7 +193,7 @@ XrResult ConformanceHooks::xrCreateSession(XrInstance instance, const XrSessionC
         }
 
         // Tag on the custom session state to the generated handle state.
-        GetSessionState(*session)->customState = std::move(customSessionState);
+        GetSessionState(*session)->SetCustomState(std::move(customSessionState));
     }
 
     return result;

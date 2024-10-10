@@ -32,7 +32,8 @@ namespace Pbr
         std::shared_ptr<D3D12Material> Clone(Pbr::D3D12Resources const& pbrResources) const;
 
         /// Create a flat (no texture) material.
-        static std::shared_ptr<D3D12Material> CreateFlat(D3D12Resources& pbrResources, RGBAColor baseColorFactor,
+        static std::shared_ptr<D3D12Material> CreateFlat(D3D12Resources& pbrResources, ID3D12GraphicsCommandList* copyCommandList,
+                                                         StagingResources stagingResources, RGBAColor baseColorFactor,
                                                          float roughnessFactor = 1.0f, float metallicFactor = 0.0f,
                                                          RGBColor emissiveFactor = RGB::Black);
 

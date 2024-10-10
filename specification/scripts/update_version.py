@@ -14,6 +14,17 @@
 import fileinput
 import configparser
 
+
+def update_makefile(fn, spec_version):
+    for line in fileinput.input(fn, inplace=True):
+        printed = False
+        if 'SPECREVISION = ' in line:
+            printed = True
+            print('SPECREVISION = %s.%s.%s' % spec_version)
+        if not printed:
+            print(f"{line}", end='')
+
+
 if __name__ == "__main__":
 
     # Get the current version from the 'current_version.ini' file.
@@ -42,10 +53,7 @@ if __name__ == "__main__":
     # specification make file (Makefile).
     #
     print('Replacing version lines in the specification Makefile')
-    for line in fileinput.input('Makefile', inplace=True):
-        printed = False
-        if 'SPECREVISION = ' in line:
-            printed = True
-            print('SPECREVISION = %s.%s.%s' % spec_version)
-        if not printed:
-            print(f"{line}", end='')
+    update_makefile('Makefile', spec_version)
+
+    print('Replacing version lines in the CTS Usage Makefile')
+    update_makefile('../src/conformance/usage/Makefile', spec_version)

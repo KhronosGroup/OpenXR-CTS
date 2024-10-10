@@ -32,24 +32,17 @@ namespace Pbr
     class D3D12TextureCache
     {
     public:
-        /// Default constructor makes an invalid cache.
-        D3D12TextureCache() = default;
+        D3D12TextureCache();
 
         D3D12TextureCache(D3D12TextureCache&&) = default;
         D3D12TextureCache& operator=(D3D12TextureCache&&) = default;
 
-        explicit D3D12TextureCache(ID3D12Device* device);
-
-        bool IsValid() const noexcept
-        {
-            return m_device != nullptr;
-        }
-
         /// Find or create a single pixel texture of the given color
-        Conformance::D3D12ResourceWithSRVDesc CreateTypedSolidColorTexture(Pbr::D3D12Resources& pbrResources, XrColor4f color);
+        Conformance::D3D12ResourceWithSRVDesc CreateTypedSolidColorTexture(Pbr::D3D12Resources& pbrResources,
+                                                                           ID3D12GraphicsCommandList* copyCommandList,
+                                                                           StagingResources stagingResources, XrColor4f color, bool sRGB);
 
     private:
-        ComPtr<ID3D12Device> m_device;
         // in unique_ptr to make it moveable
         std::unique_ptr<std::mutex> m_cacheMutex;
         std::map<uint32_t, Conformance::D3D12ResourceWithSRVDesc> m_solidColorTextureCache;

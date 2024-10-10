@@ -1,0 +1,66 @@
+// Copyright (c) 2019-2024, The Khronos Group Inc.
+//
+// SPDX-License-Identifier: CC-BY-4.0
+
+[[submissions-criteria]]
+== Conformance Criteria
+
+A conformance run is considered passing if all tests finish with allowed
+result codes, and all warnings are acceptably explained to describe why they
+are not a conformance failure.
+`XR_EXT_conformance_automation` **must** not be used for conformance
+submission.
+Test results are contained in the output XML files, which are an extension
+of the common "*Unit" schema with some custom elements.
+Each test case leaf section is reached by a run of its own, and is recorded
+with a `testcase` tag, e.g.:
+
+[source,xml]
+----
+<testcase classname="global" name="Swapchains/Swapchain creation test parameters" time="1.207" status="run">
+----
+
+If all assertions in that case passed, there are no child elements to the
+`testcase` tag.
+However, `testcase` tags can contain a warning, failure, or error:
+
+[source,xml]
+----
+<cts:warning type="WARN">
+----
+
+or
+
+[source,xml]
+----
+<failure message="" type="">
+----
+
+or
+
+[source,xml]
+----
+<error message="" type="">
+----
+
+With the results of the entire run summarized in `testsuite` tag (listing
+the number of assertions):
+
+[source,xml]
+----
+<testsuite errors="0" failures="0" tests="<number of successful assertions>" time="1.407">
+----
+
+as well as in the `cts:results` tag in `cts:ctsConformanceReport` (listing
+the number of top level test cases):
+
+[source,xml]
+----
+<cts:results testSuccessCount="1" testFailureCount="0"/>
+----
+
+**Any error or failure when testing core or KHR extension functionality
+means your runtime is not conformant.**
+
+Any warnings **may** indicate non-conformance and **must** be explained in
+the submission package.

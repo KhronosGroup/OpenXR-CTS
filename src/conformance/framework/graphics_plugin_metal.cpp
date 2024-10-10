@@ -259,7 +259,7 @@ namespace Conformance
 
         MeshHandle MakeSimpleMesh(span<const uint16_t> idx, span<const Geometry::Vertex> vtx) override;
 
-        GLTFModelHandle LoadGLTF(std::shared_ptr<tinygltf::Model> tinygltfModel) override;
+        GLTFModelHandle LoadGLTF(Gltf::ModelBuilder&& modelBuilder) override;
         std::shared_ptr<Pbr::Model> GetPbrModel(GLTFModelHandle handle) const override;
         GLTFModelInstanceHandle CreateGLTFModelInstance(GLTFModelHandle handle) override;
         Pbr::ModelInstance& GetModelInstance(GLTFModelInstanceHandle handle) override;
@@ -796,10 +796,9 @@ namespace Conformance
         return handle;
     }
 
-    GLTFModelHandle MetalGraphicsPlugin::LoadGLTF(std::shared_ptr<tinygltf::Model> tinygltfModel)
+    GLTFModelHandle MetalGraphicsPlugin::LoadGLTF(Gltf::ModelBuilder&& modelBuilder)
     {
-        std::shared_ptr<Pbr::Model> pbrModel = Gltf::FromGltfObject(*pbrResources, *tinygltfModel);
-        auto handle = m_gltfModels.emplace_back(std::move(pbrModel));
+        auto handle = m_gltfModels.emplace_back(modelBuilder.Build(*pbrResources));
         return handle;
     }
 
@@ -999,7 +998,7 @@ namespace Conformance
 
         std::vector<uint8_t> brdfLutFileData = ReadFileBytes("brdf_lut.png");
         NS::SharedPtr<MTL::Texture> brdfLutTexture = Pbr::MetalTexture::LoadTextureImage(
-            *pbrResources, brdfLutFileData.data(), (uint32_t)brdfLutFileData.size(), MTLSTR("brdf_lut.png"));
+            *pbrResources, false, brdfLutFileData.data(), (uint32_t)brdfLutFileData.size(), MTLSTR("brdf_lut.png"));
         pbrResources->SetBrdfLut(brdfLutTexture.get());
 
         return true;

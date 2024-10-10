@@ -38,7 +38,9 @@ namespace Conformance
         /// Pointer to data member type
         using MemberObjectPointer = MemberType SysPropsExtStruct::*;
 
-        static_assert(std::is_pod<SysPropsExtStruct>{}, "Extension structs must be plain-old data");
+        // std::is_pod is deprecated in C++20.
+        static_assert(std::is_standard_layout<SysPropsExtStruct>{}, "Extension structs must be plain-old data");
+        static_assert(std::is_trivial<SysPropsExtStruct>{}, "Extension structs must be plain-old data");
 
         /// Constructor
         ///

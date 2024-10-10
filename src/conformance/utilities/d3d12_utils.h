@@ -22,7 +22,7 @@ namespace Conformance
     Microsoft::WRL::ComPtr<ID3D12Resource> D3D12CreateBuffer(ID3D12Device* d3d12Device, uint32_t size, D3D12_HEAP_TYPE heapType);
 
     Microsoft::WRL::ComPtr<ID3D12Resource> D3D12CreateImage(ID3D12Device* d3d12Device, uint32_t width, uint32_t height, uint16_t arraySize,
-                                                            DXGI_FORMAT format, D3D12_HEAP_TYPE heapType);
+                                                            uint16_t mipLevels, DXGI_FORMAT format, D3D12_HEAP_TYPE heapType);
 
     template <typename T>
     void D3D12BasicUpload(_In_ ID3D12Resource* buffer, _In_reads_(count) const T* data, size_t count)

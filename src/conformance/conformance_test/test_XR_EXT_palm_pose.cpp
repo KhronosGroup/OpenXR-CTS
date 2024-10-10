@@ -442,7 +442,8 @@ namespace Conformance
 
                 compositionHelper.EndFrame(frameState.predictedDisplayTime, layers);
 
-                return compositionHelper.PollEvents();
+                compositionHelper.PollEvents();
+                return true;
             };
 
             RenderLoop(session, update).Loop();
@@ -552,8 +553,9 @@ namespace Conformance
                 WARN(XR_EXT_PALM_POSE_EXTENSION_NAME " force-enabled, cannot test behavior when extension is disabled.");
             }
 
-            // If we test the Core 1.1 grip_surface and are on an OpenXR 1.0 instance, we can test that grip_surface should not be available.
-            if (!testExtension && !enabled.get_XR_VERSION_1_1()) {
+            // If we test the Core 1.1 grip_surface and are on an OpenXR 1.0 instance (and we have
+            // not enabled XR_KHR_maintenance1), we can test that grip_surface should not be available.
+            if (!testExtension && !enabled.get_XR_VERSION_1_1() && !enabled.get_XR_KHR_maintenance1()) {
                 SECTION("Requirements not enabled")
                 {
                     AutoBasicInstance instance;

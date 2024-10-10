@@ -27,10 +27,11 @@ namespace Pbr
         D3D12Primitive(UINT indexCount, Conformance::D3D12BufferWithUpload<uint32_t> indexBuffer, UINT vertexCount,
                        Conformance::D3D12BufferWithUpload<Pbr::Vertex> vertexBuffer, std::shared_ptr<D3D12Material> material,
                        std::vector<NodeIndex_t> nodeIndices);
-        D3D12Primitive(Pbr::D3D12Resources& pbrResources, const Pbr::PrimitiveBuilder& primitiveBuilder,
-                       const std::shared_ptr<D3D12Material>& material);
+        D3D12Primitive(Pbr::D3D12Resources& pbrResources, ID3D12GraphicsCommandList* copyCommandList,
+                       const Pbr::PrimitiveBuilder& primitiveBuilder, const std::shared_ptr<D3D12Material>& material);
 
-        void UpdateBuffers(Pbr::D3D12Resources& pbrResources, const Pbr::PrimitiveBuilder& primitiveBuilder);
+        void UpdateBuffers(Pbr::D3D12Resources& pbrResources, ID3D12GraphicsCommandList* copyCommandList,
+                           const Pbr::PrimitiveBuilder& primitiveBuilder);
 
         /// Get the material for the primitive.
         const std::shared_ptr<D3D12Material>& GetMaterial() const

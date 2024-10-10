@@ -9,40 +9,31 @@
 #if defined(XR_USE_GRAPHICS_API_METAL)
 
 #include "MetalTexture.h"
+#include "MetalFormats.h"
+
+#include "../PbrTexture.h"
 
 #include "stb_image.h"
 
 #include <tinygltf/tiny_gltf.h>
 
+#include <Foundation/NSTypes.hpp>
+
 namespace Pbr
 {
     namespace MetalTexture
     {
-        std::array<uint8_t, 4> LoadRGBAUI4(RGBAColor color)
+        namespace Image = Conformance::Image;
+
+        NS::SharedPtr<MTL::Texture> LoadTextureImage(const MetalResources& pbrResources, bool sRGB, const uint8_t* fileData,
+                                                     uint32_t fileSize, const NS::String* label)
         {
-            return std::array<uint8_t, 4>{(uint8_t)(color.r * 255.), (uint8_t)(color.g * 255.), (uint8_t)(color.b * 255.),
-                                          (uint8_t)(color.a * 255.)};
+            StbiLoader::OwningImage<StbiLoader::stbi_unique_ptr> owningImage =
+                StbiLoader::LoadTextureImage(pbrResources.GetSupportedFormats(), sRGB, fileData, fileSize);
+            return CreateTexture(pbrResources, owningImage.image, label);
         }
 
-        NS::SharedPtr<MTL::Texture> LoadTextureImage(MetalResources& pbrResources, const uint8_t* fileData, uint32_t fileSize,
-                                                     const NS::String* label)
-        {
-            auto freeImageData = [](unsigned char* ptr) { ::free(ptr); };
-            using stbi_unique_ptr = std::unique_ptr<unsigned char, decltype(freeImageData)>;
-
-            constexpr uint32_t DesiredComponentCount = 4;
-
-            int w, h, c;
-            // If c == 3, a component will be padded with 1.0f
-            stbi_unique_ptr rgbaData(stbi_load_from_memory(fileData, fileSize, &w, &h, &c, DesiredComponentCount), freeImageData);
-            if (!rgbaData) {
-                throw std::runtime_error("Failed to load image file data.");
-            }
-
-            return CreateTexture(pbrResources, rgbaData.get(), DesiredComponentCount, w, h, MTL::PixelFormatRGBA8Unorm, label);
-        }
-
-        NS::SharedPtr<MTL::Texture> CreateFlatCubeTexture(MetalResources& pbrResources, RGBAColor color, MTL::PixelFormat format,
+        NS::SharedPtr<MTL::Texture> CreateFlatCubeTexture(const MetalResources& pbrResources, RGBAColor color, MTL::PixelFormat format,
                                                           const NS::String* label)
         {
             NS::SharedPtr<MTL::TextureDescriptor> desc = NS::RetainPtr(MTL::TextureDescriptor::textureCubeDescriptor(format, 1, false));
@@ -62,22 +53,30 @@ namespace Pbr
             return texture;
         }
 
-        NS::SharedPtr<MTL::Texture> CreateTexture(MetalResources& pbrResources, const uint8_t* rgba, int elemSize, int width, int height,
-                                                  MTL::PixelFormat format, const NS::String* label)
+        NS::SharedPtr<MTL::Texture> CreateTexture(const MetalResources& pbrResources, const Conformance::Image::Image& image,
+                                                  const NS::String* label)
         {
-            return CreateTexture(pbrResources.GetDevice().get(), rgba, elemSize, width, height, format, label);
+            return CreateTexture(pbrResources.GetDevice().get(), image, label);
         }
 
-        NS::SharedPtr<MTL::Texture> CreateTexture(MTL::Device* device, const uint8_t* rgba, int elemSize, int width, int height,
-                                                  MTL::PixelFormat format, const NS::String* label)
+        NS::SharedPtr<MTL::Texture> CreateTexture(MTL::Device* device, const Conformance::Image::Image& image, const NS::String* label)
         {
+            auto metalFormat = ToMetalFormat(image.format);
+            auto baseMipWidth = image.levels[0].metadata.physicalDimensions.width;
+            auto baseMipHeight = image.levels[0].metadata.physicalDimensions.height;
+            auto mipLevels = image.levels.size();
             NS::SharedPtr<MTL::TextureDescriptor> desc =
-                NS::RetainPtr(MTL::TextureDescriptor::texture2DDescriptor(format, width, height, false));
+                NS::RetainPtr(MTL::TextureDescriptor::texture2DDescriptor(metalFormat, baseMipWidth, baseMipHeight, mipLevels > 1));
+            desc->setMipmapLevelCount(mipLevels);
 
             NS::SharedPtr<MTL::Texture> texture = NS::TransferPtr(device->newTexture(desc.get()));
 
-            MTL::Region region(0, 0, width, height);
-            texture->replaceRegion(region, 0, rgba, elemSize * width);
+            for (auto& level : image.levels) {
+                MTL::Region region(0, 0, level.metadata.physicalDimensions.width, level.metadata.physicalDimensions.height);
+                NS::UInteger bytesPerRow =
+                    (level.metadata.physicalDimensions.width / level.metadata.blockSize.width) * image.format.BytesPerBlockOrPixel();
+                texture->replaceRegion(region, 0, level.data.data(), bytesPerRow);
+            }
 
             texture->setLabel(label);
 

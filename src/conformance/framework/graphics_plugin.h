@@ -22,6 +22,7 @@
 #include "conformance_framework.h"
 #include "utilities/Geometry.h"
 #include "RGBAImage.h"
+#include "pbr/GltfLoader.h"
 #include "pbr/PbrModel.h"
 #include "utilities/xr_math_operators.h"
 
@@ -345,7 +346,7 @@ namespace Conformance
         AllocateSwapchainImageDataWithDepthSwapchain(size_t size, const XrSwapchainCreateInfo& colorSwapchainCreateInfo,
                                                      XrSwapchain depthSwapchain, const XrSwapchainCreateInfo& depthSwapchainCreateInfo) = 0;
 
-        /// Clears a slice to an arbitrary color
+        /// Clears a slice to an arbitrary color. Must be called before rendering to the image, since it may also reset internal state.
         virtual void ClearImageSlice(const XrSwapchainImageBaseHeader* colorSwapchainImage, uint32_t imageArrayIndex, XrColor4f color) = 0;
 
         /// Clears to the background color which varies depending on the environment blend mode that is active.
@@ -370,7 +371,11 @@ namespace Conformance
         /// Create internal data for a glTF model, returning a handle to refer to it.
         /// This handle expires when the internal data is cleared in Shutdown() and ShutdownDevice().
         /// It retains a reference to the tinygltf model passed here.
-        virtual GLTFModelHandle LoadGLTF(std::shared_ptr<tinygltf::Model> tinygltfModel) = 0;
+        GLTFModelHandle LoadGLTF(std::shared_ptr<const tinygltf::Model> tinygltfModel)
+        {
+            return LoadGLTF(Gltf::ModelBuilder(tinygltfModel));
+        }
+        virtual GLTFModelHandle LoadGLTF(Gltf::ModelBuilder&& modelBuilder) = 0;
 
         /// Get the underlying Pbr::Model associated with the supplied handle.
         virtual std::shared_ptr<Pbr::Model> GetPbrModel(GLTFModelHandle handle) const = 0;
@@ -393,6 +398,7 @@ namespace Conformance
             return MakeSimpleMesh(gnomon.indices, gnomon.vertices);
         }
 
+        /// Render a list of drawables to a swapchain image. ClearImageSlice must be called first to clear internal state.
         virtual void RenderView(const XrCompositionLayerProjectionView& layerView, const XrSwapchainImageBaseHeader* colorSwapchainImage,
                                 const RenderParams& params) = 0;
     };

@@ -148,11 +148,13 @@ float4 main(PSInputPbr input, bool isFrontFace : SV_IsFrontFace) : SV_TARGET
     float3 color = NdotL * LightColor * (diffuseContrib + specContrib);
 
     // Calculate lighting contribution from image based lighting source (IBL)
-    color += getIBLContribution(perceptualRoughness, NdotV, diffuseColor, specularColor, n, reflection);
+    float3 ibl = getIBLContribution(perceptualRoughness, NdotV, diffuseColor, specularColor, n, reflection);
 
     // Apply optional PBR terms for additional (optional) shading
     const float ao = OcclusionTexture.Sample(OcclusionSampler, input.TexCoord0).r;
-    color = lerp(color, color * ao, OcclusionStrength);
+    ibl = lerp(ibl, ibl * ao, OcclusionStrength);
+
+    color += ibl;
 
     const float3 emissive = EmissiveTexture.Sample(EmissiveSampler, input.TexCoord0) * EmissiveFactor;
     color += emissive;

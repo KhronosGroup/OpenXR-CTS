@@ -58,7 +58,8 @@ namespace Conformance
         // are invalid, but there isn't a specification for what happens when called.
 
         // We begin a session and call valid session functions.
-        XrSessionBeginInfo sessionBeginInfo{XR_TYPE_SESSION_BEGIN_INFO, nullptr, globalData.options.viewConfigurationValue};
+        XrSessionBeginInfo sessionBeginInfo{XR_TYPE_SESSION_BEGIN_INFO};
+        sessionBeginInfo.primaryViewConfigurationType = globalData.options.viewConfigurationValue;
         REQUIRE_RESULT_UNQUALIFIED_SUCCESS(xrBeginSession(session, &sessionBeginInfo));
 
         // To do: call input and tracking functions here.

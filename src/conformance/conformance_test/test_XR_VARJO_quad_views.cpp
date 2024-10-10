@@ -169,7 +169,7 @@ namespace Conformance
                 CheckStereoInsetLocateViews(compositionHelper, viewSpace, frameState.predictedDisplayTime);
                 bool keepRunning = (frameCount < maxFrames) && !countdownTimer.IsTimeUp();
                 ++frameCount;
-                keepRunning &= compositionHelper.PollEvents();
+                compositionHelper.PollEvents();
                 compositionHelper.EndFrame(frameState.predictedDisplayTime, std::move(layers));
                 return keepRunning;
             };
@@ -236,12 +236,12 @@ namespace Conformance
         }
     }  // namespace
 
-    TEST_CASE("XR_VARJO_quad_views-interactive", "[XR_VARJO_quad_views][composition][interactive][no_auto]")
+    TEST_CASE("XR_VARJO_quad_views-interactive", "[XR_VARJO_quad_views][composition][interactive]")
     {
         StereoWithFoveatedInsetInteractive(kExtensionRequirements);
     }
 
-    TEST_CASE("StereoWithFoveatedInset-interactive", "[XR_VERSION_1_1][composition][interactive][no_auto]")
+    TEST_CASE("StereoWithFoveatedInset-interactive", "[XR_VERSION_1_1][composition][interactive]")
     {
         StereoWithFoveatedInsetInteractive(kPromotedCoreRequirements);
     }

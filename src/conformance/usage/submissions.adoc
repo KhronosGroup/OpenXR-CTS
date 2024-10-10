@@ -1,0 +1,70 @@
+// Copyright (c) 2019-2024, The Khronos Group Inc.
+//
+// SPDX-License-Identifier: CC-BY-4.0
+
+[[submissions]]
+== Conformance Submissions
+
+The following sub-sections are focused primarily on the needs of someone
+preparing a conformance submission for review.
+
+[[submissions-build]]
+=== Platform, porting, and build considerations
+
+The core of the test suite is build into a `conformance_test` shared
+library.
+
+`conformance_cli`, a command-line interface application, is provided for
+running on PCs and other devices and platforms which support this form of
+application.
+`conformance_cli` also demonstrates how to build an application which can
+interop with the `conformance_test` shared library.
+If the device being tested does not support a command-line interface, a host
+application **must** be built for the device which the OpenXR runtime will
+run on.
+The conformance host **must** invoke `conformance_test`, the test suite
+shared library.
+
+There is an Android application APK built from largely the same sources that
+provides similar functionality.
+The role of command line arguments is served instead by "Intent Extras".
+
+In addition to the main test shared library, use of the "Conformance Layer"
+is mandatory.
+This is an OpenXR API layer that automatically checks the conformance of
+various aspects of runtime behavior.
+This layer **must** be loaded and active for a test run to be considered
+valid.
+
+When you plan to submit for conformance, please observe the following
+considerations to ensure that the build system has accurate source code
+revision information available to embed in the test suite and output
+reports.
+You **must** build from a git repo (forked from either the internal Gitlab
+or public GitHub) with tags available (a full clone, not shallow).
+You also **must** either perform a clean build, from an empty binary tree,
+or at least run `cmake` immediately before building to pick up current
+source tree status.
+If your "porting" process (as described by the conformance process
+documents) involves replacing the build system, you **must** populate the
+revision data constants in `utilities/git_revision.cpp.in` accurately.
+The contents of that file affect all "ctsxml" format outputs, as well as an
+automated "SourceCodeRevision" test that warns if it cannot identify an
+approved release.
+(It only checks for the presence of an appropriately-named tag: it does not
+check for a signature on the tag, so if you have added tags to your repo it
+**may** not warn if you are not on a release.)
+
+
+// submissions sub-sections
+
+:leveloffset: +1
+
+include::submissions_testing_steps.adoc[]
+include::submissions_package.adoc[]
+include::submissions_criteria.adoc[]
+
+
+:leveloffset: -1
+
+// end of submissions sub-sections

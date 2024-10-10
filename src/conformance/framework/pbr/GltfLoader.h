@@ -12,9 +12,10 @@
 
 #pragma once
 
-#include "IResources.h"
+#include "IGltfBuilder.h"
 #include "PbrModel.h"
 
+#include <map>
 #include <memory>
 #include <stdint.h>
 #include <type_traits>
@@ -22,7 +23,7 @@
 namespace Pbr
 {
     class Model;
-    struct IResources;
+    struct IGltfBuilder;
 }  // namespace Pbr
 
 namespace tinygltf
@@ -32,31 +33,36 @@ namespace tinygltf
 
 namespace Gltf
 {
-    // non-templated inner functions:
-    void PopulateFromGltfObject(Pbr::Model& model, Pbr::IResources& pbrResources, const tinygltf::Model& gltfModel);
-    void PopulateFromGltfBinary(Pbr::Model& model, Pbr::IResources& pbrResources, const uint8_t* buffer, uint32_t bufferBytes);
-
-    // Creates a Pbr Model from tinygltf model.
-    inline std::shared_ptr<Pbr::Model> FromGltfObject(Pbr::IResources& pbrResources, const tinygltf::Model& gltfModel)
+    // Maps a glTF material to a PrimitiveBuilder. This optimization combines all primitives which use
+    // the same material into a single primitive for reduced draw calls. Each primitive's vertex specifies
+    // which node it corresponds to any appropriate node transformation be happen in the shader.
+    using PrimitiveBuilderMap = std::map<int, Pbr::PrimitiveBuilder>;
+    class ModelBuilder
     {
-        // Start off with an empty Model.
-        auto model = std::make_shared<Pbr::Model>();
-        PopulateFromGltfObject(*model, pbrResources, gltfModel);
-        return model;
-    }
+    public:
+        ModelBuilder() = default;
+        ModelBuilder(const ModelBuilder&) = delete;
+        ModelBuilder(ModelBuilder&& other) = default;
+        ModelBuilder& operator=(ModelBuilder&& other) = default;
+        ~ModelBuilder() = default;
 
-    // Creates a Pbr Model from glTF 2.0 GLB file content.
-    inline std::shared_ptr<Pbr::Model> FromGltfBinary(Pbr::IResources& pbrResources, const uint8_t* buffer, uint32_t bufferBytes)
-    {
-        // Start off with an empty Model.
-        auto model = std::make_shared<Pbr::Model>();
-        PopulateFromGltfBinary(*model, pbrResources, buffer, bufferBytes);
-        return model;
-    }
+        ModelBuilder(std::shared_ptr<const tinygltf::Model> gltfModel);
+        ModelBuilder(const uint8_t* buffer, uint32_t bufferBytes);
 
-    template <typename Container>
-    std::shared_ptr<Pbr::Model> FromGltfBinary(Pbr::IResources& pbrResources, const Container& buffer)
-    {
-        return FromGltfBinary(pbrResources, buffer.data(), static_cast<uint32_t>(buffer.size()));
-    }
+        template <typename Container>
+        ModelBuilder(Pbr::IGltfBuilder& gltfBuilder, const Container& buffer)
+            : ModelBuilder(gltfBuilder, buffer.data(), static_cast<uint32_t>(buffer.size()))
+        {
+        }
+
+        std::shared_ptr<Pbr::Model> Build(Pbr::IGltfBuilder& gltfBuilder);
+
+    private:
+        void SharedInit();
+
+    private:
+        std::shared_ptr<Pbr::Model> m_pbrModel;
+        std::shared_ptr<const tinygltf::Model> m_gltfModel;
+        PrimitiveBuilderMap m_primitiveBuilderMap;
+    };
 }  // namespace Gltf

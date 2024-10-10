@@ -20,6 +20,7 @@
 #include "utilities/bitmask_to_string.h"
 #include "utilities/types_and_constants.h"
 #include "utilities/xrduration_literals.h"
+#include "xr_math_approx.h"
 
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/catch_approx.hpp>
@@ -48,27 +49,17 @@ namespace Conformance
 
         XrResult result;
 
-        // ugly magic number:
-        // some variance due to numeric inaccuracies is OK
-        constexpr float epsilon = 0.001f;
-
         // compare the calculated pose with the expected pose
-        auto ValidateSpaceLocation = [epsilon](XrSpaceLocation& spaceLocation, XrPosef& expectedPose) -> void {
+        auto ValidateSpaceLocation = [](XrSpaceLocation& spaceLocation, XrPosef& expectedPose) -> void {
             CAPTURE(XrSpaceLocationFlagsCPP(spaceLocation.locationFlags));
             CHECK((spaceLocation.locationFlags & XR_SPACE_LOCATION_POSITION_VALID_BIT) != 0);
             CHECK((spaceLocation.locationFlags & XR_SPACE_LOCATION_ORIENTATION_VALID_BIT) != 0);
 
-            static auto QuaterionsAreEquivalent = [](const XrQuaternionf& q1, const XrQuaternionf& q2, float epsilon) {
-                return std::abs(q1.x * q2.x + q1.y * q2.y + q1.z * q2.z + q1.w * q2.w) == Catch::Approx(1.f).margin(epsilon);
-            };
-
             if (spaceLocation.locationFlags & XR_SPACE_LOCATION_POSITION_VALID_BIT) {
-                REQUIRE(spaceLocation.pose.position.x == Catch::Approx(expectedPose.position.x).margin(epsilon));
-                REQUIRE(spaceLocation.pose.position.y == Catch::Approx(expectedPose.position.y).margin(epsilon));
-                REQUIRE(spaceLocation.pose.position.z == Catch::Approx(expectedPose.position.z).margin(epsilon));
+                REQUIRE(spaceLocation.pose.position == Vector::Approx(expectedPose.position));
             }
             if (spaceLocation.locationFlags & XR_SPACE_LOCATION_ORIENTATION_VALID_BIT) {
-                CHECK(QuaterionsAreEquivalent(spaceLocation.pose.orientation, expectedPose.orientation, epsilon));
+                CHECK(spaceLocation.pose.orientation == Quat::Approx(expectedPose.orientation));
             }
         };
 
@@ -81,7 +72,9 @@ namespace Conformance
         // initialized to NULL to avoid compiler warnings later
         XrSpace spaceA = XR_NULL_HANDLE_CPP;
         XrSpace spaceB = XR_NULL_HANDLE_CPP;
-        XrSpaceLocation location = {XR_TYPE_SPACE_LOCATION, nullptr, 0, Pose::Identity};
+        XrSpaceLocation location = {XR_TYPE_SPACE_LOCATION};
+        location.locationFlags = 0;
+        location.pose = Pose::Identity;
         XrTime time = frameIterator.frameState.predictedDisplayTime;
         CHECK(time != 0);
 
@@ -164,7 +157,9 @@ namespace Conformance
 
                 // The pose in the location is intentionally garbage as it will be set by the xrLocateSpace below
                 // If it would just be the identity, it might not catch all runtime errors where the location is not set by the runtime!
-                XrSpaceLocation location = {XR_TYPE_SPACE_LOCATION, nullptr, 0, {{3, 2, 1, 0}, {4.2f, 3.1f, 1.4f}}};
+                XrSpaceLocation location = {XR_TYPE_SPACE_LOCATION};
+                location.locationFlags = 0;
+                location.pose = {{3, 2, 1, 0}, {4.2f, 3.1f, 1.4f}};
 
                 XrReferenceSpaceCreateInfo spaceCreateInfoWithPose = {XR_TYPE_REFERENCE_SPACE_CREATE_INFO};
                 spaceCreateInfoWithPose.referenceSpaceType = XR_REFERENCE_SPACE_TYPE_VIEW;  // view has to be supported
@@ -237,8 +232,10 @@ namespace Conformance
         {
             for (XrSpace space1 : session.spaceVector) {
                 for (XrSpace space2 : session.spaceVector) {
-                    location = {XR_TYPE_SPACE_LOCATION, nullptr, 0, Pose::Identity};
-                    CHECK(XR_SUCCESS == xrLocateSpace(space1, space2, time, &location));
+                    XrSpaceLocation spaceLocation = {XR_TYPE_SPACE_LOCATION};
+                    spaceLocation.locationFlags = 0;
+                    spaceLocation.pose = Pose::Identity;
+                    CHECK(XR_SUCCESS == xrLocateSpace(space1, space2, time, &spaceLocation));
 
                     // Note: the actual relation between these spaces can be anything as they are based on different
                     // reference spaces. So "location" can not be checked.

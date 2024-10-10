@@ -16,6 +16,7 @@
 
 #include "conformance_utils.h"
 #include "conformance_framework.h"
+#include "matchers.h"
 
 #include <catch2/catch_test_macros.hpp>
 #include <openxr/openxr.h>
@@ -84,6 +85,7 @@ namespace Conformance
                                                       vctArray.data()) == XR_SUCCESS);
 
                 for (XrViewConfigurationType vct : vctArray) {
+                    INFO("XrViewConfigurationType: " << vct);
                     REQUIRE(xrGetViewConfigurationProperties(instance, instance.systemId, vct, &vcp) == XR_SUCCESS);
                     REQUIRE(vcp.viewConfigurationType == vct);
 
@@ -100,8 +102,12 @@ namespace Conformance
                 }
 
                 // Exercise XR_ERROR_VIEW_CONFIGURATION_TYPE_UNSUPPORTED
-                REQUIRE(xrGetViewConfigurationProperties(instance, instance.systemId, XR_VIEW_CONFIGURATION_TYPE_MAX_ENUM, &vcp) ==
-                        XR_ERROR_VIEW_CONFIGURATION_TYPE_UNSUPPORTED);
+                XrResult result = xrGetViewConfigurationProperties(instance, instance.systemId, XR_VIEW_CONFIGURATION_TYPE_MAX_ENUM, &vcp);
+                REQUIRE_THAT(result, In<XrResult>({XR_ERROR_VALIDATION_FAILURE, XR_ERROR_VIEW_CONFIGURATION_TYPE_UNSUPPORTED}));
+                if (result == XR_ERROR_VIEW_CONFIGURATION_TYPE_UNSUPPORTED) {
+                    WARN(
+                        "Runtime accepted an invalid enum value as unsupported, which makes it harder for apps to reason about the error.");
+                }
             }
         }
 
@@ -163,8 +169,14 @@ namespace Conformance
 
                     OPTIONAL_INVALID_TYPE_VALIDATION_SECTION
                     {
-                        const XrViewConfigurationView invalidInitView{XR_TYPE_UNKNOWN, nullptr,    UINT32_MAX, UINT32_MAX,
-                                                                      UINT32_MAX,      UINT32_MAX, UINT32_MAX, UINT32_MAX};
+                        XrViewConfigurationView invalidInitView{XR_TYPE_UNKNOWN};
+                        invalidInitView.recommendedImageRectWidth = UINT32_MAX;
+                        invalidInitView.maxImageRectWidth = UINT32_MAX;
+                        invalidInitView.recommendedImageRectHeight = UINT32_MAX;
+                        invalidInitView.maxImageRectHeight = UINT32_MAX;
+                        invalidInitView.recommendedSwapchainSampleCount = UINT32_MAX;
+                        invalidInitView.maxSwapchainSampleCount = UINT32_MAX;
+
                         std::vector<XrViewConfigurationView> invalidVcvArray(countOutput, invalidInitView);
                         REQUIRE(xrEnumerateViewConfigurationViews(instance, instance.systemId, vct, countOutput, &countOutput,
                                                                   invalidVcvArray.data()) == XR_ERROR_VALIDATION_FAILURE);

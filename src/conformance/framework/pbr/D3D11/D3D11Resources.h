@@ -7,10 +7,13 @@
 // SPDX-License-Identifier: MIT AND Apache-2.0
 #pragma once
 
-#include "../IResources.h"
+#include <utilities/image.h>
+#include "../IGltfBuilder.h"
 #include "../PbrCommon.h"
 #include "../PbrHandles.h"
 #include "../PbrSharedState.h"
+
+#include <nonstd/span.hpp>
 
 #include <DirectXMath.h>
 #include <d3d11.h>
@@ -25,6 +28,8 @@
 
 namespace Pbr
 {
+    using nonstd::span;
+
     struct Primitive;
     using Duration = std::chrono::high_resolution_clock::duration;
     struct D3D11Primitive;
@@ -41,7 +46,7 @@ namespace Pbr
     };
 
     // Global PBR resources required for rendering a scene.
-    struct D3D11Resources final : public IResources
+    struct D3D11Resources final : public IGltfBuilder
     {
         explicit D3D11Resources(_In_ ID3D11Device* d3dDevice);
         D3D11Resources(D3D11Resources&&);
@@ -51,7 +56,6 @@ namespace Pbr
         std::shared_ptr<Material> CreateFlatMaterial(RGBAColor baseColorFactor, float roughnessFactor = 1.0f, float metallicFactor = 0.0f,
                                                      RGBColor emissiveFactor = RGB::Black) override;
         std::shared_ptr<Material> CreateMaterial() override;
-        std::shared_ptr<ITexture> CreateSolidColorTexture(RGBAColor color);
         void LoadTexture(const std::shared_ptr<Material>& pbrMaterial, Pbr::ShaderSlots::PSMaterial slot, const tinygltf::Image* image,
                          const tinygltf::Sampler* sampler, bool sRGB, Pbr::RGBAColor defaultRGBA) override;
         PrimitiveHandle MakePrimitive(const Pbr::PrimitiveBuilder& primitiveBuilder,
@@ -82,7 +86,10 @@ namespace Pbr
 
         /// Many 1x1 pixel colored textures are used in the PBR system. This is used to create textures backed by a cache to reduce the
         /// number of textures created.
-        Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> CreateTypedSolidColorTexture(RGBAColor color) const;
+        Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> CreateTypedSolidColorTexture(RGBAColor color, bool sRGB) const;
+
+        /// Get the cached list of texture formats supported by the device
+        span<const Conformance::Image::FormatParams> GetSupportedFormats() const;
 
         /// Bind the the PBR resources to the current context.
         void Bind(_In_ ID3D11DeviceContext* context) const;

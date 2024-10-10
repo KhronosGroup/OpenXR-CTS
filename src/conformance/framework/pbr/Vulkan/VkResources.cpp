@@ -12,6 +12,7 @@
 #include "VkResources.h"
 
 #include "VkCommon.h"
+#include "VkFormats.h"
 #include "VkMaterial.h"
 #include "VkPipelineStates.h"
 #include "VkPrimitive.h"
@@ -73,6 +74,27 @@ namespace
     static constexpr VkVertexInputBindingDescription c_bindingDesc[1] = {
         {0, sizeof(Pbr::Vertex), VK_VERTEX_INPUT_RATE_VERTEX},
     };
+
+    std::vector<Conformance::Image::FormatParams> MakeSupportedFormatsList(VkPhysicalDevice physicalDevice)
+    {
+        std::vector<Conformance::Image::FormatParams> supported;
+        for (auto& format : Pbr::GetVkFormatMap()) {
+            VkImageFormatProperties formatProperties;
+            VkResult ret = vkGetPhysicalDeviceImageFormatProperties(
+                physicalDevice, format.second, VK_IMAGE_TYPE_2D, VK_IMAGE_TILING_OPTIMAL,
+                VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, 0, &formatProperties);
+
+            if (ret == VK_ERROR_FORMAT_NOT_SUPPORTED) {
+                continue;
+            }
+            else {
+                XRC_CHECK_THROW_VKCMD(ret);
+            }
+
+            supported.push_back(format.first);
+        }
+        return supported;
+    }
 }  // namespace
 
 namespace Pbr
@@ -197,7 +219,7 @@ namespace Pbr
                 }
             }
 
-            void BindBuffers(BindingSection section, nonstd::span<const VkDescriptorBufferInfo> bufferInfos)
+            void BindBuffers(BindingSection section, span<const VkDescriptorBufferInfo> bufferInfos)
             {
                 const size_t sectionOffset = m_layout.m_sectionOffsets[section];
                 const size_t sectionSize = m_layout.m_sectionSizes[section];
@@ -216,7 +238,7 @@ namespace Pbr
                 }
             }
 
-            void BindImages(BindingSection section, nonstd::span<const VkDescriptorImageInfo> imageInfos)
+            void BindImages(BindingSection section, span<const VkDescriptorImageInfo> imageInfos)
             {
                 const size_t sectionOffset = m_layout.m_sectionOffsets[section];
                 const size_t sectionSize = m_layout.m_sectionSizes[section];
@@ -316,7 +338,7 @@ namespace Pbr
             Resources.BrdfSampler.adopt(VulkanTexture::CreateSampler(device), device);
             Resources.EnvironmentMapSampler.adopt(VulkanTexture::CreateSampler(device), device);
 
-            Resources.SolidColorTextureCache = VulkanTextureCache{device};
+            Resources.SupportedTextureFormats = MakeSupportedFormatsList(physicalDevice_);
         }
 
         void Reset()
@@ -344,6 +366,8 @@ namespace Pbr
             std::shared_ptr<Conformance::ScopedVkDescriptorSetLayout> DescriptorSetLayout;
             std::shared_ptr<Conformance::ScopedVkPipelineLayout> PipelineLayout;
             std::unique_ptr<VulkanPipelines> Pipelines{};
+
+            std::vector<Conformance::Image::FormatParams> SupportedTextureFormats;
 
             std::vector<Conformance::BufferAndMemory> StagingBuffers;
         };
@@ -386,7 +410,7 @@ namespace Pbr
         m_impl->Resources.StagingBuffers.clear();
     }
 
-    /* IResources implementations */
+    /* IGltfBuilder implementations */
     std::shared_ptr<Material> VulkanResources::CreateFlatMaterial(RGBAColor baseColorFactor, float roughnessFactor, float metallicFactor,
                                                                   RGBColor emissiveFactor)
     {
@@ -402,11 +426,9 @@ namespace Pbr
     {
         // First convert the image to RGBA if it isn't already.
         std::vector<uint8_t> tempBuffer;
-        const uint8_t* rgbaBuffer = GltfHelper::ReadImageAsRGBA(image, &tempBuffer);
-        Internal::ThrowIf(rgbaBuffer == nullptr, "Failed to read image");
+        Conformance::Image::Image decodedImage = GltfHelper::DecodeImage(image, sRGB, pbrResources.GetSupportedFormats(), tempBuffer);
 
-        const VkFormat format = sRGB ? VK_FORMAT_R8G8B8A8_SRGB : VK_FORMAT_R8G8B8A8_UNORM;
-        return VulkanTexture::CreateTexture(pbrResources, rgbaBuffer, 4, image.width, image.height, format);
+        return VulkanTexture::CreateTexture(pbrResources, decodedImage);
     }
 
     static VkFilter ConvertMinFilter(int glMinFilter)
@@ -473,7 +495,7 @@ namespace Pbr
         // Find or load the image referenced by the texture.
         const ImageKey imageKey = std::make_tuple(image, sRGB);
         std::shared_ptr<VulkanTextureBundle> textureView =
-            image != nullptr ? m_impl->loaderResources.imageMap[imageKey] : CreateTypedSolidColorTexture(defaultRGBA);
+            image != nullptr ? m_impl->loaderResources.imageMap[imageKey] : CreateTypedSolidColorTexture(defaultRGBA, sRGB);
         if (!textureView)  // If not cached, load the image and store it in the texture cache.
         {
             // TODO: Generate mipmaps if sampler's minification filter (minFilter) uses mipmapping.
@@ -508,7 +530,7 @@ namespace Pbr
 
     std::unique_ptr<VulkanWriteDescriptorSets> VulkanResources::BuildWriteDescriptorSets(
         VkDescriptorBufferInfo modelConstantBuffer, VkDescriptorBufferInfo materialConstantBuffer, VkDescriptorBufferInfo transformBuffer,
-        nonstd::span<VkDescriptorImageInfo> materialCombinedImageSamplers, VkDescriptorSet dstSet)
+        span<VkDescriptorImageInfo> materialCombinedImageSamplers, VkDescriptorSet dstSet)
     {
         PipelineLayout::VulkanWriteDescriptorSetsBuilder builder(m_impl->VulkanLayout, dstSet);
 
@@ -574,9 +596,17 @@ namespace Pbr
         m_impl->Resources.DiffuseEnvironmentMap = std::move(diffuseEnvironmentMap);
     }
 
-    std::shared_ptr<VulkanTextureBundle> VulkanResources::CreateTypedSolidColorTexture(RGBAColor color)
+    std::shared_ptr<VulkanTextureBundle> VulkanResources::CreateTypedSolidColorTexture(RGBAColor color, bool sRGB)
     {
-        return m_impl->Resources.SolidColorTextureCache.CreateTypedSolidColorTexture(*this, color);
+        return m_impl->Resources.SolidColorTextureCache.CreateTypedSolidColorTexture(*this, color, sRGB);
+    }
+
+    span<const Conformance::Image::FormatParams> VulkanResources::GetSupportedFormats() const
+    {
+        if (m_impl->Resources.SupportedTextureFormats.size() == 0) {
+            throw std::logic_error("SupportedTextureFormats empty or not yet populated");
+        }
+        return m_impl->Resources.SupportedTextureFormats;
     }
 
     void VulkanResources::UpdateBuffer() const

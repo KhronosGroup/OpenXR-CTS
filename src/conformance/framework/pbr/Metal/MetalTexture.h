@@ -25,19 +25,16 @@ namespace Pbr
 {
     namespace MetalTexture
     {
-        std::array<uint8_t, 4> LoadRGBAUI4(RGBAColor color);
+        NS::SharedPtr<MTL::Texture> LoadTextureImage(const MetalResources& pbrResources, bool sRGB, const uint8_t* fileData,
+                                                     uint32_t fileSize, const NS::String* label);
 
-        NS::SharedPtr<MTL::Texture> LoadTextureImage(MetalResources& pbrResources, const uint8_t* fileData, uint32_t fileSize,
-                                                     const NS::String* label);
-
-        NS::SharedPtr<MTL::Texture> CreateFlatCubeTexture(MetalResources& pbrResources, RGBAColor color, MTL::PixelFormat format,
+        NS::SharedPtr<MTL::Texture> CreateFlatCubeTexture(const MetalResources& pbrResources, RGBAColor color, MTL::PixelFormat format,
                                                           const NS::String* label);
 
-        NS::SharedPtr<MTL::Texture> CreateTexture(MetalResources& pbrResources, const uint8_t* rgba, int elemSize, int width, int height,
-                                                  MTL::PixelFormat format, const NS::String* label);
+        NS::SharedPtr<MTL::Texture> CreateTexture(const MetalResources& pbrResources, const Conformance::Image::Image& image,
+                                                  const NS::String* label);
 
-        NS::SharedPtr<MTL::Texture> CreateTexture(MTL::Device* device, const uint8_t* rgba, int elemSize, int width, int height,
-                                                  MTL::PixelFormat format, const NS::String* label);
+        NS::SharedPtr<MTL::Texture> CreateTexture(MTL::Device* device, const Conformance::Image::Image& image, const NS::String* label);
 
         NS::SharedPtr<MTL::SamplerDescriptor> DefaultSamplerDesc();
         NS::SharedPtr<MTL::SamplerState> CreateSampler(MTL::Device* device,

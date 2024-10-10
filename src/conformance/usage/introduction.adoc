@@ -1,0 +1,25 @@
+// Copyright (c) 2019-2024, The Khronos Group Inc.
+//
+// SPDX-License-Identifier: CC-BY-4.0
+
+[[introduction]]
+== Introduction
+
+The OpenXR Conformance Test Suite is a collection of tests covering the
+breadth of the OpenXR API.
+The primary purpose of the OpenXR Conformance Test Suite (CTS) is to verify
+that runtimes have correctly implemented the standard as a part of the
+conformance process for specification adopters.
+Additional purposes are:
+
+* To promote consistent behavior among all runtimes, even from non-adopters,
+  for the health of the ecosystem.
+* To provide an aid to runtime development.
+* To provide a quality assurance tool for runtime vendors to integrate into
+  their own processes.
+
+It is **not** broadly intended to show examples of usage for application
+authors, in most cases, as the CTS tests the runtime's responses to
+incorrect and invalid behavior as well as intended application flow.
+However, in the absence of other samples and sufficiently useful
+specification text, it can be used as an additional reference.

@@ -14,6 +14,7 @@
 #include "D3D11Texture.h"
 #include "D3D11TextureCache.h"
 
+#include "../D3DCommon.h"
 #include "../../gltf/GltfHelper.h"
 #include "../PbrMaterial.h"
 
@@ -60,6 +61,23 @@ namespace
         {"TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0},
         {"TRANSFORMINDEX", 0, DXGI_FORMAT_R16_UINT, 0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0},
     };
+
+    std::vector<Conformance::Image::FormatParams> MakeSupportedFormatsList(ID3D11Device* device)
+    {
+        std::vector<Conformance::Image::FormatParams> supported;
+        for (auto& format : Pbr::GetDXGIFormatMap()) {
+            UINT formatSupport;
+            HRESULT result = device->CheckFormatSupport(format.second, &formatSupport);
+            if (result != S_OK) {
+                continue;
+            }
+            if (~formatSupport & (D3D11_FORMAT_SUPPORT_TEXTURE2D | D3D11_FORMAT_SUPPORT_SHADER_SAMPLE | D3D11_FORMAT_SUPPORT_MIP)) {
+                continue;
+            }
+            supported.push_back(format.first);
+        }
+        return supported;
+    }
 }  // namespace
 
 namespace Pbr
@@ -130,7 +148,7 @@ namespace Pbr
                 }
             }
 
-            Resources.SolidColorTextureCache = D3D11TextureCache{device};
+            Resources.SupportedTextureFormats = MakeSupportedFormatsList(device);
         }
 
         struct DeviceResources
@@ -149,6 +167,7 @@ namespace Pbr
             Microsoft::WRL::ComPtr<ID3D11RasterizerState>
                 RasterizerStates[2][2][2];  // Three dimensions for [DoubleSide][Wireframe][FrontCounterClockWise]
             Microsoft::WRL::ComPtr<ID3D11DepthStencilState> DepthStencilStates[2][2];  // Two dimensions for [ReverseZ][NoWrite]
+            std::vector<Conformance::Image::FormatParams> SupportedTextureFormats;
             mutable D3D11TextureCache SolidColorTextureCache;
         };
         PrimitiveCollection<D3D11Primitive> Primitives;
@@ -175,18 +194,14 @@ namespace Pbr
     D3D11Resources::~D3D11Resources() = default;
 
     // Create a DirectX texture view from a tinygltf Image.
-    static Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> D3D11LoadGLTFImage(_In_ ID3D11Device* device, const tinygltf::Image& image,
-                                                                               bool sRGB)
+    static Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> LoadGLTFImage(const Pbr::D3D11Resources& pbrResources,
+                                                                          const tinygltf::Image& image, bool sRGB)
     {
         // First convert the image to RGBA if it isn't already.
         std::vector<uint8_t> tempBuffer;
-        const uint8_t* rgbaBuffer = GltfHelper::ReadImageAsRGBA(image, &tempBuffer);
-        if (rgbaBuffer == nullptr) {
-            return nullptr;
-        }
+        Conformance::Image::Image decodedImage = GltfHelper::DecodeImage(image, sRGB, pbrResources.GetSupportedFormats(), tempBuffer);
 
-        const DXGI_FORMAT format = sRGB ? DXGI_FORMAT_R8G8B8A8_UNORM_SRGB : DXGI_FORMAT_R8G8B8A8_UNORM;
-        return Pbr::D3D11Texture::CreateTexture(device, rgbaBuffer, image.width * image.height * 4, image.width, image.height, format);
+        return Pbr::D3D11Texture::CreateTexture(pbrResources, decodedImage);
     }
 
     static D3D11_FILTER D3D11ConvertFilter(int glMinFilter, int glMagFilter)
@@ -236,7 +251,7 @@ namespace Pbr
         return samplerState;
     }
 
-    /* IResources implementations */
+    /* IGltfBuilder implementations */
     std::shared_ptr<Material> D3D11Resources::CreateFlatMaterial(RGBAColor baseColorFactor, float roughnessFactor, float metallicFactor,
                                                                  RGBColor emissiveFactor)
     {
@@ -246,14 +261,6 @@ namespace Pbr
     {
         return std::make_shared<D3D11Material>(*this);
     }
-    std::shared_ptr<ITexture> D3D11Resources::CreateSolidColorTexture(RGBAColor color)
-    {
-        // TODO maybe unused
-        auto ret = std::make_shared<Pbr::D3D11TextureAndSampler>();
-        ret->srv = CreateTypedSolidColorTexture(color);
-        return ret;
-    }
-
     void D3D11Resources::LoadTexture(const std::shared_ptr<Material>& material, Pbr::ShaderSlots::PSMaterial slot,
                                      const tinygltf::Image* image, const tinygltf::Sampler* sampler, bool sRGB, Pbr::RGBAColor defaultRGBA)
     {
@@ -264,13 +271,13 @@ namespace Pbr
         // Find or load the image referenced by the texture.
         const ImageKey imageKey = std::make_tuple(image, sRGB);
         Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> textureView =
-            image != nullptr ? m_impl->loaderResources.imageMap[imageKey] : CreateTypedSolidColorTexture(defaultRGBA);
+            image != nullptr ? m_impl->loaderResources.imageMap[imageKey] : CreateTypedSolidColorTexture(defaultRGBA, sRGB);
         if (!textureView)  // If not cached, load the image and store it in the texture cache.
         {
             // TODO: Generate mipmaps if sampler's minification filter (minFilter) uses mipmapping.
             // TODO: If texture is not power-of-two and (sampler has wrapping=repeat/mirrored_repeat OR minFilter uses
             // mipmapping), resize to power-of-two.
-            textureView = D3D11LoadGLTFImage(GetDevice().Get(), *image, sRGB);
+            textureView = LoadGLTFImage(*this, *image, sRGB);
             m_impl->loaderResources.imageMap[imageKey] = textureView;
         }
 
@@ -345,9 +352,17 @@ namespace Pbr
         m_impl->Resources.DiffuseEnvironmentMap = diffuseEnvironmentMap;
     }
 
-    Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> D3D11Resources::CreateTypedSolidColorTexture(RGBAColor color) const
+    span<const Conformance::Image::FormatParams> D3D11Resources::GetSupportedFormats() const
     {
-        return m_impl->Resources.SolidColorTextureCache.CreateTypedSolidColorTexture(color);
+        if (m_impl->Resources.SupportedTextureFormats.size() == 0) {
+            throw std::logic_error("SupportedTextureFormats empty or not yet populated");
+        }
+        return m_impl->Resources.SupportedTextureFormats;
+    }
+
+    Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> D3D11Resources::CreateTypedSolidColorTexture(RGBAColor color, bool sRGB) const
+    {
+        return m_impl->Resources.SolidColorTextureCache.CreateTypedSolidColorTexture(*this, color, sRGB);
     }
 
     void D3D11Resources::Bind(_In_ ID3D11DeviceContext* context) const

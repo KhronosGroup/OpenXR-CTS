@@ -42,8 +42,9 @@ namespace Conformance
         for (auto refSpaceType : refSpaceTypes) {
             INFO("Reference space type is " << refSpaceType);
             XrSpace localSpace = XR_NULL_HANDLE_CPP;
-            XrReferenceSpaceCreateInfo reference_space_create_info{XR_TYPE_REFERENCE_SPACE_CREATE_INFO, nullptr, refSpaceType,
-                                                                   Pose::Identity};
+            XrReferenceSpaceCreateInfo reference_space_create_info{XR_TYPE_REFERENCE_SPACE_CREATE_INFO};
+            reference_space_create_info.referenceSpaceType = refSpaceType;
+            reference_space_create_info.poseInReferenceSpace = Pose::Identity;
 
             // Test a success case.
             CHECK(XR_SUCCESS == xrCreateReferenceSpace(session, &reference_space_create_info, &localSpace));
@@ -77,8 +78,10 @@ namespace Conformance
         SECTION("Calling CreateReferenceSpace with nonexistent reference space type")
         {
             XrSpace localSpace = XR_NULL_HANDLE_CPP;
-            XrReferenceSpaceCreateInfo reference_space_create_info{XR_TYPE_REFERENCE_SPACE_CREATE_INFO, nullptr,
-                                                                   XR_REFERENCE_SPACE_TYPE_MAX_ENUM, Pose::Identity};
+            XrReferenceSpaceCreateInfo reference_space_create_info{XR_TYPE_REFERENCE_SPACE_CREATE_INFO};
+            reference_space_create_info.referenceSpaceType = XR_REFERENCE_SPACE_TYPE_MAX_ENUM;
+            reference_space_create_info.poseInReferenceSpace = Pose::Identity;
+
             CHECK(XR_ERROR_REFERENCE_SPACE_UNSUPPORTED == xrCreateReferenceSpace(session, &reference_space_create_info, &localSpace));
             REQUIRE(localSpace == XR_NULL_HANDLE_CPP);
 
@@ -86,6 +89,7 @@ namespace Conformance
             for (XrReferenceSpaceType xst : {XR_REFERENCE_SPACE_TYPE_VIEW, XR_REFERENCE_SPACE_TYPE_LOCAL, XR_REFERENCE_SPACE_TYPE_STAGE}) {
                 // If the given core type wasn't enumerated by the runtime, make sure it isn't creatable.
                 if (std::find(refSpaceTypes.begin(), refSpaceTypes.end(), xst) == refSpaceTypes.end()) {
+                    INFO("XrReferenceSpaceType: " << xst);
                     reference_space_create_info.referenceSpaceType = xst;
                     CHECK(xrCreateReferenceSpace(session, &reference_space_create_info, &localSpace) ==
                           XR_ERROR_REFERENCE_SPACE_UNSUPPORTED);

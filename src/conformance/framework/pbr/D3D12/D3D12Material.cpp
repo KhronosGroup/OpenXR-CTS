@@ -54,7 +54,8 @@ namespace Pbr
     }
 
     /* static */
-    std::shared_ptr<D3D12Material> D3D12Material::CreateFlat(D3D12Resources& pbrResources, RGBAColor baseColorFactor,
+    std::shared_ptr<D3D12Material> D3D12Material::CreateFlat(D3D12Resources& pbrResources, ID3D12GraphicsCommandList* copyCommandList,
+                                                             StagingResources stagingResources, RGBAColor baseColorFactor,
                                                              float roughnessFactor /* = 1.0f */, float metallicFactor /* = 0.0f */,
                                                              RGBColor emissiveFactor /* = XMFLOAT3(0, 0, 0) */)
     {
@@ -71,18 +72,18 @@ namespace Pbr
         parameters.RoughnessFactor = roughnessFactor;
 
         D3D12_SAMPLER_DESC defaultSamplerDesc = Pbr::D3D12Texture::DefaultSamplerDesc();
-        auto setDefaultTexture = [&](Pbr::ShaderSlots::PSMaterial slot, Pbr::RGBAColor defaultRGBA) {
-            auto solidTexture = pbrResources.CreateTypedSolidColorTexture(defaultRGBA);
+        auto setDefaultTexture = [&](Pbr::ShaderSlots::PSMaterial slot, Pbr::RGBAColor defaultRGBA, bool sRGB) {
+            auto solidTexture = pbrResources.CreateTypedSolidColorTexture(copyCommandList, stagingResources, defaultRGBA, sRGB);
             material->SetTexture(pbrResources.GetDevice().Get(), slot, solidTexture, &defaultSamplerDesc);
         };
 
-        setDefaultTexture(ShaderSlots::BaseColor, RGBA::White);
-        setDefaultTexture(ShaderSlots::MetallicRoughness, RGBA::White);
+        setDefaultTexture(ShaderSlots::BaseColor, RGBA::White, true);
+        setDefaultTexture(ShaderSlots::MetallicRoughness, RGBA::White, false);
         // No occlusion.
-        setDefaultTexture(ShaderSlots::Occlusion, RGBA::White);
+        setDefaultTexture(ShaderSlots::Occlusion, RGBA::White, false);
         // Flat normal.
-        setDefaultTexture(ShaderSlots::Normal, RGBA::FlatNormal);
-        setDefaultTexture(ShaderSlots::Emissive, RGBA::White);
+        setDefaultTexture(ShaderSlots::Normal, RGBA::FlatNormal, false);
+        setDefaultTexture(ShaderSlots::Emissive, RGBA::White, true);
 
         return material;
     }
@@ -114,13 +115,15 @@ namespace Pbr
                                       m_samplerHeap->GetCPUDescriptorHandleForHeapStart(), D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER);
     }
 
-    void D3D12Material::Bind(_In_ ID3D12GraphicsCommandList* directCommandList, D3D12Resources& pbrResources)
+    void D3D12Material::Bind(_In_ ID3D12GraphicsCommandList* directCommandList, D3D12Resources& /* pbrResources */)
     {
         // If the parameters of the constant buffer have changed, update the constant buffer.
         if (m_parametersChanged) {
             m_parametersChanged = false;
-            pbrResources.WithCopyCommandList(
-                [&](ID3D12GraphicsCommandList* cmdList) { m_constantBuffer.AsyncUpload(cmdList, &m_parameters); });
+            m_constantBuffer.AsyncUpload(directCommandList, &m_parameters);
+            auto barrier = CD3DX12_RESOURCE_BARRIER::Transition(m_constantBuffer.GetResource(), D3D12_RESOURCE_STATE_COPY_DEST,
+                                                                D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+            directCommandList->ResourceBarrier(1, &barrier);
         }
 
         directCommandList->SetGraphicsRootConstantBufferView(Pbr::ShaderSlots::ConstantBuffers::Material,

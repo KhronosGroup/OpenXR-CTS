@@ -53,7 +53,7 @@ namespace Conformance
         }
 
     private:
-        std::shared_ptr<tinygltf::Model> m_gltf;
+        std::shared_ptr<const tinygltf::Model> m_gltf;
         ModelInstanceType m_pbrModelInstance;
         Pbr::FillMode m_fillMode;
     };

@@ -123,6 +123,12 @@ namespace Conformance
                         << viewType
                         << ", the runtime returned as XR_ERROR_VIEW_CONFIGURATION_TYPE_UNSUPPORTED instead of XR_ERROR_VALIDATION_FAILURE, which may make it harder for apps to reason about the error.");
                 }
+                else if (valid && result == XR_ERROR_VALIDATION_FAILURE) {
+                    WARN(
+                        "On receiving a 'valid' but not supported enum value "
+                        << viewType
+                        << ", the runtime returned as XR_ERROR_VALIDATION_FAILURE instead of XR_ERROR_VIEW_CONFIGURATION_TYPE_UNSUPPORTED, which may make it harder for apps to reason about the error.");
+                }
             }
         }
 

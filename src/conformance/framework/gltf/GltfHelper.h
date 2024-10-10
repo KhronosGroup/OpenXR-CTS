@@ -12,8 +12,11 @@
 
 #pragma once
 
+#include <utilities/image.h>
+
 #include "common/xr_linear.h"
 
+#include <nonstd/span.hpp>
 #include <openxr/openxr.h>
 
 #include <chrono>
@@ -39,6 +42,8 @@ namespace tinygltf
 
 namespace GltfHelper
 {
+    using nonstd::span;
+
     // Vertex data.
     struct Vertex
     {
@@ -116,6 +121,25 @@ namespace GltfHelper
     // Parses the material values into a simplified data structure, the Material.
     Material ReadMaterial(const tinygltf::Model& gltfModel, const tinygltf::Material& gltfMaterial);
 
-    // Converts the image to RGBA if necessary. Requires a temporary buffer only if it needs to be converted.
-    const uint8_t* ReadImageAsRGBA(const tinygltf::Image& image, std::vector<uint8_t>* tempBuffer);
+    // Passes image data throguh as-is if the image name ends in ".ktx2" or the mime type is "image/ktx2". Otherwise forwards to tinygltf.
+    bool PassThroughKTX2(tinygltf::Image* image, const int image_idx, std::string* err, std::string* warn, int req_width, int req_height,
+                         const unsigned char* bytes, int size, void* user_data) noexcept;
+
+    /// For images identified as KTX2, pass their data through as-is, setting the as-is flag.
+    bool PassThroughKTX2(tinygltf::Image* image, const int image_idx, std::string* err, std::string* warn, int req_width, int req_height,
+                         const unsigned char* bytes, int size, void* /* user_data */) noexcept;
+
+    /// Converts the image to RGBA if necessary. Requires a temporary buffer only if it needs to be converted.
+    Conformance::Image::Image DecodeImage(const tinygltf::Image& image, bool sRGB,
+                                          span<const Conformance::Image::FormatParams> supportedFormats, std::vector<uint8_t>& tempBuffer);
+
+    /// Used in DecodeImage. Decode an image that is in RGBA format and not as-is.
+    Conformance::Image::Image ReadImageAsRGBA(const tinygltf::Image& image, bool sRGB,
+                                              span<const Conformance::Image::FormatParams> supportedFormats,
+                                              std::vector<uint8_t>& tempBuffer);
+
+    /// Used in DecodeImage. Decode an image that is as-is, and has been identified as KTX2.
+    Conformance::Image::Image DecodeImageKTX2(const tinygltf::Image& image, bool sRGB,
+                                              span<const Conformance::Image::FormatParams> supportedFormats,
+                                              std::vector<uint8_t>& tempBuffer);
 }  // namespace GltfHelper

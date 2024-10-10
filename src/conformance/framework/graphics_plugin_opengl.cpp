@@ -427,7 +427,7 @@ namespace Conformance
 
         MeshHandle MakeSimpleMesh(span<const uint16_t> idx, span<const Geometry::Vertex> vtx) override;
 
-        GLTFModelHandle LoadGLTF(std::shared_ptr<tinygltf::Model> tinygltfModel) override;
+        GLTFModelHandle LoadGLTF(Gltf::ModelBuilder&& modelBuilder) override;
         std::shared_ptr<Pbr::Model> GetPbrModel(GLTFModelHandle handle) const override;
         GLTFModelInstanceHandle CreateGLTFModelInstance(GLTFModelHandle handle) override;
         Pbr::ModelInstance& GetModelInstance(GLTFModelInstanceHandle handle) override;
@@ -745,13 +745,13 @@ namespace Conformance
         m_pbrResources = std::make_unique<Pbr::GLResources>();
         m_pbrResources->SetLight({0.0f, 0.7071067811865475f, 0.7071067811865475f}, Pbr::RGB::White);
 
-        auto blackCubeMap = std::make_shared<Pbr::ScopedGLTexture>(Pbr::GLTexture::CreateFlatCubeTexture(Pbr::RGBA::Black, GL_RGBA8));
+        auto blackCubeMap = std::make_shared<Pbr::ScopedGLTexture>(Pbr::GLTexture::CreateFlatCubeTexture(Pbr::RGBA::Black, false));
         m_pbrResources->SetEnvironmentMap(blackCubeMap, blackCubeMap);
 
-        // Read the BRDF Lookup Table used by the PBR system into a DirectX texture.
+        // Read the BRDF Lookup Table used by the PBR system into a GL texture.
         std::vector<unsigned char> brdfLutFileData = ReadFileBytes("brdf_lut.png");
         auto brdLutResourceView = std::make_shared<Pbr::ScopedGLTexture>(
-            Pbr::GLTexture::LoadTextureImage(brdfLutFileData.data(), (uint32_t)brdfLutFileData.size()));
+            Pbr::GLTexture::LoadTextureImage(*m_pbrResources, false, brdfLutFileData.data(), (uint32_t)brdfLutFileData.size()));
         m_pbrResources->SetBrdfLut(brdLutResourceView);
     }
 
@@ -856,7 +856,7 @@ namespace Conformance
         REQUIRE(result == XR_SUCCESS);
         REQUIRE(countOutput > 0);
 
-        swapchainImageVector.resize(countOutput, XrSwapchainImageOpenGLKHR{XR_TYPE_SWAPCHAIN_IMAGE_OPENGL_KHR, nullptr});
+        swapchainImageVector.resize(countOutput, XrSwapchainImageOpenGLKHR{XR_TYPE_SWAPCHAIN_IMAGE_OPENGL_KHR});
 
         // Exercise XR_ERROR_SIZE_INSUFFICIENT
         if (countOutput >= 2) {  // Need at least two in order to exercise XR_ERROR_SIZE_INSUFFICIENT
@@ -870,7 +870,7 @@ namespace Conformance
 
         countOutput = (uint32_t)swapchainImageVector.size();  // Restore countOutput if it was (mistakenly) modified.
         swapchainImageVector.clear();                         // Who knows what the runtime may have mistakely written into our vector.
-        swapchainImageVector.resize(countOutput, XrSwapchainImageOpenGLKHR{XR_TYPE_SWAPCHAIN_IMAGE_OPENGL_KHR, nullptr});
+        swapchainImageVector.resize(countOutput, XrSwapchainImageOpenGLKHR{XR_TYPE_SWAPCHAIN_IMAGE_OPENGL_KHR});
         result = xrEnumerateSwapchainImages(swapchain, countOutput, &countOutput,
                                             reinterpret_cast<XrSwapchainImageBaseHeader*>(swapchainImageVector.data()));
         CHECK(ValidateResultAllowed("xrEnumerateSwapchainImages", result));
@@ -1072,10 +1072,9 @@ namespace Conformance
         return handle;
     }
 
-    GLTFModelHandle OpenGLGraphicsPlugin::LoadGLTF(std::shared_ptr<tinygltf::Model> tinygltfModel)
+    GLTFModelHandle OpenGLGraphicsPlugin::LoadGLTF(Gltf::ModelBuilder&& modelBuilder)
     {
-        std::shared_ptr<Pbr::Model> pbrModel = Gltf::FromGltfObject(*m_pbrResources, *tinygltfModel);
-        auto handle = m_gltfModels.emplace_back(std::move(pbrModel));
+        auto handle = m_gltfModels.emplace_back(modelBuilder.Build(*m_pbrResources));
         return handle;
     }
 
@@ -1161,7 +1160,7 @@ namespace Conformance
             // Compute the model-view-projection transform and set it..
             XrMatrix4x4f model =
                 Matrix::FromTranslationRotationScale(mesh.params.pose.position, mesh.params.pose.orientation, mesh.params.scale);
-            XrMatrix4x4f mvp = vp = model;
+            XrMatrix4x4f mvp = vp * model;
             glUniformMatrix4fv(m_modelViewProjectionUniformLocation, 1, GL_FALSE, reinterpret_cast<const GLfloat*>(&mvp));
             glUniform4fv(m_tintColorUniformLocation, 1, reinterpret_cast<const GLfloat*>(&mesh.tintColor));
 

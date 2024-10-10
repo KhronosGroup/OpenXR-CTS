@@ -1,0 +1,135 @@
+// Copyright (c) 2019-2024, The Khronos Group Inc.
+//
+// SPDX-License-Identifier: CC-BY-4.0
+
+== Requirements/Assumptions for Testing
+
+While the specification defines behavior over a wide range of possible
+scenarios, the CTS requires some assumptions to be satisfied before running
+in various modes.
+They are broadly meant to be representative of nominal usage of an XR system
+operating as expected without special configuration by the user or
+per-application.
+If you are unable to satisfy these requirements, you **may** modify the CTS
+according to the Conformance Process Document and the "Porting" process
+detailed therein.
+Early and frequent discussion with the Working Group is encouraged in this
+case.
+
+Some of these assumptions can be bypassed or automated away by implementing
+`XR_EXT_conformance_automation` and passing `-E
+XR_EXT_conformance_automation` to the test suite.
+However, this is intended only for automated testing, and not for
+conformance submission.
+A conformant runtime **must** be able to pass the tests without this
+extension.
+
+=== Requirements for non-interactive and interactive tests
+
+All test cases depend on these requirements.
+Some have exceptions or workarounds available as options.
+
+==== System immediately available
+
+Command line argument `--pollGetSystem` is available to retry `xrGetSystem`
+at startup of the CTS.
+Subsequent `XrInstance` creation is assumed to immediately have access to a
+system after this initial poll.
+
+==== Session state progress
+
+Some tests require that a begun session progresses through the lifecycle to
+`XR_SESSION_STATE_FOCUSED` without user interaction.
+These tests will synchronize their frame loop and start submitting frames
+and expect to proceed to `FOCUSED`.
+This **may** require donning a device or otherwise triggering a user
+presence sensor, for these tests to run fully automatedly.
+
+==== Valid view pose in local space
+
+Some tests require valid view pose (`XR_VIEW_STATE_ORIENTATION_VALID_BIT` &
+`XR_VIEW_STATE_POSITION_VALID_BIT`), though not necessarily tracked view
+position, relative to LOCAL reference space
+(`XR_REFERENCE_SPACE_TYPE_LOCAL`).
+
+==== No customized rebinding applied
+
+Unless otherwise specified, the behavior of the runtime **must** match the
+"when following suggested bindings" case.
+Any manual rebindings necessary to pass the tests **must** be discussed with
+the Working Group.
+
+=== Requirements for interactive tests
+
+==== At least one controller/interaction method is available, by default **two**
+
+Assumes both a left and right hand input device (controller, hand
+interaction) is available unless arguments are specified to switch to a
+single hand mode.
+
+Tests without the `[interactive]` flag do not depend on the presence of a
+controller.
+
+==== Available interaction method supports `/interaction_profile/khr/simple_controller`
+
+The runtime **must** support `khr/simple_controller` to manually pass or
+fail each test through the `.../input/menu/click` and
+`.../input/select/click` input paths.
+The tester **must** evaluate the composed output and pass or fail the tests
+by comparing it to the provided expected result image.
+While `/interaction_profile/khr/simple_controller` is not formally required
+for conformance as of OpenXR 1.1, it is strongly encouraged.
+If it cannot be included for some reason, use of another interaction profile
+**may** be performed through the porting process.
+
+==== View reference space is tracked in local space
+
+Some interactive tests require tracked pose
+(`XR_SPACE_LOCATION_ORIENTATION_TRACKED_BIT` &
+`XR_SPACE_LOCATION_POSITION_TRACKED_BIT`) of VIEW reference space relative
+to LOCAL reference space (`XR_REFERENCE_SPACE_TYPE_LOCAL`).
+They **must** remain tracked throughout the test: if tracking is lost during
+the test, a spurious failure may be recorded, requiring a re-run of the
+tests.
+
+==== The "Menu" click input on the controller can be held without interrupting the application
+
+Interactive tests typically show their instructions and sample output only
+while a boolean action, with suggested bindings for left and right
+`.../input/menu/click`, is "true".
+Additionally, a boolean action with suggested bindings for left and right
+`.../input/select/click` is typically used to report pass or fail, with both
+of those actions being "true" indicating failure.
+If pressing or holding the "menu" button brings up system UI, reviewing the
+instructions and expected behavior for interactive tests may be difficult.
+(It would be possible to remove this assumption through the porting process
+or other CTS development.) If pressing "select" while holding "menu" is not
+possible, it will be impossible to record an interactive test failure.
+
+(Tests using `InteractiveLayerManager` have this behavior.)
+
+==== The controller or input method must be capable of being turned off/disconnected in some way
+
+A command line flag is available, `--nonDisconnectableDevices`, although it
+is primarily for debugging.
+Submissions that require it **must** explain their use of this flag in the
+conformance statement.
+
+==== A person must perform actions to evaluate the runtime behavior for several tests
+
+For some interactive tests, a person operating the test suite **must** use
+the in-test instructions to evaluate whether the behavior of the runtime
+matches the expected behavior according to the specification.
+If there is any doubt about whether the behavior in a test is conformant,
+consult with the Working Group.
+
+* `[scenario]` tests - the tester **must** perform a certain set of actions
+  to pass the test.
+  The runtime **must** additionally behave as described in the instructions,
+  which involves some subjective judgement, even if semi-automated
+  requirements are met.
+* `[composition][interactive]` tests - the visible rendering result **must**
+  be compared against a reference image.
+* `[actions]` tests - in at least one interactive test, you have to wait for
+  haptic feedback and confirm it, in addition to performing input actions
+  requested.

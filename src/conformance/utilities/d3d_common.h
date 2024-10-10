@@ -13,7 +13,6 @@
 #include <D3Dcompiler.h>
 
 #include <dxgi.h>
-#include <d3dcommon.h>
 #include <DirectXMath.h>
 #include <wrl.h>
 

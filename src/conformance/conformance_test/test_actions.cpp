@@ -28,6 +28,7 @@
 #include "utilities/event_reader.h"
 #include "utilities/types_and_constants.h"
 #include "utilities/string_utils.h"
+#include "xr_math_approx.h"
 
 #include <openxr/openxr.h>
 #include <openxr/openxr_reflection.h>
@@ -986,9 +987,10 @@ namespace Conformance
                 getInfo.action = poseAction;
                 REQUIRE_RESULT(xrGetActionStatePose(session, &getInfo, &poseState), XR_ERROR_ACTIONSET_NOT_ATTACHED);
 
-                REQUIRE_RESULT(xrApplyHapticFeedback(session, &hapticActionInfo, reinterpret_cast<XrHapticBaseHeader*>(&hapticPacket)),
-                               XR_ERROR_ACTIONSET_NOT_ATTACHED);
-                REQUIRE_RESULT(xrStopHapticFeedback(session, &hapticActionInfo), XR_ERROR_ACTIONSET_NOT_ATTACHED);
+                XrResult result = xrApplyHapticFeedback(session, &hapticActionInfo, reinterpret_cast<XrHapticBaseHeader*>(&hapticPacket));
+                REQUIRE_THAT(result, In<XrResult>({XR_SESSION_NOT_FOCUSED, XR_ERROR_ACTIONSET_NOT_ATTACHED}));
+                result = xrStopHapticFeedback(session, &hapticActionInfo);
+                REQUIRE_THAT(result, In<XrResult>({XR_SESSION_NOT_FOCUSED, XR_ERROR_ACTIONSET_NOT_ATTACHED}));
 
                 REQUIRE_RESULT(xrAttachSessionActionSets(session, &attachInfo), XR_SUCCESS);
 
@@ -2115,6 +2117,13 @@ namespace Conformance
                     // Rift S and Quest 1 controllers lack thumbrests.
                     return false;
                 }
+                if (strcmp(ipMetadata.InteractionProfileShortname, "ext/hand_interaction_ext") == 0 &&
+                    ends_with(inputSourceData.Path, "/input/aim_activate_ext/value")) {
+                    // aim_activate_ext/value does not require that the values coming back
+                    // actually be floats, they can also be boolean so this is hard for
+                    // us to exercise.
+                    return false;
+                }
                 if (!SatisfiedByDefault(inputSourceData.Availability)) {
                     return false;
                 }
@@ -2412,7 +2421,10 @@ namespace Conformance
                 XrActionStateGetInfo getInfo{XR_TYPE_ACTION_STATE_GET_INFO};
 
                 actionLayerManager.DisplayMessage("Use all controller inputs on\n" + topLevelPathString);
-                actionLayerManager.Sleep_For(1s);
+
+                if (!GetGlobalData().IsUsingConformanceAutomation()) {
+                    actionLayerManager.Sleep_For(1s);
+                }
 
                 XrActionStateBoolean combinedBoolState{XR_TYPE_ACTION_STATE_BOOLEAN};
                 XrActionStateFloat combinedFloatState{XR_TYPE_ACTION_STATE_FLOAT};
@@ -2718,7 +2730,9 @@ namespace Conformance
                 REQUIRE_FALSE(waitForCombinedVectors);
 
                 actionLayerManager.DisplayMessage("Release all inputs");
-                actionLayerManager.Sleep_For(2s);
+                if (!GetGlobalData().IsUsingConformanceAutomation()) {
+                    actionLayerManager.Sleep_For(2s);
+                }
             }
 
             OPTIONAL_DISCONNECTABLE_DEVICE_INFO
@@ -2811,7 +2825,10 @@ namespace Conformance
                         std::string prompt = buttonPromptPrefix + "when you feel the 3 second haptic vibration" + buttonPromptSuffix;
                         actionLayerManager.DisplayMessage(prompt);
                         actionLayerManager.IterateFrame();
-                        actionLayerManager.Sleep_For(3s);
+
+                        if (!GetGlobalData().IsUsingConformanceAutomation()) {
+                            actionLayerManager.Sleep_For(3s);
+                        }
 
                         hapticPacket.duration = std::chrono::duration_cast<std::chrono::nanoseconds>(3s).count();
                         REQUIRE_RESULT(
@@ -2842,12 +2859,16 @@ namespace Conformance
                         REQUIRE_RESULT(xrStopHapticFeedback(session, &hapticActionInfo), XR_SUCCESS);
 
                         actionLayerManager.IterateFrame();
-                        actionLayerManager.Sleep_For(0.25s);
+                        if (!GetGlobalData().IsUsingConformanceAutomation()) {
+                            actionLayerManager.Sleep_For(0.25s);
+                        }
 
                         prompt = buttonPromptPrefix + "when you feel the short haptic pulse" + buttonPromptSuffix;
                         actionLayerManager.DisplayMessage(prompt);
                         actionLayerManager.IterateFrame();
-                        actionLayerManager.Sleep_For(3s);
+                        if (!GetGlobalData().IsUsingConformanceAutomation()) {
+                            actionLayerManager.Sleep_For(3s);
+                        }
 
                         hapticPacket.duration = XR_MIN_HAPTIC_DURATION;
                         REQUIRE_RESULT(
@@ -2876,7 +2897,9 @@ namespace Conformance
                     }
 
                     actionLayerManager.DisplayMessage("Release all inputs");
-                    actionLayerManager.Sleep_For(2s);
+                    if (!GetGlobalData().IsUsingConformanceAutomation()) {
+                        actionLayerManager.Sleep_For(2s);
+                    }
                 }
             }
 
@@ -3238,7 +3261,7 @@ namespace Conformance
 
     TEST_CASE("action_space_creation-noninteractive", "[actions]")
     {
-        CompositionHelper compositionHelper("action_space_creation-noninteractive");
+        CompositionHelper compositionHelper("action_space_creation-noni");
         compositionHelper.BeginSession();
         ActionLayerManager actionLayerManager(compositionHelper);
 
@@ -3352,8 +3375,8 @@ namespace Conformance
         syncInfo.activeActionSets = &activeActionSet;
         actionLayerManager.SyncActionsUntilFocusWithMessage(syncInfo);
 
-        XrSpaceLocation earlyLocation{XR_TYPE_SPACE_LOCATION, nullptr};
-        XrSpaceLocation lateLocation{XR_TYPE_SPACE_LOCATION, nullptr};
+        XrSpaceLocation earlyLocation{XR_TYPE_SPACE_LOCATION};
+        XrSpaceLocation lateLocation{XR_TYPE_SPACE_LOCATION};
         REQUIRE(actionLayerManager.WaitForLocatability(useLeftHand ? "left" : "right", lateActionSpace, localSpace, &lateLocation, true));
 
         XrTime locateTime =
@@ -3462,16 +3485,6 @@ namespace Conformance
             syncInfo.countActiveActionSets = 2;
             syncInfo.activeActionSets = bothSets;
 
-            auto PosesAreEqual = [](XrPosef a, XrPosef b) -> bool {
-                constexpr float e = 0.002f;  // 1mm (margin below means absolute delta)
-                return (a.position.x == Catch::Approx(b.position.x).margin(e)) && (a.position.y == Catch::Approx(b.position.y).margin(e)) &&
-                       (a.position.z == Catch::Approx(b.position.z).margin(e)) &&
-                       (a.orientation.x == Catch::Approx(b.orientation.x).margin(e)) &&
-                       (a.orientation.y == Catch::Approx(b.orientation.y).margin(e)) &&
-                       (a.orientation.z == Catch::Approx(b.orientation.z).margin(e)) &&
-                       (a.orientation.w == Catch::Approx(b.orientation.w).margin(e));
-            };
-
             if (globalData.leftHandUnderTest && globalData.rightHandUnderTest) {
                 // two-handed tests
                 // If we tell them to place the controllers somewhere they don't move,
@@ -3479,7 +3492,9 @@ namespace Conformance
 
                 leftHandInputDevice->SetDeviceActive(false);
                 actionLayerManager.DisplayMessage("Place left controller somewhere static but trackable");
-                actionLayerManager.Sleep_For(5s);
+                if (!GetGlobalData().IsUsingConformanceAutomation()) {
+                    actionLayerManager.Sleep_For(5s);
+                }
                 // wait to lose left
                 REQUIRE(actionLayerManager.WaitForLocatability("left", leftSpace, localSpace, &leftRelation, false));
                 leftHandInputDevice->SetDeviceActive(true);
@@ -3490,7 +3505,9 @@ namespace Conformance
                 rightHandInputDevice->SetDeviceActive(false);
                 actionLayerManager.DisplayMessage(
                     "Place right controller somewhere static but trackable. Keep left controller on and trackable.");
-                actionLayerManager.Sleep_For(5s);
+                if (!GetGlobalData().IsUsingConformanceAutomation()) {
+                    actionLayerManager.Sleep_For(5s);
+                }
                 // wait to lose right
                 REQUIRE(actionLayerManager.WaitForLocatability("right", rightSpace, localSpace, &rightRelation, false));
                 rightHandInputDevice->SetDeviceActive(true);
@@ -3515,8 +3532,8 @@ namespace Conformance
                 REQUIRE_RESULT(xrLocateSpace(rightSpace, localSpace, locateTime, &rightRelation), XR_SUCCESS);
                 REQUIRE(currentRelation.locationFlags != 0);
                 REQUIRE(leftRelation.locationFlags != 0);
-                REQUIRE(PosesAreEqual(currentRelation.pose, leftRelation.pose));
-                REQUIRE_FALSE(PosesAreEqual(leftRelation.pose, rightRelation.pose));
+                REQUIRE(currentRelation.pose == Pose::Approx(leftRelation.pose));
+                REQUIRE_FALSE(Pose::Approx(leftRelation.pose) == rightRelation.pose);
 
                 // Try making sure action spaces don't un-stick from actions without an xrSyncActions
                 // Making right active to tempt the runtime
@@ -3630,11 +3647,16 @@ namespace Conformance
                     availableInputDevice->SetDeviceActive(false);
                 }
                 actionLayerManager.DisplayMessage("Place controller somewhere static but trackable");
-                actionLayerManager.Sleep_For(5s);
+                if (!GetGlobalData().IsUsingConformanceAutomation()) {
+                    actionLayerManager.Sleep_For(5s);
+                }
 
                 // Tries to locate the controller space, and returns the location flags.
                 auto checkTrackingFlags = [&]() -> XrSpaceLocationFlags {
-                    XrSpaceLocation location{XR_TYPE_SPACE_LOCATION, nullptr, 0, Pose::Identity};
+                    XrSpaceLocation location{XR_TYPE_SPACE_LOCATION};
+                    location.locationFlags = 0;
+                    location.pose = Pose::Identity;
+
                     REQUIRE_RESULT(xrLocateSpace(actionSpaceWithSubactionPath, localSpace,
                                                  actionLayerManager.GetRenderLoop().GetLastPredictedDisplayTime(), &location),
                                    XR_SUCCESS);
@@ -3643,7 +3665,10 @@ namespace Conformance
 
                 // Gets the action state for the pose action, and returns whether isActive is XR_TRUE.
                 auto getActionStatePoseActive = [&] {
-                    const auto getInfo = XrActionStateGetInfo{XR_TYPE_ACTION_STATE_GET_INFO, nullptr, poseAction, controllerSubactionPath};
+                    XrActionStateGetInfo getInfo{XR_TYPE_ACTION_STATE_GET_INFO};
+                    getInfo.action = poseAction;
+                    getInfo.subactionPath = controllerSubactionPath;
+
                     XrActionStatePose statePose{XR_TYPE_ACTION_STATE_POSE};
                     REQUIRE_RESULT(xrGetActionStatePose(session, &getInfo, &statePose), XR_SUCCESS);
                     return statePose.isActive == XR_TRUE;
@@ -3717,7 +3742,7 @@ namespace Conformance
                     REQUIRE(relationWithoutSubactionPath.locationFlags != 0);
                     CAPTURE(relationWithoutSubactionPath.pose);
 
-                    REQUIRE(PosesAreEqual(relationWithoutSubactionPath.pose, relationWithSubactionPath.pose));
+                    REQUIRE(Pose::Approx(relationWithoutSubactionPath.pose) == relationWithSubactionPath.pose);
                 }
 
                 {
@@ -3767,8 +3792,10 @@ namespace Conformance
                     {
                         INFO("xrGetActionStatePose with subactionPath populated: must be inactive");
 
-                        const auto getInfo =
-                            XrActionStateGetInfo{XR_TYPE_ACTION_STATE_GET_INFO, nullptr, poseAction, controllerSubactionPath};
+                        XrActionStateGetInfo getInfo{XR_TYPE_ACTION_STATE_GET_INFO};
+                        getInfo.action = poseAction;
+                        getInfo.subactionPath = controllerSubactionPath;
+
                         XrActionStatePose statePose{XR_TYPE_ACTION_STATE_POSE};
                         REQUIRE_RESULT(xrGetActionStatePose(session, &getInfo, &statePose), XR_SUCCESS);
                         REQUIRE(statePose.isActive == XR_FALSE);
@@ -3778,7 +3805,10 @@ namespace Conformance
                             "xrGetActionStatePose with subactionPath empty: must be inactive"
                             " (previously bound controller now off, and no other controller to bind to)");
 
-                        const auto getInfo = XrActionStateGetInfo{XR_TYPE_ACTION_STATE_GET_INFO, nullptr, poseAction, XR_NULL_PATH};
+                        XrActionStateGetInfo getInfo{XR_TYPE_ACTION_STATE_GET_INFO};
+                        getInfo.action = poseAction;
+                        getInfo.subactionPath = XR_NULL_PATH;
+
                         XrActionStatePose statePose{XR_TYPE_ACTION_STATE_POSE};
                         REQUIRE_RESULT(xrGetActionStatePose(session, &getInfo, &statePose), XR_SUCCESS);
                         REQUIRE(statePose.isActive == XR_FALSE);

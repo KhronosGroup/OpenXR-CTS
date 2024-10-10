@@ -14,6 +14,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "action_utils.h"
 #include "common/xr_linear.h"
 #include "composition_utils.h"
 #include "conformance_framework.h"
@@ -31,13 +32,8 @@
 
 namespace Conformance
 {
-    using namespace openxr::math_operators;
     using namespace std::chrono_literals;
-#ifdef XR_USE_PLATFORM_ANDROID
-    const std::chrono::nanoseconds waitDelay = 0ms;
-#else
-    const std::chrono::nanoseconds waitDelay = 5ms;
-#endif  // XR_USE_PLATFORM_ANDROID
+
     const std::chrono::seconds inputWaitTime = 20s;
     const std::chrono::seconds stickyWaitTime = 5s;
 
@@ -97,42 +93,6 @@ namespace Conformance
         }
         return vBindingModifsBase;
     }
-
-    struct DisplayMessageManager : public ITestMessageDisplay
-    {
-        DisplayMessageManager(CompositionHelper* compositionHelper, RenderLoop* renderLoop,
-                              std::vector<XrCompositionLayerBaseHeader*>& layers, const XrSpace* localSpace)
-            : m_compositionHelper(compositionHelper), m_renderLoop(renderLoop), m_localSpace(localSpace), m_layers(layers)
-        {
-        }
-
-        void IterateFrame() override
-        {
-            m_renderLoop->IterateFrame();
-        }
-
-        void DisplayMessage(const std::string& sMessage) override
-        {
-            constexpr XrVector3f Up{0, 1, 0};
-            m_layers.clear();
-
-            XrCompositionLayerQuad* const instructionsQuad = m_compositionHelper->CreateQuadLayer(
-                m_compositionHelper->CreateStaticSwapchainImage(CreateTextImage(1024, 256, sMessage.c_str(), 48)), *m_localSpace, 1,
-                {{0, 0, 0, 1}, {-1.5f, 0, -0.3f}});
-            instructionsQuad->pose.orientation = Quat::FromAxisAngle(Up, DegToRad(70));
-
-            m_layers.push_back({reinterpret_cast<XrCompositionLayerBaseHeader*>(instructionsQuad)});
-            ReportF("%s", sMessage.c_str());
-        }
-
-    private:
-        std::mutex m_mutex;
-
-        CompositionHelper* m_compositionHelper;
-        RenderLoop* m_renderLoop;
-        const XrSpace* m_localSpace;
-        std::vector<XrCompositionLayerBaseHeader*>& m_layers;
-    };
 
     XrResult CreateActionSet(XrActionSet* actionSet, const char* actionSetName, uint32_t priority, XrInstance instance)
     {
@@ -479,29 +439,11 @@ namespace Conformance
     bool EndFrameB(const XrFrameState& frameState, CompositionHelper& compositionHelper, std::vector<XrCompositionLayerBaseHeader*>& layers)
     {
         compositionHelper.EndFrame(frameState.predictedDisplayTime, layers);
-        return compositionHelper.PollEvents();
+        compositionHelper.PollEvents();
+        return true;
     }
 
-    bool WaitForSessionFocus(RenderLoop* renderLoop, EventReader* eventReader, XrSession session)
-    {
-        return WaitUntilPredicateWithTimeout(
-            [&]() {
-                renderLoop->IterateFrame();
-                XrEventDataBuffer eventData;
-                while (eventReader->TryReadNext(eventData)) {
-                    if (eventData.type == XR_TYPE_EVENT_DATA_SESSION_STATE_CHANGED) {
-                        auto sessionStateChanged = reinterpret_cast<XrEventDataSessionStateChanged*>(&eventData);
-                        if (sessionStateChanged->session == session && sessionStateChanged->state == XR_SESSION_STATE_FOCUSED) {
-                            return true;
-                        }
-                    }
-                }
-                return false;
-            },
-            inputWaitTime, waitDelay);
-    }
-
-    bool WaitForDpadInput(XrAction action, XrActionsSyncInfo* syncInfo, RenderLoop* renderLoop, XrSession session)
+    bool WaitForDpadInput(XrAction action, XrActionsSyncInfo* syncInfo, ActionLayerManager& actionLayerManager, XrSession session)
     {
         XrActionStateBoolean actionStateBoolean{XR_TYPE_ACTION_STATE_BOOLEAN};
         XrActionStateGetInfo getInfo{XR_TYPE_ACTION_STATE_GET_INFO};
@@ -511,7 +453,7 @@ namespace Conformance
         const auto startTime = std::chrono::system_clock::now();
         while (std::chrono::system_clock::now() - startTime < inputWaitTime) {
             {
-                renderLoop->IterateFrame();
+                actionLayerManager.IterateFrame();
                 res = xrSyncActions(session, syncInfo);
                 if (XR_UNQUALIFIED_SUCCESS(res)) {
                     res = xrGetActionStateBoolean(session, &getInfo, &actionStateBoolean);
@@ -533,7 +475,7 @@ namespace Conformance
         return false;
     }
 
-    bool WaitForStickyDpadInput(XrAction action, XrActionsSyncInfo* syncInfo, RenderLoop* renderLoop, XrSession session)
+    bool WaitForStickyDpadInput(XrAction action, XrActionsSyncInfo* syncInfo, ActionLayerManager& actionLayerManager, XrSession session)
     {
         XrActionStateBoolean actionStateBoolean{XR_TYPE_ACTION_STATE_BOOLEAN};
         XrActionStateGetInfo getInfo{XR_TYPE_ACTION_STATE_GET_INFO};
@@ -544,7 +486,7 @@ namespace Conformance
         const auto startTime = std::chrono::system_clock::now();
         while (std::chrono::system_clock::now() - startTime < inputWaitTime) {
             {
-                renderLoop->IterateFrame();
+                actionLayerManager.IterateFrame();
                 res = xrSyncActions(session, syncInfo);
                 if (XR_UNQUALIFIED_SUCCESS(res)) {
                     res = xrGetActionStateBoolean(session, &getInfo, &actionStateBoolean);
@@ -557,7 +499,7 @@ namespace Conformance
                             // Detect hold
                             const auto stickyTime = std::chrono::system_clock::now();
                             while (std::chrono::system_clock::now() - stickyTime < stickyWaitTime) {
-                                renderLoop->IterateFrame();
+                                actionLayerManager.IterateFrame();
                                 xrSyncActions(session, syncInfo);
                                 xrGetActionStateBoolean(session, &getInfo, &actionStateBoolean);
 
@@ -579,7 +521,7 @@ namespace Conformance
         return false;
     }
 
-    typedef bool (*fnWaitForDpadInput)(XrAction action, XrActionsSyncInfo* syncInfo, RenderLoop* renderLoop, XrSession session);
+    using fnWaitForDpadInput = std::function<bool(XrAction, XrActionsSyncInfo*, ActionLayerManager&, XrSession)>;
 
     struct TestSet
     {
@@ -722,13 +664,13 @@ namespace Conformance
         return topLevelPath;
     }
 
-    std::unique_ptr<IInputTestDevice> GetTestDevice(DisplayMessageManager* msgManager, CompositionHelper* compositionHelper,
+    std::unique_ptr<IInputTestDevice> GetTestDevice(ActionLayerManager& actionLayerManager, CompositionHelper& compositionHelper,
                                                     XrPath topLevelPath, XrActionSet actionSet,
                                                     std::vector<XrActionSuggestedBinding>& vActionBindings)
     {
         // Get active interaction profile
         XrInteractionProfileState xrInteractionProfileState{XR_TYPE_INTERACTION_PROFILE_STATE};
-        REQUIRE_RESULT_SUCCEEDED(xrGetCurrentInteractionProfile(compositionHelper->GetSession(), topLevelPath, &xrInteractionProfileState));
+        REQUIRE_RESULT_SUCCEEDED(xrGetCurrentInteractionProfile(compositionHelper.GetSession(), topLevelPath, &xrInteractionProfileState));
 
         // Create input map for the test device
         std::map<XrPath, XrAction> actionMap;
@@ -750,39 +692,34 @@ namespace Conformance
             }
         }
 
-        return CreateTestDevice(msgManager, compositionHelper->GetInstance(), compositionHelper->GetSession(),
+        return CreateTestDevice(&actionLayerManager, compositionHelper.GetInstance(), compositionHelper.GetSession(),
                                 xrInteractionProfileState.interactionProfile, topLevelPath, actionSet,
                                 (topLevelPath == pathHand_L) ? dpadUp_L : dpadUp_R, actionMap);
     }
 
     void Test_Interactive(std::vector<TestSet>& tests, XrPath interactionProfile, XrActionSet dpadActionSet,
                           std::vector<XrActionSuggestedBinding> vActionBindings, XrBindingModificationsKHR* pBindingModifications,
-                          fnWaitForDpadInput fnTest, CompositionHelper* compositionHelper, bool bSkipHumanInteraction = true)
+                          fnWaitForDpadInput fnTest, CompositionHelper& compositionHelper, bool bSkipHumanInteraction = true)
     {
         // Get instance
-        XrInstance instance = compositionHelper->GetInstance();
+        XrInstance instance = compositionHelper.GetInstance();
         REQUIRE(instance != XR_NULL_HANDLE);
 
         // Suggest bindings
         SuggestBinding(instance, interactionProfile, vActionBindings, pBindingModifications, XR_SUCCESS);
 
         // Start session
-        compositionHelper->BeginSession();
-        XrSession session = compositionHelper->GetSession();
+        compositionHelper.BeginSession();
+        XrSession session = compositionHelper.GetSession();
         REQUIRE(session != XR_NULL_HANDLE);
 
-        // Create render loop that handles a quad layer
-        const XrSpace localSpace = compositionHelper->CreateReferenceSpace(XR_REFERENCE_SPACE_TYPE_LOCAL, Pose::Identity);
-        std::vector<XrCompositionLayerBaseHeader*> layers;
-        RenderLoop renderLoop(session, [&](const XrFrameState& frameState) { return EndFrameB(frameState, *compositionHelper, layers); });
-
         // Create helper classes
-        EventReader eventReader(compositionHelper->GetEventQueue());
-        DisplayMessageManager msgManager(compositionHelper, &renderLoop, layers, &localSpace);
+        EventReader eventReader(compositionHelper.GetEventQueue());
+        ActionLayerManager actionLayerManager(compositionHelper);
 
         // Attach action sets
-        compositionHelper->GetInteractionManager().AddActionSet(dpadActionSet);
-        compositionHelper->GetInteractionManager().AttachActionSets();
+        compositionHelper.GetInteractionManager().AddActionSet(dpadActionSet);
+        compositionHelper.GetInteractionManager().AttachActionSets();
         XrActionsSyncInfo syncInfo{XR_TYPE_ACTIONS_SYNC_INFO};
         XrActiveActionSet activeActionSet{dpadActionSet};
         syncInfo.activeActionSets = &activeActionSet;
@@ -790,12 +727,12 @@ namespace Conformance
 
         // Create test input devices (for the conformance automated extension, if available)
         std::unique_ptr<IInputTestDevice> testDevice_L =
-            GetTestDevice(&msgManager, compositionHelper, pathHand_L, dpadActionSet, vActionBindings);
+            GetTestDevice(actionLayerManager, compositionHelper, pathHand_L, dpadActionSet, vActionBindings);
         std::unique_ptr<IInputTestDevice> testDevice_R =
-            GetTestDevice(&msgManager, compositionHelper, pathHand_R, dpadActionSet, vActionBindings);
+            GetTestDevice(actionLayerManager, compositionHelper, pathHand_R, dpadActionSet, vActionBindings);
 
         // Wait for focused state for input
-        msgManager.DisplayMessage("Waiting for session focus...");
+        actionLayerManager.DisplayMessage("Waiting for session focus...");
 
         // Set test devices to active
         GlobalData& globalData = GetGlobalData();
@@ -806,24 +743,21 @@ namespace Conformance
             testDevice_R->SetDeviceActive(true);
         }
 
-        bool bFocused = WaitForSessionFocus(&renderLoop, &eventReader, session);
-        REQUIRE_MSG(bFocused, "Time out waiting for session focus");
+        actionLayerManager.WaitForSessionFocusWithMessage();
 
-        if (bFocused) {
-            for (auto& test : tests) {
-                msgManager.DisplayMessage(test.sInstruction);
+        for (auto& test : tests) {
+            actionLayerManager.DisplayMessage(test.sInstruction);
 
-                if (bSkipHumanInteraction) {
-                    if (GetTopLevelPath(test.action) == pathHand_L) {
-                        testDevice_L->SetButtonStateBool(GetDpadPath(test.action, vActionBindings), true, true);
-                    }
-                    else {
-                        testDevice_R->SetButtonStateBool(GetDpadPath(test.action, vActionBindings), true, true);
-                    }
+            if (bSkipHumanInteraction) {
+                if (GetTopLevelPath(test.action) == pathHand_L) {
+                    testDevice_L->SetButtonStateBool(GetDpadPath(test.action, vActionBindings), true, true);
                 }
                 else {
-                    REQUIRE_MSG(fnTest(test.action, &syncInfo, &renderLoop, session), test.sTimeoutError.c_str());
+                    testDevice_R->SetButtonStateBool(GetDpadPath(test.action, vActionBindings), true, true);
                 }
+            }
+            else {
+                REQUIRE_MSG(fnTest(test.action, &syncInfo, actionLayerManager, session), test.sTimeoutError.c_str());
             }
         }
     }
@@ -1197,9 +1131,8 @@ namespace Conformance
                     GenerateDirectionalTestSet(tests, eControllerComponent::Thumbstick);
 
                     // Start test
-                    fnWaitForDpadInput waitForDpadInput = &WaitForDpadInput;
-                    Test_Interactive(tests, pair.interactionProfile, dpadActionSet, vActionBindings, nullptr, waitForDpadInput,
-                                     &compositionHelper);
+                    Test_Interactive(tests, pair.interactionProfile, dpadActionSet, vActionBindings, nullptr, WaitForDpadInput,
+                                     compositionHelper);
                 }
 
                 SECTION("Sticky dpad")
@@ -1223,9 +1156,8 @@ namespace Conformance
                     GenerateStickyTestSet(tests, eControllerComponent::Thumbstick);
 
                     // Start test
-                    fnWaitForDpadInput waitForSticky = &WaitForStickyDpadInput;
-                    Test_Interactive(tests, pair.interactionProfile, dpadActionSet, vActionBindings, &xrBindingModifications, waitForSticky,
-                                     &compositionHelper);
+                    Test_Interactive(tests, pair.interactionProfile, dpadActionSet, vActionBindings, &xrBindingModifications,
+                                     WaitForStickyDpadInput, compositionHelper);
                 }
             }
         }
@@ -1275,9 +1207,8 @@ namespace Conformance
                     GenerateDirectionalTestSet(tests, eControllerComponent::Trackpad);
 
                     // Start test
-                    fnWaitForDpadInput waitForDpadInput = &WaitForDpadInput;
-                    Test_Interactive(tests, pair.interactionProfile, dpadActionSet, vActionBindings, nullptr, waitForDpadInput,
-                                     &compositionHelper);
+                    Test_Interactive(tests, pair.interactionProfile, dpadActionSet, vActionBindings, nullptr, WaitForDpadInput,
+                                     compositionHelper);
                 }
                 SECTION("Sticky dpad")
                 {
@@ -1300,9 +1231,8 @@ namespace Conformance
                     GenerateStickyTestSet(tests, eControllerComponent::Trackpad);
 
                     // Start test
-                    fnWaitForDpadInput waitForSticky = &WaitForStickyDpadInput;
-                    Test_Interactive(tests, pair.interactionProfile, dpadActionSet, vActionBindings, &xrBindingModifications, waitForSticky,
-                                     &compositionHelper);
+                    Test_Interactive(tests, pair.interactionProfile, dpadActionSet, vActionBindings, &xrBindingModifications,
+                                     WaitForStickyDpadInput, compositionHelper);
                 }
             }
         }
