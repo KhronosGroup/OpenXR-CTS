@@ -52,7 +52,7 @@ namespace Conformance
             return m_data[checkHandleInBoundsAndGetIndex(h)];
         }
 
-        const void assertContains(HandleType h) const
+        void assertContains(HandleType h) const
         {
             checkHandleInBoundsAndGetIndex(h);
         }

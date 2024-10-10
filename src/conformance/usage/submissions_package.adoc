@@ -1,0 +1,171 @@
+// Copyright (c) 2019-2024, The Khronos Group Inc.
+//
+// SPDX-License-Identifier: CC-BY-4.0
+
+[[submissions-package]]
+== Conformance Submission Package Requirements
+
+The submission package **must** include each of the following:
+
+. <<submission-package-xml>>
+. The console output produced by the CTS runs above.
+. <<submission-package-build-info>>
+. <<submission-package-conformance-statement>>
+
+When you submit for OpenXR 1.1 conformance, you **must** also submit for
+each earlier OpenXR minor version that your runtime supports in the same
+submission if you want to claim conformance with each of those minor
+versions too.
+For runtimes which want to claim support for OpenXR 1.0 and OpenXR 1.1 this
+means executing each test run with both `--apiVersion 1.0` and `--apiVersion
+1.1` separately.
+
+
+[[submissions-package-xml]]
+=== XML files produced from test runs
+
+One or more automated test result XML files, 1 per graphics API supported,
+therefore one or more of the following generated output files:
+
+* `automated_d3d11_1_0.xml`
+* `automated_d3d12_1_0.xml`
+* `automated_opengl_1_0.xml`
+* `automated_gles_1_0.xml`
+* `automated_vulkan_1_0.xml`
+* `automated_vulkan2_1_0.xml`
+* `automated_d3d11_1_1.xml`
+* `automated_d3d12_1_1.xml`
+* `automated_opengl_1_1.xml`
+* `automated_gles_1_1.xml`
+* `automated_vulkan_1_1.xml`
+* `automated_vulkan2_1_1.xml`
+
+
+The output XML file(s) from running the interactive tests, 1 per supported
+graphics API, therefore one or more of the following generated output files:
+
+* `interactive_composition_d3d11_1_0.xml`
+* `interactive_composition_d3d12_1_0.xml`
+* `interactive_composition_opengl_1_0.xml`
+* `interactive_composition_gles_1_0.xml`
+* `interactive_composition_vulkan_1_0.xml`
+* `interactive_composition_vulkan2_1_0.xml`
+* `interactive_composition_d3d11_1_1.xml`
+* `interactive_composition_d3d12_1_1.xml`
+* `interactive_composition_opengl_1_1.xml`
+* `interactive_composition_gles_1_1.xml`
+* `interactive_composition_vulkan_1_1.xml`
+* `interactive_composition_vulkan2_1_1.xml`
+
+
+At least one output file from running the interactive scenario tests on a
+single graphics API (more is better):
+
+* `interactive_scenarios_1_0.xml`
+* `interactive_scenarios_1_1.xml`
+
+
+The output XML file(s) from running the interactive action tests, 1 per
+supported interaction profile, therefore one or more of the following
+generated output files.
+This list below are example files, each platform **may** have their own
+controllers though `simple_controller` is expected to be supported at a
+minimum.
+
+* `interactive_action_simple_controller_1_0.xml`
+* `interactive_action_microsoft_xbox_controller_1_0.xml`
+* `interactive_action_microsoft_motion_controller_1_0.xml`
+* `interactive_action_oculus_touch_controller_1_0.xml`
+* `interactive_action_valve_index_controller_1_0.xml`
+* `interactive_action_htc_vive_controller_1_0.xml`
+* `interactive_action_simple_controller_1_1.xml`
+* `interactive_action_microsoft_xbox_controller_1_1.xml`
+* `interactive_action_microsoft_motion_controller_1_1.xml`
+* `interactive_action_oculus_touch_controller_1_1.xml`
+* `interactive_action_valve_index_controller_1_1.xml`
+* `interactive_action_htc_vive_controller_1_1.xml`
+
+=== The console output produced by the CTS runs
+
+.Note
+[NOTE]
+====
+Can we drop this requirement?
+<https://gitlab.khronos.org/openxr/openxr/-/issues/2386>
+====
+
+Each test suite run starts by printing test configuration data, and ends by
+printing a ``Report'' showing details of the runtime and environment
+(extensions, etc) used in that run.
+A few tests produce console output in-between that does not show up in the
+result XML.
+It is important to have this data for the interpretation of the results.
+
+[[submissions-package-build-info]]
+=== Information on the build of conformance used in generating the
+results
+
+Files containing the result of the commands `git status` and `git log` from
+the CTS directory:
+
+* `git_status.txt`
+* `git_log.txt`
+
+If there were changes required to pass the conformance test suite, a diff of
+the changes from a tagged approved release of the suite **must** be included
+as well:
+
+* `git_diff.txt`
+
+Alternately, the diff **may** be supplied in `git format-patch` format.
+
+Note that *only the tagged releases on the OpenXR-CTS repo are accepted*
+without a diff: the latest such release will always be on the `approved`
+branch.
+The default `devel` branch is useful during development, but has not yet
+been voted on by the working group and is thus ineligible for submissions
+without a full diff.
+If the `devel` branch works better for you, you may consider encouraging the
+working group to tag a new release of conformance.
+
+[[submissions-package-conformance-statement]]
+=== Conformance Statement
+
+A file containing information regarding the submission called
+`statement-<adopter>.txt`
+
+
+[source]
+----
+CONFORM_VERSION:         <git tag of CTS release>
+PRODUCT:                 <string-value>
+CPU:                     <string-value>
+OS:                      <string-value>
+
+WARNING_EXPLANATIONS:    <optional> <paragraph describing why the warnings present in the conformance logs are not indications of conformance failure>
+WAIVERS:                 <optional> <paragraph describing waiver requests for non-conformant test results>
+----
+
+The actual submission package consists of the above set of files which
+**must** be bundled into a gzipped tar file named `XR<API major><API
+minor>_<adopter><_info>.tgz`.
+`<API major>` is the major version of the OpenXR API specification, `<API
+minor>` is the minor version of the OpenXR API specification.
+`<adopter>` is the name of the Adopting member company, or some recognizable
+abbreviation.
+The `<_info>` field is optional.
+It **may** be used to uniquely identify a submission by OS, platform, date,
+or other criteria when making multiple submissions.
+For example, a company XYZ **may** make a submission for an OpenXR 1.1
+implementation named `XR11_XYZ_PRODUCTA_Windows10.tgz`.
+
+=== Waivers
+
+Any test failures due to presumed bugs in the conformance tests not matching
+specification behavior should be submitted as issues with potential fixes
+against the conformance suite.
+Waivers are requested for test failures where the underlying platform fails
+to meet the expected specification behavior.
+These are requested in the statement file as described above.
+Enough detail should be provided such that submission reviewers can judge
+the potential impact and risk to the ecosystem of approving the submission.

@@ -47,7 +47,7 @@ makeSubset "$TARNAME" $(getConformanceFilenames)
     add_to_tar "$TARNAME" COPYING.adoc
 
     # Copy the README
-    cp ../src/conformance/conformance_test/readme.md README.md
+    cp ../src/conformance/README.md README.md
     add_to_tar "$TARNAME" README.md
     rm README.md
 )

@@ -5,15 +5,20 @@
 #include "image.h"
 
 // These are required to cleanly use basis_universal
-#ifdef __GNUC__
+#if defined(__GNUC__) || defined(__clang__)
 #pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunknown-warning-option"
 #pragma GCC diagnostic ignored "-Wunused-value"
 #pragma GCC diagnostic ignored "-Wclass-memaccess"
+#pragma GCC diagnostic ignored "-Wnested-anon-types"
+#pragma GCC diagnostic ignored "-Wdeprecated-builtins"
+#pragma GCC diagnostic ignored "-Wmicrosoft-enum-value"
+#pragma GCC diagnostic ignored "-Wundef"
 #endif
 
 #include <transcoder/basisu_transcoder.h>
 
-#ifdef __GNUC__
+#if defined(__GNUC__) || defined(__clang__)
 #pragma GCC diagnostic pop
 #endif
 
@@ -76,6 +81,7 @@ namespace Conformance
         {
             static bool transcoderInitialized = false;
             assert(lock.owns_lock());
+            (void)lock;
 
             if (!transcoderInitialized) {
                 basist::basisu_transcoder_init();
@@ -176,6 +182,7 @@ namespace Conformance
                     const uint32_t numPixels = origWidth * origHeight;
                     const uint32_t bytesPerSlice = bytesPerPixel * numPixels;
                     assert(scratchBuffer.size() == bytesPerSlice);
+                    (void)bytesPerSlice;
 
                     // if no alpha channel is present, transcoder still writes 255 to alpha
                     bool success = transcoder.transcode_image_level(  //
@@ -284,6 +291,7 @@ namespace Conformance
                     const uint32_t blocksPerSlice = dstBlocksX * dstBlocksY;
                     const uint32_t bytesPerSlice = blocksPerSlice * basis_get_bytes_per_block_or_pixel(targetFormat);
                     assert(scratchBuffer.size() == bytesPerSlice);
+                    (void)bytesPerSlice;
 
                     // if no alpha channel is present, transcoder still writes 255 to alpha
                     bool success = transcoder.transcode_image_level(  //
@@ -414,13 +422,13 @@ namespace Conformance
             Channels sourceChannels = transcoder.get_has_alpha() ? Channels::RGBA : Channels::RGB;
             ColorSpaceType desiredColorSpace = sRGB ? ColorSpaceType::sRGB : ColorSpaceType::Linear;
 
-            FormatParams targetFormat;
+            FormatParams targetFormat{};
             // pair of (fidelity, extra channels)
             auto targetFormatFidelity = std::make_pair(FormatStrategies::MatchFidelity::NotPossible, int8_t(-128));
             FormatStrategies::FormatStrategy const* formatStrategy = nullptr;
 
-            auto isSupported = [&](FormatParams format) {
-                return std::find(supportedFormats.begin(), supportedFormats.end(), format) != supportedFormats.end();
+            auto isSupported = [&](FormatParams formatParam) {
+                return std::find(supportedFormats.begin(), supportedFormats.end(), formatParam) != supportedFormats.end();
             };
 
             auto decodeToRaw = FormatStrategies::DecodeToRaw();

@@ -50,6 +50,8 @@ namespace Pbr
 
             GLenum internalFormat = glFormat.InternalFormat;
             assert(internalFormat != GLFormatData::Unpopulated);
+            (void)internalFormat;
+
             GLenum uncompressedFormat = glFormat.UncompressedFormat;
             GLenum uncompressedType = glFormat.UncompressedType;
 

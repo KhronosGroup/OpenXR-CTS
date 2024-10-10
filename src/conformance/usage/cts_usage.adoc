@@ -1,0 +1,28 @@
+// Copyright (c) 2019-2024, The Khronos Group Inc.
+//
+// SPDX-License-Identifier: CC-BY-4.0
+
+= OpenXR™ Conformance Test Suite Usage Instructions and Developer Guide
+:regtitle: pass:q,r[^®^]
+The Khronos{regtitle} OpenXR Working Group
+:icons: font
+:toc2:
+:toclevels: 3
+:numbered:
+:source-highlighter: rouge
+:rouge-style: github
+:attribute-missing: warn
+:docinfo: shared
+
+include::introduction.adoc[]
+
+include::configuration.adoc[]
+
+// Note that the "Conformance Submissions" chapter includes sub-sections in separate files.
+include::submissions.adoc[]
+
+include::requirements.adoc[]
+
+include::selftests.adoc[]
+
+include::code.adoc[]

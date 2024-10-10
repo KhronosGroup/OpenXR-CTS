@@ -23,6 +23,7 @@
 #include "two_call.h"
 #include "utilities/feature_availability.h"
 #include "utilities/utils.h"
+#include "xr_math_approx.h"
 
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/catch_approx.hpp>
@@ -133,7 +134,7 @@ namespace Conformance
         REQUIRE(space1Loc.pose.position.x == Catch::Approx(space2Loc.pose.position.x).margin(epsilon));
         REQUIRE(space1Loc.pose.position.z == Catch::Approx(space2Loc.pose.position.z).margin(epsilon));
 
-        REQUIRE(Quat::ApproxEqual(space1Loc.pose.orientation, space2Loc.pose.orientation));
+        REQUIRE(Quat::Approx(space1Loc.pose.orientation) == space2Loc.pose.orientation);
     }
 
     static void MatchY(XrTime time, XrSpace baseSpace, XrSpace space1, bool requirePositionTracked1, XrSpace space2,

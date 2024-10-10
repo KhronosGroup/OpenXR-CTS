@@ -1,0 +1,52 @@
+// Copyright (c) 2019-2024, The Khronos Group Inc.
+//
+// SPDX-License-Identifier: CC-BY-4.0
+
+[[selftests]]
+== Interactive Self Tests
+
+Some interactive tests are primarily a test of mechanisms within the CTS,
+rather than runtime functionality.
+These are labeled with the tag `[self_test]` rather than `[scenario]`,
+`[actions]`, or `[composition]`.
+While it is good to run these, and doing so may help troubleshoot failures
+with tests that build on them, submission of a CTS results package does not
+require them.
+Currently, the only self-tests tagged in this way are for the PBR/glTF
+rendering subsystem.
+They synchronously load very large, artificial test assets, originally from
+the "glTF-Sample-Models" repository, to test specific details of the
+renderer.
+
+To run the self-tests, commands similar to the following can be used:
+
+.Example command lines for OpenXR 1.0
+[%collapsible]
+====
+Omit any graphics API binding extensions your runtime does not support.
+
+[source,sh]
+----
+conformance_cli "[self_test][interactive]" -G d3d11 --apiVersion 1.0 --reporter ctsxml::out=interactive_self_test_d3d11_1_0.xml
+conformance_cli "[self_test][interactive]" -G d3d12 --apiVersion 1.0 --reporter ctsxml::out=interactive_self_test_d3d12_1_0.xml
+conformance_cli "[self_test][interactive]" -G vulkan --apiVersion 1.0 --reporter ctsxml::out=interactive_self_test_vulkan_1_0.xml
+conformance_cli "[self_test][interactive]" -G vulkan2 --apiVersion 1.0 --reporter ctsxml::out=interactive_self_test_vulkan2_1_0.xml
+conformance_cli "[self_test][interactive]" -G opengl --apiVersion 1.0 --reporter ctsxml::out=interactive_self_test_opengl_1_0.xml
+----
+====
+
+.Example command lines for OpenXR 1.1
+[%collapsible]
+====
+Omit any graphics API binding extensions your runtime does not support.
+
+[source,sh]
+----
+conformance_cli "[self_test][interactive]" -G d3d11 --apiVersion 1.1 --reporter ctsxml::out=interactive_self_test_d3d11_1_1.xml
+conformance_cli "[self_test][interactive]" -G d3d12 --apiVersion 1.1 --reporter ctsxml::out=interactive_self_test_d3d12_1_1.xml
+conformance_cli "[self_test][interactive]" -G vulkan --apiVersion 1.1 --reporter ctsxml::out=interactive_self_test_vulkan_1_1.xml
+conformance_cli "[self_test][interactive]" -G vulkan2 --apiVersion 1.1 --reporter ctsxml::out=interactive_self_test_vulkan2_1_1.xml
+conformance_cli "[self_test][interactive]" -G opengl --apiVersion 1.1 --reporter ctsxml::out=interactive_self_test_opengl_1_1.xml
+----
+====
+

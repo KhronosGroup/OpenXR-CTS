@@ -96,7 +96,7 @@ namespace Pbr
                 D3D11_SUBRESOURCE_DATA levelData{};
                 levelData.pSysMem = level.data.data();
                 levelData.SysMemPitch =
-                    (level.metadata.physicalDimensions.width / level.metadata.blockSize.width) * image.format.BytesPerBlockOrPixel();
+                    ((level.metadata.physicalDimensions.width * image.format.BytesPerBlockOrPixel()) / level.metadata.blockSize.width);
                 levelData.SysMemSlicePitch = level.data.size();
                 subData.push_back(levelData);
             }

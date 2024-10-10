@@ -1160,7 +1160,7 @@ namespace Conformance
             // Compute the model-view-projection transform and set it..
             XrMatrix4x4f model =
                 Matrix::FromTranslationRotationScale(mesh.params.pose.position, mesh.params.pose.orientation, mesh.params.scale);
-            XrMatrix4x4f mvp = vp = model;
+            XrMatrix4x4f mvp = vp * model;
             glUniformMatrix4fv(m_modelViewProjectionUniformLocation, 1, GL_FALSE, reinterpret_cast<const GLfloat*>(&mvp));
             glUniform4fv(m_tintColorUniformLocation, 1, reinterpret_cast<const GLfloat*>(&mesh.tintColor));
 

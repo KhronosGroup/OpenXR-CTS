@@ -30,9 +30,14 @@
 namespace Conformance
 {
     // Purpose: Validates alpha blending (both premultiplied and unpremultiplied), when alpha channel stores transparency instead of opacity.
-    TEST_CASE("XR_EXT_composition_layer_inverted_alpha", "[composition][interactive][no_auto]")
+    TEST_CASE("XR_EXT_composition_layer_inverted_alpha", "[composition][interactive]")
     {
         GlobalData& globalData = GetGlobalData();
+
+        if (!globalData.IsUsingGraphicsPlugin()) {
+            SKIP("Test run not using graphics plugin");
+        }
+
         if (!globalData.IsInstanceExtensionSupported(XR_EXT_COMPOSITION_LAYER_INVERTED_ALPHA_EXTENSION_NAME)) {
             SKIP(XR_EXT_COMPOSITION_LAYER_INVERTED_ALPHA_EXTENSION_NAME " not supported");
         }

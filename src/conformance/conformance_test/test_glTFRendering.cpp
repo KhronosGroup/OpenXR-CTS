@@ -30,9 +30,12 @@ namespace Conformance
 {
     using namespace openxr::math_operators;
 
-    TEST_CASE("glTFRendering", "[self_test][interactive][no_auto]")
+    TEST_CASE("glTFRendering", "[self_test][composition][interactive]")
     {
         GlobalData& globalData = GetGlobalData();
+        if (!globalData.IsUsingGraphicsPlugin()) {
+            SKIP("Cannot test glTF rendering without a graphics plugin");
+        }
 
         CompositionHelper compositionHelper("glTF rendering");
         XrInstance instance = compositionHelper.GetInstance();

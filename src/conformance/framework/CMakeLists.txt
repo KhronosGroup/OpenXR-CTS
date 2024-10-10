@@ -89,6 +89,7 @@ add_library(
     RGBAImage.cpp
     swapchain_image_data.cpp
     xml_test_environment.cpp
+    xr_math_approx.cpp
     ${VULKAN_SHADERS}
     "${CMAKE_CURRENT_BINARY_DIR}/function_info.cpp"
     "${CMAKE_CURRENT_BINARY_DIR}/interaction_info_generated.cpp"

@@ -140,9 +140,13 @@ namespace Conformance
         imageCache.Init();
         return imageCache;
     }
-    TEST_CASE("XR_KHR_composition_layer_equirect2-interactive", "[composition][interactive][no_auto]")
+    TEST_CASE("XR_KHR_composition_layer_equirect2-interactive", "[composition][interactive]")
     {
         GlobalData& globalData = GetGlobalData();
+
+        if (!globalData.IsUsingGraphicsPlugin()) {
+            SKIP("Test run not using graphics plugin");
+        }
 
         if (!globalData.IsInstanceExtensionSupported(XR_KHR_COMPOSITION_LAYER_EQUIRECT2_EXTENSION_NAME)) {
             SKIP(XR_KHR_COMPOSITION_LAYER_EQUIRECT2_EXTENSION_NAME " not supported");

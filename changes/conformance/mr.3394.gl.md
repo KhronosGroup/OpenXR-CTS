@@ -1,4 +1,0 @@
----
-- issue.2105.gl
----
-- Improvement: Support KTX2 compressed textures in glTF files using basis universal, transcoding to GPU supported compressed textures where possible.

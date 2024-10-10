@@ -236,12 +236,12 @@ namespace Conformance
         }
     }  // namespace
 
-    TEST_CASE("XR_VARJO_quad_views-interactive", "[XR_VARJO_quad_views][composition][interactive][no_auto]")
+    TEST_CASE("XR_VARJO_quad_views-interactive", "[XR_VARJO_quad_views][composition][interactive]")
     {
         StereoWithFoveatedInsetInteractive(kExtensionRequirements);
     }
 
-    TEST_CASE("StereoWithFoveatedInset-interactive", "[XR_VERSION_1_1][composition][interactive][no_auto]")
+    TEST_CASE("StereoWithFoveatedInset-interactive", "[XR_VERSION_1_1][composition][interactive]")
     {
         StereoWithFoveatedInsetInteractive(kPromotedCoreRequirements);
     }

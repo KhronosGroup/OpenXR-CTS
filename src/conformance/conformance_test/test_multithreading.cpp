@@ -1088,7 +1088,7 @@ namespace Conformance
         {"xrEnumerateInstanceExtensionProperties", CallRequirement::global, Exercise_xrEnumerateInstanceExtensionProperties},
         {"xrEnumerateApiLayerProperties", CallRequirement::global, Exercise_xrEnumerateApiLayerProperties},
         {"xrCreateInstance", CallRequirement::global, Exercise_xrCreateInstance},
-        {"xDestroyInstance", CallRequirement::global, Exercise_xrDestroyInstance},
+        {"xrDestroyInstance", CallRequirement::global, Exercise_xrDestroyInstance},
         {"xrGetInstanceProperties", CallRequirement::instance, Exercise_xrGetInstanceProperties},
         {"xrPollEvent", CallRequirement::instance, Exercise_xrPollEvent},
         {"xrResultToString", CallRequirement::instance, Exercise_xrResultToString},

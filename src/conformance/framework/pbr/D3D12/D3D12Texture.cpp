@@ -61,6 +61,7 @@ namespace Pbr
                 assert(arrayLayer->levels.size() == mipLevels);
                 assert(arrayLayer->levels[0].metadata.physicalDimensions.width == baseMipWidth);
                 assert(arrayLayer->levels[0].metadata.physicalDimensions.height == baseMipHeight);
+                (void)arrayLayer;
             }
 
             std::vector<Microsoft::WRL::ComPtr<ID3D12Resource>> imageUploadBuffers;

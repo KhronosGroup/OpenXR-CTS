@@ -211,9 +211,12 @@ void main()
 
     vec3 color = SceneBuffer.LightColor * NdotL * (diffuseContrib + specContrib);
 
-    vec3 colorWithIBL = color + getIBLContribution(perceptualRoughness, NdotV, diffuseColor, specularColor, n, reflection);
-
+    vec3 ibl = getIBLContribution(perceptualRoughness, NdotV, diffuseColor, specularColor, n, reflection);
     float ao = texture(OcclusionTextureOcclusionSampler, varying_TEXCOORD0).x;
+    vec3 iblWithAO = mix(ibl, ibl * ao, vec3(MaterialConstantBuffer.OcclusionStrength));
+
+    vec3 colorWithIBL = color + iblWithAO;
+
     vec3 colorWithIBLandAO = mix(colorWithIBL, colorWithIBL * ao, vec3(MaterialConstantBuffer.OcclusionStrength));
 
     vec3 emissive = texture(EmissiveTextureEmissiveSampler, varying_TEXCOORD0).xyz * MaterialConstantBuffer.EmissiveFactor;

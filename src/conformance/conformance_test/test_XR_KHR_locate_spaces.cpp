@@ -22,6 +22,7 @@
 #include "utilities/bitmask_to_string.h"
 #include "utilities/types_and_constants.h"
 #include "utilities/xrduration_literals.h"
+#include "xr_math_approx.h"
 
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/catch_approx.hpp>
@@ -105,10 +106,10 @@ namespace Conformance
             CHECK((spaceLocation.locationFlags & XR_SPACE_LOCATION_ORIENTATION_VALID_BIT) != 0);
 
             if (spaceLocation.locationFlags & XR_SPACE_LOCATION_POSITION_VALID_BIT) {
-                REQUIRE(Vector::ApproxEqual(spaceLocation.pose.position, expectedPose.position));
+                REQUIRE(spaceLocation.pose.position == Vector::Approx(expectedPose.position));
             }
             if (spaceLocation.locationFlags & XR_SPACE_LOCATION_ORIENTATION_VALID_BIT) {
-                CHECK(Quat::ApproxEqual(spaceLocation.pose.orientation, expectedPose.orientation));
+                CHECK(spaceLocation.pose.orientation == Quat::Approx(expectedPose.orientation));
             }
         };
 
@@ -493,8 +494,8 @@ namespace Conformance
                 // velocity between identical spaces must be known and zero
                 REQUIRE(velocitiesValid);
 
-                REQUIRE(Vector::ApproxEqual(velocity.linearVelocity, XrVector3f{0, 0, 0}));
-                REQUIRE(Vector::ApproxEqual(velocity.angularVelocity, XrVector3f{0, 0, 0}));
+                REQUIRE(velocity.linearVelocity == Vector::Approx(XrVector3f{0, 0, 0}));
+                REQUIRE(velocity.angularVelocity == Vector::Approx(XrVector3f{0, 0, 0}));
             }
         }
 

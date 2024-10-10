@@ -28,6 +28,7 @@
 #include "utilities/event_reader.h"
 #include "utilities/types_and_constants.h"
 #include "utilities/string_utils.h"
+#include "xr_math_approx.h"
 
 #include <openxr/openxr.h>
 #include <openxr/openxr_reflection.h>
@@ -2116,6 +2117,13 @@ namespace Conformance
                     // Rift S and Quest 1 controllers lack thumbrests.
                     return false;
                 }
+                if (strcmp(ipMetadata.InteractionProfileShortname, "ext/hand_interaction_ext") == 0 &&
+                    ends_with(inputSourceData.Path, "/input/aim_activate_ext/value")) {
+                    // aim_activate_ext/value does not require that the values coming back
+                    // actually be floats, they can also be boolean so this is hard for
+                    // us to exercise.
+                    return false;
+                }
                 if (!SatisfiedByDefault(inputSourceData.Availability)) {
                     return false;
                 }
@@ -2413,7 +2421,10 @@ namespace Conformance
                 XrActionStateGetInfo getInfo{XR_TYPE_ACTION_STATE_GET_INFO};
 
                 actionLayerManager.DisplayMessage("Use all controller inputs on\n" + topLevelPathString);
-                actionLayerManager.Sleep_For(1s);
+
+                if (!GetGlobalData().IsUsingConformanceAutomation()) {
+                    actionLayerManager.Sleep_For(1s);
+                }
 
                 XrActionStateBoolean combinedBoolState{XR_TYPE_ACTION_STATE_BOOLEAN};
                 XrActionStateFloat combinedFloatState{XR_TYPE_ACTION_STATE_FLOAT};
@@ -2719,7 +2730,9 @@ namespace Conformance
                 REQUIRE_FALSE(waitForCombinedVectors);
 
                 actionLayerManager.DisplayMessage("Release all inputs");
-                actionLayerManager.Sleep_For(2s);
+                if (!GetGlobalData().IsUsingConformanceAutomation()) {
+                    actionLayerManager.Sleep_For(2s);
+                }
             }
 
             OPTIONAL_DISCONNECTABLE_DEVICE_INFO
@@ -2812,7 +2825,10 @@ namespace Conformance
                         std::string prompt = buttonPromptPrefix + "when you feel the 3 second haptic vibration" + buttonPromptSuffix;
                         actionLayerManager.DisplayMessage(prompt);
                         actionLayerManager.IterateFrame();
-                        actionLayerManager.Sleep_For(3s);
+
+                        if (!GetGlobalData().IsUsingConformanceAutomation()) {
+                            actionLayerManager.Sleep_For(3s);
+                        }
 
                         hapticPacket.duration = std::chrono::duration_cast<std::chrono::nanoseconds>(3s).count();
                         REQUIRE_RESULT(
@@ -2843,12 +2859,16 @@ namespace Conformance
                         REQUIRE_RESULT(xrStopHapticFeedback(session, &hapticActionInfo), XR_SUCCESS);
 
                         actionLayerManager.IterateFrame();
-                        actionLayerManager.Sleep_For(0.25s);
+                        if (!GetGlobalData().IsUsingConformanceAutomation()) {
+                            actionLayerManager.Sleep_For(0.25s);
+                        }
 
                         prompt = buttonPromptPrefix + "when you feel the short haptic pulse" + buttonPromptSuffix;
                         actionLayerManager.DisplayMessage(prompt);
                         actionLayerManager.IterateFrame();
-                        actionLayerManager.Sleep_For(3s);
+                        if (!GetGlobalData().IsUsingConformanceAutomation()) {
+                            actionLayerManager.Sleep_For(3s);
+                        }
 
                         hapticPacket.duration = XR_MIN_HAPTIC_DURATION;
                         REQUIRE_RESULT(
@@ -2877,7 +2897,9 @@ namespace Conformance
                     }
 
                     actionLayerManager.DisplayMessage("Release all inputs");
-                    actionLayerManager.Sleep_For(2s);
+                    if (!GetGlobalData().IsUsingConformanceAutomation()) {
+                        actionLayerManager.Sleep_For(2s);
+                    }
                 }
             }
 
@@ -3470,7 +3492,9 @@ namespace Conformance
 
                 leftHandInputDevice->SetDeviceActive(false);
                 actionLayerManager.DisplayMessage("Place left controller somewhere static but trackable");
-                actionLayerManager.Sleep_For(5s);
+                if (!GetGlobalData().IsUsingConformanceAutomation()) {
+                    actionLayerManager.Sleep_For(5s);
+                }
                 // wait to lose left
                 REQUIRE(actionLayerManager.WaitForLocatability("left", leftSpace, localSpace, &leftRelation, false));
                 leftHandInputDevice->SetDeviceActive(true);
@@ -3481,7 +3505,9 @@ namespace Conformance
                 rightHandInputDevice->SetDeviceActive(false);
                 actionLayerManager.DisplayMessage(
                     "Place right controller somewhere static but trackable. Keep left controller on and trackable.");
-                actionLayerManager.Sleep_For(5s);
+                if (!GetGlobalData().IsUsingConformanceAutomation()) {
+                    actionLayerManager.Sleep_For(5s);
+                }
                 // wait to lose right
                 REQUIRE(actionLayerManager.WaitForLocatability("right", rightSpace, localSpace, &rightRelation, false));
                 rightHandInputDevice->SetDeviceActive(true);
@@ -3506,8 +3532,8 @@ namespace Conformance
                 REQUIRE_RESULT(xrLocateSpace(rightSpace, localSpace, locateTime, &rightRelation), XR_SUCCESS);
                 REQUIRE(currentRelation.locationFlags != 0);
                 REQUIRE(leftRelation.locationFlags != 0);
-                REQUIRE(Pose::ApproxEqual(currentRelation.pose, leftRelation.pose));
-                REQUIRE_FALSE(Pose::ApproxEqual(leftRelation.pose, rightRelation.pose));
+                REQUIRE(currentRelation.pose == Pose::Approx(leftRelation.pose));
+                REQUIRE_FALSE(Pose::Approx(leftRelation.pose) == rightRelation.pose);
 
                 // Try making sure action spaces don't un-stick from actions without an xrSyncActions
                 // Making right active to tempt the runtime
@@ -3621,7 +3647,9 @@ namespace Conformance
                     availableInputDevice->SetDeviceActive(false);
                 }
                 actionLayerManager.DisplayMessage("Place controller somewhere static but trackable");
-                actionLayerManager.Sleep_For(5s);
+                if (!GetGlobalData().IsUsingConformanceAutomation()) {
+                    actionLayerManager.Sleep_For(5s);
+                }
 
                 // Tries to locate the controller space, and returns the location flags.
                 auto checkTrackingFlags = [&]() -> XrSpaceLocationFlags {
@@ -3714,7 +3742,7 @@ namespace Conformance
                     REQUIRE(relationWithoutSubactionPath.locationFlags != 0);
                     CAPTURE(relationWithoutSubactionPath.pose);
 
-                    REQUIRE(Pose::ApproxEqual(relationWithoutSubactionPath.pose, relationWithSubactionPath.pose));
+                    REQUIRE(Pose::Approx(relationWithoutSubactionPath.pose) == relationWithSubactionPath.pose);
                 }
 
                 {

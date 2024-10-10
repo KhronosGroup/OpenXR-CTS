@@ -400,7 +400,7 @@ namespace Conformance
     struct InteractiveLayerManager
     {
         InteractiveLayerManager(CompositionHelper& compositionHelper, const char* exampleImage, const char* descriptionText)
-            : m_compositionHelper(compositionHelper)
+            : m_compositionHelper(compositionHelper), m_testStopwatch(true)
         {
             using namespace openxr::math_operators;
 
@@ -604,6 +604,13 @@ namespace Conformance
                 mode = LayerMode::Complete;
             }
 
+            if (GetGlobalData().options.autoSkipTimeout != std::chrono::milliseconds(0)) {
+                if (m_testStopwatch.Elapsed() > GetGlobalData().options.autoSkipTimeout) {
+                    WARN("Automatically skipping test due to timeout");
+                    mode = LayerMode::Complete;
+                }
+            }
+
             return mode;
         }
 
@@ -625,5 +632,7 @@ namespace Conformance
         XrSpace m_exampleQuadSpace;
         std::vector<XrCompositionLayerBaseHeader*> m_sceneLayers;
         std::vector<XrCompositionLayerBaseHeader*> m_backgroundLayers;
+
+        Stopwatch m_testStopwatch;
     };
 }  // namespace Conformance

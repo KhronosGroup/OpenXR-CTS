@@ -762,7 +762,7 @@ namespace Conformance
             return RunResult::Error;
 
         XrViewLocateInfo viewLocateInfo{XR_TYPE_VIEW_LOCATE_INFO};
-        viewLocateInfo.viewConfigurationType = autoBasicSession->viewConfigurationTypeVector[0];
+        viewLocateInfo.viewConfigurationType = GetGlobalData().options.viewConfigurationValue;
         viewLocateInfo.displayTime = frameState.predictedDisplayTime;
         viewLocateInfo.space = autoBasicSession->spaceVector[0];
         XrViewState viewState{XR_TYPE_VIEW_STATE};

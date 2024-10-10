@@ -37,7 +37,7 @@ namespace Conformance
     // Purpose: Verify behavior of quad visibility and occlusion with the expectation that:
     // 1. Quads render with painters algo.
     // 2. Quads which are facing away are not visible.
-    TEST_CASE("QuadOcclusion", "[composition][interactive][no_auto]")
+    TEST_CASE("QuadOcclusion", "[composition][interactive]")
     {
         CompositionHelper compositionHelper("Quad Occlusion");
         InteractiveLayerManager interactiveLayerManager(
@@ -72,7 +72,7 @@ namespace Conformance
     // 1. A pose offset when creating the space
     // 2. A pose offset when adding the layer
     // If the poses are applied in an incorrect order, the quads will not render in the correct place or orientation.
-    TEST_CASE("QuadPoses", "[composition][interactive][no_auto]")
+    TEST_CASE("QuadPoses", "[composition][interactive]")
     {
         CompositionHelper compositionHelper("Quad Poses");
         InteractiveLayerManager interactiveLayerManager(
@@ -116,7 +116,7 @@ namespace Conformance
     }
 
     // Purpose: Validates alpha blending (both premultiplied and unpremultiplied).
-    TEST_CASE("SourceAlphaBlending", "[composition][interactive][no_auto]")
+    TEST_CASE("SourceAlphaBlending", "[composition][interactive]")
     {
         CompositionHelper compositionHelper("Source Alpha Blending");
         InteractiveLayerManager interactiveLayerManager(compositionHelper, "source_alpha_blending.png",
@@ -203,7 +203,7 @@ namespace Conformance
     }
 
     // Purpose: Validate eye visibility flags.
-    TEST_CASE("EyeVisibility", "[composition][interactive][no_auto]")
+    TEST_CASE("EyeVisibility", "[composition][interactive]")
     {
         CompositionHelper compositionHelper("Eye Visibility");
         InteractiveLayerManager interactiveLayerManager(compositionHelper, "eye_visibility.png",
@@ -231,8 +231,13 @@ namespace Conformance
         RenderLoop(session, [&](const XrFrameState& frameState) { return interactiveLayerManager.EndFrame(frameState); }).Loop();
     }
 
-    TEST_CASE("Subimage", "[composition][interactive][no_auto]")
+    TEST_CASE("Subimage", "[composition][interactive]")
     {
+        GlobalData& globalData = GetGlobalData();
+        if (!globalData.IsUsingGraphicsPlugin()) {
+            SKIP("Cannot test subimage without a graphics plugin");
+        }
+
         CompositionHelper compositionHelper("Subimage Tests");
         InteractiveLayerManager interactiveLayerManager(
             compositionHelper, "subimage.png",
@@ -255,7 +260,7 @@ namespace Conformance
 
         // Create an array swapchain
         auto swapchainCreateInfo = compositionHelper.DefaultColorSwapchainCreateInfo(
-            ImageWidth, ImageHeight, XR_SWAPCHAIN_CREATE_STATIC_IMAGE_BIT, GetGlobalData().graphicsPlugin->GetSRGBA8Format());
+            ImageWidth, ImageHeight, XR_SWAPCHAIN_CREATE_STATIC_IMAGE_BIT, globalData.graphicsPlugin->GetSRGBA8Format());
         swapchainCreateInfo.arraySize = ImageArrayCount;
         swapchainCreateInfo.usageFlags |= XR_SWAPCHAIN_USAGE_TRANSFER_DST_BIT;
         const XrSwapchain swapchain = compositionHelper.CreateSwapchain(swapchainCreateInfo);
@@ -292,14 +297,14 @@ namespace Conformance
                     interactiveLayerManager.AddLayer(quad);
                 }
                 numberGridImage.ConvertToSRGB();
-                GetGlobalData().graphicsPlugin->CopyRGBAImage(swapchainImage, arraySlice, numberGridImage);
+                globalData.graphicsPlugin->CopyRGBAImage(swapchainImage, arraySlice, numberGridImage);
             }
         });
 
         RenderLoop(session, [&](const XrFrameState& frameState) { return interactiveLayerManager.EndFrame(frameState); }).Loop();
     }
 
-    TEST_CASE("ProjectionArraySwapchain", "[composition][interactive][no_auto]")
+    TEST_CASE("ProjectionArraySwapchain", "[composition][interactive]")
     {
         CompositionHelper compositionHelper("Projection Array Swapchain");
         InteractiveLayerManager interactiveLayerManager(
@@ -372,7 +377,7 @@ namespace Conformance
         RenderLoop(session, updateLayers).Loop();
     }
 
-    TEST_CASE("ProjectionWideSwapchain", "[composition][interactive][no_auto]")
+    TEST_CASE("ProjectionWideSwapchain", "[composition][interactive]")
     {
         CompositionHelper compositionHelper("Projection Wide Swapchain");
         InteractiveLayerManager interactiveLayerManager(compositionHelper, "projection_wide.png",
@@ -440,7 +445,7 @@ namespace Conformance
         RenderLoop(session, updateLayers).Loop();
     }
 
-    TEST_CASE("ProjectionSeparateSwapchains", "[composition][interactive][no_auto]")
+    TEST_CASE("ProjectionSeparateSwapchains", "[composition][interactive]")
     {
         CompositionHelper compositionHelper("Projection Separate Swapchains");
         InteractiveLayerManager interactiveLayerManager(compositionHelper, "projection_separate.png",
@@ -463,7 +468,7 @@ namespace Conformance
         RenderLoop(session, updateLayers).Loop();
     }
 
-    TEST_CASE("QuadHands", "[composition][interactive][no_auto]")
+    TEST_CASE("QuadHands", "[composition][interactive]")
     {
         GlobalData& globalData = GetGlobalData();
 
@@ -570,8 +575,13 @@ namespace Conformance
         RenderLoop(session, updateLayers).Loop();
     }
 
-    TEST_CASE("ProjectionMutableFieldOfView", "[composition][interactive][no_auto]")
+    TEST_CASE("ProjectionMutableFieldOfView", "[composition][interactive]")
     {
+        GlobalData& globalData = GetGlobalData();
+        if (!globalData.IsUsingGraphicsPlugin()) {
+            SKIP("Cannot test without a graphics plugin");
+        }
+
         CompositionHelper compositionHelper("Projection Mutable Field-of-View");
         XrSession session = compositionHelper.GetSession();
         InteractionManager& interactionManager = compositionHelper.GetInteractionManager();
@@ -662,8 +672,13 @@ namespace Conformance
         RenderLoop(session, updateLayers).Loop();
     }
 
-    TEST_CASE("StaleSwapchain", "[composition][interactive][no_auto]")
+    TEST_CASE("StaleSwapchain", "[composition][interactive]")
     {
+        GlobalData& globalData = GetGlobalData();
+        if (!globalData.IsUsingGraphicsPlugin()) {
+            SKIP("Cannot test stale swapchains without a graphics plugin");
+        }
+
         CompositionHelper compositionHelper("Stale swapchain");
         InteractiveLayerManager interactiveLayerManager(compositionHelper, "stale_swapchain.png",
                                                         "Updates swapchain of each square at 1Hz. "
@@ -681,7 +696,7 @@ namespace Conformance
 
         // Create an array swapchain
         auto swapchainCreateInfo =
-            compositionHelper.DefaultColorSwapchainCreateInfo(ImageSize, ImageSize, 0, GetGlobalData().graphicsPlugin->GetSRGBA8Format());
+            compositionHelper.DefaultColorSwapchainCreateInfo(ImageSize, ImageSize, 0, globalData.graphicsPlugin->GetSRGBA8Format());
         swapchainCreateInfo.usageFlags |= XR_SWAPCHAIN_USAGE_TRANSFER_DST_BIT;
         const XrSwapchain constantColorSwapchain = compositionHelper.CreateSwapchain(swapchainCreateInfo);
         const XrSwapchain alternatingColorSwapchain = compositionHelper.CreateSwapchain(swapchainCreateInfo);
@@ -710,10 +725,10 @@ namespace Conformance
             if (lastUpdate == 0 || (frameState.predictedDisplayTime - lastUpdate) >= 1_xrSeconds) {
                 lastUpdate = frameState.predictedDisplayTime;
                 compositionHelper.AcquireWaitReleaseImage(constantColorSwapchain, [&](const XrSwapchainImageBaseHeader* swapchainImage) {
-                    GetGlobalData().graphicsPlugin->CopyRGBAImage(swapchainImage, 0, images[0]);
+                    globalData.graphicsPlugin->CopyRGBAImage(swapchainImage, 0, images[0]);
                 });
                 compositionHelper.AcquireWaitReleaseImage(alternatingColorSwapchain, [&](const XrSwapchainImageBaseHeader* swapchainImage) {
-                    GetGlobalData().graphicsPlugin->CopyRGBAImage(swapchainImage, 0, images[(uint32_t)alternatingIndex]);
+                    globalData.graphicsPlugin->CopyRGBAImage(swapchainImage, 0, images[(uint32_t)alternatingIndex]);
                     alternatingIndex = !alternatingIndex;
                 });
             }
@@ -721,9 +736,13 @@ namespace Conformance
         }).Loop();
     }
 
-    TEST_CASE("ProjectionDepth", "[XR_KHR_composition_layer_depth][XR_FB_composition_layer_depth_test][composition][interactive][no_auto]")
+    TEST_CASE("ProjectionDepth", "[XR_KHR_composition_layer_depth][XR_FB_composition_layer_depth_test][composition][interactive]")
     {
         GlobalData& globalData = GetGlobalData();
+        if (!globalData.IsUsingGraphicsPlugin()) {
+            SKIP("Cannot test without a graphics plugin");
+        }
+
         if (!globalData.IsInstanceExtensionSupported(XR_KHR_COMPOSITION_LAYER_DEPTH_EXTENSION_NAME)) {
             SKIP(XR_KHR_COMPOSITION_LAYER_DEPTH_EXTENSION_NAME " not supported");
         }

@@ -8598,6 +8598,7 @@ typedef XrResult (XRAPI_PTR *<name>PFN_xrCreateApiLayerInstance</name>)(
         <!-- XR_ML_ml2_controller_interaction promotion -->
         <require comment="Promote /interaction_profiles/ml/ml2_controller interaction profile">
             <interaction_profile name="/interaction_profiles/ml/ml2_controller"/>
+
             <extend              interaction_profile_path="/interaction_profiles/ml/ml2_controller">
                 <component subpath="/input/grip_surface/pose" type="XR_ACTION_TYPE_POSE_INPUT"/>
             </extend>
@@ -8629,6 +8630,7 @@ typedef XrResult (XRAPI_PTR *<name>PFN_xrCreateApiLayerInstance</name>)(
             <interaction_profile name="/interaction_profiles/bytedance/pico_neo3_controller"/>
             <interaction_profile name="/interaction_profiles/bytedance/pico4_controller"/>
             <interaction_profile name="/interaction_profiles/bytedance/pico_g3_controller"/>
+
             <extend              interaction_profile_path="/interaction_profiles/bytedance/pico_neo3_controller">
                 <component subpath="/input/grip_surface/pose" type="XR_ACTION_TYPE_POSE_INPUT"/>
             </extend>
@@ -8692,6 +8694,7 @@ typedef XrResult (XRAPI_PTR *<name>PFN_xrCreateApiLayerInstance</name>)(
         <!-- Promote XR_HTC_vive_cosmos_controller_interaction -->
         <require comment="Promote /interaction_profiles/htc/vive_cosmos_controller interaction profile">
             <interaction_profile name="/interaction_profiles/htc/vive_cosmos_controller"/>
+
             <extend              interaction_profile_path="/interaction_profiles/htc/vive_cosmos_controller">
                 <component subpath="/input/grip_surface/pose" type="XR_ACTION_TYPE_POSE_INPUT"/>
             </extend>
@@ -8720,6 +8723,7 @@ typedef XrResult (XRAPI_PTR *<name>PFN_xrCreateApiLayerInstance</name>)(
         <!-- Promote XR_HTC_vive_focus3_controller_interaction -->
         <require comment="Promote /interaction_profiles/htc/vive_focus3_controller interaction profile">
             <interaction_profile name="/interaction_profiles/htc/vive_focus3_controller"/>
+
             <extend              interaction_profile_path="/interaction_profiles/htc/vive_focus3_controller">
                 <component subpath="/input/grip_surface/pose" type="XR_ACTION_TYPE_POSE_INPUT"/>
             </extend>
@@ -8748,6 +8752,7 @@ typedef XrResult (XRAPI_PTR *<name>PFN_xrCreateApiLayerInstance</name>)(
         <!-- XR_EXT_samsung_odyssey_controller -->
         <require comment="Promote /interaction_profiles/samsung/odyssey_controller interaction profile">
             <interaction_profile name="/interaction_profiles/samsung/odyssey_controller"/>
+
             <extend              interaction_profile_path="/interaction_profiles/samsung/odyssey_controller">
                 <component subpath="/input/grip_surface/pose" type="XR_ACTION_TYPE_POSE_INPUT"/>
             </extend>
@@ -8781,6 +8786,7 @@ typedef XrResult (XRAPI_PTR *<name>PFN_xrCreateApiLayerInstance</name>)(
         <!-- Promote XR_EXT_hp_mixed_reality_controller -->
         <require comment="Promote /interaction_profiles/hp/mixed_reality_controller interaction profile">
             <interaction_profile name="/interaction_profiles/hp/mixed_reality_controller"/>
+
             <extend              interaction_profile_path="/interaction_profiles/hp/mixed_reality_controller">
                 <component subpath="/input/grip_surface/pose" type="XR_ACTION_TYPE_POSE_INPUT"/>
             </extend>
@@ -8807,11 +8813,11 @@ typedef XrResult (XRAPI_PTR *<name>PFN_xrCreateApiLayerInstance</name>)(
         <!-- Promote XR_EXT_hp_mixed_reality_controller -->
 
         <!-- Promote XR_FB_touch_controller_pro -->
-        <require comment="Promote /interaction_profiles/facebook/touch_controller_pro interaction profile">
+        <require comment="Promote (and rename) /interaction_profiles/facebook/touch_controller_pro interaction profile">
             <interaction_profile name="/interaction_profiles/meta/touch_pro_controller"/>
         </require>
         <require depends="XR_EXT_dpad_binding">
-            <extend interaction_profile_path="/interaction_profiles/meta/touch_plus_controller">
+            <extend interaction_profile_path="/interaction_profiles/meta/touch_pro_controller">
                 <component subpath="/input/thumbstick/dpad_up" type="XR_ACTION_TYPE_BOOLEAN_INPUT"/>
                 <component subpath="/input/thumbstick/dpad_down" type="XR_ACTION_TYPE_BOOLEAN_INPUT"/>
                 <component subpath="/input/thumbstick/dpad_left" type="XR_ACTION_TYPE_BOOLEAN_INPUT"/>
@@ -8832,7 +8838,7 @@ typedef XrResult (XRAPI_PTR *<name>PFN_xrCreateApiLayerInstance</name>)(
         <!-- Promote XR_FB_touch_controller_pro -->
 
         <!-- Promote XR_META_touch_controller_plus -->
-        <require comment="Promote /interaction_profiles/meta/touch_controller_plus interaction profile">
+        <require comment="Promote (and rename) /interaction_profiles/meta/touch_controller_plus interaction profile">
             <interaction_profile name="/interaction_profiles/meta/touch_plus_controller"/>
         </require>
         <require depends="XR_EXT_dpad_binding">
@@ -8849,7 +8855,7 @@ typedef XrResult (XRAPI_PTR *<name>PFN_xrCreateApiLayerInstance</name>)(
             </extend>
         </require>
         <require depends="XR_EXT_hand_interaction">
-            <extend interaction_profile_path="/interaction_profiles/meta/touch_controller_plus">
+            <extend interaction_profile_path="/interaction_profiles/meta/touch_plus_controller">
                 <component subpath="/input/pinch_ext/pose" type="XR_ACTION_TYPE_POSE_INPUT"/>
                 <component subpath="/input/poke_ext/pose" type="XR_ACTION_TYPE_POSE_INPUT"/>
             </extend>
@@ -8884,7 +8890,7 @@ typedef XrResult (XRAPI_PTR *<name>PFN_xrCreateApiLayerInstance</name>)(
             </extend>
         </require>
         <require depends="XR_EXT_palm_pose">
-            <extend interaction_profile_path="/interaction_profiles/meta/touch_plus_controller">
+            <extend interaction_profile_path="/interaction_profiles/meta/touch_controller_rift_cv1">
                 <component subpath="/input/palm_ext/pose" type="XR_ACTION_TYPE_POSE_INPUT"/>
             </extend>
             <extend interaction_profile_path="/interaction_profiles/meta/touch_controller_quest_1_rift_s">
@@ -8895,7 +8901,7 @@ typedef XrResult (XRAPI_PTR *<name>PFN_xrCreateApiLayerInstance</name>)(
             </extend>
         </require>
         <require depends="XR_EXT_hand_interaction">
-            <extend interaction_profile_path="/interaction_profiles/meta/touch_controller_plus">
+            <extend interaction_profile_path="/interaction_profiles/meta/touch_controller_rift_cv1">
                 <component subpath="/input/pinch_ext/pose" type="XR_ACTION_TYPE_POSE_INPUT"/>
                 <component subpath="/input/poke_ext/pose" type="XR_ACTION_TYPE_POSE_INPUT"/>
             </extend>

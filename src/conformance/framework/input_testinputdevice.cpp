@@ -71,7 +71,7 @@ namespace Conformance
             , m_session(session)
             , m_interactionProfile(interactionProfile)
             , m_topLevelPath(topLevelPath)
-            , m_conformanceAutomationExtensionEnabled(GetGlobalData().IsInstanceExtensionEnabled("XR_EXT_conformance_automation"))
+            , m_conformanceAutomationExtensionEnabled(GetGlobalData().IsUsingConformanceAutomation())
         {
             m_actionSet = actionSet;
             m_actionMap = actionMap;
@@ -87,7 +87,7 @@ namespace Conformance
             , m_session(session)
             , m_interactionProfile(interactionProfile)
             , m_topLevelPath(topLevelPath)
-            , m_conformanceAutomationExtensionEnabled(GetGlobalData().IsInstanceExtensionEnabled("XR_EXT_conformance_automation"))
+            , m_conformanceAutomationExtensionEnabled(GetGlobalData().IsUsingConformanceAutomation())
         {
             std::string actionSetName = "test_device_action_set_" + std::to_string(m_topLevelPath);
             std::string localizedActionSetName = "Test Device Action Set " + std::to_string(m_topLevelPath);
