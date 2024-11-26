@@ -239,6 +239,11 @@ set_target_properties(
 )
 
 install(
+    FILES ${CMAKE_CURRENT_BINARY_DIR}/XrApiLayer_conformance_test_layer.json
+    DESTINATION conformance
+)
+
+install(
     TARGETS conformance_test
     LIBRARY DESTINATION conformance
     ARCHIVE DESTINATION conformance
