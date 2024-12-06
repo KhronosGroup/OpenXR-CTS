@@ -82,7 +82,7 @@ XrResult ConformanceHooks::xrPollEvent(HandleState* const handleState, XrInstanc
     const XrResult result = ConformanceHooksBase::xrPollEvent(handleState, instance, eventData);
 
     if (result == XR_EVENT_UNAVAILABLE) {
-        const HandleState* const instanceState = instance::GetInstanceState(instance);
+        const HandleState* const instanceState = handleState;
 
         // Clear the "xrSyncActions called" flag for all known sessions
         std::unique_lock<std::recursive_mutex> lock(instanceState->childrenMutex);
