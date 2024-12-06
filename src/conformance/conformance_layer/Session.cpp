@@ -20,6 +20,7 @@
 #include "Common.h"
 #include "ConformanceHooks.h"
 #include "CustomHandleState.h"
+#include "HandleState.h"
 #include "RuntimeFailure.h"
 #include <openxr/openxr.h>
 
@@ -103,8 +104,10 @@ namespace session
     {
         // Look up parent handle required to validate view configuration metadata.
         XrInstance instance;
+        HandleState* instanceHandleState;
         {
             HandleState* const handleState = GetSessionState(visibilityMaskChanged->session);
+            instanceHandleState = handleState->parent;
             instance = (XrInstance)handleState->parent->handle;
             assert(handleState->parent->type == XR_OBJECT_TYPE_INSTANCE);
         }
@@ -113,8 +116,9 @@ namespace session
 
         // Verify the viewIndex against the size of the view configuration (as reported by the runtime).
         uint32_t viewCount;
-        XrResult enumRes = conformanceHooks->xrEnumerateViewConfigurationViews(
-            instance, customSessionState->systemId, visibilityMaskChanged->viewConfigurationType, 0, &viewCount, nullptr);
+        XrResult enumRes =
+            conformanceHooks->xrEnumerateViewConfigurationViews(instanceHandleState, instance, customSessionState->systemId,
+                                                                visibilityMaskChanged->viewConfigurationType, 0, &viewCount, nullptr);
         if (!XR_SUCCEEDED(enumRes)) {
             conformanceHooks->ConformanceFailure(XR_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT, "xrPollEvent",
                                                  "xrEnumerateViewConfigurationViews failed due to error %s", to_string(enumRes));
@@ -157,10 +161,11 @@ namespace session
 
 using namespace session;
 
-XrResult ConformanceHooks::xrCreateSession(XrInstance instance, const XrSessionCreateInfo* createInfo, XrSession* session)
+XrResult ConformanceHooks::xrCreateSession(HandleState* const handleState, XrInstance instance, const XrSessionCreateInfo* createInfo,
+                                           XrSession* session)
 {
     // Call generated base implementation, which will check return codes, create (common) handle state, set up parent/child relationships, etc.
-    const XrResult result = ConformanceHooksBase::xrCreateSession(instance, createInfo, session);
+    const XrResult result = ConformanceHooksBase::xrCreateSession(handleState, instance, createInfo, session);
     if (XR_SUCCEEDED(result)) {
         auto customSessionState = std::make_unique<CustomSessionState>();
         customSessionState->systemId = createInfo->systemId;
@@ -203,12 +208,12 @@ XrResult ConformanceHooks::xrCreateSession(XrInstance instance, const XrSessionC
     return result;
 }
 
-XrResult ConformanceHooks::xrSyncActions(XrSession session, const XrActionsSyncInfo* syncInfo)
+XrResult ConformanceHooks::xrSyncActions(HandleState* const handleState, XrSession session, const XrActionsSyncInfo* syncInfo)
 {
     CustomSessionState* const customSessionState = GetCustomSessionState(session);
     customSessionState->syncActionsState.store(session::SyncActionsState::ONGOING);
 
-    const XrResult result = ConformanceHooksBase::xrSyncActions(session, syncInfo);
+    const XrResult result = ConformanceHooksBase::xrSyncActions(handleState, session, syncInfo);
 
     // late lock since we only touched atomics until now
     std::unique_lock<std::mutex> lock(customSessionState->lock);
@@ -233,8 +238,8 @@ XrResult ConformanceHooks::xrSyncActions(XrSession session, const XrActionsSyncI
     return result;
 }
 
-XrResult ConformanceHooks::xrLocateViews(XrSession session, const XrViewLocateInfo* viewLocateInfo, XrViewState* viewState,
-                                         uint32_t viewCapacityInput, uint32_t* viewCountOutput, XrView* views)
+XrResult ConformanceHooks::xrLocateViews(HandleState* const handleState, XrSession session, const XrViewLocateInfo* viewLocateInfo,
+                                         XrViewState* viewState, uint32_t viewCapacityInput, uint32_t* viewCountOutput, XrView* views)
 {
     std::vector<XrBaseStructChainValidator> viewChainValidations;
     for (uint32_t i = 0; i < viewCapacityInput; i++) {
@@ -242,7 +247,7 @@ XrResult ConformanceHooks::xrLocateViews(XrSession session, const XrViewLocateIn
     }
 
     const XrResult result =
-        ConformanceHooksBase::xrLocateViews(session, viewLocateInfo, viewState, viewCapacityInput, viewCountOutput, views);
+        ConformanceHooksBase::xrLocateViews(handleState, session, viewLocateInfo, viewState, viewCapacityInput, viewCountOutput, views);
 
     if (XR_SUCCEEDED(result)) {
         CustomSessionState* const customSessionState = GetCustomSessionState(session);
@@ -292,9 +297,9 @@ XrResult ConformanceHooks::xrLocateViews(XrSession session, const XrViewLocateIn
     return result;
 }
 
-XrResult ConformanceHooks::xrBeginSession(XrSession session, const XrSessionBeginInfo* beginInfo)
+XrResult ConformanceHooks::xrBeginSession(HandleState* const handleState, XrSession session, const XrSessionBeginInfo* beginInfo)
 {
-    const XrResult result = ConformanceHooksBase::xrBeginSession(session, beginInfo);
+    const XrResult result = ConformanceHooksBase::xrBeginSession(handleState, session, beginInfo);
     CustomSessionState* const customSessionState = GetCustomSessionState(session);
     if (XR_SUCCEEDED(result)) {
         std::unique_lock<std::mutex> lock(customSessionState->lock);
@@ -309,9 +314,9 @@ XrResult ConformanceHooks::xrBeginSession(XrSession session, const XrSessionBegi
     return result;
 }
 
-XrResult ConformanceHooks::xrEndSession(XrSession session)
+XrResult ConformanceHooks::xrEndSession(HandleState* const handleState, XrSession session)
 {
-    const XrResult result = ConformanceHooksBase::xrEndSession(session);
+    const XrResult result = ConformanceHooksBase::xrEndSession(handleState, session);
 
     CustomSessionState* const customSessionState = GetCustomSessionState(session);
     std::unique_lock<std::mutex> lock(customSessionState->lock);
@@ -337,9 +342,9 @@ XrResult ConformanceHooks::xrEndSession(XrSession session)
     return result;
 }
 
-XrResult ConformanceHooks::xrRequestExitSession(XrSession session)
+XrResult ConformanceHooks::xrRequestExitSession(HandleState* const handleState, XrSession session)
 {
-    const XrResult result = ConformanceHooksBase::xrRequestExitSession(session);
+    const XrResult result = ConformanceHooksBase::xrRequestExitSession(handleState, session);
 
     CustomSessionState* const customSessionState = GetCustomSessionState(session);
     std::unique_lock<std::mutex> lock(customSessionState->lock);
@@ -354,11 +359,12 @@ XrResult ConformanceHooks::xrRequestExitSession(XrSession session)
     return result;
 }
 
-XrResult ConformanceHooks::xrWaitFrame(XrSession session, const XrFrameWaitInfo* frameWaitInfo, XrFrameState* frameState)
+XrResult ConformanceHooks::xrWaitFrame(HandleState* const handleState, XrSession session, const XrFrameWaitInfo* frameWaitInfo,
+                                       XrFrameState* frameState)
 {
     VALIDATE_STRUCT_CHAIN(frameState);
 
-    const XrResult result = ConformanceHooksBase::xrWaitFrame(session, frameWaitInfo, frameState);
+    const XrResult result = ConformanceHooksBase::xrWaitFrame(handleState, session, frameWaitInfo, frameState);
 
     if (XR_SUCCEEDED(result)) {
         CustomSessionState* const customSessionState = GetCustomSessionState(session);
@@ -377,9 +383,9 @@ XrResult ConformanceHooks::xrWaitFrame(XrSession session, const XrFrameWaitInfo*
     return result;
 }
 
-XrResult ConformanceHooks::xrBeginFrame(XrSession session, const XrFrameBeginInfo* frameBeginInfo)
+XrResult ConformanceHooks::xrBeginFrame(HandleState* const handleState, XrSession session, const XrFrameBeginInfo* frameBeginInfo)
 {
-    const XrResult result = ConformanceHooksBase::xrBeginFrame(session, frameBeginInfo);
+    const XrResult result = ConformanceHooksBase::xrBeginFrame(handleState, session, frameBeginInfo);
     if (XR_SUCCEEDED(result)) {
         CustomSessionState* const customSessionState = GetCustomSessionState(session);
         std::unique_lock<std::mutex> lock(customSessionState->lock);
@@ -391,14 +397,14 @@ XrResult ConformanceHooks::xrBeginFrame(XrSession session, const XrFrameBeginInf
     return result;
 }
 
-XrResult ConformanceHooks::xrEndFrame(XrSession session, const XrFrameEndInfo* frameEndInfo)
+XrResult ConformanceHooks::xrEndFrame(HandleState* const handleState, XrSession session, const XrFrameEndInfo* frameEndInfo)
 {
     // Call xrEndFrame under the lock because it might generate XR_SESSION_STATE_SYNCHRONIZED
     // at any time during the call and frameCount needs to increment in unison.
     CustomSessionState* const customSessionState = GetCustomSessionState(session);
     std::unique_lock<std::mutex> lock(customSessionState->lock);
 
-    const XrResult result = ConformanceHooksBase::xrEndFrame(session, frameEndInfo);
+    const XrResult result = ConformanceHooksBase::xrEndFrame(handleState, session, frameEndInfo);
 
     if (XR_SUCCEEDED(result)) {
         NONCONFORMANT_IF(!customSessionState->frameBegun,
@@ -414,10 +420,11 @@ XrResult ConformanceHooks::xrEndFrame(XrSession session, const XrFrameEndInfo* f
     return result;
 }
 
-XrResult ConformanceHooks::xrEnumerateReferenceSpaces(XrSession session, uint32_t spaceCapacityInput, uint32_t* spaceCountOutput,
-                                                      XrReferenceSpaceType* spaces)
+XrResult ConformanceHooks::xrEnumerateReferenceSpaces(HandleState* const handleState, XrSession session, uint32_t spaceCapacityInput,
+                                                      uint32_t* spaceCountOutput, XrReferenceSpaceType* spaces)
 {
-    const XrResult result = ConformanceHooksBase::xrEnumerateReferenceSpaces(session, spaceCapacityInput, spaceCountOutput, spaces);
+    const XrResult result =
+        ConformanceHooksBase::xrEnumerateReferenceSpaces(handleState, session, spaceCapacityInput, spaceCountOutput, spaces);
     if (XR_SUCCEEDED(result)) {
         if (spaceCountOutput != nullptr && spaces != nullptr) {
             std::vector<XrReferenceSpaceType> referenceSpaceCopy(spaces, spaces + *spaceCountOutput);
@@ -456,10 +463,11 @@ XrResult ConformanceHooks::xrEnumerateReferenceSpaces(XrSession session, uint32_
     return result;
 }
 
-XrResult ConformanceHooks::xrEnumerateSwapchainFormats(XrSession session, uint32_t formatCapacityInput, uint32_t* formatCountOutput,
-                                                       int64_t* formats)
+XrResult ConformanceHooks::xrEnumerateSwapchainFormats(HandleState* const handleState, XrSession session, uint32_t formatCapacityInput,
+                                                       uint32_t* formatCountOutput, int64_t* formats)
 {
-    const XrResult result = ConformanceHooksBase::xrEnumerateSwapchainFormats(session, formatCapacityInput, formatCountOutput, formats);
+    const XrResult result =
+        ConformanceHooksBase::xrEnumerateSwapchainFormats(handleState, session, formatCapacityInput, formatCountOutput, formats);
     if (!XR_SUCCEEDED(result)) {
         return result;
     }

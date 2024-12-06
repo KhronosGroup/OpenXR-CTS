@@ -53,7 +53,7 @@
     try {
         HandleState* const handleState = GetHandleState({HandleToInt(/*{ first_handle_name }*/), /*{ first_handle_object_type }*/});
 
-        return handleState->conformanceHooks->/*{cur_cmd.name}*/(/*{ cur_cmd.params | map(attribute="name") | join(", ") }*/);
+        return handleState->conformanceHooks->/*{cur_cmd.name}*/(handleState, /*{ cur_cmd.params | map(attribute="name") | join(", ") }*/);
     }
     ABI_CATCH
 }
@@ -61,8 +61,15 @@
 //##
 //## Generate the ConformanceHooksBase virtual method
 //##
-/*{ cur_cmd.cdecl | collapse_whitespace | replace("XRAPI_ATTR XrResult XRAPI_CALL xr", "XrResult ConformanceHooksBase::xr") | replace(";", "")
-}*/ {
+/*{ cur_cmd.cdecl
+    | collapse_whitespace
+    | replace("XRAPI_ATTR XrResult XRAPI_CALL xr", "XrResult ConformanceHooksBase::xr")
+    | replace("(", "(HandleState* const handleState, ")
+    | replace(";", "")
+}*/
+{
+    //## Possibly unused
+    (void)handleState;
     //## Ensure that the function is implemented by the runtime or its a validation error instead of a segfault caused by a nullptr dereference
     if (this->dispatchTable./*{ cur_cmd.name | base_name }*/ == nullptr) {
         this->ConformanceFailure(XR_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT, "/*{ cur_cmd.name | base_name }*/", "Function is not implemented in runtime");

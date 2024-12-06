@@ -80,6 +80,7 @@ struct ConformanceHooksBase {
 /*{ protect_begin(cur_cmd) }*/
     /*{ cur_cmd.cdecl | collapse_whitespace
     | replace("XRAPI_ATTR XrResult XRAPI_CALL xr", "virtual XrResult xr")
+    | replace("(", "(HandleState* const handleState, ")
     | replace(";", "")
 }*/;
 /*{ protect_end(cur_cmd) }*/

@@ -57,9 +57,10 @@ namespace actionset
 
 using namespace actionset;
 
-XrResult ConformanceHooks::xrCreateActionSet(XrInstance instance, const XrActionSetCreateInfo* createInfo, XrActionSet* actionSet)
+XrResult ConformanceHooks::xrCreateActionSet(HandleState* const handleState, XrInstance instance, const XrActionSetCreateInfo* createInfo,
+                                             XrActionSet* actionSet)
 {
-    const XrResult result = ConformanceHooksBase::xrCreateActionSet(instance, createInfo, actionSet);
+    const XrResult result = ConformanceHooksBase::xrCreateActionSet(handleState, instance, createInfo, actionSet);
     if (XR_SUCCEEDED(result)) {
         // Tag on the custom action set state to the generated handle state.
         GetActionSetState(*actionSet)->SetCustomState(std::make_unique<CustomActionSetState>(createInfo));
