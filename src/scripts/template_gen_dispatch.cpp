@@ -126,8 +126,9 @@
 //#         if is_create_swapchain_android_surface
     if (XR_SUCCEEDED(result)) {
 //#             set out_handle_name = cur_cmd.params[-2].name
-        HandleState* const parentHandleState = GetHandleState(HandleStateKey{HandleToInt(/*{ first_handle_name }*/), XR_OBJECT_TYPE_SESSION});
-        RegisterHandleState(parentHandleState->CloneForChild(HandleToInt(* /*{ out_handle_name }*/), XR_OBJECT_TYPE_SWAPCHAIN));
+        CreateAndRegisterHandleState(
+            {HandleToInt(/*{ first_handle_name }*/), XR_OBJECT_TYPE_SESSION},
+            {HandleToInt(* /*{ out_handle_name }*/), XR_OBJECT_TYPE_SWAPCHAIN});
     }
 //#         endif
 
@@ -141,8 +142,9 @@
 //#             set completion_struct_last_param_name = last_param_struct.members[-1].name
 //#             if last_param_struct.members[-1].is_handle and not last_param_struct.members[-1].is_array
 //#                 set completion_struct_last_param_object_type = gen.genXrObjectType(last_param_struct.members[-1].type)
-        HandleState* const parentHandleState = GetHandleState(HandleStateKey{HandleToInt(/*{ first_handle_name }*/), /*{ first_handle_object_type }*/});
-        RegisterHandleState(parentHandleState->CloneForChild(HandleToInt(/*{ last_param_name }*/->/*{ completion_struct_last_param_name }*/), /*{ completion_struct_last_param_object_type }*/));
+        CreateAndRegisterHandleState(
+            {HandleToInt(/*{ first_handle_name }*/), /*{ first_handle_object_type }*/},
+            {HandleToInt(/*{ last_param_name }*/->/*{ completion_struct_last_param_name }*/), /*{ completion_struct_last_param_object_type }*/});
 //#             endif
     }
 //#         endif
