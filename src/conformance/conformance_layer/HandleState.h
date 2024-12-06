@@ -139,7 +139,7 @@ using HandleStateKey = std::pair<IntHandle, XrObjectType>;
 ///
 /// @note Locks and unlocks the mutex for the global handle state map, as well
 /// as a child-list mutex in the parent handle and every child handle.
-void UnregisterHandleState(HandleStateKey key);
+void UnregisterHandleState(HandleState* handleState);
 
 /// Transfer ownership of a handle state object to the global handle state map.
 /// Usually called directly with the return value of @ref HandleState::CloneForChild
