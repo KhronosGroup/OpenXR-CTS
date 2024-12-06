@@ -125,7 +125,7 @@
 //#         if is_create_swapchain_android_surface
     if (XR_SUCCEEDED(result)) {
 //#             set out_handle_name = cur_cmd.params[-2].name
-        HandleState* const parentHandleState = GetHandleState(HandleStateKey{HandleToInt(/*{ first_handle_name }*/), XR_OBJECT_TYPE_SESSION});
+        HandleState* const parentHandleState = GetHandleState({HandleToInt(/*{ first_handle_name }*/), XR_OBJECT_TYPE_SESSION});
         RegisterHandleState(parentHandleState->CloneForChild(HandleToInt(* /*{ out_handle_name }*/), XR_OBJECT_TYPE_SWAPCHAIN));
     }
 //#         endif
