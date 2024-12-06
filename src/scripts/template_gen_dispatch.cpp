@@ -102,8 +102,9 @@
 //#             set out_handle_type = cur_cmd.params[-1].type
 //#             set out_handle_object_type = gen.genXrObjectType(out_handle_type)
 //#             if is_create
-        HandleState* const parentHandleState = GetHandleState({HandleToInt(/*{ first_handle_name }*/), /*{ first_handle_object_type }*/});
-        RegisterHandleState(parentHandleState->CloneForChild(HandleToInt(* /*{ out_handle_name }*/), /*{ out_handle_object_type }*/));
+        CreateAndRegisterHandleState(
+            {HandleToInt(/*{ first_handle_name }*/), /*{ first_handle_object_type }*/},
+            {HandleToInt(* /*{ out_handle_name }*/), /*{ out_handle_object_type }*/});
 //#             endif
 //#             if is_destroy
         UnregisterHandleState({HandleToInt(/*{ first_handle_name }*/), /*{ first_handle_object_type }*/});
@@ -150,8 +151,9 @@
 //#         if is_create_spatial_anchor or is_query_spaces
     if (XR_SUCCEEDED(result)) {
 //#             set out_handle_name = cur_cmd.params[-1].name
-        HandleState* const parentHandleState = GetHandleState({HandleToInt(/*{ first_handle_name }*/), XR_OBJECT_TYPE_SESSION});
-        RegisterHandleState(parentHandleState->CloneForChild(* /*{ out_handle_name }*/, static_cast<XrObjectType>(XR_TYPE_EVENT_DATA_SPATIAL_ANCHOR_CREATE_COMPLETE_FB)));
+        CreateAndRegisterHandleState(
+            {HandleToInt(/*{ first_handle_name }*/), XR_OBJECT_TYPE_SESSION},
+            {* /*{ out_handle_name }*/, static_cast<XrObjectType>(XR_TYPE_EVENT_DATA_SPATIAL_ANCHOR_CREATE_COMPLETE_FB)});
     }
 //#         endif
 
@@ -179,8 +181,9 @@
 //#             set out_param_name = cur_cmd.params[-1].name
         if (/*{ out_param_name }*/->results) {
             for (uint32_t i = 0; i < /*{ out_param_name }*/->resultCountOutput; ++i) {
-                HandleState* const parentHandleState = GetHandleState({HandleToInt(/*{ first_handle_name }*/), XR_OBJECT_TYPE_SESSION});
-                RegisterHandleState(parentHandleState->CloneForChild(HandleToInt(/*{ out_param_name }*/->results[i].space), XR_OBJECT_TYPE_SPACE));
+                CreateAndRegisterHandleState(
+                    {HandleToInt(/*{ first_handle_name }*/), XR_OBJECT_TYPE_SESSION},
+                    {HandleToInt(/*{ out_param_name }*/->results[i].space), XR_OBJECT_TYPE_SPACE});
             }
         }
     }
