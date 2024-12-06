@@ -137,18 +137,18 @@ using HandleStateKey = std::pair<IntHandle, XrObjectType>;
 /// Destroy a handle state object owned by the global handle state map.
 /// Also destroys state for all child handles (recursively)
 ///
-/// @note Locks and unlocks the mutex for the global handlne state map, as well
+/// @note Locks and unlocks the mutex for the global handle state map, as well
 /// as a child-list mutex in the parent handle and every child handle.
 void UnregisterHandleState(HandleStateKey key);
 
 /// Transfer ownership of a handle state object to the global handle state map.
 /// Usually called directly with the return value of @ref HandleState::CloneForChild
 ///
-/// @note Locks and unlocks the mutex for the global handlne state map
+/// @note Locks and unlocks the mutex for the global handle state map
 void RegisterHandleState(std::unique_ptr<HandleState> handleState);
 
 /// Retrieve common handle state based on a handle and object type enum.
 /// Throws if not found.
 ///
-/// @note Locks and unlocks the mutex for the global handlne state map
+/// @note Locks and unlocks the mutex for the global handle state map
 HandleState* GetHandleState(HandleStateKey key);
