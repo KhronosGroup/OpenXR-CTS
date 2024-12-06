@@ -117,7 +117,7 @@
 //#         if is_destroy
     if (XR_SUCCEEDED(result)) {
         // Normal "xrDestroy" function: unregister/destroy state for handle
-        UnregisterHandleState({HandleToInt(/*{ first_handle_name }*/), /*{ first_handle_object_type }*/});
+        UnregisterHandleState(handleState);
     }
 //#         endif
 

@@ -55,39 +55,39 @@ void RegisterHandleState(std::unique_ptr<HandleState> handleState)
     }
 }
 
-void UnregisterHandleStateInternal(std::unique_lock<std::mutex>& lockProof, HandleStateKey key)
+void UnregisterHandleStateInternal(std::unique_lock<std::mutex>& lockProof, HandleState* handleState)
 {
+    const HandleStateKey key{handleState->handle, handleState->type};
     auto it = g_handleStates.find(key);
     if (it == g_handleStates.end()) {
         throw HandleException(std::string("Encountered unknown ") + to_string(key.second) + " handle with value " +
                               std::to_string(key.first));
     }
-
     // Unregister children from map (recursively)
     {
-        std::unique_lock<std::recursive_mutex> lock(it->second->childrenMutex);
-        while (!it->second->children.empty()) {
+        std::unique_lock<std::recursive_mutex> lock(handleState->childrenMutex);
+        while (!handleState->children.empty()) {
             // Unregistering the child will cause it to be removed from the list of children.
-            HandleState* const frontChild = it->second->children.front();
-            UnregisterHandleStateInternal(lockProof, HandleStateKey(frontChild->handle, frontChild->type));
+            HandleState* const frontChild = handleState->children.front();
+            UnregisterHandleStateInternal(lockProof, frontChild);
         }
     }
 
-    if (it->second->parent != nullptr) {  // XrInstance has no parent
+    if (handleState->parent != nullptr) {  // XrInstance has no parent
         // Remove self from parent's list of children
-        std::unique_lock<std::recursive_mutex> lock(it->second->parent->childrenMutex);
-        std::vector<HandleState*>& siblings = it->second->parent->children;
-        siblings.erase(std::remove(siblings.begin(), siblings.end(), it->second.get()), siblings.end());
+        std::unique_lock<std::recursive_mutex> lock(handleState->parent->childrenMutex);
+        std::vector<HandleState*>& siblings = handleState->parent->children;
+        siblings.erase(std::remove(siblings.begin(), siblings.end(), handleState), siblings.end());
     }
 
     // Finally remove self from map.
     g_handleStates.erase(it);
 }
 
-void UnregisterHandleState(HandleStateKey key)
+void UnregisterHandleState(HandleState* handleState)
 {
     std::unique_lock<std::mutex> lock(g_handleStatesMutex);
-    UnregisterHandleStateInternal(lock, key);
+    UnregisterHandleStateInternal(lock, handleState);
 }
 
 HandleState* GetHandleState(HandleStateKey key)
