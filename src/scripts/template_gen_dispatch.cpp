@@ -102,7 +102,7 @@
 //#             set out_handle_type = cur_cmd.params[-1].type
 //#             set out_handle_object_type = gen.genXrObjectType(out_handle_type)
 //#             if is_create
-        HandleState* const parentHandleState = GetHandleState(HandleStateKey{HandleToInt(/*{ first_handle_name }*/), /*{ first_handle_object_type }*/});
+        HandleState* const parentHandleState = GetHandleState({HandleToInt(/*{ first_handle_name }*/), /*{ first_handle_object_type }*/});
         RegisterHandleState(parentHandleState->CloneForChild(HandleToInt(* /*{ out_handle_name }*/), /*{ out_handle_object_type }*/));
 //#             endif
 //#             if is_destroy
@@ -150,7 +150,7 @@
 //#         if is_create_spatial_anchor or is_query_spaces
     if (XR_SUCCEEDED(result)) {
 //#             set out_handle_name = cur_cmd.params[-1].name
-        HandleState* const parentHandleState = GetHandleState(HandleStateKey{HandleToInt(/*{ first_handle_name }*/), XR_OBJECT_TYPE_SESSION});
+        HandleState* const parentHandleState = GetHandleState({HandleToInt(/*{ first_handle_name }*/), XR_OBJECT_TYPE_SESSION});
         RegisterHandleState(parentHandleState->CloneForChild(* /*{ out_handle_name }*/, static_cast<XrObjectType>(XR_TYPE_EVENT_DATA_SPATIAL_ANCHOR_CREATE_COMPLETE_FB)));
     }
 //#         endif
@@ -163,7 +163,7 @@
     if (XR_SUCCEEDED(result)) {
         if (eventData->type == XR_TYPE_EVENT_DATA_SPATIAL_ANCHOR_CREATE_COMPLETE_FB) {
             XrEventDataSpatialAnchorCreateCompleteFB* completeEvent = reinterpret_cast<XrEventDataSpatialAnchorCreateCompleteFB*>(eventData);
-            HandleState* const requestStateObject = GetHandleState(HandleStateKey{(IntHandle)completeEvent->requestId, static_cast<XrObjectType>(XR_TYPE_EVENT_DATA_SPATIAL_ANCHOR_CREATE_COMPLETE_FB)});
+            HandleState* const requestStateObject = GetHandleState({(IntHandle)completeEvent->requestId, static_cast<XrObjectType>(XR_TYPE_EVENT_DATA_SPATIAL_ANCHOR_CREATE_COMPLETE_FB)});
             HandleState* const parentHandleState = requestStateObject->parent; // session
             RegisterHandleState(parentHandleState->CloneForChild(HandleToInt(completeEvent->space), XR_OBJECT_TYPE_SPACE));
         }
@@ -179,7 +179,7 @@
 //#             set out_param_name = cur_cmd.params[-1].name
         if (/*{ out_param_name }*/->results) {
             for (uint32_t i = 0; i < /*{ out_param_name }*/->resultCountOutput; ++i) {
-                HandleState* const parentHandleState = GetHandleState(HandleStateKey{HandleToInt(/*{ first_handle_name }*/), XR_OBJECT_TYPE_SESSION});
+                HandleState* const parentHandleState = GetHandleState({HandleToInt(/*{ first_handle_name }*/), XR_OBJECT_TYPE_SESSION});
                 RegisterHandleState(parentHandleState->CloneForChild(HandleToInt(/*{ out_param_name }*/->results[i].space), XR_OBJECT_TYPE_SPACE));
             }
         }
