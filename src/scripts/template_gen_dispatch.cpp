@@ -179,8 +179,8 @@
             XrEventDataSpatialAnchorCreateCompleteFB* completeEvent = reinterpret_cast<XrEventDataSpatialAnchorCreateCompleteFB*>(eventData);
             // Lookup "handle state" for the XrAsyncRequestIdFB value, with "object type" of the event struct type.
             HandleState* const requestStateObject = GetHandleState({(IntHandle)completeEvent->requestId, static_cast<XrObjectType>(XR_TYPE_EVENT_DATA_SPATIAL_ANCHOR_CREATE_COMPLETE_FB)});
-            HandleState* const parentHandleState = requestStateObject->parent; // session: parent of request ID
-            RegisterHandleState(parentHandleState->CloneForChild(HandleToInt(completeEvent->space), XR_OBJECT_TYPE_SPACE));
+            CreateAndRegisterHandleState(requestStateObject->parent, // session: parent of request ID
+                {HandleToInt(completeEvent->space), XR_OBJECT_TYPE_SPACE});
         }
     }
 //#         endif
