@@ -58,6 +58,11 @@ namespace session
         return dynamic_cast<CustomSessionState*>(GetSessionState(handle)->GetCustomState());
     }
 
+    CustomSessionState* GetCustomSessionState(HandleState* const handleState)
+    {
+        return dynamic_cast<CustomSessionState*>(handleState->GetCustomState());
+    }
+
     void SessionStateChanged(ConformanceHooksBase* conformanceHooks, const XrEventDataSessionStateChanged* sessionStateChanged)
     {
         // Check under the lock to guarantee xrEndFrame completes if it's being called on another thread.
@@ -104,15 +109,15 @@ namespace session
     {
         // Look up parent handle required to validate view configuration metadata.
         XrInstance instance;
-        HandleState* instanceHandleState;
+        HandleState* instanceHandleState{};
+        CustomSessionState* customSessionState{};
         {
-            HandleState* const handleState = GetSessionState(visibilityMaskChanged->session);
-            instanceHandleState = handleState->parent;
-            instance = (XrInstance)handleState->parent->handle;
-            assert(handleState->parent->type == XR_OBJECT_TYPE_INSTANCE);
+            HandleState* const sessionHandleState = GetSessionState(visibilityMaskChanged->session);
+            customSessionState = GetCustomSessionState(sessionHandleState);
+            instanceHandleState = sessionHandleState->parent;
+            instance = (XrInstance)sessionHandleState->parent->handle;
+            assert(sessionHandleState->parent->type == XR_OBJECT_TYPE_INSTANCE);
         }
-
-        CustomSessionState* const customSessionState = GetCustomSessionState(visibilityMaskChanged->session);
 
         // Verify the viewIndex against the size of the view configuration (as reported by the runtime).
         uint32_t viewCount;
@@ -210,7 +215,7 @@ XrResult ConformanceHooks::xrCreateSession(HandleState* const handleState, XrIns
 
 XrResult ConformanceHooks::xrSyncActions(HandleState* const handleState, XrSession session, const XrActionsSyncInfo* syncInfo)
 {
-    CustomSessionState* const customSessionState = GetCustomSessionState(session);
+    CustomSessionState* const customSessionState = GetCustomSessionState(handleState);
     customSessionState->syncActionsState.store(session::SyncActionsState::ONGOING);
 
     const XrResult result = ConformanceHooksBase::xrSyncActions(handleState, session, syncInfo);
@@ -250,7 +255,7 @@ XrResult ConformanceHooks::xrLocateViews(HandleState* const handleState, XrSessi
         ConformanceHooksBase::xrLocateViews(handleState, session, viewLocateInfo, viewState, viewCapacityInput, viewCountOutput, views);
 
     if (XR_SUCCEEDED(result)) {
-        CustomSessionState* const customSessionState = GetCustomSessionState(session);
+        CustomSessionState* const customSessionState = GetCustomSessionState(handleState);
         std::unique_lock<std::mutex> lock(customSessionState->lock);
 
         NONCONFORMANT_IF(!customSessionState->sessionBegun, "Session must be begun");
@@ -300,7 +305,7 @@ XrResult ConformanceHooks::xrLocateViews(HandleState* const handleState, XrSessi
 XrResult ConformanceHooks::xrBeginSession(HandleState* const handleState, XrSession session, const XrSessionBeginInfo* beginInfo)
 {
     const XrResult result = ConformanceHooksBase::xrBeginSession(handleState, session, beginInfo);
-    CustomSessionState* const customSessionState = GetCustomSessionState(session);
+    CustomSessionState* const customSessionState = GetCustomSessionState(handleState);
     if (XR_SUCCEEDED(result)) {
         std::unique_lock<std::mutex> lock(customSessionState->lock);
         NONCONFORMANT_IF(customSessionState->sessionBegun, "Session cannot be begun when already begun");
@@ -318,7 +323,7 @@ XrResult ConformanceHooks::xrEndSession(HandleState* const handleState, XrSessio
 {
     const XrResult result = ConformanceHooksBase::xrEndSession(handleState, session);
 
-    CustomSessionState* const customSessionState = GetCustomSessionState(session);
+    CustomSessionState* const customSessionState = GetCustomSessionState(handleState);
     std::unique_lock<std::mutex> lock(customSessionState->lock);
 
     if (XR_SUCCEEDED(result)) {
@@ -346,7 +351,7 @@ XrResult ConformanceHooks::xrRequestExitSession(HandleState* const handleState, 
 {
     const XrResult result = ConformanceHooksBase::xrRequestExitSession(handleState, session);
 
-    CustomSessionState* const customSessionState = GetCustomSessionState(session);
+    CustomSessionState* const customSessionState = GetCustomSessionState(handleState);
     std::unique_lock<std::mutex> lock(customSessionState->lock);
     if (XR_SUCCEEDED(result)) {
         NONCONFORMANT_IF(!customSessionState->sessionBegun, "Expected XR_ERROR_SESSION_NOT_RUNNING but got %s", to_string(result));
@@ -367,7 +372,7 @@ XrResult ConformanceHooks::xrWaitFrame(HandleState* const handleState, XrSession
     const XrResult result = ConformanceHooksBase::xrWaitFrame(handleState, session, frameWaitInfo, frameState);
 
     if (XR_SUCCEEDED(result)) {
-        CustomSessionState* const customSessionState = GetCustomSessionState(session);
+        CustomSessionState* const customSessionState = GetCustomSessionState(handleState);
         std::unique_lock<std::mutex> lock(customSessionState->lock);
 
         // SPEC: If a frame submitted to xrEndFrame is consumed by the compositor before its target display time, a subsequent call
@@ -387,7 +392,7 @@ XrResult ConformanceHooks::xrBeginFrame(HandleState* const handleState, XrSessio
 {
     const XrResult result = ConformanceHooksBase::xrBeginFrame(handleState, session, frameBeginInfo);
     if (XR_SUCCEEDED(result)) {
-        CustomSessionState* const customSessionState = GetCustomSessionState(session);
+        CustomSessionState* const customSessionState = GetCustomSessionState(handleState);
         std::unique_lock<std::mutex> lock(customSessionState->lock);
         NONCONFORMANT_IF(customSessionState->frameBegun && result == XR_SUCCESS, "XR_FRAME_DISCARDED expected but XR_SUCCESS returned");
         NONCONFORMANT_IF(!customSessionState->frameBegun && result == XR_FRAME_DISCARDED,
@@ -401,7 +406,7 @@ XrResult ConformanceHooks::xrEndFrame(HandleState* const handleState, XrSession 
 {
     // Call xrEndFrame under the lock because it might generate XR_SESSION_STATE_SYNCHRONIZED
     // at any time during the call and frameCount needs to increment in unison.
-    CustomSessionState* const customSessionState = GetCustomSessionState(session);
+    CustomSessionState* const customSessionState = GetCustomSessionState(handleState);
     std::unique_lock<std::mutex> lock(customSessionState->lock);
 
     const XrResult result = ConformanceHooksBase::xrEndFrame(handleState, session, frameEndInfo);
@@ -446,7 +451,7 @@ XrResult ConformanceHooks::xrEnumerateReferenceSpaces(HandleState* const handleS
                 VALIDATE_XRENUM(refSpace);
             }
 
-            CustomSessionState* const customSessionState = GetCustomSessionState(session);
+            CustomSessionState* const customSessionState = GetCustomSessionState(handleState);
             std::unique_lock<std::mutex> lock(customSessionState->lock);
 
             // If reference spaces are already cached, then make sure the enumeration function is returning the same results.
@@ -472,7 +477,7 @@ XrResult ConformanceHooks::xrEnumerateSwapchainFormats(HandleState* const handle
         return result;
     }
     if (formatCountOutput != nullptr && formats != nullptr) {
-        CustomSessionState* const customSessionState = GetCustomSessionState(session);
+        CustomSessionState* const customSessionState = GetCustomSessionState(handleState);
 
         std::unique_lock<std::mutex> lock(customSessionState->lock);
         if (customSessionState->headless) {

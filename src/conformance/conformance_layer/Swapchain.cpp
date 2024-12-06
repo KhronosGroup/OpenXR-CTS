@@ -16,6 +16,7 @@
 
 #include "ConformanceHooks.h"
 #include "CustomHandleState.h"
+#include "HandleState.h"
 #include "RuntimeFailure.h"
 
 using namespace swapchain;
@@ -51,6 +52,11 @@ namespace swapchain
         return dynamic_cast<CustomSwapchainState*>(GetSwapchainState(handle)->GetCustomState());
     }
 
+    CustomSwapchainState* GetCustomSwapchainState(HandleState* handleState)
+    {
+        return dynamic_cast<CustomSwapchainState*>(handleState->GetCustomState());
+    }
+
 }  // namespace swapchain
 
 /////////////////
@@ -63,7 +69,7 @@ XrResult ConformanceHooks::xrCreateSwapchain(HandleState* const handleState, XrS
     const XrResult result = ConformanceHooksBase::xrCreateSwapchain(handleState, session, createInfo, swapchain);
     if (XR_SUCCEEDED(result)) {
         // Tag on the custom swapchain state to the generated handle state.
-        session::CustomSessionState* customSessionState = session::GetCustomSessionState(session);
+        session::CustomSessionState* customSessionState = session::GetCustomSessionState(handleState);
         GetSwapchainState(*swapchain)->SetCustomState(std::make_unique<CustomSwapchainState>(createInfo, customSessionState));
     }
     return result;
@@ -71,7 +77,7 @@ XrResult ConformanceHooks::xrCreateSwapchain(HandleState* const handleState, XrS
 
 XrResult ConformanceHooks::xrDestroySwapchain(HandleState* const handleState, XrSwapchain swapchain)
 {
-    CustomSwapchainState* const swapchainData = GetCustomSwapchainState(swapchain);
+    CustomSwapchainState* const swapchainData = GetCustomSwapchainState(handleState);
     // There is no CustomSwapchainState for XrSwapchain handles created via
     // xrCreateSwapchainAndroidSurfaceKHR(), so make sure to check for null before using it.
     auto validator = swapchainData ? swapchainData->sessionState->graphicsValidator : nullptr;
@@ -91,7 +97,7 @@ XrResult ConformanceHooks::xrDestroySwapchain(HandleState* const handleState, Xr
 XrResult ConformanceHooks::xrEnumerateSwapchainImages(HandleState* const handleState, XrSwapchain swapchain, uint32_t imageCapacityInput,
                                                       uint32_t* imageCountOutput, XrSwapchainImageBaseHeader* images)
 {
-    CustomSwapchainState* const customSwapchainState = GetCustomSwapchainState(swapchain);
+    CustomSwapchainState* const customSwapchainState = GetCustomSwapchainState(handleState);
     auto validator = customSwapchainState->sessionState->graphicsValidator;
 
     if (validator) {
@@ -137,7 +143,7 @@ XrResult ConformanceHooks::xrEnumerateSwapchainImages(HandleState* const handleS
 XrResult ConformanceHooks::xrAcquireSwapchainImage(HandleState* const handleState, XrSwapchain swapchain,
                                                    const XrSwapchainImageAcquireInfo* acquireInfo, uint32_t* index)
 {
-    CustomSwapchainState* const swapchainData = GetCustomSwapchainState(swapchain);
+    CustomSwapchainState* const swapchainData = GetCustomSwapchainState(handleState);
     auto validator = swapchainData->sessionState->graphicsValidator;
 
     if (validator) {
@@ -181,7 +187,7 @@ XrResult ConformanceHooks::xrWaitSwapchainImage(HandleState* const handleState, 
 {
     auto waitStart = std::chrono::high_resolution_clock::now();
 
-    CustomSwapchainState* const swapchainData = GetCustomSwapchainState(swapchain);
+    CustomSwapchainState* const swapchainData = GetCustomSwapchainState(handleState);
     auto validator = swapchainData->sessionState->graphicsValidator;
 
     if (validator) {
@@ -221,7 +227,7 @@ XrResult ConformanceHooks::xrWaitSwapchainImage(HandleState* const handleState, 
 XrResult ConformanceHooks::xrReleaseSwapchainImage(HandleState* const handleState, XrSwapchain swapchain,
                                                    const XrSwapchainImageReleaseInfo* releaseInfo)
 {
-    CustomSwapchainState* const swapchainData = GetCustomSwapchainState(swapchain);
+    CustomSwapchainState* const swapchainData = GetCustomSwapchainState(handleState);
     auto validator = swapchainData->sessionState->graphicsValidator;
 
     if (validator) {

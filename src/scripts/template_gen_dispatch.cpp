@@ -107,8 +107,7 @@
 //#             set out_handle_type = cur_cmd.params[-1].type
 //#             set out_handle_object_type = gen.genXrObjectType(out_handle_type)
         // Normal "xrCreate" function: create and register state for child handle
-        HandleState* const parentHandleState = GetHandleState({HandleToInt(/*{ first_handle_name }*/), /*{ first_handle_object_type }*/});
-        RegisterHandleState(parentHandleState->CloneForChild(HandleToInt(* /*{ out_handle_name }*/), /*{ out_handle_object_type }*/));
+        RegisterHandleState(handleState->CloneForChild(HandleToInt(* /*{ out_handle_name }*/), /*{ out_handle_object_type }*/));
     }
 //#         endif
 
@@ -132,8 +131,7 @@
 //#         if is_create_swapchain_android_surface
     if (XR_SUCCEEDED(result)) {
 //#             set out_handle_name = cur_cmd.params[-2].name
-        HandleState* const parentHandleState = GetHandleState({HandleToInt(/*{ first_handle_name }*/), XR_OBJECT_TYPE_SESSION});
-        RegisterHandleState(parentHandleState->CloneForChild(HandleToInt(* /*{ out_handle_name }*/), XR_OBJECT_TYPE_SWAPCHAIN));
+        RegisterHandleState(handleState->CloneForChild(HandleToInt(* /*{ out_handle_name }*/), XR_OBJECT_TYPE_SWAPCHAIN));
     }
 //#         endif
 
@@ -163,8 +161,7 @@
 //#             set out_handle_name = cur_cmd.params[-1].name
         // Create "handle state" for the XrAsyncRequestIdFB value, with "object type" of the completion event expected.
         // The session is considered the parent handle.
-        HandleState* const parentHandleState = GetHandleState({HandleToInt(/*{ first_handle_name }*/), XR_OBJECT_TYPE_SESSION});
-        RegisterHandleState(parentHandleState->CloneForChild(* /*{ out_handle_name }*/, static_cast<XrObjectType>(XR_TYPE_EVENT_DATA_SPATIAL_ANCHOR_CREATE_COMPLETE_FB)));
+        RegisterHandleState(handleState->CloneForChild(* /*{ out_handle_name }*/, static_cast<XrObjectType>(XR_TYPE_EVENT_DATA_SPATIAL_ANCHOR_CREATE_COMPLETE_FB)));
     }
 //#         endif
 
@@ -195,8 +192,7 @@
         // Deal with created space handles
         if (/*{ out_param_name }*/->results) {
             for (uint32_t i = 0; i < /*{ out_param_name }*/->resultCountOutput; ++i) {
-                HandleState* const parentHandleState = GetHandleState({HandleToInt(/*{ first_handle_name }*/), XR_OBJECT_TYPE_SESSION});
-                RegisterHandleState(parentHandleState->CloneForChild(HandleToInt(/*{ out_param_name }*/->results[i].space), XR_OBJECT_TYPE_SPACE));
+                RegisterHandleState(handleState->CloneForChild(HandleToInt(/*{ out_param_name }*/->results[i].space), XR_OBJECT_TYPE_SPACE));
             }
         }
     }
