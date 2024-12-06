@@ -55,6 +55,13 @@ void RegisterHandleState(std::unique_ptr<HandleState> handleState)
     }
 }
 
+void CreateAndRegisterHandleState(HandleStateKey parentHandleKey, HandleStateKey handleKey)
+{
+
+    HandleState* const parentHandleState = GetHandleState(parentHandleKey);
+    RegisterHandleState(parentHandleState->CloneForChild(handleKey.first, handleKey.second));
+}
+
 void UnregisterHandleStateInternal(std::unique_lock<std::mutex>& lockProof, HandleStateKey key)
 {
     auto it = g_handleStates.find(key);
