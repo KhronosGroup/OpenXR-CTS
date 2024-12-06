@@ -55,10 +55,8 @@ void RegisterHandleState(std::unique_ptr<HandleState> handleState)
     }
 }
 
-void CreateAndRegisterHandleState(HandleStateKey parentHandleKey, HandleStateKey handleKey)
+void CreateAndRegisterHandleState(HandleState* parentHandleState, HandleStateKey handleKey)
 {
-
-    HandleState* const parentHandleState = GetHandleState(parentHandleKey);
     RegisterHandleState(parentHandleState->CloneForChild(handleKey.first, handleKey.second));
 }
 

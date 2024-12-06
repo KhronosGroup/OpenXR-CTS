@@ -147,9 +147,9 @@ void UnregisterHandleState(HandleStateKey key);
 /// @note Locks and unlocks the mutex for the global handle state map
 void RegisterHandleState(std::unique_ptr<HandleState> handleState);
 
-/// Combines @ref GetHandleState for the parent handle, @ref HandleState::CloneForChild, and @ref RegisterHandleState
+/// Combines @ref HandleState::CloneForChild, and @ref RegisterHandleState
 /// since they are frequently used together in this single configuration.
-void CreateAndRegisterHandleState(HandleStateKey parentHandleKey, HandleStateKey handleKey);
+void CreateAndRegisterHandleState(HandleState* parentHandleState, HandleStateKey handleKey);
 
 /// Retrieve common handle state based on a handle and object type enum.
 /// Throws if not found.

@@ -107,8 +107,7 @@
 //#             set out_handle_type = cur_cmd.params[-1].type
 //#             set out_handle_object_type = gen.genXrObjectType(out_handle_type)
         // Normal "xrCreate" function: create and register state for child handle
-        CreateAndRegisterHandleState(
-            {HandleToInt(/*{ first_handle_name }*/), /*{ first_handle_object_type }*/},
+        CreateAndRegisterHandleState(handleState,
             {HandleToInt(* /*{ out_handle_name }*/), /*{ out_handle_object_type }*/});
     }
 //#         endif
@@ -133,8 +132,7 @@
 //#         if is_create_swapchain_android_surface
     if (XR_SUCCEEDED(result)) {
 //#             set out_handle_name = cur_cmd.params[-2].name
-        CreateAndRegisterHandleState(
-            {HandleToInt(/*{ first_handle_name }*/), XR_OBJECT_TYPE_SESSION},
+        CreateAndRegisterHandleState(handleState,
             {HandleToInt(* /*{ out_handle_name }*/), XR_OBJECT_TYPE_SWAPCHAIN});
     }
 //#         endif
@@ -149,8 +147,7 @@
 //#             set completion_struct_last_param_name = last_param_struct.members[-1].name
 //#             if last_param_struct.members[-1].is_handle and not last_param_struct.members[-1].is_array
 //#                 set completion_struct_last_param_object_type = gen.genXrObjectType(last_param_struct.members[-1].type)
-        CreateAndRegisterHandleState(
-            {HandleToInt(/*{ first_handle_name }*/), /*{ first_handle_object_type }*/},
+        CreateAndRegisterHandleState(handleState,
             {HandleToInt(/*{ last_param_name }*/->/*{ completion_struct_last_param_name }*/), /*{ completion_struct_last_param_object_type }*/});
 //#             endif
     }
@@ -166,8 +163,7 @@
 //#             set out_handle_name = cur_cmd.params[-1].name
         // Create "handle state" for the XrAsyncRequestIdFB value, with "object type" of the completion event expected.
         // The session is considered the parent handle.
-        CreateAndRegisterHandleState(
-            {HandleToInt(/*{ first_handle_name }*/), XR_OBJECT_TYPE_SESSION},
+        CreateAndRegisterHandleState(handleState,
             {* /*{ out_handle_name }*/, static_cast<XrObjectType>(XR_TYPE_EVENT_DATA_SPATIAL_ANCHOR_CREATE_COMPLETE_FB)});
     }
 //#         endif
@@ -199,8 +195,7 @@
         // Deal with created space handles
         if (/*{ out_param_name }*/->results) {
             for (uint32_t i = 0; i < /*{ out_param_name }*/->resultCountOutput; ++i) {
-                CreateAndRegisterHandleState(
-                    {HandleToInt(/*{ first_handle_name }*/), XR_OBJECT_TYPE_SESSION},
+                CreateAndRegisterHandleState(handleState,
                     {HandleToInt(/*{ out_param_name }*/->results[i].space), XR_OBJECT_TYPE_SPACE});
             }
         }
