@@ -51,7 +51,7 @@ file(STRINGS gltf_examples/VertexColorTest.glb LFS_CHECK_STRINGS)
 if(LFS_CHECK_STRINGS MATCHES "https://git-lfs[.]github[.]com/spec/v1")
     message(
         FATAL_ERROR
-            "Found a git-lfs pointer file instead of the binary file that should replace it. Please install git-lfs, run 'git lfs install', and 'git lfs checkout'"
+            "Found a git-lfs pointer file instead of the binary file that should replace it. Please install git-lfs, run 'git lfs install', 'git lfs checkout', and 'git lfs fetch'"
     )
 endif()
 
