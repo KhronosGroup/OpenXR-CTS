@@ -9,18 +9,24 @@
 
 #pragma once
 
+#if defined(XR_USE_GRAPHICS_API_D3D12)
+
+#include "PbrCommon.h"
 #include "D3D12Resources.h"
 
-#include "../PbrCommon.h"
+#include "utilities/d3d12_utils.h"
+
+#include <openxr/openxr.h>
 
 #include <DirectXColors.h>
 #include <DirectXMath.h>
 #include <d3d12.h>
-#include <openxr/openxr.h>
 #include <wrl/client.h>  // For Microsoft::WRL::ComPtr
 
 namespace Pbr
 {
+    struct D3D12Resources;
+
     namespace D3D12Texture
     {
         Conformance::D3D12ResourceWithSRVDesc LoadTextureImage(D3D12Resources& pbrResources, ID3D12GraphicsCommandList* copyCommandList,
@@ -39,3 +45,5 @@ namespace Pbr
                            D3D12_TEXTURE_ADDRESS_MODE addressMode = D3D12_TEXTURE_ADDRESS_MODE_CLAMP);
     }  // namespace D3D12Texture
 }  // namespace Pbr
+
+#endif

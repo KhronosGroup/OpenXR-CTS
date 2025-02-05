@@ -8,13 +8,10 @@
 #pragma once
 
 #include "GLCommon.h"
-#include "GLResources.h"
 
-#include "../PbrCommon.h"
-#include "../PbrMaterial.h"
-#include "../PbrSharedState.h"
-
-#include "common/gfxwrapper_opengl.h"
+#include "PbrCommon.h"
+#include "PbrMaterial.h"
+#include "PbrSharedState.h"
 
 #include <array>
 #include <memory>

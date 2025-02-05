@@ -11,15 +11,19 @@
 #include "D3D12Texture.h"
 
 #include "D3D12Resources.h"
-#include "../PbrTexture.h"
-#include "../D3DCommon.h"
+#include "PbrTexture.h"
+#include "PbrD3DCommon.h"
 
 #include "stb_image.h"
 
 #include "utilities/throw_helpers.h"
 
-#include <d3dx12.h>
 #include <tinygltf/tiny_gltf.h>
+
+#include <d3dx12.h>
+#include <wrl/client.h>  // For Microsoft::WRL::ComPtr
+
+#include <memory>
 
 using namespace DirectX;
 

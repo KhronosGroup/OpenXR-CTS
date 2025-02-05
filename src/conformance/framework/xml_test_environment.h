@@ -27,7 +27,7 @@ namespace Conformance
     void WriteConformanceReportSummary(Catch::XmlWriter& xml, const ConformanceReport& cr);
 
     /// Output test environment and instance/runtime data
-    void WriteTestEnvironment(Catch::XmlWriter& xml, GlobalData& globalData);
+    void WriteTestEnvironment(Catch::XmlWriter& xml, GlobalData& globalData, const Options& options);
 
     // Helpers called by WriteTestEnvironment
 

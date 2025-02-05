@@ -6,8 +6,8 @@
 
 #include "graphics_plugin_vulkan_gltf.h"
 
+#include "common/xr_linear.h"
 #include "pbr/Vulkan/VkModel.h"
-#include "pbr/Vulkan/VkPrimitive.h"
 #include "pbr/Vulkan/VkResources.h"
 
 namespace Conformance

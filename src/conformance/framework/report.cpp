@@ -15,8 +15,10 @@
 // limitations under the License.
 
 #include "report.h"
-#include <string>
+
 #include <cstdio>
+#include <stdarg.h>
+#include <string>
 
 #ifdef _WIN32
 #include <windows.h>

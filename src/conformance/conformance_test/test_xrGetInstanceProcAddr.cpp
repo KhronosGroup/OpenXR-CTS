@@ -25,7 +25,6 @@
 #include <cstring>
 #include <initializer_list>
 #include <string>
-#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -75,6 +74,13 @@ namespace Conformance
 
             for (auto& functionInfo : functionInfoMap) {
                 XrResult expectedResult = XR_SUCCESS;
+                if (functionInfo.second.requiredVersion != XrVersion{}) {
+                    // core function
+
+                    if (functionInfo.second.requiredVersion > Options::Get().desiredApiVersionValue) {
+                        expectedResult = XR_ERROR_FUNCTION_UNSUPPORTED;
+                    }
+                }
                 if (functionInfo.second.requiredExtension != nullptr) {
                     // this function belongs to an extension: if the extension was enabled, the function pointer
                     // should get returned, otherwise XR_ERROR_FUNCTION_UNSUPPORTED is expected
@@ -87,8 +93,9 @@ namespace Conformance
                             break;
                         }
                     }
-                    if (!thisExtensionIsEnabled)
+                    if (!thisExtensionIsEnabled) {
                         expectedResult = XR_ERROR_FUNCTION_UNSUPPORTED;
+                    }
                 }
                 CAPTURE(functionInfo.first);
 

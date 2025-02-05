@@ -14,9 +14,7 @@
 
 #include <openxr/openxr.h>
 
-#include <array>
 #include <set>
-#include <stddef.h>
 #include <stdint.h>
 #include <tuple>
 #include <vector>

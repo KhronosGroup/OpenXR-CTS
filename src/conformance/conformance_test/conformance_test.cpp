@@ -17,12 +17,14 @@
 #define CATCH_CONFIG_NOSTDOUT
 
 #include "conformance_framework.h"
+#include "conformance_options.h"
 #include "conformance_test.h"
 #include "conformance_utils.h"
 #include "environment.h"
-#include "graphics_plugin.h"
+#include "graphics_plugin.h"   // IWYU pragma: keep
 #include "platform_utils.hpp"  // for OPENXR_API_LAYER_PATH_ENV_VAR
 #include "report.h"
+#include "utilities/feature_availability.h"
 #include "utilities/git_revision.h"
 #include "utilities/utils.h"
 
@@ -37,15 +39,14 @@
 #include <catch2/reporters/catch_reporter_event_listener.hpp>
 #include <catch2/reporters/catch_reporter_registrars.hpp>
 
-#include "common/xr_dependencies.h"
+#include "common/xr_dependencies.h"  // IWYU pragma: keep
 #include <openxr/openxr.h>
 #include <openxr/openxr_platform.h>
 
-#include <cstddef>
-#include <string>
 #include <cstring>
+#include <iostream>
 #include <streambuf>
-#include <algorithm>
+#include <string>
 
 using namespace Conformance;
 
@@ -107,7 +108,7 @@ namespace
                            XR_VERSION_PATCH(instanceProperties.runtimeVersion));
 
         // Report the users-selected options
-        std::string optionsDescription = globalData.GetOptions().DescribeOptions();
+        std::string optionsDescription = Options::Get().DescribeOptions();
         ReportConsoleOnlyF("Test options:\n%s", optionsDescription.c_str());
 
         // Report the available API layers.
@@ -130,7 +131,7 @@ namespace
                 ReportConsoleOnlyF("    %s, extension version %d", extensionProperties.extensionName, extensionProperties.extensionVersion);
             }
         }
-        ReportConsoleOnlyF("");
+        ReportConsoleOnlyF("\n");
     }
 
     TEST_CASE("DescribeGraphicsPlugin", "")
@@ -246,7 +247,7 @@ namespace
         {
             GlobalData& globalData = GetGlobalData();
 
-            if (!globalData.options.invalidHandleValidation) {
+            if (!Options::Get().invalidHandleValidation) {
                 REQUIRE_MSG(globalData.IsAPILayerEnabled("XR_APILAYER_KHRONOS_runtime_conformance"),
                             "Conformance layer required to pass conformance");
 
@@ -318,25 +319,17 @@ namespace
         }
     }
 
-    Catch::Clara::Parser MakeCLIParser(Conformance::GlobalData& globalData)
+    Catch::Clara::Parser MakeCLIParser(Options& options)
     {
         using namespace Catch::Clara;
-        auto& options = globalData.options;
 
         /// Handle apiVersion arg
         auto const parseDesiredApiVersion = [&](std::string const& arg) {
-            GlobalData& globalData = GetGlobalData();
-            globalData.options.desiredApiVersion = arg;
-            if (striequal(globalData.options.desiredApiVersion.c_str(), "1.0"))
-                globalData.options.desiredApiVersionValue = XR_API_VERSION_1_0;
-            else if (striequal(globalData.options.desiredApiVersion.c_str(), "1.1"))
-                globalData.options.desiredApiVersionValue = XR_API_VERSION_1_1;
-            else {
-                ReportConsoleOnlyF("invalid arg: %s", globalData.options.desiredApiVersion.c_str());
-                return ParserResult::runtimeError("invalid OpenXR version '" + arg + "' passed on command line");
+            if (options.SetDesiredApiVersion(arg)) {
+                return ParserResult::ok(ParseResultType::Matched);
             }
-
-            return ParserResult::ok(ParseResultType::Matched);
+            ReportConsoleOnlyF("invalid arg: %s", arg.c_str());
+            return ParserResult::runtimeError("invalid OpenXR version '" + arg + "' passed on command line");
         };
 
         /// Handle rand seed arg
@@ -354,90 +347,49 @@ namespace
 
         /// Handle form factor arg
         auto const parseFormFactor = [&](std::string const& arg) {
-            GlobalData& globalData = GetGlobalData();
-            globalData.options.formFactor = arg;
-            if (striequal(globalData.options.formFactor.c_str(), "hmd"))
-                globalData.options.formFactorValue = XR_FORM_FACTOR_HEAD_MOUNTED_DISPLAY;
-            else if (striequal(globalData.options.formFactor.c_str(), "handheld"))
-                globalData.options.formFactorValue = XR_FORM_FACTOR_HANDHELD_DISPLAY;
-            else {
-                ReportConsoleOnlyF("invalid arg: %s", globalData.options.formFactor.c_str());
-                return ParserResult::runtimeError("invalid form factor '" + arg + "' passed on command line");
+            if (options.SetFormFactor(arg)) {
+                return ParserResult::ok(ParseResultType::Matched);
             }
-
-            return ParserResult::ok(ParseResultType::Matched);
+            ReportConsoleOnlyF("invalid arg: %s", arg.c_str());
+            return ParserResult::runtimeError("invalid form factor '" + arg + "' passed on command line");
         };
 
         /// Handle hands arg
         auto const parseHands = [&](std::string const& arg) {
-            GlobalData& globalData = GetGlobalData();
-            globalData.options.enabledHands = arg;
-
-            if (striequal(globalData.options.enabledHands.c_str(), "left")) {
-                globalData.options.leftHandEnabled = true;
-                globalData.options.rightHandEnabled = false;
+            if (options.SetEnabledHands(arg)) {
+                return ParserResult::ok(ParseResultType::Matched);
             }
-            else if (striequal(globalData.options.enabledHands.c_str(), "right")) {
-                globalData.options.leftHandEnabled = false;
-                globalData.options.rightHandEnabled = true;
-            }
-            else if (striequal(globalData.options.enabledHands.c_str(), "both")) {
-                globalData.options.leftHandEnabled = true;
-                globalData.options.rightHandEnabled = true;
-            }
-            else {
-                ReportConsoleOnlyF("invalid arg: %s", globalData.options.enabledHands.c_str());
-                return ParserResult::runtimeError("invalid hands '" + arg + "' passed on command line");
-            }
-
-            return ParserResult::ok(ParseResultType::Matched);
+            ReportConsoleOnlyF("invalid arg: %s", arg.c_str());
+            return ParserResult::runtimeError("invalid hands '" + arg + "' passed on command line");
         };
 
         /// Handle view config arg
         auto const parseViewConfig = [&](std::string const& arg) {
-            GlobalData& globalData = GetGlobalData();
-            globalData.options.viewConfiguration = arg;
-            if (striequal(globalData.options.viewConfiguration.c_str(), "stereo"))
-                globalData.options.viewConfigurationValue = XR_VIEW_CONFIGURATION_TYPE_PRIMARY_STEREO;
-            else if (striequal(globalData.options.viewConfiguration.c_str(), "stereoFoveated"))
-                globalData.options.viewConfigurationValue = XR_VIEW_CONFIGURATION_TYPE_PRIMARY_STEREO_WITH_FOVEATED_INSET;
-            else if (striequal(globalData.options.viewConfiguration.c_str(), "mono"))
-                globalData.options.viewConfigurationValue = XR_VIEW_CONFIGURATION_TYPE_PRIMARY_MONO;
-            else {
-                ReportConsoleOnlyF("invalid arg: %s", globalData.options.viewConfiguration.c_str());
-                return ParserResult::runtimeError("invalid view config '" + arg + "' passed on command line");
+            if (options.SetViewConfiguration(arg)) {
+                return ParserResult::ok(ParseResultType::Matched);
             }
-            return ParserResult::ok(ParseResultType::Matched);
+            ReportConsoleOnlyF("invalid arg: %s", arg.c_str());
+            return ParserResult::runtimeError("invalid view config '" + arg + "' passed on command line");
         };
 
         /// Handle blend mode arg
         auto const parseBlendMode = [&](std::string const& arg) {
-            GlobalData& globalData = GetGlobalData();
-            globalData.options.environmentBlendMode = arg;
-            if (striequal(globalData.options.environmentBlendMode.c_str(), "opaque"))
-                globalData.options.environmentBlendModeValue = XR_ENVIRONMENT_BLEND_MODE_OPAQUE;
-            else if (striequal(globalData.options.environmentBlendMode.c_str(), "additive"))
-                globalData.options.environmentBlendModeValue = XR_ENVIRONMENT_BLEND_MODE_ADDITIVE;
-            else if (striequal(globalData.options.environmentBlendMode.c_str(), "alphablend"))
-                globalData.options.environmentBlendModeValue = XR_ENVIRONMENT_BLEND_MODE_ALPHA_BLEND;
-            else {
-                ReportConsoleOnlyF("invalid arg: %s", globalData.options.environmentBlendMode.c_str());
-
-                return ParserResult::runtimeError("invalid environment blend mode '" + arg + "' passed on command line");
+            if (options.SetEnvironmentBlendMode(arg)) {
+                return ParserResult::ok(ParseResultType::Matched);
             }
-            return ParserResult::ok(ParseResultType::Matched);
+            ReportConsoleOnlyF("invalid arg: %s", arg.c_str());
+            return ParserResult::runtimeError("invalid environment blend mode '" + arg + "' passed on command line");
         };
 
         /// Handle auto skip timeout
         auto const parseAutoSkipTimeout = [&](std::string const& arg) {
-            GlobalData& globalData = GetGlobalData();
             uint64_t skipTimeoutValue = std::strtoull(arg.c_str(), nullptr, 0);
             if (errno == ERANGE) {
                 ReportConsoleOnlyF("invalid arg: %s", arg.c_str());
                 return ParserResult::runtimeError("invalid uint64_t autoSkipTimeout '" + arg + "' passed on command line");
             }
 
-            globalData.options.autoSkipTimeout = std::chrono::milliseconds(skipTimeoutValue);
+            options.autoSkipTimeout = std::chrono::milliseconds(skipTimeoutValue);
             return ParserResult::ok(ParseResultType::Matched);
         };
 
@@ -452,8 +404,8 @@ namespace
                 .required()
 
             | Opt(parseDesiredApiVersion,
-                  "1.0|1.1")        // OpenXR version
-                  ["--apiVersion"]  //
+                  Options::AvailableDesiredApiVersions())  // OpenXR version
+                  ["--apiVersion"]                         //
               ("Specify the OpenXR API version to use. Default is 1.1.")
                   .optional()
 
@@ -462,23 +414,23 @@ namespace
               ("Specify a random seed to use (decimal or hex). Default is a dynamically chosen value.")
                   .optional()
 
-            | Opt(parseFormFactor, "HMD|Handheld")  // form factor
-                  ["-F"]["--formFactor"]            //
+            | Opt(parseFormFactor, Options::AvailableFormFactors())  // form factor
+                  ["-F"]["--formFactor"]                             //
               ("Specify a form factor to use. Default is HMD.")
                   .optional()
 
-            | Opt(parseHands, "left|right|both")  // Hands
-                  ["--hands"]                     //
+            | Opt(parseHands, Options::AvailableEnabledHands())  // Hands
+                  ["--hands"]                                    //
               ("Choose which hands to test: left, right, or both. Default is both.")
                   .optional()
 
-            | Opt(parseViewConfig, "Stereo|StereoFoveated|Mono")  // view configuration
-                  ["-V"]["--viewConfiguration"]                   //
+            | Opt(parseViewConfig, Options::AvailableViewConfigurations())  // view configuration
+                  ["-V"]["--viewConfiguration"]                             //
               ("Specify view configuration. Default is Stereo.")
                   .optional()
 
-            | Opt(parseBlendMode, "Opaque|Additive|AlphaBlend")  // blend mode
-                  ["-B"]["--environmentBlendMode"]               //
+            | Opt(parseBlendMode, Options::AvailableEnvironmentBlendModes())  // blend mode
+                  ["-B"]["--environmentBlendMode"]                            //
               ("Specify blend mode. Default is Opaque.")
                   .optional()
 
@@ -536,9 +488,9 @@ namespace
     }
     bool UpdateOptionsFromCommandLine(Catch::Session& catchSession, int argc, const char* const* argv)
     {
-        auto& globalData = GetGlobalData();
-        auto cli = MakeCLIParser(globalData)  // our options first
-                   | catchSession.cli();      // Catch default options
+        Options& options = Options::Get();
+        auto cli = MakeCLIParser(options)  // our options first
+                   | catchSession.cli();   // Catch default options
         catchSession.cli(cli);
         auto result = catchSession.applyCommandLine(argc, argv);
         if (catchSession.configData().showHelp) {
@@ -548,17 +500,18 @@ namespace
             return true;
         }
 
-        globalData.enabledAPILayerNames = globalData.options.enabledAPILayers;
-        globalData.enabledInstanceExtensionNames = globalData.options.enabledInstanceExtensions;
-        globalData.enabledInteractionProfiles = globalData.options.enabledInteractionProfiles;
-        globalData.leftHandUnderTest = globalData.options.leftHandEnabled;
-        globalData.rightHandUnderTest = globalData.options.rightHandEnabled;
-        globalData.conformanceReport.apiVersion = globalData.options.desiredApiVersionValue;
+        auto& globalData = GetGlobalData();
+        globalData.enabledAPILayerNames = options.enabledAPILayers;
+        globalData.enabledInstanceExtensionNames = options.enabledInstanceExtensions;
+        globalData.enabledInteractionProfiles = options.enabledInteractionProfiles;
+        globalData.leftHandUnderTest = options.leftHandEnabled;
+        globalData.rightHandUnderTest = options.rightHandEnabled;
+        globalData.conformanceReport.apiVersion = options.desiredApiVersionValue;
 
         if (!(catchSession.configData().listTests || catchSession.configData().listTags || catchSession.configData().listListeners ||
               catchSession.configData().listReporters)) {
             // Check for required parameters, if we are actually going to run tests
-            if (GetGlobalData().options.graphicsPlugin.empty()) {  // If no graphics system was specified...
+            if (Options::Get().graphicsPlugin.empty()) {           // If no graphics system was specified...
                 if (GetGlobalData().IsGraphicsPluginRequired()) {  // and if one is required...
                     ReportConsoleOnlyF("graphicsPlugin parameter is required.");
                     return false;
@@ -749,7 +702,7 @@ XrcResult XRAPI_CALL xrcRunConformanceTests(const ConformanceLaunchSettings* con
             catchConfigData.listTests || catchConfigData.listTags || catchConfigData.listListeners || catchConfigData.listReporters;
         bool initialized = true;
         if (!skipActuallyTesting) {
-            initialized = GetGlobalData().Initialize();
+            initialized = GetGlobalData().Initialize(Options::Get());
             if (initialized) {
                 ReportTestEnvironment();
             }

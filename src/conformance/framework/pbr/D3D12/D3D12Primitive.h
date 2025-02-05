@@ -8,6 +8,8 @@
 
 #pragma once
 
+#if defined(XR_USE_GRAPHICS_API_D3D12)
+
 #include "D3D12Material.h"
 
 #include <d3d12.h>
@@ -70,3 +72,5 @@ namespace Pbr
         std::vector<NodeIndex_t> m_nodeIndices;
     };
 }  // namespace Pbr
+
+#endif

@@ -16,16 +16,16 @@
 
 #pragma once
 
+#include "swapchain_parameters.h"
+
 #include <openxr/openxr.h>
 #include <nonstd/span.hpp>
-#include "swapchain_parameters.h"
-#include "utils.h"
 
 #include <cstdint>
-#include <initializer_list>
 #include <string>
 #include <cassert>
 #include <map>
+#include <utility>
 
 namespace Conformance
 {

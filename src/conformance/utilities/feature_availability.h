@@ -9,9 +9,9 @@
 
 #include <bitset>
 #include <initializer_list>
+#include <stddef.h>
 #include <string>
 #include <vector>
-#include "utilities/utils.h"
 
 namespace Conformance
 {
@@ -71,6 +71,10 @@ namespace Conformance
 
         /// Extract only the versions from the feature set
         static FeatureSet VersionsOnly(const FeatureSet& other);
+
+        /// Returns the highest XrVersion in the feature set, with patch set to current.
+        /// Returns zero if no version is found.
+        XrVersion AsMaxSetVersion() const;
 
         /// Return the union
         FeatureSet operator+(const FeatureSet& other) const;

@@ -20,11 +20,9 @@
 #include <assert.h>
 #include <cctype>
 #include <cstdint>
-#include <functional>
 #include <iterator>
 #include <limits>
 #include <map>
-#include <memory>
 #include <stdexcept>
 #include <string.h>
 #include <string>

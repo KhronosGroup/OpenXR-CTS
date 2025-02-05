@@ -15,10 +15,12 @@
 // limitations under the License.
 
 #include "conformance_framework.h"
+#include "conformance_options.h"
 #include "conformance_utils.h"
 #include "graphics_plugin.h"
-#include "platform_plugin.h"
 #include "two_call_util.h"
+#include "utilities/event_reader.h"
+#include "utilities/feature_availability.h"
 #include "utilities/throw_helpers.h"
 #include "utilities/utils.h"
 #include "utilities/xrduration_literals.h"
@@ -35,7 +37,6 @@
 #include <cstring>
 #include <map>
 #include <memory>
-#include <ratio>
 #include <sstream>
 #include <thread>
 #include <utility>
@@ -277,29 +278,24 @@ namespace Conformance
     // CreateBasicInstance
     ////////////////////////////////////////////////////////////////////////////////////////////////
 
-    XrResult CreateBasicInstance(XrInstance* instance, bool permitDebugMessenger,
-                                 const std::vector<const char*>& additionalEnabledExtensions)
+    static XrResult CreateBasicInstanceImpl(XrInstance* instance, XrBaseInStructure* requiredPlatformInstanceCreateStruct,
+                                            bool permitDebugMessenger, XrVersion apiVersion, const StringVec& extensions,
+                                            const StringVec& enabledAPILayerNames)
     {
-        GlobalData& globalData = GetGlobalData();
 
         XrDebugUtilsMessengerCreateInfoEXT debugInfo = MakeMessengerCreateInfo();
         XrInstanceCreateInfo createInfo{XR_TYPE_INSTANCE_CREATE_INFO};
         createInfo.applicationInfo.applicationVersion = 1;
         strcpy(createInfo.applicationInfo.applicationName, "conformance test");
-        createInfo.applicationInfo.apiVersion = globalData.options.desiredApiVersionValue;
-        createInfo.enabledApiLayerCount = (uint32_t)globalData.enabledAPILayerNames.size();
-        createInfo.enabledApiLayerNames = globalData.enabledAPILayerNames.data();
-
-        StringVec extensions(globalData.enabledInstanceExtensionNames);
-        for (const char* enabledExt : additionalEnabledExtensions) {
-            extensions.push_back_unique(enabledExt);
-        }
+        createInfo.applicationInfo.apiVersion = apiVersion;
+        createInfo.enabledApiLayerCount = (uint32_t)enabledAPILayerNames.size();
+        createInfo.enabledApiLayerNames = enabledAPILayerNames.data();
 
         createInfo.enabledExtensionCount = (uint32_t)extensions.size();
         createInfo.enabledExtensionNames = extensions.data();
 
-        if (globalData.requiredPlatformInstanceCreateStruct != nullptr) {
-            createInfo.next = globalData.requiredPlatformInstanceCreateStruct;
+        if (requiredPlatformInstanceCreateStruct != nullptr) {
+            createInfo.next = requiredPlatformInstanceCreateStruct;
         }
         if (permitDebugMessenger) {
             debugInfo.next = createInfo.next;
@@ -313,33 +309,81 @@ namespace Conformance
         return result;
     }
 
+    XrResult CreateBasicInstance(XrInstance* instance, bool permitDebugMessenger,
+                                 const std::vector<const char*>& additionalEnabledExtensions)
+    {
+        GlobalData& globalData = GetGlobalData();
+
+        StringVec extensions(globalData.enabledInstanceExtensionNames);
+        for (const char* enabledExt : additionalEnabledExtensions) {
+            extensions.push_back_unique(enabledExt);
+        }
+
+        return CreateBasicInstanceImpl(instance, globalData.requiredPlatformInstanceCreateStruct, permitDebugMessenger,
+                                       Options::Get().desiredApiVersionValue, extensions, globalData.enabledAPILayerNames);
+    }
+
+    XrResult CreateBasicInstance(XrInstance* instance, const FeatureSet& featureSet, bool permitDebugMessenger)
+    {
+        GlobalData& globalData = GetGlobalData();
+
+        XrVersion requestedVersion = featureSet.AsMaxSetVersion();
+        if (requestedVersion == 0) {
+            // no requested version.
+            requestedVersion = Options::Get().desiredApiVersionValue;
+        }
+        if (requestedVersion == 0) {
+            // no requested version, options not parsed yet
+            requestedVersion = XR_API_VERSION_1_0;
+        }
+        // TODO do we actually want the max of the feature set's max and the options version?
+
+        StringVec extensions(globalData.enabledInstanceExtensionNames);
+        for (auto& ext : featureSet.GetExtensions()) {
+            extensions.push_back_unique(ext);
+        }
+        return CreateBasicInstanceImpl(instance, globalData.requiredPlatformInstanceCreateStruct, permitDebugMessenger, requestedVersion,
+                                       extensions, globalData.enabledAPILayerNames);
+    }
+
     ////////////////////////////////////////////////////////////////////////////////////////////////
     // AutoBasicInstance
     ////////////////////////////////////////////////////////////////////////////////////////////////
 
+    AutoBasicInstance::AutoBasicInstance(int optionFlags) : AutoBasicInstance(FeatureSet{}, optionFlags)
+    {
+    }
+
     AutoBasicInstance::AutoBasicInstance(const std::vector<const char*>& additionalEnabledExtensions, int optionFlags)
-    {
-        Initialize(optionFlags, XR_NULL_HANDLE, additionalEnabledExtensions);
-    }
-
-    AutoBasicInstance::AutoBasicInstance(int optionFlags, XrInstance instance_ /* = XR_NULL_HANDLE */)
-    {
-        Initialize(optionFlags, instance_);
-    }
-
-    void AutoBasicInstance::Initialize(int optionFlags, XrInstance instance_, const std::vector<const char*>& additionalEnabledExtensions)
     {
         const bool permitDebugMessenger =
             IsInstanceExtensionEnabled(XR_EXT_DEBUG_UTILS_EXTENSION_NAME) && ((optionFlags & skipDebugMessenger) == 0);
+        instanceCreateResult = CreateBasicInstance(&instance, permitDebugMessenger, additionalEnabledExtensions);
+        XRC_CHECK_THROW_XRRESULT(instanceCreateResult, "CreateBasicInstance");
+        Initialize(optionFlags);
+    }
 
-        if (instance_ != XR_NULL_HANDLE) {
-            assert(additionalEnabledExtensions.size() == 0);
-            instance = instance_;
-        }
-        else {
-            instanceCreateResult = CreateBasicInstance(&instance, permitDebugMessenger, additionalEnabledExtensions);
-            XRC_CHECK_THROW_XRRESULT(instanceCreateResult, "CreateBasicInstance");
-        }
+    AutoBasicInstance::AutoBasicInstance(const FeatureSet& featureSet, int optionFlags)
+    {
+        const bool permitDebugMessenger =
+            IsInstanceExtensionEnabled(XR_EXT_DEBUG_UTILS_EXTENSION_NAME) && ((optionFlags & skipDebugMessenger) == 0);
+        instanceCreateResult = CreateBasicInstance(&instance, featureSet, permitDebugMessenger);
+        XRC_CHECK_THROW_XRRESULT(instanceCreateResult, "CreateBasicInstance");
+        Initialize(optionFlags);
+    }
+
+    AutoBasicInstance::AutoBasicInstance(XrInstance instance_, int optionFlags)
+    {
+        instance = instance_;
+        Initialize(optionFlags);
+    }
+
+    void AutoBasicInstance::Initialize(int optionFlags)
+    {
+        assert(IsValidHandle());
+
+        const bool permitDebugMessenger =
+            IsInstanceExtensionEnabled(XR_EXT_DEBUG_UTILS_EXTENSION_NAME) && ((optionFlags & skipDebugMessenger) == 0);
 
         if (permitDebugMessenger) {
             XrDebugUtilsMessengerCreateInfoEXT debugInfo = MakeMessengerCreateInfo();
@@ -392,7 +436,7 @@ namespace Conformance
     XrResult FindBasicSystem(XrInstance instance, XrSystemId* systemId)
     {
         XrSystemGetInfo systemGetInfo{XR_TYPE_SYSTEM_GET_INFO};
-        systemGetInfo.formFactor = GetGlobalData().options.formFactorValue;
+        systemGetInfo.formFactor = Options::Get().formFactorValue;
         return xrGetSystem(instance, &systemGetInfo, systemId);
     }
 
@@ -469,7 +513,7 @@ namespace Conformance
             instance = instance_;
             optionFlags = optionFlags_;
             viewConfigurationType =
-                viewConfigType_ == XR_VIEW_CONFIGURATION_TYPE_MAX_ENUM ? globalData.options.viewConfigurationValue : viewConfigType_;
+                viewConfigType_ == XR_VIEW_CONFIGURATION_TYPE_MAX_ENUM ? Options::Get().viewConfigurationValue : viewConfigType_;
 
             if ((optionFlags & createInstance) == 0) {
                 // cannot proceed further without an instance
@@ -563,7 +607,7 @@ namespace Conformance
         // that the session is ready.
 
         // timeout in case the runtime will never transition to READY: 10s in release, no practical limit in debug
-        auto timeoutToTransitionToSessionState = (GetGlobalData().options.debugMode ? 60s : 10s);
+        auto timeoutToTransitionToSessionState = (Options::Get().debugMode ? 60s : 10s);
         CountdownTimer countdownTimer(timeoutToTransitionToSessionState);
 
         while ((sessionState != XR_SESSION_STATE_READY) && (!countdownTimer.IsTimeUp())) {
@@ -593,7 +637,7 @@ namespace Conformance
                     " If this system supports a user engagement sensor, the runtime may not transition to XR_SESSION_STATE_READY state until the user starts engaging with the device.";
             }
 
-            if (GetGlobalData().options.debugMode) {
+            if (Options::Get().debugMode) {
                 extraInfo += " Tests running using debug mode: using extended timeout of 60s to wait for XR_SESSION_STATE_READY";
             }
 
@@ -627,6 +671,7 @@ namespace Conformance
         systemId = XR_NULL_SYSTEM_ID;
         sessionCreateResult = XR_SUCCESS;
         //handSubactionArray - nothing to do.
+        swapchainVector.clear();        // Let parent session destroy this.
         swapchainFormatVector.clear();  // Let parent session destroy this.
         actionSet = XR_NULL_HANDLE;     // Let parent session destroy this.
         actionVector.clear();           // Let parent session destroy this.
@@ -873,7 +918,7 @@ namespace Conformance
     {
         auto initialSessionState = sessionState;
 
-        auto timeoutToTransitionToSessionState = (GetGlobalData().options.debugMode ? 3600s : 10s);
+        auto timeoutToTransitionToSessionState = (Options::Get().debugMode ? 3600s : 10s);
         CAPTURE(timeoutToTransitionToSessionState);
         CountdownTimer countdownTimer(timeoutToTransitionToSessionState);
 

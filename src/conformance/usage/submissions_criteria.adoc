@@ -3,13 +3,26 @@
 // SPDX-License-Identifier: CC-BY-4.0
 
 [[submissions-criteria]]
-== Conformance Criteria
+== Passing Criteria
 
-A conformance run is considered passing if all tests finish with allowed
-result codes, and all warnings are acceptably explained to describe why they
+A conformance run is considered passing if **all tests** required by the
+testing steps finish with allowed result codes (pass or skip as
+appropriate), and all warnings are acceptably explained to describe why they
 are not a conformance failure.
 `XR_EXT_conformance_automation` **must** not be used for conformance
 submission.
+
+
+[IMPORTANT]
+====
+Any error or failure when testing functionality means your runtime is **not
+conformant**.
+
+Any warnings **may** indicate non-conformance and **must** be explained in
+the submission package.
+====
+
+
 Test results are contained in the output XML files, which are an extension
 of the common "*Unit" schema with some custom elements.
 Each test case leaf section is reached by a run of its own, and is recorded
@@ -58,12 +71,3 @@ the number of top level test cases):
 ----
 <cts:results testSuccessCount="1" testFailureCount="0"/>
 ----
-
-[IMPORTANT]
-====
-Any error or failure when testing **core or KHR extension** functionality
-means your runtime is **not conformant**.
-
-Any warnings **may** indicate non-conformance and **must** be explained in
-the submission package.
-====

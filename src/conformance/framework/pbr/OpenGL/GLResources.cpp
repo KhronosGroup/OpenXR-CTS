@@ -16,17 +16,18 @@
 #include "GLPrimitive.h"
 #include "GLTexture.h"
 #include "GLTextureCache.h"
-#include "../GlslBuffers.h"
-
-#include "../../gltf/GltfHelper.h"
-#include "../PbrCommon.h"
-#include "../PbrHandles.h"
-#include "../PbrSharedState.h"
+#include "GlslBuffers.h"
+#include "PbrCommon.h"
+#include "PbrHandles.h"
+#include "PbrSharedState.h"
+#include "../gltf/GltfHelper.h"
 
 #include "common/gfxwrapper_opengl.h"
+#include "common/xr_linear.h"
 #include "utilities/opengl_utils.h"
 #include "utilities/xr_math_operators.h"
 
+#include <openxr/openxr.h>
 #include <nonstd/type.hpp>
 #include <tinygltf/tiny_gltf.h>
 
@@ -39,7 +40,6 @@
 
 namespace Pbr
 {
-    struct ITexture;
     struct Material;
 }  // namespace Pbr
 

@@ -17,12 +17,10 @@
 #include "composition_utils.h"
 #include "conformance_framework.h"
 #include "matchers.h"
-#include "report.h"
 #include "availability_helper.h"
 #include "conformance_utils.h"
 #include "two_call.h"
 #include "utilities/feature_availability.h"
-#include "utilities/utils.h"
 #include "xr_math_approx.h"
 
 #include <catch2/catch_test_macros.hpp>
@@ -32,7 +30,6 @@
 #include <catch2/matchers/catch_matchers_contains.hpp>
 #include <openxr/openxr.h>
 
-#include <algorithm>
 #include <vector>
 
 using namespace Conformance;

@@ -146,7 +146,7 @@ namespace Conformance
         SECTION("space location math")
         {
             // to capture only the handle and not the full object below
-            XrSession sessionHandle = session.GetSession();
+            XrSession sessionHandle = session;
 
             // Creates a space for the each of the two input poses, locates them and compares the result
             // with the expected pose. Intention is to check the math behind xrLocateSpace.

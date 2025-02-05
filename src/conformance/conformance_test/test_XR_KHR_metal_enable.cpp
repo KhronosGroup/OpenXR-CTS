@@ -44,9 +44,9 @@ namespace Conformance
         // Create the graphics plugin we'll need to exercise session create functionality below.
         std::shared_ptr<IGraphicsPlugin> graphicsPlugin;
 
-        if (!globalData.options.graphicsPlugin.empty()) {
-            REQUIRE_NOTHROW(graphicsPlugin = Conformance::CreateGraphicsPlugin(globalData.options.graphicsPlugin.c_str(),
-                                                                               globalData.GetPlatformPlugin()));
+        if (!Options::Get().graphicsPlugin.empty()) {
+            REQUIRE_NOTHROW(graphicsPlugin =
+                                Conformance::CreateGraphicsPlugin(Options::Get().graphicsPlugin.c_str(), globalData.GetPlatformPlugin()));
             REQUIRE(graphicsPlugin->Initialize());
         }
 

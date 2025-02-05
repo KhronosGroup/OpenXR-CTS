@@ -11,18 +11,16 @@
 #include "VkCommon.h"
 
 #include <utilities/image.h>
-#include "../IGltfBuilder.h"
-#include "../PbrCommon.h"
-#include "../PbrHandles.h"
-#include "../PbrSharedState.h"
+#include "IGltfBuilder.h"
+#include "PbrCommon.h"
+#include "PbrHandles.h"
+#include "PbrSharedState.h"
 
-#include "common/vulkan_debug_object_namer.hpp"
 #include "common/xr_linear.h"
-#include "utilities/vulkan_utils.h"
 
 #include <nonstd/span.hpp>
 #include <openxr/openxr.h>
-#include <vulkan/vulkan.h>
+#include <vulkan/vulkan_core.h>
 
 #include <array>
 #include <chrono>
@@ -49,13 +47,11 @@ namespace Pbr
 {
     using nonstd::span;
 
-    struct Primitive;
     struct Material;
     struct VulkanTextureBundle;
 
     using Duration = std::chrono::high_resolution_clock::duration;
     struct VulkanPrimitive;
-    struct VulkanMaterial;
 
     struct VulkanTextureAndSampler : public ITexture
     {
@@ -177,6 +173,7 @@ namespace Pbr
         friend struct VulkanPrimitive;
 
         struct Impl;
+
         std::unique_ptr<Impl> m_impl;
 
         SharedState m_sharedState;

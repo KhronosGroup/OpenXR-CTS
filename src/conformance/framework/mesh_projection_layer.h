@@ -21,6 +21,7 @@
 
 #include <openxr/openxr.h>
 
+#include <stdint.h>
 #include <vector>
 
 namespace Conformance

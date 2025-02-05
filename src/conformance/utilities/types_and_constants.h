@@ -17,6 +17,7 @@
 #pragma once
 
 #include <openxr/openxr.h>
+
 #include <cstdint>
 #include <iosfwd>
 #include <utility>

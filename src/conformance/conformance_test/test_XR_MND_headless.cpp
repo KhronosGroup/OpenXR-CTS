@@ -20,8 +20,6 @@
 #include <catch2/catch_test_macros.hpp>
 #include <openxr/openxr.h>
 
-#include <string>
-
 namespace Conformance
 {
     TEST_CASE("XR_MND_headless", "[XR_MND_headless]")
@@ -59,7 +57,7 @@ namespace Conformance
 
         // We begin a session and call valid session functions.
         XrSessionBeginInfo sessionBeginInfo{XR_TYPE_SESSION_BEGIN_INFO};
-        sessionBeginInfo.primaryViewConfigurationType = globalData.options.viewConfigurationValue;
+        sessionBeginInfo.primaryViewConfigurationType = Options::Get().viewConfigurationValue;
         REQUIRE_RESULT_UNQUALIFIED_SUCCESS(xrBeginSession(session, &sessionBeginInfo));
 
         // To do: call input and tracking functions here.

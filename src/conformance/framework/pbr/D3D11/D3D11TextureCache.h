@@ -7,10 +7,12 @@
 //
 // SPDX-License-Identifier: MIT AND Apache-2.0
 
-#ifdef _WIN32
+#if defined(XR_USE_GRAPHICS_API_D3D11)
+
+#include <openxr/openxr.h>
+
 #include <d3d11.h>
 #include <d3d11_2.h>
-#include <openxr/openxr.h>
 #include <wrl/client.h>  // For Microsoft::WRL::ComPtr
 
 #include <map>

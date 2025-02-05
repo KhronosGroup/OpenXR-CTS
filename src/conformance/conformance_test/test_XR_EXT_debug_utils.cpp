@@ -274,7 +274,7 @@ namespace Conformance
             strcpy(createInfo.applicationInfo.applicationName, "conformance test : XR_EXT_debug_utils");
             createInfo.applicationInfo.applicationVersion = 1;
             // Leave engineName and engineVersion empty, which is valid usage.
-            createInfo.applicationInfo.apiVersion = globalData.options.desiredApiVersionValue;
+            createInfo.applicationInfo.apiVersion = Options::Get().desiredApiVersionValue;
 
             createInfo.enabledApiLayerCount = (uint32_t)enabledApiLayers.size();
             createInfo.enabledApiLayerNames = enabledApiLayers.data();
@@ -320,7 +320,7 @@ namespace Conformance
             strcpy(createInfo.applicationInfo.applicationName, "conformance test : XR_EXT_debug_utils");
             createInfo.applicationInfo.applicationVersion = 1;
             // Leave engineName and engineVersion empty, which is valid usage.
-            createInfo.applicationInfo.apiVersion = globalData.options.desiredApiVersionValue;
+            createInfo.applicationInfo.apiVersion = Options::Get().desiredApiVersionValue;
 
             // Add debug info
             createInfo.next = &debugInfo;
@@ -717,10 +717,10 @@ namespace Conformance
             std::array<XrDebugUtilsObjectNameInfoEXT, 3> objects;
             objects.fill({XR_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT});
             objects[0].objectType = XR_OBJECT_TYPE_INSTANCE;
-            objects[0].objectHandle = MakeHandleGeneric(instance.GetInstance());
+            objects[0].objectHandle = MakeHandleGeneric((XrInstance)instance);
             objects[0].objectName = nullptr;
             objects[1].objectType = XR_OBJECT_TYPE_SESSION;
-            objects[1].objectHandle = MakeHandleGeneric(session.GetSession());
+            objects[1].objectHandle = MakeHandleGeneric((XrSession)session);
             objects[1].objectName = nullptr;
             objects[2].objectType = XR_OBJECT_TYPE_DEBUG_UTILS_MESSENGER_EXT;
             objects[2].objectHandle = MakeHandleGeneric(debug_utils_messenger);
@@ -767,7 +767,7 @@ namespace Conformance
 
             XrDebugUtilsObjectNameInfoEXT object{XR_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT};
             object.objectType = XR_OBJECT_TYPE_INSTANCE;
-            object.objectHandle = MakeHandleGeneric(instance.GetInstance());
+            object.objectHandle = MakeHandleGeneric((XrInstance)instance);
             object.objectName = "My Instance Obj";
             REQUIRE_RESULT(XR_SUCCESS, pfn_set_obj_name(instance, &object));
 
@@ -807,10 +807,10 @@ namespace Conformance
                 std::array<XrDebugUtilsObjectNameInfoEXT, 2> objects;
                 objects.fill({XR_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT});
                 objects[0].objectType = XR_OBJECT_TYPE_INSTANCE;
-                objects[0].objectHandle = MakeHandleGeneric(instance.GetInstance());
+                objects[0].objectHandle = MakeHandleGeneric((XrInstance)instance);
                 objects[0].objectName = nullptr;
                 objects[1].objectType = XR_OBJECT_TYPE_SESSION;
-                objects[1].objectHandle = MakeHandleGeneric(session.GetSession());
+                objects[1].objectHandle = MakeHandleGeneric((XrSession)session);
                 objects[1].objectName = nullptr;
                 callback_data.objectCount = static_cast<uint32_t>(objects.size());
                 callback_data.objects = objects.data();
@@ -848,7 +848,7 @@ namespace Conformance
                     frameIterator.RunToSessionState(XR_SESSION_STATE_READY);
 
                     XrSessionBeginInfo session_begin_info = {XR_TYPE_SESSION_BEGIN_INFO};
-                    session_begin_info.primaryViewConfigurationType = GetGlobalData().GetOptions().viewConfigurationValue;
+                    session_begin_info.primaryViewConfigurationType = Options::Get().viewConfigurationValue;
                     REQUIRE_RESULT(XR_SUCCESS, xrBeginSession(session, &session_begin_info));
                 }
 
@@ -977,7 +977,7 @@ namespace Conformance
             // Set object name
             XrDebugUtilsObjectNameInfoEXT referenceObject{XR_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT};
             referenceObject.objectType = XR_OBJECT_TYPE_INSTANCE;
-            referenceObject.objectHandle = MakeHandleGeneric(instance.GetInstance());
+            referenceObject.objectHandle = MakeHandleGeneric((XrInstance)instance);
             referenceObject.objectName = "My Instance Obj";
             REQUIRE_RESULT(XR_SUCCESS, pfn_set_obj_name(instance, &referenceObject));
 
@@ -987,11 +987,11 @@ namespace Conformance
                 objects.fill({XR_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT});
                 // We pass an object with a name we expect to be overridden with the correct name
                 objects[0].objectType = XR_OBJECT_TYPE_INSTANCE;
-                objects[0].objectHandle = MakeHandleGeneric(instance.GetInstance());
+                objects[0].objectHandle = MakeHandleGeneric((XrInstance)instance);
                 objects[0].objectName = "Not my instance";
                 // and we pass an object with a name we expect to stay
                 objects[1].objectType = XR_OBJECT_TYPE_SESSION;
-                objects[1].objectHandle = MakeHandleGeneric(session.GetSession());
+                objects[1].objectHandle = MakeHandleGeneric((XrSession)session);
                 objects[1].objectName = "My Session Obj";
 
                 XrDebugUtilsMessengerCallbackDataEXT callback_data{XR_TYPE_DEBUG_UTILS_MESSENGER_CALLBACK_DATA_EXT};
@@ -1021,14 +1021,14 @@ namespace Conformance
             // If XrDebugUtilsObjectNameInfoEXT::objectName is an empty string, then any previously set name is removed.
             XrDebugUtilsObjectNameInfoEXT unsetObject{XR_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT};
             unsetObject.objectType = XR_OBJECT_TYPE_INSTANCE;
-            unsetObject.objectHandle = MakeHandleGeneric(instance.GetInstance());
+            unsetObject.objectHandle = MakeHandleGeneric((XrInstance)instance);
             unsetObject.objectName = "";
             REQUIRE_RESULT(XR_SUCCESS, pfn_set_obj_name(instance, &unsetObject));
 
             {
                 XrDebugUtilsObjectNameInfoEXT object{XR_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT};
                 object.objectType = XR_OBJECT_TYPE_INSTANCE;
-                object.objectHandle = MakeHandleGeneric(instance.GetInstance());
+                object.objectHandle = MakeHandleGeneric((XrInstance)instance);
                 object.objectName = nullptr;
 
                 XrDebugUtilsMessengerCallbackDataEXT callback_data{XR_TYPE_DEBUG_UTILS_MESSENGER_CALLBACK_DATA_EXT};
@@ -1269,7 +1269,7 @@ namespace Conformance
 
                         XrFrameEndInfo end_frame_info{XR_TYPE_FRAME_END_INFO};
                         end_frame_info.displayTime = frame_state.predictedDisplayTime;
-                        end_frame_info.environmentBlendMode = globalData.GetOptions().environmentBlendModeValue;
+                        end_frame_info.environmentBlendMode = Options::Get().environmentBlendModeValue;
                         CHK_XR(xrEndFrame(session, &end_frame_info));
                     }
 

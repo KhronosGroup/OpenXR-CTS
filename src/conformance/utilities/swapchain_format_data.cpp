@@ -19,9 +19,10 @@
 #include "swapchain_format_data.h"
 #include "throw_helpers.h"
 
+#include <nonstd/span.hpp>
+
 #include <openxr/openxr.h>
 #include <array>
-#include <cstddef>
 #include <cstdint>
 #include <initializer_list>
 #include <sstream>

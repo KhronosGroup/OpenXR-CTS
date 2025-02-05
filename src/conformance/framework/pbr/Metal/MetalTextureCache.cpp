@@ -15,7 +15,7 @@
 #include "MetalTexture.h"
 
 #include "../PbrMaterial.h"
-#include "../PbrTexture.h"
+#include "PbrTexture.h"
 
 #include "utilities/metal_utils.h"
 

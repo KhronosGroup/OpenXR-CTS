@@ -14,8 +14,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "conformance_utils.h"
 #include "conformance_framework.h"
+#include "conformance_options.h"
+#include "conformance_utils.h"
 #include "utilities/types_and_constants.h"
 #include "utilities/throw_helpers.h"
 
@@ -72,7 +73,7 @@ namespace Conformance
 
         XrFrameEndInfo frameEndInfo{XR_TYPE_FRAME_END_INFO};
         frameEndInfo.displayTime = frameState.predictedDisplayTime;
-        frameEndInfo.environmentBlendMode = GetGlobalData().GetOptions().environmentBlendModeValue;
+        frameEndInfo.environmentBlendMode = Options::Get().environmentBlendModeValue;
         XRC_CHECK_THROW_XRCMD(xrEndFrame(session, &frameEndInfo));
     }
 
@@ -106,7 +107,7 @@ namespace Conformance
 
             XrEventDataSessionStateChanged evt{};
             XrSessionBeginInfo beginInfo{XR_TYPE_SESSION_BEGIN_INFO};
-            beginInfo.primaryViewConfigurationType = GetGlobalData().GetOptions().viewConfigurationValue;
+            beginInfo.primaryViewConfigurationType = Options::Get().viewConfigurationValue;
 
             SECTION("Normal operation")
             {
@@ -341,7 +342,7 @@ namespace Conformance
                 frameIterator.RunToSessionState(XR_SESSION_STATE_READY);
 
                 XrSessionBeginInfo beginInfo{XR_TYPE_SESSION_BEGIN_INFO};
-                beginInfo.primaryViewConfigurationType = GetGlobalData().GetOptions().viewConfigurationValue;
+                beginInfo.primaryViewConfigurationType = Options::Get().viewConfigurationValue;
                 REQUIRE(XR_SUCCESS == xrBeginSession(session, &beginInfo));
 
                 // This will wait 1 second before assuming no such incorrect event will come.

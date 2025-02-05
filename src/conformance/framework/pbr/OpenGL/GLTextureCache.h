@@ -6,10 +6,7 @@
 // Licensed under the MIT License. See License.txt in the project root for license information.
 //
 // SPDX-License-Identifier: MIT AND Apache-2.0
-
 #include "GLCommon.h"
-
-#include "common/gfxwrapper_opengl.h"
 
 #include <openxr/openxr.h>
 

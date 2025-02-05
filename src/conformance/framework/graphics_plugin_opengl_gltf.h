@@ -8,19 +8,10 @@
 #include "gltf_model.h"
 
 #include "common/xr_linear.h"
-#include "gltf/GltfHelper.h"
 #include "pbr/OpenGL/GLModel.h"
-#include "pbr/OpenGL/GLResources.h"
-#include "pbr/PbrSharedState.h"
-
-#include <functional>
-#include <map>
-#include <string>
-#include <vector>
 
 namespace Pbr
 {
-    class GLModel;
     struct GLResources;
 }  // namespace Pbr
 

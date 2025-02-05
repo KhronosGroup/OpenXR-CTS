@@ -7,11 +7,9 @@
 // SPDX-License-Identifier: MIT AND Apache-2.0
 
 #pragma once
-#include "VkResources.h"
 
-#include "../GlslBuffers.h"
-#include "../PbrHandles.h"
-#include "../PbrModel.h"
+#include "GlslBuffers.h"
+#include "PbrModel.h"
 
 #include "common/xr_linear.h"
 #include "utilities/vulkan_scoped_handle.h"
@@ -19,12 +17,12 @@
 
 #include <vulkan/vulkan_core.h>
 
+#include <memory>
 #include <stdint.h>
 #include <vector>
 
 namespace Pbr
 {
-    struct VulkanPrimitive;
     struct VulkanResources;
 
     class VulkanModelInstance final : public ModelInstance

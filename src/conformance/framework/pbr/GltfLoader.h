@@ -18,7 +18,6 @@
 #include <map>
 #include <memory>
 #include <stdint.h>
-#include <type_traits>
 
 namespace Pbr
 {

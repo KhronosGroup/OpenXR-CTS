@@ -15,9 +15,12 @@
 XRC_DISABLE_MSVC_WARNING(4324)
 
 #include <catch2/reporters/catch_reporter_cumulative_base.hpp>
+#include <catch2/interfaces/catch_interfaces_reporter.hpp>
 #include <catch2/internal/catch_xmlwriter.hpp>
 #include <catch2/catch_timer.hpp>
 #include <catch2/interfaces/catch_interfaces_reporter_factory.hpp>
+
+#include <string>
 
 namespace Catch
 {

@@ -19,7 +19,6 @@
 #include "common/hex_and_handles.h"
 #include "utilities/throw_helpers.h"
 #include "utilities/types_and_constants.h"
-#include "utilities/utils.h"
 #include "utilities/xr_math_operators.h"
 
 #include <catch2/catch_message.hpp>
@@ -36,7 +35,6 @@
 #include <memory>
 #include <stdint.h>
 #include <string>
-#include <tuple>
 #include <utility>
 #include <vector>
 

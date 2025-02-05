@@ -11,7 +11,7 @@
 #include "MetalTexture.h"
 #include "MetalFormats.h"
 
-#include "../PbrTexture.h"
+#include "PbrTexture.h"
 
 #include "stb_image.h"
 

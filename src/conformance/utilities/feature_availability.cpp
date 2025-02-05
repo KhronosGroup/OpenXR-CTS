@@ -4,10 +4,17 @@
 
 #include "feature_availability.h"
 #include <cstdint>
+#include <initializer_list>
 #include <sstream>
-#include "utilities/utils.h"
+#include <stdexcept>
+
 #include <openxr/openxr.h>
 #include <openxr/openxr_reflection.h>
+
+#include <cstdint>
+#include <initializer_list>
+#include <sstream>
+#include <stdexcept>
 
 namespace Conformance
 {
@@ -106,15 +113,15 @@ namespace Conformance
     {
         const auto major = XR_VERSION_MAJOR(coreVersion);
         const auto minor = XR_VERSION_MINOR(coreVersion);
-        if (major == 1) {
-            // 1.x for any x
-            get_XR_VERSION_1_0() = true;
-            if (minor >= 1) {
-                // 1.1 and later 1.x
-                get_XR_VERSION_1_1() = true;
-            }
-            // TODO 1.2, etc repeats similarly
+        if (major != 1) {
+            throw std::runtime_error("Not able to handle major versions other than 1");
         }
+
+#ifdef XR_VERSION_1_2
+#error "Needs updating"
+#endif
+        get_XR_VERSION_1_1() = (major == 1) && (minor >= 1);
+        get_XR_VERSION_1_0() = (major == 1) && (minor >= 0);
     }
 
     FeatureSet::FeatureSet(const std::initializer_list<FeatureBitIndex>& features) : FeatureSet()
@@ -129,6 +136,20 @@ namespace Conformance
 #define OR_FEAT(FEAT, NUM) | ((uint32_t)FeatureBitIndex::BIT_##FEAT)
         uint32_t mask = 0 XRC_ENUM_FEATURES(OR_FEAT);
         return FeatureSet(other.m_bits & feat_bitset(mask));
+    }
+
+    XrVersion FeatureSet::AsMaxSetVersion() const
+    {
+#ifdef XR_VERSION_1_2
+#error "Needs updating"
+#endif
+        if (get_XR_VERSION_1_1()) {
+            return XR_API_VERSION_1_1;
+        }
+        if (get_XR_VERSION_1_0()) {
+            return XR_API_VERSION_1_0;
+        }
+        return 0;
     }
 
     FeatureSet FeatureSet::operator+(const FeatureSet& other) const

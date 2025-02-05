@@ -14,9 +14,7 @@
 #include "GLCommon.h"
 #include "GLTexture.h"
 
-#include "../PbrTexture.h"
-
-#include "common/gfxwrapper_opengl.h"
+#include "PbrTexture.h"
 
 #include <openxr/openxr.h>
 
@@ -25,6 +23,7 @@
 #include <memory>
 #include <mutex>
 #include <stdexcept>
+#include <utility>
 
 namespace Pbr
 {

@@ -25,4 +25,6 @@ include::requirements.adoc[]
 
 include::selftests.adoc[]
 
+include::automation.adoc[]
+
 include::code.adoc[]

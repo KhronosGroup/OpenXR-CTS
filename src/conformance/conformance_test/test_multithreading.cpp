@@ -27,18 +27,16 @@
 #include <algorithm>
 #include <array>
 #include <atomic>
-#include <chrono>
 #include <condition_variable>
 #include <cstdint>
 #include <initializer_list>
 #include <mutex>
-#include <random>
 #include <string>
 #include <thread>
 #include <vector>
 
 // Include all dependencies of openxr_platform as configured
-#include "common/xr_dependencies.h"
+#include "common/xr_dependencies.h"  // IWYU pragma: keep
 #include "utilities/xr_math_operators.h"
 #include <openxr/openxr_platform.h>
 
@@ -480,9 +478,8 @@ namespace Conformance
 
     void Exercise_xrGetSystem(ThreadTestEnvironment& env)
     {
-        GlobalData& globalData = GetGlobalData();
         XrSystemGetInfo getInfo{XR_TYPE_SYSTEM_GET_INFO};
-        getInfo.formFactor = globalData.GetOptions().formFactorValue;
+        getInfo.formFactor = Options::Get().formFactorValue;
 
         XrSystemId systemId;
         XRC_CHECK_THROW_XRCMD(xrGetSystem(env.GetAutoBasicSession().GetInstance(), &getInfo, &systemId));
@@ -497,15 +494,12 @@ namespace Conformance
 
     void Exercise_xrEnumerateEnvironmentBlendModes(ThreadTestEnvironment& env)
     {
-        GlobalData& globalData = GetGlobalData();
-
         std::array<XrEnvironmentBlendMode, 8> environmentBlendModes;
         uint32_t environmentBlendModeCountOutput;
 
-        XRC_CHECK_THROW_XRCMD(
-            xrEnumerateEnvironmentBlendModes(env.GetAutoBasicSession().GetInstance(), env.GetAutoBasicSession().GetSystemId(),
-                                             globalData.GetOptions().viewConfigurationValue, (uint32_t)environmentBlendModes.size(),
-                                             &environmentBlendModeCountOutput, environmentBlendModes.data()));
+        XRC_CHECK_THROW_XRCMD(xrEnumerateEnvironmentBlendModes(
+            env.GetAutoBasicSession().GetInstance(), env.GetAutoBasicSession().GetSystemId(), Options::Get().viewConfigurationValue,
+            (uint32_t)environmentBlendModes.size(), &environmentBlendModeCountOutput, environmentBlendModes.data()));
     }
 
     void Exercise_xrCreateSession(ThreadTestEnvironment& env)
@@ -621,24 +615,22 @@ namespace Conformance
 
     void Exercise_xrGetViewConfigurationProperties(ThreadTestEnvironment& env)
     {
-        const GlobalData& globalData = GetGlobalData();
         XrViewConfigurationProperties viewConfigurationProperties{XR_TYPE_VIEW_CONFIGURATION_PROPERTIES};
 
         XRC_CHECK_THROW_XRCMD(xrGetViewConfigurationProperties(env.GetAutoBasicSession().GetInstance(),
                                                                env.GetAutoBasicSession().GetSystemId(),
-                                                               globalData.options.viewConfigurationValue, &viewConfigurationProperties));
+                                                               Options::Get().viewConfigurationValue, &viewConfigurationProperties));
     }
 
     void Exercise_xrEnumerateViewConfigurationViews(ThreadTestEnvironment& env)
     {
-        const GlobalData& globalData = GetGlobalData();
         uint32_t countOutput;
         XRC_CHECK_THROW_XRCMD(xrEnumerateViewConfigurationViews(env.GetAutoBasicSession().GetInstance(),
                                                                 env.GetAutoBasicSession().GetSystemId(),
-                                                                globalData.options.viewConfigurationValue, 0, &countOutput, nullptr));
+                                                                Options::Get().viewConfigurationValue, 0, &countOutput, nullptr));
         std::vector<XrViewConfigurationView> viewConfigurationViews(countOutput, {XR_TYPE_VIEW_CONFIGURATION_VIEW});
         XRC_CHECK_THROW_XRCMD(xrEnumerateViewConfigurationViews(
-            env.GetAutoBasicSession().GetInstance(), env.GetAutoBasicSession().GetSystemId(), globalData.options.viewConfigurationValue,
+            env.GetAutoBasicSession().GetInstance(), env.GetAutoBasicSession().GetSystemId(), Options::Get().viewConfigurationValue,
             (uint32_t)viewConfigurationViews.size(), &countOutput, viewConfigurationViews.data()));
 
         // Could potentially validate viewConfigurationViewArray.

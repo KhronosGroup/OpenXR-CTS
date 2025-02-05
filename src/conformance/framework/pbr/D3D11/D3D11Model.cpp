@@ -14,8 +14,8 @@
 #include "D3D11Primitive.h"
 #include "D3D11Resources.h"
 
-#include "../PbrHandles.h"
-#include "../PbrModel.h"
+#include "PbrHandles.h"
+#include "PbrModel.h"
 
 #include "utilities/throw_helpers.h"
 

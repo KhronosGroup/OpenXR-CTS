@@ -19,7 +19,6 @@
 #include "RGBAImage.h"
 #include "conformance_framework.h"
 #include "conformance_utils.h"
-#include "gltf_helpers.h"
 #include "graphics_plugin.h"
 #include "graphics_plugin_impl_helpers.h"
 #include "graphics_plugin_opengl_gltf.h"
@@ -27,12 +26,14 @@
 #include "swapchain_image_data.h"
 
 #include "common/gfxwrapper_opengl.h"
-#include "common/xr_dependencies.h"
 #include "common/xr_linear.h"
+#include "pbr/GltfLoader.h"
 #include "pbr/OpenGL/GLCommon.h"
+#include "pbr/OpenGL/GLModel.h"
 #include "pbr/OpenGL/GLResources.h"
 #include "pbr/OpenGL/GLTexture.h"
 #include "pbr/PbrCommon.h"
+#include "pbr/PbrModel.h"
 #include "utilities/Geometry.h"
 #include "utilities/opengl_utils.h"
 #include "utilities/swapchain_format_data.h"
@@ -40,7 +41,6 @@
 #include "utilities/throw_helpers.h"
 #include "utilities/utils.h"
 
-#include <catch2/catch_message.hpp>
 #include <catch2/catch_test_macros.hpp>
 #include <nonstd/span.hpp>
 #include <nonstd/type.hpp>
@@ -58,14 +58,15 @@
 #include <utility>
 #include <vector>
 
+namespace tinygltf
+{
+    class Model;
+}  // namespace tinygltf
+
 namespace Conformance
 {
     struct IPlatformPlugin;
 }  // namespace Conformance
-namespace Pbr
-{
-    class Model;
-}  // namespace Pbr
 
 // Note: mapping of OpenXR usage flags to OpenGL
 //

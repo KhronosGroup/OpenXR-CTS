@@ -16,6 +16,8 @@
 
 #include "swapchain_parameters.h"
 
+#include <stdexcept>
+
 namespace Conformance
 {
     namespace SwapchainFormat

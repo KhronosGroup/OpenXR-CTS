@@ -11,16 +11,15 @@
 #pragma once
 
 #include "pbr/PbrCommon.h"
-#include "pbr/PbrModel.h"
 
 #include <openxr/openxr.h>
 
-#include <memory>
 #include <vector>
 
 namespace Pbr
 {
     class Model;
+    class ModelInstance;
 }  // namespace Pbr
 
 namespace Conformance

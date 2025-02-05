@@ -13,13 +13,10 @@
 
 #include "GLCommon.h"
 #include "GLResources.h"
-
 #include <utilities/image.h>
-#include "../PbrCommon.h"
+#include "PbrCommon.h"
 
-#include "common/gfxwrapper_opengl.h"
-
-#include <openxr/openxr.h>
+#include "common/gfxwrapper_opengl.h"  // IWYU pragma: keep
 
 #include <stdint.h>
 

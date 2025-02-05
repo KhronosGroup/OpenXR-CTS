@@ -10,10 +10,12 @@
 
 #include "GLMaterial.h"
 
+#include "GLCommon.h"
 #include "GLResources.h"
 #include "GLTexture.h"
-
-#include "../PbrMaterial.h"
+#include "PbrCommon.h"
+#include "PbrMaterial.h"
+#include "PbrSharedState.h"
 
 #include "common/gfxwrapper_opengl.h"
 #include "utilities/opengl_utils.h"

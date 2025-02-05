@@ -21,9 +21,9 @@
 #include "mesh_projection_layer.h"
 #include "two_call_struct_metadata.h"
 #include "two_call_struct_tests.h"
-#include "type_utils.h"
 #include "matchers.h"
 #include "utilities/Geometry.h"
+#include "utilities/colors.h"
 #include "utilities/types_and_constants.h"
 
 #include <nonstd/type.hpp>
@@ -36,11 +36,7 @@
 
 #include <array>
 #include <cstdint>
-#include <functional>
-#include <memory>
-#include <string>
 #include <tuple>
-#include <type_traits>
 #include <vector>
 
 namespace Conformance
@@ -134,7 +130,7 @@ namespace Conformance
         // We need to exercise each of the mask visibility types hidden, visible, line.
         // We need to exercise the two call idiom (call once to get required capacities).
 
-        const XrViewConfigurationType viewConfigurationType = globalData.options.viewConfigurationValue;
+        const XrViewConfigurationType viewConfigurationType = Options::Get().viewConfigurationValue;
 
         // First, make sure that either all mask types get an output, or none of them do.
         // SKip the rest of the test if there is no mask.
@@ -350,6 +346,7 @@ namespace Conformance
         }
 
         CompositionHelper compositionHelper("Visibility Mask", {XR_KHR_VISIBILITY_MASK_EXTENSION_NAME});
+        XrSession session = compositionHelper.GetSession();
 
         // Verify that we can acquire the function.
         auto xrGetVisibilityMaskKHR_ =
@@ -373,11 +370,11 @@ namespace Conformance
         // We need to exercise each of the mask visibility types hidden, visible, line.
         // We need to exercise the two call idiom (call once to get required capacities).
 
-        const XrViewConfigurationType viewConfigurationType = globalData.options.viewConfigurationValue;
+        const XrViewConfigurationType viewConfigurationType = Options::Get().viewConfigurationValue;
 
         // First, make sure that either all mask types get an output, or none of them do.
         // SKip the rest of the test if there is no mask.
-        bool hasMask = HasVisibilityMask(compositionHelper.GetSession(), xrGetVisibilityMaskKHR_, viewConfigurationType);
+        bool hasMask = HasVisibilityMask(session, xrGetVisibilityMaskKHR_, viewConfigurationType);
         if (!hasMask) {
             SKIP("No vertices returned, so no visibility mask available in this system.");
         }
@@ -398,8 +395,7 @@ namespace Conformance
             for (uint32_t viewIndex = 0; viewIndex < nViews; ++viewIndex) {
                 CAPTURE(viewIndex);
                 CAPTURE(viewConfigurationType);
-                auto meshAndBackground =
-                    MakeMaskMesh(compositionHelper.GetSession(), xrGetVisibilityMaskKHR_, viewConfigurationType, viewIndex, maskType);
+                auto meshAndBackground = MakeMaskMesh(session, xrGetVisibilityMaskKHR_, viewConfigurationType, viewIndex, maskType);
                 INFO("Checking that we could successfully create the mesh");
                 REQUIRE(std::get<MeshHandle>(meshAndBackground) != MeshHandle{});
                 meshes.emplace_back(std::get<MeshHandle>(meshAndBackground));
@@ -421,7 +417,7 @@ namespace Conformance
                     return interactiveLayerManager.EndFrame(frameState, layers);
                 };
 
-                RenderLoop(compositionHelper.GetSession(), updateLayers).Loop();
+                RenderLoop(session, updateLayers).Loop();
             }
         }
     }

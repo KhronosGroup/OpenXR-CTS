@@ -9,7 +9,9 @@
 
 #pragma once
 
-#include "../PbrSharedState.h"
+#if defined(XR_USE_GRAPHICS_API_D3D12)
+
+#include "PbrSharedState.h"
 
 #include <d3d12.h>
 #include <nonstd/span.hpp>
@@ -62,3 +64,5 @@ namespace Pbr
         std::map<PipelineStateKey, Microsoft::WRL::ComPtr<ID3D12PipelineState>> m_pipelineStates;
     };
 }  // namespace Pbr
+
+#endif

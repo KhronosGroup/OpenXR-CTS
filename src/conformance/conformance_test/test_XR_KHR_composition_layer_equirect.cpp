@@ -66,16 +66,15 @@ namespace Conformance
         XrSwapchain swapchainPair[2];
         XrExtent2Di extents{256, 256};
 
-        XrResult result = CreateColorSwapchain(session.GetSession(), graphicsPlugin.get(), &swapchainPair[0], &extents);
-        REQUIRE_RESULT_SUCCEEDED(result);
+        REQUIRE(XR_SUCCESS == CreateColorSwapchain(session, graphicsPlugin.get(), &swapchainPair[0], &extents));
+
         SwapchainCHECK swapchainCHECK0(swapchainPair[0]);  // Auto-deletes the swapchain.
 
-        result = CreateColorSwapchain(session.GetSession(), graphicsPlugin.get(), &swapchainPair[1], &extents);
-        REQUIRE_RESULT_SUCCEEDED(result);
+        REQUIRE(XR_SUCCESS == CreateColorSwapchain(session, graphicsPlugin.get(), &swapchainPair[1], &extents));
+
         SwapchainCHECK swapchainCHECK1(swapchainPair[1]);  // Auto-deletes the swapchain.
 
-        result = CycleToNextSwapchainImage(swapchainPair, 2, 3_xrSeconds);
-        REQUIRE_RESULT_SUCCEEDED(result);
+        REQUIRE(XR_SUCCESS == CycleToNextSwapchainImage(swapchainPair, 2, 3_xrSeconds));
 
         // typedef struct XrCompositionLayerEquirectKHR {
         //     XrStructureType             type;
@@ -110,8 +109,7 @@ namespace Conformance
                         };
 
                         for (const XrQuaternionf& orientation : orientationTestArray) {
-                            FrameIterator::RunResult runResult = frameIterator.PrepareSubmitFrame();
-                            REQUIRE(runResult == FrameIterator::RunResult::Success);
+                            REQUIRE(FrameIterator::RunResult::Success == frameIterator.PrepareSubmitFrame());
 
                             // Set up our equirect layer. We always make two, and some of the time we
                             // split them into left and right eye layers. If we have a left eye then
@@ -162,8 +160,7 @@ namespace Conformance
 
                             // xrEndFrame requires the XR_KHR_composition_layer_equirect extension to be enabled or else
                             // it will return XR_ERROR_LAYER_INVALID.
-                            result = xrEndFrame(session.GetSession(), &frameIterator.frameEndInfo);
-                            CHECK(result == XR_SUCCESS);
+                            CHECK(XR_SUCCESS == xrEndFrame(session, &frameIterator.frameEndInfo));
                         }
                     }
                 }
@@ -171,8 +168,7 @@ namespace Conformance
         }
 
         // Leave
-        result = xrRequestExitSession(session.GetSession());
-        CHECK(result == XR_SUCCESS);
+        CHECK(XR_SUCCESS == xrRequestExitSession(session));
 
         frameIterator.RunToSessionState(XR_SESSION_STATE_STOPPING);
     }
@@ -294,6 +290,7 @@ namespace Conformance
             INFO("Test condition description: " << testCase.description);
             std::string testTitle = SubtestTitle("Equirect layer", testCaseIdx, equirectTestCases);
             CompositionHelper compositionHelper(testTitle.c_str(), {XR_KHR_COMPOSITION_LAYER_EQUIRECT_EXTENSION_NAME});
+            XrSession session = compositionHelper.GetSession();
 
             std::ostringstream oss;
             oss << testTitle << ": " << testCase.name << '\n';
@@ -334,7 +331,7 @@ namespace Conformance
 
             interactiveLayerManager.AddBackgroundLayer(&equirectLayer);
 
-            RenderLoop(compositionHelper.GetSession(), [&](const XrFrameState& frameState) {
+            RenderLoop(session, [&](const XrFrameState& frameState) {
                 if (!interactiveLayerManager.EndFrame(frameState)) {
                     // user has marked this test as complete
                     SUCCEED("User has marked this test as passed");

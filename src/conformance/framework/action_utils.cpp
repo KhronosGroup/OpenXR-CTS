@@ -15,11 +15,22 @@
 // limitations under the License.
 
 #include "action_utils.h"
+
 #include "composition_utils.h"
+#include "conformance_framework.h"
+#include "conformance_utils.h"
 #include "report.h"
 #include "utilities/throw_helpers.h"
 
+#include <catch2/catch_test_macros.hpp>
+#include <nonstd/span.hpp>
+#include <openxr/openxr.h>
+
+#include <stdint.h>
 #include <sstream>
+#include <map>
+#include <utility>
+#include <vector>
 
 using namespace std::chrono_literals;
 
@@ -126,8 +137,9 @@ namespace Conformance
 
     void ActionLayerManager::SyncActionsUntilFocusWithMessage(const XrActionsSyncInfo& syncInfo)
     {
+        XrSession session = m_compositionHelper.GetSession();
         WaitWithMessage("Waiting for session focus...", [&] {
-            XrResult res = xrSyncActions(m_compositionHelper.GetSession(), &syncInfo);
+            XrResult res = xrSyncActions(session, &syncInfo);
             REQUIRE_RESULT_SUCCEEDED(res);
             return XR_UNQUALIFIED_SUCCESS(res);  // XR_SUCCESS means there is focus, as opposed to XR_SESSION_NOT_FOCUSED.
         });
@@ -189,6 +201,7 @@ namespace Conformance
     {
         std::vector<std::string> localizedUserPathsAndProfiles;
         std::map<std::string, std::vector<XrPath>> pathsByLocalizedUserPathAndProfile;
+        XrSession session = m_compositionHelper.GetSession();
 
         for (auto& action : actions) {
             XrBoundSourcesForActionEnumerateInfo info{XR_TYPE_BOUND_SOURCES_FOR_ACTION_ENUMERATE_INFO};
@@ -196,7 +209,7 @@ namespace Conformance
 
             SyncActionsUntilFocusWithMessage(syncInfo);
 
-            std::vector<XrPath> boundSources = EnumerateBoundSourcesForAction(m_compositionHelper.GetSession(), info);
+            std::vector<XrPath> boundSources = EnumerateBoundSourcesForAction(session, info);
 
             for (XrPath path : boundSources) {
                 XrInputSourceLocalizedNameGetInfo getInfo{XR_TYPE_INPUT_SOURCE_LOCALIZED_NAME_GET_INFO};
@@ -204,7 +217,7 @@ namespace Conformance
                 getInfo.whichComponents =
                     XR_INPUT_SOURCE_LOCALIZED_NAME_USER_PATH_BIT | XR_INPUT_SOURCE_LOCALIZED_NAME_INTERACTION_PROFILE_BIT;
 
-                std::string localizedUserPathAndProfile = GetInputSourceLocalizedName(m_compositionHelper.GetSession(), getInfo);
+                std::string localizedUserPathAndProfile = GetInputSourceLocalizedName(session, getInfo);
 
                 auto& paths = pathsByLocalizedUserPathAndProfile[localizedUserPathAndProfile];
                 if (paths.size() == 0) {
@@ -238,7 +251,7 @@ namespace Conformance
                 getInfo.sourcePath = path;
                 getInfo.whichComponents = XR_INPUT_SOURCE_LOCALIZED_NAME_COMPONENT_BIT;
 
-                std::string localizedComponent = GetInputSourceLocalizedName(m_compositionHelper.GetSession(), getInfo);
+                std::string localizedComponent = GetInputSourceLocalizedName(session, getInfo);
 
                 oss << localizedComponent;
             }

@@ -18,23 +18,20 @@
 
 #include "RGBAImage.h"
 #include "conformance_framework.h"
+#include "conformance_options.h"
 #include "conformance_utils.h"
 #include "swapchain_image_data.h"
-
-#include "common/xr_dependencies.h"
-#include "common/xr_linear.h"
 #include "utilities/event_reader.h"
 #include "utilities/throw_helpers.h"
 
 #include <catch2/catch_test_macros.hpp>
 #include <openxr/openxr.h>
-#include <openxr/openxr_platform.h>
 
 #include <algorithm>
 #include <cassert>
 #include <chrono>
 #include <cstdint>
-#include <ratio>
+#include <stdexcept>
 #include <utility>
 
 using namespace std::chrono_literals;
@@ -112,6 +109,40 @@ namespace Conformance
         m_actionSets.push_back(actionSet);
     }
 
+    void InteractionManager::AddDefaultActions(XrInstance instance)
+    {
+
+        if (m_actionSet != XR_NULL_HANDLE) {
+            throw std::logic_error(
+                "CTS bug: InteractionManager::AddDefaultActions called twice. Note that InteractiveLayerManager calls it in its constructor.");
+        }
+
+        XrActionSetCreateInfo actionSetInfo{XR_TYPE_ACTION_SET_CREATE_INFO};
+        strcpy(actionSetInfo.actionSetName, "interaction_test");
+        strcpy(actionSetInfo.localizedActionSetName, "Interaction Test");
+        XRC_CHECK_THROW_XRCMD(xrCreateActionSet(instance, &actionSetInfo, &m_actionSet));
+
+        AddActionSet(m_actionSet);
+
+        XrActionCreateInfo actionInfo{XR_TYPE_ACTION_CREATE_INFO};
+        actionInfo.actionType = XR_ACTION_TYPE_BOOLEAN_INPUT;
+        strcpy(actionInfo.actionName, "interaction_manager_select");
+        strcpy(actionInfo.localizedActionName, "Interaction Manager Select");
+        XRC_CHECK_THROW_XRCMD(xrCreateAction(m_actionSet, &actionInfo, &m_select));
+
+        strcpy(actionInfo.actionName, "interaction_manager_menu");
+        strcpy(actionInfo.localizedActionName, "Interaction Manager Menu");
+        XRC_CHECK_THROW_XRCMD(xrCreateAction(m_actionSet, &actionInfo, &m_menu));
+
+        XrPath simpleInteractionProfile = StringToPath(instance, "/interaction_profiles/khr/simple_controller");
+        AddActionBindings(simpleInteractionProfile, {{
+                                                        {m_select, StringToPath(instance, "/user/hand/left/input/select/click")},
+                                                        {m_select, StringToPath(instance, "/user/hand/right/input/select/click")},
+                                                        {m_menu, StringToPath(instance, "/user/hand/left/input/menu/click")},
+                                                        {m_menu, StringToPath(instance, "/user/hand/right/input/menu/click")},
+                                                    }});
+    }
+
     void InteractionManager::AttachActionSets(std::vector<XrPath>* assertInteractionProfilePathOrder /* = nullptr*/)
     {
         // Some tests rely on controlling the order of suggestInteractionProfile, this is a validity check of that ordering
@@ -157,9 +188,20 @@ namespace Conformance
         XRC_CHECK_THROW_XRCMD(xrSyncActions(m_session, &syncInfo));
     }
 
+    CompositionHelper::CompositionHelper(const char* testName, const FeatureSet& featureSet)
+    {
+        m_primaryViewType = Options::Get().viewConfigurationValue;
+
+        XrInstance instanceRaw{XR_NULL_HANDLE_CPP};
+        XRC_CHECK_THROW_XRCMD(CreateBasicInstance(&instanceRaw, featureSet, true));
+        m_instanceOwned.adopt(instanceRaw);
+        m_instance = instanceRaw;
+        SharedInit(testName);
+    }
+
     CompositionHelper::CompositionHelper(const char* testName, const std::vector<const char*>& additionalEnabledExtensions)
     {
-        m_primaryViewType = GetGlobalData().GetOptions().viewConfigurationValue;
+        m_primaryViewType = Options::Get().viewConfigurationValue;
 
         XrInstance instanceRaw{XR_NULL_HANDLE_CPP};
         XRC_CHECK_THROW_XRCMD(CreateBasicInstance(&instanceRaw, true, additionalEnabledExtensions));
@@ -173,7 +215,7 @@ namespace Conformance
         : m_instance(instance), m_primaryViewType(viewConfigType)
     {
         if (viewConfigType == 0) {
-            m_primaryViewType = GetGlobalData().GetOptions().viewConfigurationValue;
+            m_primaryViewType = Options::Get().viewConfigurationValue;
         }
         SharedInit(testName, skipOnUnsupportedViewType);
     }
@@ -335,12 +377,15 @@ namespace Conformance
         return std::make_tuple(viewState, std::move(views));
     }
 
-    void CompositionHelper::EndFrame(XrTime predictedDisplayTime, std::vector<XrCompositionLayerBaseHeader*> layers)
+    void CompositionHelper::EndFrame(XrTime predictedDisplayTime, std::vector<XrCompositionLayerBaseHeader*> layers,
+                                     bool showTestNameQuad /* = true */)
     {
-        layers.push_back(reinterpret_cast<XrCompositionLayerBaseHeader*>(&m_testNameQuad));
+        if (showTestNameQuad) {
+            layers.push_back(reinterpret_cast<XrCompositionLayerBaseHeader*>(&m_testNameQuad));
+        }
 
         XrFrameEndInfo frameEndInfo{XR_TYPE_FRAME_END_INFO};
-        frameEndInfo.environmentBlendMode = GetGlobalData().GetOptions().environmentBlendModeValue;
+        frameEndInfo.environmentBlendMode = Options::Get().environmentBlendModeValue;
         frameEndInfo.displayTime = predictedDisplayTime;
         frameEndInfo.layerCount = (uint32_t)layers.size();
         frameEndInfo.layers = layers.data();
@@ -370,8 +415,7 @@ namespace Conformance
         }
     }
 
-    void CompositionHelper::AcquireWaitReleaseImage(XrSwapchain swapchain,
-                                                    const std::function<void(const XrSwapchainImageBaseHeader*)>& doUpdate)
+    const XrSwapchainImageBaseHeader* CompositionHelper::AcquireWaitImage(XrSwapchain swapchain)
     {
         uint32_t colorImageIndex;
         XrSwapchainImageAcquireInfo acquireInfo{XR_TYPE_SWAPCHAIN_IMAGE_ACQUIRE_INFO};
@@ -389,12 +433,24 @@ namespace Conformance
             std::unique_lock<std::mutex> lock(m_mutex);
             image = m_swapchainImages[swapchain]->GetGenericColorImage(colorImageIndex);
         }
+        return image;
+    }
 
-        doUpdate(image);
-
+    void CompositionHelper::ReleaseImage(XrSwapchain swapchain)
+    {
         XrSwapchainImageReleaseInfo releaseInfo{XR_TYPE_SWAPCHAIN_IMAGE_RELEASE_INFO};
         XRC_CHECK_THROW_XRCMD(xrReleaseSwapchainImage(swapchain, &releaseInfo));
         m_swapchainImages[swapchain]->ReleaseDepthSwapchainImage();
+    }
+
+    void CompositionHelper::AcquireWaitReleaseImage(XrSwapchain swapchain,
+                                                    const std::function<void(const XrSwapchainImageBaseHeader*)>& doUpdate)
+    {
+        const XrSwapchainImageBaseHeader* image = AcquireWaitImage(swapchain);
+
+        doUpdate(image);
+
+        ReleaseImage(swapchain);
     }
 
     XrSpace CompositionHelper::CreateReferenceSpace(XrReferenceSpaceType type, XrPosef pose /*= Pose::Identity */)

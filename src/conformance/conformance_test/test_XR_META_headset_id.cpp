@@ -17,16 +17,13 @@
 
 #include "conformance_framework.h"
 #include "conformance_utils.h"
-#include "utilities/utils.h"
+#include "utilities/system_properties_helper.h"
 
 #include <catch2/catch_test_macros.hpp>
-#include "utilities/throw_helpers.h"
-#include "utilities/system_properties_helper.h"
 
 #include <openxr/openxr.h>
 
 #include <cstring>
-#include <string>
 
 namespace Conformance
 {

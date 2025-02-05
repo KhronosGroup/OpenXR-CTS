@@ -7,11 +7,13 @@
 // SPDX-License-Identifier: MIT AND Apache-2.0
 #pragma once
 
+#if defined(XR_USE_GRAPHICS_API_D3D11)
+
 #include <utilities/image.h>
-#include "../IGltfBuilder.h"
-#include "../PbrCommon.h"
-#include "../PbrHandles.h"
-#include "../PbrSharedState.h"
+#include "IGltfBuilder.h"
+#include "PbrCommon.h"
+#include "PbrHandles.h"
+#include "PbrSharedState.h"
 
 #include <nonstd/span.hpp>
 
@@ -21,10 +23,8 @@
 #include <wrl/client.h>  // For Microsoft::WRL::ComPtr
 
 #include <chrono>
-#include <map>
 #include <memory>
 #include <stdint.h>
-#include <vector>
 
 namespace Pbr
 {
@@ -124,3 +124,5 @@ namespace Pbr
         SharedState m_sharedState;
     };
 }  // namespace Pbr
+
+#endif

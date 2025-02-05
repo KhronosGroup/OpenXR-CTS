@@ -16,9 +16,9 @@
 
 #pragma once
 
-#include "utils.h"
 #include <vector>
 #include <string>
+#include <cstdint>
 
 namespace Conformance
 {

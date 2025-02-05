@@ -8,9 +8,7 @@
 
 #if defined(XR_OS_LINUX) || defined(XR_OS_APPLE)
 
-#include <unistd.h>
-#include <fcntl.h>
-#include <iostream>
+#include <stdlib.h>
 
 #elif defined(XR_OS_WINDOWS)
 

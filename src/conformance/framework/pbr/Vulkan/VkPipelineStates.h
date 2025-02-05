@@ -9,7 +9,7 @@
 
 #pragma once
 
-#include "../PbrSharedState.h"
+#include "PbrSharedState.h"
 
 #include "utilities/vulkan_scoped_handle.h"
 #include "utilities/vulkan_utils.h"

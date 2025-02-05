@@ -16,10 +16,11 @@
 
 #include "types_and_constants.h"
 
+#include <openxr/openxr.h>
+
 #include <stddef.h>
 #include <sstream>
 #include <iomanip>
-#include <string>
 
 namespace Conformance
 {

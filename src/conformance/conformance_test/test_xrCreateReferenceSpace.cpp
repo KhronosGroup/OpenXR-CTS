@@ -17,16 +17,14 @@
 #include "conformance_framework.h"
 #include "conformance_utils.h"
 #include "two_call.h"
+#include "utilities/xr_math_operators.h"
 
 #include <catch2/catch_test_macros.hpp>
 #include <openxr/openxr.h>
 
 #include <algorithm>
 #include <initializer_list>
-#include <string>
 #include <vector>
-
-#include "utilities/xr_math_operators.h"
 
 namespace Conformance
 {

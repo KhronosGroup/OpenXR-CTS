@@ -1,0 +1,2 @@
+- Improvement: Adjust handling of disconnectable devices.
+- Improvement: Improve maintainability by separating `GlobalData` and `Options` further, and migrate most argument parsing into `Options` directly.

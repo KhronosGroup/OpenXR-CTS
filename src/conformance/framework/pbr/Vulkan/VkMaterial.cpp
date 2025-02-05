@@ -15,7 +15,9 @@
 #include "VkResources.h"
 #include "VkTexture.h"
 
-#include "../PbrMaterial.h"
+#include "PbrCommon.h"
+#include "PbrMaterial.h"
+#include "PbrSharedState.h"
 
 #include "utilities/vulkan_scoped_handle.h"
 #include "utilities/vulkan_utils.h"

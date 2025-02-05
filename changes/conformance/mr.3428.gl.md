@@ -1,0 +1,4 @@
+ ---
+- issue.2312
+ ---
+ - Improvement: Modify SubImage test to include a y offset test

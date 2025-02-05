@@ -13,8 +13,8 @@
 #include "D3D12Primitive.h"
 #include "D3D12Resources.h"
 
-#include "../PbrHandles.h"
-#include "../PbrModel.h"
+#include "PbrHandles.h"
+#include "PbrModel.h"
 
 #include "utilities/d3d12_utils.h"
 #include "utilities/throw_helpers.h"

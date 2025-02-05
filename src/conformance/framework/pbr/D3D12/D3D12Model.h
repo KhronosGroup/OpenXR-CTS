@@ -7,14 +7,20 @@
 // SPDX-License-Identifier: MIT AND Apache-2.0
 
 #pragma once
-#include "D3D12Resources.h"
 
-#include "../PbrHandles.h"
-#include "../PbrModel.h"
+#if defined(XR_USE_GRAPHICS_API_D3D12)
+
+#include "PbrHandles.h"
+#include "PbrModel.h"
+
+#include "utilities/d3d12_utils.h"
+
+#include <d3d12.h>
+#include <DirectXMath.h>
 
 namespace Pbr
 {
-
+    struct D3D12Resources;
     struct D3D12Primitive;
 
     struct ModelConstantBuffer
@@ -44,3 +50,5 @@ namespace Pbr
         Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> m_modelTransformsResourceViewHeap;
     };
 }  // namespace Pbr
+
+#endif

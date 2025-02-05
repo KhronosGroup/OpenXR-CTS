@@ -7,10 +7,15 @@
 // SPDX-License-Identifier: MIT AND Apache-2.0
 
 #pragma once
-#include "D3D11Resources.h"
 
-#include "../PbrHandles.h"
-#include "../PbrModel.h"
+#if defined(XR_USE_GRAPHICS_API_D3D11)
+
+#include "PbrHandles.h"
+#include "PbrModel.h"
+
+#include <DirectXMath.h>
+#include <d3d11.h>
+#include <wrl/client.h>
 
 namespace Pbr
 {
@@ -44,3 +49,5 @@ namespace Pbr
         Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> m_modelTransformsResourceView;
     };
 }  // namespace Pbr
+
+#endif

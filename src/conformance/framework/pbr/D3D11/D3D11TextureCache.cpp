@@ -13,8 +13,8 @@
 
 #include "D3D11Texture.h"
 
-#include "../PbrMaterial.h"
-#include "../PbrTexture.h"
+#include "PbrMaterial.h"
+#include "PbrTexture.h"
 
 #include <array>
 #include <memory>

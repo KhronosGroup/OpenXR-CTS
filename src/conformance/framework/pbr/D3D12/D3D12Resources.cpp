@@ -15,10 +15,10 @@
 #include "D3D12Texture.h"
 #include "D3D12TextureCache.h"
 
-#include "../D3DCommon.h"
-#include "../../RGBAImage.h"
-#include "../../gltf/GltfHelper.h"
-#include "../PbrMaterial.h"
+#include "PbrD3DCommon.h"
+#include "../gltf/GltfHelper.h"
+#include "PbrMaterial.h"
+#include "framework/RGBAImage.h"
 
 #include "utilities/d3d12_queue_wrapper.h"
 #include "utilities/d3d12_utils.h"

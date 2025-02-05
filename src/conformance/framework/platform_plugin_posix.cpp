@@ -18,6 +18,12 @@
 
 #include "platform_plugin.h"
 
+#include <openxr/openxr.h>
+
+#include <memory>
+#include <string>
+#include <vector>
+
 namespace Conformance
 {
 

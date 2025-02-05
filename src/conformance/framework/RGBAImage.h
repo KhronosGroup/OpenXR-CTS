@@ -9,6 +9,8 @@
 #include <map>
 #include <memory>
 #include <mutex>
+#include <stdint.h>
+#include <string>
 #include <vector>
 
 namespace Conformance

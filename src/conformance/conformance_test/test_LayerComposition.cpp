@@ -17,8 +17,11 @@
 #include "common/xr_linear.h"
 #include "composition_utils.h"
 #include "conformance_framework.h"
+#include "conformance_options.h"
+#include "utilities/colors.h"
 #include "utilities/throw_helpers.h"
 #include "utilities/types_and_constants.h"
+#include "utilities/xr_math_operators.h"
 #include "utilities/xrduration_literals.h"
 
 #include <catch2/catch_test_macros.hpp>
@@ -26,7 +29,9 @@
 
 #include <algorithm>
 #include <array>
+#include <cstdint>
 #include <numeric>
+#include <sstream>
 
 using namespace Conformance;
 
@@ -241,7 +246,7 @@ namespace Conformance
         CompositionHelper compositionHelper("Subimage Tests");
         InteractiveLayerManager interactiveLayerManager(
             compositionHelper, "subimage.png",
-            "Creates a 4x2 grid of quad layers testing subImage array index and imageRect. Red should not be visible except minor bleed in.");
+            "Creates a 6x2 grid of quad layers testing subImage array index and imageRect. Red should not be visible except minor bleed in.");
         XrSession session = compositionHelper.GetSession();
         InteractionManager& interactionManager = compositionHelper.GetInteractionManager();
         interactionManager.AttachActionSets();
@@ -249,11 +254,12 @@ namespace Conformance
 
         const XrSpace viewSpace = compositionHelper.CreateReferenceSpace(XR_REFERENCE_SPACE_TYPE_VIEW, XrPosef{Quat::Identity, {0, 0, -1}});
 
-        constexpr float QuadZ = -4;  // How far away quads are placed.
-        constexpr int ImageColCount = 4;
+        constexpr float QuadZ = -5;  // How far away quads are placed.
+        constexpr int ImageColCount = 3;
+        constexpr int ImageRowCount = 2;
         constexpr int ImageArrayCount = 2;
         constexpr int ImageWidth = 1024;
-        constexpr int ImageHeight = ImageWidth / ImageColCount;
+        constexpr int ImageHeight = ImageRowCount * (ImageWidth / ImageColCount);
         constexpr int RedZoneBorderSize = 16;
         constexpr int CellWidth = (ImageWidth / ImageColCount);
         constexpr int CellHeight = CellWidth;
@@ -269,35 +275,71 @@ namespace Conformance
         // Create a quad layer referencing each number cell.
         compositionHelper.AcquireWaitReleaseImage(swapchain, [&](const XrSwapchainImageBaseHeader* swapchainImage) {
             int number = 1;
+
+            // Because each arraySlice is one complete image that is copied at once, the number images are organized awkwardly:
+            // Write numbers 1-3, and 7-9 into two rows in the first slice. Then write numbers 4-6 and 10-12 into two rows to the second slice.
+            // Quad layers will lay out in one quad layer row slice 1 row 1, slice 1 row 2 from left to right.
+            // Then in a second quad layer row, slice 2 row 1 and slice 2 row 2 from left to right.
             for (int arraySlice = 0; arraySlice < ImageArrayCount; arraySlice++) {
                 Conformance::RGBAImage numberGridImage(ImageWidth, ImageHeight);
 
-                // All unused areas are red (should not be seen).
+                // All unused areas are red (should not be seen). Only clear a slice once, before drawing the first row.
                 numberGridImage.DrawRect(0, 0, numberGridImage.width, numberGridImage.height, Colors::Red);
 
-                for (int x = 0; x < ImageColCount; x++) {
-                    const auto& color = Colors::UniqueColors[number % Colors::UniqueColors.size()];
-                    const XrRect2Di numberRect{{x * CellWidth + RedZoneBorderSize, RedZoneBorderSize},
-                                               {CellWidth - RedZoneBorderSize * 2, CellHeight - RedZoneBorderSize * 2}};
-                    numberGridImage.DrawRect(numberRect.offset.x, numberRect.offset.y, numberRect.extent.width, numberRect.extent.height,
-                                             Colors::Transparent);
-                    numberGridImage.PutText(numberRect, std::to_string(number).c_str(), CellHeight, color);
-                    numberGridImage.DrawRectBorder(numberRect.offset.x, numberRect.offset.y, numberRect.extent.width,
-                                                   numberRect.extent.height, 4, color);
-                    number++;
+                for (int row = 0; row < ImageRowCount; row++) {
+                    int drawYOffset = row * CellHeight;
 
-                    const float quadX = Math::LinearMap(x, 0, ImageColCount - 1, -2.0f, 2.0f);
-                    const float quadY = Math::LinearMap(arraySlice, 0, ImageArrayCount - 1, 0.75f, -0.75f);
-                    XrCompositionLayerQuad* const quad =
-                        compositionHelper.CreateQuadLayer(swapchain, viewSpace, 1.0f, XrPosef{Quat::Identity, {quadX, quadY, QuadZ}});
-                    quad->layerFlags |= XR_COMPOSITION_LAYER_BLEND_TEXTURE_SOURCE_ALPHA_BIT;
-                    quad->subImage.imageArrayIndex = arraySlice;
-                    quad->subImage.imageRect = numberRect;
-                    quad->size.height = 1.0f;  // Height needs to be corrected since the imageRect is customized.
-                    interactiveLayerManager.AddLayer(quad);
+                    /*
+                     * Only on OpenGL and and OpenGL ES:
+                     * The OpenXR runtime must interpret the bottom-left corner of the swapchain image as the coordinate origin unless specified otherwise by extension functionality.
+                     * The OpenXR runtime must interpret the swapchain images in a clip space of positive Y pointing up, near Z plane at -1, and far Z plane at 1.
+                     *
+                     * We render numbers 1-3 in the top row on both APIs, but on OpenGL (ES) we modify the quad layer subrect to select the rows in reverse order from bottom up.
+                     */
+                    bool originTopLeft = (GetGlobalData().graphicsPlugin->DescribeGraphics() != "OpenGL" &&
+                                          GetGlobalData().graphicsPlugin->DescribeGraphics() != "OpenGLES");
+
+                    for (int x = 0; x < ImageColCount; x++) {
+                        const auto& color = Colors::UniqueColors[number % Colors::UniqueColors.size()];
+                        const XrRect2Di numberRect{{x * CellWidth + RedZoneBorderSize, drawYOffset + RedZoneBorderSize},
+                                                   {CellWidth - RedZoneBorderSize * 2, CellHeight - RedZoneBorderSize * 2}};
+                        numberGridImage.DrawRect(numberRect.offset.x, numberRect.offset.y, numberRect.extent.width,
+                                                 numberRect.extent.height, Colors::Transparent);
+                        numberGridImage.PutText(numberRect, std::to_string(number).c_str(), static_cast<int>(CellHeight * 0.75f), color);
+                        numberGridImage.DrawRectBorder(numberRect.offset.x, numberRect.offset.y, numberRect.extent.width,
+                                                       numberRect.extent.height, 4, color);
+                        number++;
+
+                        // Each image slice is shifted ImageColCount to the right.
+                        int quadXOffset = ImageColCount * row;
+
+                        const float quadX = Math::LinearMap(quadXOffset + x, 0, ImageColCount * ImageArrayCount - 1, -4.0f, 4.0f);
+                        const float quadY = Math::LinearMap(arraySlice, 0, ImageArrayCount * ImageRowCount - 1, 1.f, -3.75f);
+                        XrCompositionLayerQuad* const quad =
+                            compositionHelper.CreateQuadLayer(swapchain, viewSpace, 1.0f, XrPosef{Quat::Identity, {quadX, quadY, QuadZ}});
+                        quad->layerFlags |= XR_COMPOSITION_LAYER_BLEND_TEXTURE_SOURCE_ALPHA_BIT;
+                        quad->subImage.imageArrayIndex = arraySlice;
+                        quad->subImage.imageRect = numberRect;
+                        if (!originTopLeft) {
+                            quad->subImage.imageRect.offset.y = (ImageRowCount - 1 - row) * CellHeight + RedZoneBorderSize;
+                        }
+                        quad->size.height = 1.0f;  // Height needs to be corrected since the imageRect is customized.
+                        interactiveLayerManager.AddLayer(quad);
+                    }
                 }
                 numberGridImage.ConvertToSRGB();
                 globalData.graphicsPlugin->CopyRGBAImage(swapchainImage, arraySlice, numberGridImage);
+
+#if 0
+                // render the complete texture behind the quad layers for debugging purposes
+                XrCompositionLayerQuad* const quad = compositionHelper.CreateQuadLayer(
+                    swapchain, viewSpace, 4.0f, XrPosef{Quat::Identity, {(-1 + arraySlice) * 4.2f, 4, -6}});
+                quad->layerFlags |= XR_COMPOSITION_LAYER_BLEND_TEXTURE_SOURCE_ALPHA_BIT;
+                quad->subImage.imageArrayIndex = arraySlice;
+                quad->subImage.imageRect.extent.width = ImageWidth;
+                quad->subImage.imageRect.extent.height = ImageHeight;
+                interactiveLayerManager.AddLayer(quad);
+#endif
             }
         });
 
@@ -466,6 +508,604 @@ namespace Conformance
         };
 
         RenderLoop(session, updateLayers).Loop();
+    }
+
+    static uint32_t ComputeTotalWidthSBS(const std::vector<XrViewConfigurationView>& viewProperties)
+    {
+        return std::accumulate(viewProperties.begin(), viewProperties.end(), 0,
+                               [](uint32_t l, const XrViewConfigurationView& r) { return l + r.recommendedImageRectWidth; });
+    }
+
+    static uint32_t MaxRecommendedViewHeight(const std::vector<XrViewConfigurationView>& viewProperties)
+    {
+        return std::max_element(viewProperties.begin(), viewProperties.end(),
+                                [](const XrViewConfigurationView& l, const XrViewConfigurationView& r) {
+                                    return l.recommendedImageRectHeight < r.recommendedImageRectHeight;
+                                })
+            ->recommendedImageRectHeight;
+    }
+    TEST_CASE("MaxLayers-noninteractive", "")
+    {
+        GlobalData& globalData = GetGlobalData();
+        if (!globalData.IsUsingGraphicsPlugin()) {
+            SKIP("Cannot test without a graphics plugin");
+        }
+
+        CompositionHelper compositionHelper("Max Layers Noninteractive");
+        compositionHelper.BeginSession();
+        XrInstance instance = compositionHelper.GetInstance();
+        XrSystemId systemId = compositionHelper.GetSystemId();
+        XrSession session = compositionHelper.GetSession();
+
+        const XrSpace localSpace = compositionHelper.CreateReferenceSpace(XR_REFERENCE_SPACE_TYPE_LOCAL);
+
+        const std::vector<XrViewConfigurationView> viewProperties = compositionHelper.EnumerateConfigurationViews();
+
+        const auto totalWidth = ComputeTotalWidthSBS(viewProperties);
+        // Because a single swapchain is being used for all views the maximum height must be used.
+        const auto maxHeight = MaxRecommendedViewHeight(viewProperties);
+
+        XrSystemProperties systemProperties{XR_TYPE_SYSTEM_PROPERTIES};
+        XRC_CHECK_THROW_XRCMD(xrGetSystemProperties(instance, systemId, &systemProperties));
+
+        // For systems that support effectively unlimited layers, cap the test at 32.
+        const uint32_t maxLayerCount = std::min((uint32_t)32, systemProperties.graphicsProperties.maxLayerCount);
+        const uint32_t maxLayerCountPlus1 = maxLayerCount + 1;
+
+        // Create and initialize max projection layers, swapchains before hand.
+        // This assumes slightly more swapchains than layers are supported as CompositionHelper creates a swapchain too.
+        std::vector<XrCompositionLayerProjection*> projLayers;
+        std::vector<XrSwapchain> swapchains;
+
+        // Some runtimes support exactly as many swapchains as layers. Therefore, use a quarter swapchain per layer.
+        // + 1 extra swapchain compared to the interactive test for testing exceeding the maxLayerCount.
+        const uint32_t numSwapchains = (maxLayerCount + 3) / 4 + 1;
+        swapchains.reserve(numSwapchains);
+        for (size_t i = 0; i < numSwapchains; ++i) {
+            swapchains.push_back(
+                compositionHelper.CreateSwapchain(compositionHelper.DefaultColorSwapchainCreateInfo(totalWidth, maxHeight)));
+        }
+        for (size_t i = 0; i < maxLayerCount; ++i) {
+            projLayers.push_back(compositionHelper.CreateProjectionLayer(localSpace));
+            XrSwapchain& swapchain = swapchains[i / 4];
+            for (uint32_t j = 0; j < projLayers[i]->viewCount; j++) {
+                // in the noninteractive test we don't render, no need to define subimage rects
+                const_cast<XrSwapchainSubImage&>(projLayers[i]->views[j].subImage) = compositionHelper.MakeDefaultSubImage(swapchain, 0);
+                projLayers[i]->layerFlags = XR_COMPOSITION_LAYER_BLEND_TEXTURE_SOURCE_ALPHA_BIT;
+            }
+        }
+
+        std::vector<XrCompositionLayerQuad*> quadLayers;
+        quadLayers.reserve(maxLayerCountPlus1);
+
+        // allocate more layers than supported so we can test too many layers
+        for (size_t i = 0; i < maxLayerCountPlus1; ++i) {
+            projLayers.push_back(compositionHelper.CreateProjectionLayer(localSpace));
+
+            // reuse swapchains from projection layer, in a noninteractive test it doesn't matter what they show
+            XrSwapchain& swapchain = swapchains[i / 4];
+            quadLayers.push_back(compositionHelper.CreateQuadLayer(swapchain, localSpace, (float)totalWidth));
+        }
+
+        for (uint32_t i = 0; i < maxLayerCountPlus1; i++) {
+            int x = 0;
+            for (uint32_t j = 0; j < projLayers[i]->viewCount; j++) {
+                XrSwapchain& swapchain = swapchains[i / 4];
+                XrSwapchainSubImage subImage = compositionHelper.MakeDefaultSubImage(swapchain, 0);
+                subImage.imageRect.offset = {x, 0};
+                subImage.imageRect.extent = {(int32_t)viewProperties[j].recommendedImageRectWidth,
+                                             (int32_t)viewProperties[j].recommendedImageRectHeight};
+                const_cast<XrSwapchainSubImage&>(projLayers[i]->views[j].subImage) = subImage;
+                x += subImage.imageRect.extent.width;  // Each view is to the left of the previous view.
+                projLayers[i]->layerFlags = XR_COMPOSITION_LAYER_BLEND_TEXTURE_SOURCE_ALPHA_BIT;
+            }
+        }
+
+        // now do the noninteractive tests
+
+        SECTION("Exact number of projection layers submitted")
+        {
+            auto updateLayers = [&](const XrFrameState& frameState) {
+                std::vector<XrCompositionLayerBaseHeader*> layers;
+
+                for (uint32_t i = 0; i < maxLayerCount; i++) {
+                    compositionHelper.AcquireWaitReleaseImage(projLayers[i]->views[0].subImage.swapchain,
+                                                              [&](const XrSwapchainImageBaseHeader* swapchainImage) {
+                                                                  GetGlobalData().graphicsPlugin->ClearImageSlice(swapchainImage);
+                                                              });
+
+                    layers.push_back(reinterpret_cast<XrCompositionLayerBaseHeader*>(projLayers[i]));
+                }
+
+                XrFrameEndInfo frameEndInfo{XR_TYPE_FRAME_END_INFO};
+                CAPTURE(frameEndInfo.environmentBlendMode = Options::Get().environmentBlendModeValue);
+                CAPTURE(frameEndInfo.displayTime = frameState.predictedDisplayTime);
+                CAPTURE(frameEndInfo.layerCount = (uint32_t)layers.size());
+                frameEndInfo.layers = layers.data();
+                REQUIRE(XR_SUCCESS == xrEndFrame(session, &frameEndInfo));
+
+                return true;
+            };
+
+            RenderLoop loop(session, updateLayers);
+            loop.IterateFrame();
+        }
+        SECTION("Too many projection layers submitted")
+        {
+            auto updateLayers = [&](const XrFrameState& frameState) {
+                std::vector<XrCompositionLayerBaseHeader*> layers;
+
+                for (uint32_t i = 0; i < maxLayerCountPlus1; i++) {
+                    compositionHelper.AcquireWaitReleaseImage(projLayers[i]->views[0].subImage.swapchain,
+                                                              [&](const XrSwapchainImageBaseHeader* swapchainImage) {
+                                                                  GetGlobalData().graphicsPlugin->ClearImageSlice(swapchainImage);
+                                                              });
+
+                    layers.push_back(reinterpret_cast<XrCompositionLayerBaseHeader*>(projLayers[i]));
+                }
+
+                XrFrameEndInfo frameEndInfo{XR_TYPE_FRAME_END_INFO};
+                frameEndInfo.environmentBlendMode = Options::Get().environmentBlendModeValue;
+                frameEndInfo.displayTime = frameState.predictedDisplayTime;
+                frameEndInfo.layerCount = (uint32_t)layers.size();
+                frameEndInfo.layers = layers.data();
+                XrResult result = xrEndFrame(session, &frameEndInfo);
+                REQUIRE_RESULT(result, XR_ERROR_LAYER_LIMIT_EXCEEDED);
+
+                return true;
+            };
+
+            RenderLoop loop(session, updateLayers);
+            loop.IterateFrame();
+        }
+
+        SECTION("Too many quad layers submitted")
+        {
+            auto updateLayers = [&](const XrFrameState& frameState) {
+                std::vector<XrCompositionLayerBaseHeader*> layers;
+
+                for (auto& swapchain : swapchains) {
+                    compositionHelper.AcquireWaitReleaseImage(swapchain, [&](const XrSwapchainImageBaseHeader* swapchainImage) {
+                        GetGlobalData().graphicsPlugin->ClearImageSlice(swapchainImage);
+                    });
+                }
+
+                for (uint32_t i = 0; i < maxLayerCountPlus1; i++) {
+                    layers.push_back(reinterpret_cast<XrCompositionLayerBaseHeader*>(quadLayers[i]));
+                }
+
+                XrFrameEndInfo frameEndInfo{XR_TYPE_FRAME_END_INFO};
+                frameEndInfo.environmentBlendMode = Options::Get().environmentBlendModeValue;
+                frameEndInfo.displayTime = frameState.predictedDisplayTime;
+                frameEndInfo.layerCount = (uint32_t)layers.size();
+                frameEndInfo.layers = layers.data();
+                REQUIRE(XR_ERROR_LAYER_LIMIT_EXCEEDED == xrEndFrame(session, &frameEndInfo));
+
+                return true;
+            };
+
+            RenderLoop loop(session, updateLayers);
+            loop.IterateFrame();
+        }
+
+        SECTION("Too many quad layers after projection layers submitted")
+        {
+            auto updateLayers = [&](const XrFrameState& frameState) {
+                std::vector<XrCompositionLayerBaseHeader*> layers;
+
+                for (auto& swapchain : swapchains) {
+                    compositionHelper.AcquireWaitReleaseImage(swapchain, [&](const XrSwapchainImageBaseHeader* swapchainImage) {
+                        GetGlobalData().graphicsPlugin->ClearImageSlice(swapchainImage);
+                    });
+                }
+
+                // Half projection layers, just to pick a value
+                const uint32_t numProjectionLayers = std::max<uint32_t>(1, maxLayerCount / 2);
+                for (uint32_t i = 0; i < numProjectionLayers; i++) {
+                    layers.push_back(reinterpret_cast<XrCompositionLayerBaseHeader*>(projLayers[i]));
+                }
+
+                // if maxlayerCount = 15 and 10 projection layers are used, we want to add 15 - 10 + 1 = 6 quad layers to exceed maxLayerCount
+                uint32_t quadLayersToAdd = maxLayerCount - numProjectionLayers + 1;
+                for (uint32_t i = 0; i < quadLayersToAdd; i++) {
+                    layers.push_back(reinterpret_cast<XrCompositionLayerBaseHeader*>(quadLayers[i]));
+                }
+
+                XrFrameEndInfo frameEndInfo{XR_TYPE_FRAME_END_INFO};
+                frameEndInfo.environmentBlendMode = Options::Get().environmentBlendModeValue;
+                frameEndInfo.displayTime = frameState.predictedDisplayTime;
+                frameEndInfo.layerCount = (uint32_t)layers.size();
+                frameEndInfo.layers = layers.data();
+                REQUIRE(XR_ERROR_LAYER_LIMIT_EXCEEDED == xrEndFrame(session, &frameEndInfo));
+
+                return true;
+            };
+
+            RenderLoop loop(session, updateLayers);
+            loop.IterateFrame();
+        }
+    }
+
+    TEST_CASE("MaxLayers", "[composition][interactive]")
+    {
+        GlobalData& globalData = GetGlobalData();
+        if (!globalData.IsUsingGraphicsPlugin()) {
+            SKIP("Cannot test without a graphics plugin");
+        }
+
+        CompositionHelper compositionHelper("Max Layers");
+        InteractionManager& interactionManager = compositionHelper.GetInteractionManager();
+        interactionManager.AddDefaultActions(compositionHelper.GetInstance());
+        interactionManager.AttachActionSets();
+        compositionHelper.BeginSession();
+        XrInstance instance = compositionHelper.GetInstance();
+        XrSystemId systemId = compositionHelper.GetSystemId();
+        XrSession session = compositionHelper.GetSession();
+
+        const float width = 0.15f;
+        const float step = width * 1.5f;
+        const float zdist = -2.0f;
+
+        const XrSpace localSpace = compositionHelper.CreateReferenceSpace(XR_REFERENCE_SPACE_TYPE_LOCAL);
+        const XrSpace viewSpace = compositionHelper.CreateReferenceSpace(XR_REFERENCE_SPACE_TYPE_VIEW);
+
+        const std::vector<XrViewConfigurationView> viewProperties = compositionHelper.EnumerateConfigurationViews();
+        const auto totalWidth = ComputeTotalWidthSBS(viewProperties);
+        // Because a single swapchain is being used for all views the maximum height must be used.
+        const auto maxHeight = MaxRecommendedViewHeight(viewProperties);
+
+        XrSystemProperties systemProperties{XR_TYPE_SYSTEM_PROPERTIES};
+        XRC_CHECK_THROW_XRCMD(xrGetSystemProperties(instance, systemId, &systemProperties));
+
+        // For systems that support effectively unlimited layers, cap the test at 32.
+        const uint32_t maxLayerCount = std::min((uint32_t)32, systemProperties.graphicsProperties.maxLayerCount);
+
+        // Create and initialize max projection layers, and associated swapchains.
+        // Remember CompositionHelper creates a swapchain too.
+        std::vector<XrCompositionLayerProjection*> projLayers;
+        std::vector<XrSwapchain> swapchains;
+
+        // Some runtimes support exactly as many swapchains as layers.
+        // Therefore, use a quarter swapchain per projection layer to fit layersPerSC projection layers on one swapchain.
+        // This value cannot easily be changed without code modifications for projection layer imageRect and layer*Offset
+        constexpr uint32_t layersPerSC = 4;
+        const uint32_t numSwapchains = (maxLayerCount + (layersPerSC - 1)) / layersPerSC;
+        swapchains.reserve(numSwapchains);
+        for (size_t i = 0; i < numSwapchains; ++i) {
+            swapchains.push_back(
+                compositionHelper.CreateSwapchain(compositionHelper.DefaultColorSwapchainCreateInfo(totalWidth, maxHeight)));
+        }
+
+        for (size_t i = 0; i < maxLayerCount; ++i) {
+            projLayers.push_back(compositionHelper.CreateProjectionLayer(localSpace));
+            XrSwapchain& swapchain = swapchains[i / layersPerSC];
+            for (uint32_t j = 0; j < projLayers[i]->viewCount; j++) {
+                XrSwapchainSubImage subImage = compositionHelper.MakeDefaultSubImage(swapchain, 0);
+
+                // Total width is the width for N views at full size.
+                // Each rect is for one view, and then we half the size in each direction to fit 2 times the N views on one swapchain.
+                subImage.imageRect.extent.width = (totalWidth / (int32_t)viewProperties.size()) / 2;
+                subImage.imageRect.extent.height = maxHeight / 2;
+
+                // each [] represents one view with size subImage.imageRect.extent.
+                // i is the layer, j is the view per layer.
+                // [i=0,j=0][i=0,j=1][i=1,j=0][i=1,j=1]
+                // [i=2,j=0][i=2,j=1][i=3,j=0][i=3,j=1]
+
+                // One layer*Offset is a full projection layer view with both left and right eye textures
+                uint32_t layerXOffset = subImage.imageRect.extent.width * (uint32_t)viewProperties.size();
+                uint32_t layerYOffset = subImage.imageRect.extent.height;  // per layer there is only one height occupied.
+                uint32_t layerCol = i & 1;
+                uint32_t layerRow = (i >> 1) & 1;
+                subImage.imageRect.offset.x = layerCol * layerXOffset + j * subImage.imageRect.extent.width;
+                subImage.imageRect.offset.y = layerRow * layerYOffset;
+
+                const_cast<XrSwapchainSubImage&>(projLayers[i]->views[j].subImage) = subImage;
+                projLayers[i]->layerFlags = XR_COMPOSITION_LAYER_BLEND_TEXTURE_SOURCE_ALPHA_BIT;
+            }
+        }
+
+        std::vector<XrPosef> gridPoses;
+        {
+            constexpr int itemsPerRow = 10;
+            // center the cubes/quads roughly in the center of the view
+            float xOffset = -(itemsPerRow * step) / 2.0f;
+            uint32_t row = 0;
+            uint32_t col = 0;
+            for (uint32_t i = 0; i < maxLayerCount; i++) {
+                gridPoses.push_back(XrPosef{
+                    Quat::Identity,
+                    XrVector3f{xOffset + col * step,
+                               row * step,  // square
+                               zdist},
+                });
+
+                col++;
+                if (col % itemsPerRow == 0) {
+                    row++;
+                    col = 0;
+                }
+            }
+        }
+
+        std::vector<XrCompositionLayerQuad*> quadLayers;
+        {
+            // Minimize swapchain use for quad layers by using only one large swapchain.
+            // Use a similar method to render the grid as the "Subimage" test case.
+            int ImageColCount = maxLayerCount;
+            int ImageWidth = 2048;
+            int ImageHeight = ImageWidth / ImageColCount;
+            int CellWidth = (ImageWidth / ImageColCount);
+            int CellHeight = CellWidth;
+
+            auto swapchainCreateInfo = compositionHelper.DefaultColorSwapchainCreateInfo(
+                ImageWidth, ImageHeight, XR_SWAPCHAIN_CREATE_STATIC_IMAGE_BIT, GetGlobalData().graphicsPlugin->GetSRGBA8Format());
+            swapchainCreateInfo.arraySize = 1;
+            swapchainCreateInfo.usageFlags |= XR_SWAPCHAIN_USAGE_TRANSFER_DST_BIT;
+            const XrSwapchain quadSwapchain = compositionHelper.CreateSwapchain(swapchainCreateInfo);
+
+            // Render a grid of numbers (1,2,3,4,...) in slice 0.
+            // Create a quad layer referencing each number cell.
+            compositionHelper.AcquireWaitReleaseImage(quadSwapchain, [&](const XrSwapchainImageBaseHeader* swapchainImage) {
+                int number = 1;
+                Conformance::RGBAImage numberGridImage(ImageWidth, ImageHeight);
+
+                // All unused areas are red (should not be seen).
+                numberGridImage.DrawRect(0, 0, numberGridImage.width, numberGridImage.height, Colors::Red);
+
+                for (int x = 0; x < ImageColCount; x++) {
+                    const auto& color = Colors::UniqueColors[number % Colors::UniqueColors.size()];
+                    const XrRect2Di numberRect{{x * CellWidth}, {CellWidth, CellHeight}};
+                    numberGridImage.DrawRect(numberRect.offset.x + 1, numberRect.offset.y + 1, numberRect.extent.width - 2,
+                                             numberRect.extent.height - 2, Colors::Transparent);
+                    numberGridImage.PutText(numberRect, std::to_string(number).c_str(), CellHeight / 3, color);
+
+                    number++;
+
+                    XrCompositionLayerQuad* const quad = compositionHelper.CreateQuadLayer(quadSwapchain, localSpace, width, gridPoses[x]);
+                    quad->layerFlags |= XR_COMPOSITION_LAYER_BLEND_TEXTURE_SOURCE_ALPHA_BIT;
+                    quad->subImage.imageArrayIndex = 0;
+                    quad->subImage.imageRect = numberRect;
+                    quad->size.height = width;
+
+                    quadLayers.push_back(quad);
+                }
+                numberGridImage.ConvertToSRGB();
+                GetGlobalData().graphicsPlugin->CopyRGBAImage(swapchainImage, 0, numberGridImage);
+            });
+        }
+
+        // now do the interactive test
+
+        SECTION("RenderMaxProjectionLayers")
+        {
+
+            {
+                std::ostringstream oss;
+                oss << "In the next scene, <" << maxLayerCount
+                    << "> projection layers will be rendered with one cube each. Please verify that <" << maxLayerCount
+                    << "> cubes are visible. In that next scene, press SELECT to pass the test or MENU to fail this test.\nPress SELECT now to dismiss the instructions and proceed to the next scene.";
+
+                XrCompositionLayerQuad* const instructionsQuad = compositionHelper.CreateQuadLayer(
+                    compositionHelper.CreateStaticSwapchainImage(CreateTextImage(1024, 768, oss.str().c_str(), 48)), viewSpace, 1,
+                    {Quat::Identity, {-0.0f, 0, -1.0f}});
+                auto instructionUpdate = [&](const XrFrameState& frameState) {
+                    std::vector<XrCompositionLayerBaseHeader*> layers;
+                    layers.push_back({reinterpret_cast<XrCompositionLayerBaseHeader*>(instructionsQuad)});
+                    compositionHelper.EndFrame(frameState.predictedDisplayTime, layers);
+
+                    compositionHelper.PollEvents();
+
+                    interactionManager.SyncActions(XR_NULL_PATH);
+                    // needs to be checked after each SyncActions, with no other xrSyncActions in between
+                    bool keepRunning = !interactionManager.GetDefaultSelectPressed(session);
+
+                    return keepRunning;
+                };
+                RenderLoop(compositionHelper.GetSession(), instructionUpdate).Loop();
+            }
+
+            auto updateLayers = [&](const XrFrameState& frameState) {
+                auto viewData = compositionHelper.LocateViews(localSpace, frameState.predictedDisplayTime);
+                const auto& viewState = std::get<XrViewState>(viewData);
+
+                std::vector<XrCompositionLayerBaseHeader*> layers;
+
+                const XrSwapchainImageBaseHeader* swapchainImage = nullptr;
+
+                if (viewState.viewStateFlags & XR_VIEW_STATE_POSITION_VALID_BIT &&
+                    viewState.viewStateFlags & XR_VIEW_STATE_ORIENTATION_VALID_BIT) {
+                    for (uint32_t i = 0; i < maxLayerCount; i++) {
+                        const auto& views = std::get<std::vector<XrView>>(viewData);
+                        uint32_t swapchainIndex = i / 4;
+
+                        XrColor4f transparentClearColor{0, 0, 0, 0};
+
+                        // layers 0-3, 4-7, etc. are rendered into the same swapchain image
+                        if (i % layersPerSC == 0) {
+                            swapchainImage = compositionHelper.AcquireWaitImage(swapchains[swapchainIndex]);
+                            GetGlobalData().graphicsPlugin->ClearImageSlice(swapchainImage, 0, transparentClearColor);
+                        }
+
+                        std::vector<Cube> cubes;
+
+                        cubes.push_back({Cube::Make(gridPoses[i].position, width)});
+
+                        // Render into each view port of the wide swapchain using the projection layer view fov and pose.
+                        for (size_t view = 0; view < views.size(); view++) {
+                            const_cast<XrFovf&>(projLayers[i]->views[view].fov) = views[view].fov;
+                            const_cast<XrPosef&>(projLayers[i]->views[view].pose) = views[view].pose;
+                            GetGlobalData().graphicsPlugin->RenderView(projLayers[i]->views[view], swapchainImage,
+                                                                       RenderParams().Draw(cubes));
+                        }
+
+                        // after layer 3, 7, etc. has been rendered, the swapchain image can be released.
+                        // if maxSupportedProjectionLayers is not divisible by 4, we still need to release on the last one.
+                        if (i % layersPerSC == layersPerSC - 1 || i == maxLayerCount - 1) {
+                            compositionHelper.ReleaseImage(swapchains[swapchainIndex]);
+                        }
+
+                        layers.push_back(reinterpret_cast<XrCompositionLayerBaseHeader*>(projLayers[i]));
+                    }
+                }
+
+                compositionHelper.EndFrame(frameState.predictedDisplayTime, layers, false);
+
+                compositionHelper.PollEvents();
+
+                interactionManager.SyncActions(XR_NULL_PATH);
+                REQUIRE_MSG(!interactionManager.GetDefaultMenuPressed(session), "User failed the test by pressing MENU");
+
+                bool keepRunning = !interactionManager.GetDefaultSelectPressed(session);
+
+                return keepRunning;
+            };
+
+            RenderLoop(session, updateLayers).Loop();
+        }
+
+        SECTION("RenderMaxQuadLayers")
+        {
+
+            {
+                std::ostringstream oss;
+                oss << "In the next scene, <" << maxLayerCount << "> quad layers will be rendered. Please verify that <" << maxLayerCount
+                    << "> quads are visible. In that next scene, press SELECT to pass the test or MENU to fail this test.\nPress SELECT now to dismiss the instructions and proceed to the next scene.";
+
+                XrCompositionLayerQuad* const instructionsQuad = compositionHelper.CreateQuadLayer(
+                    compositionHelper.CreateStaticSwapchainImage(CreateTextImage(1024, 768, oss.str().c_str(), 48)), viewSpace, 1,
+                    {Quat::Identity, {-0.0f, 0, -1.0f}});
+                auto instructionUpdate = [&](const XrFrameState& frameState) {
+                    std::vector<XrCompositionLayerBaseHeader*> layers;
+                    layers.push_back({reinterpret_cast<XrCompositionLayerBaseHeader*>(instructionsQuad)});
+                    compositionHelper.EndFrame(frameState.predictedDisplayTime, layers);
+
+                    compositionHelper.PollEvents();
+
+                    interactionManager.SyncActions(XR_NULL_PATH);
+                    bool keepRunning = !interactionManager.GetDefaultSelectPressed(session);
+
+                    return keepRunning;
+                };
+                RenderLoop(compositionHelper.GetSession(), instructionUpdate).Loop();
+            }
+
+            auto updateLayers = [&](const XrFrameState& frameState) {
+                std::vector<XrCompositionLayerBaseHeader*> layers;
+
+                for (uint32_t i = 0; i < maxLayerCount; i++) {
+                    layers.push_back(reinterpret_cast<XrCompositionLayerBaseHeader*>(quadLayers[i]));
+                }
+
+                compositionHelper.EndFrame(frameState.predictedDisplayTime, layers, false);
+
+                compositionHelper.PollEvents();
+
+                interactionManager.SyncActions(XR_NULL_PATH);
+                REQUIRE_MSG(!interactionManager.GetDefaultMenuPressed(session), "User failed the test by pressing MENU");
+
+                bool keepRunning = !interactionManager.GetDefaultSelectPressed(session);
+
+                return keepRunning;
+            };
+
+            RenderLoop(session, updateLayers).Loop();
+        }
+
+        SECTION("RenderMaxProjAndQuadLayers")
+        {
+            // We require at least XR_MIN_COMPOSITION_LAYERS_SUPPORTED projection layers to be supported, so this is always > 0.
+            uint32_t projLayerCount = maxLayerCount / 2;
+
+            uint32_t quadLayersToAdd = maxLayerCount - projLayerCount;
+
+            {
+                std::ostringstream oss;
+                oss << "In the next scene, <" << projLayerCount << "> projection and <" << quadLayersToAdd
+                    << "> quad layers will be rendered. Please verify that <" << projLayerCount << "> cubes and <" << quadLayersToAdd
+                    << "> quads are visible. In that next scene, press SELECT to pass the test or MENU to fail this test.\nPress SELECT now to dismiss the instructions and proceed to the next scene.";
+
+                XrCompositionLayerQuad* const instructionsQuad = compositionHelper.CreateQuadLayer(
+                    compositionHelper.CreateStaticSwapchainImage(CreateTextImage(1024, 768, oss.str().c_str(), 48)), viewSpace, 1,
+                    {Quat::Identity, {-0.0f, 0, -1.0f}});
+                auto instructionUpdate = [&](const XrFrameState& frameState) {
+                    std::vector<XrCompositionLayerBaseHeader*> layers;
+                    layers.push_back({reinterpret_cast<XrCompositionLayerBaseHeader*>(instructionsQuad)});
+                    compositionHelper.EndFrame(frameState.predictedDisplayTime, layers);
+
+                    compositionHelper.PollEvents();
+
+                    interactionManager.SyncActions(XR_NULL_PATH);
+                    bool keepRunning = !interactionManager.GetDefaultSelectPressed(session);
+
+                    return keepRunning;
+                };
+                RenderLoop(compositionHelper.GetSession(), instructionUpdate).Loop();
+            }
+
+            auto updateLayers = [&](const XrFrameState& frameState) {
+                auto viewData = compositionHelper.LocateViews(localSpace, frameState.predictedDisplayTime);
+                const auto& viewState = std::get<XrViewState>(viewData);
+
+                std::vector<XrCompositionLayerBaseHeader*> layers;
+
+                const XrSwapchainImageBaseHeader* swapchainImage = nullptr;
+
+                if (viewState.viewStateFlags & XR_VIEW_STATE_POSITION_VALID_BIT &&
+                    viewState.viewStateFlags & XR_VIEW_STATE_ORIENTATION_VALID_BIT) {
+                    for (uint32_t i = 0; i < projLayerCount; i++) {
+                        const auto& views = std::get<std::vector<XrView>>(viewData);
+                        uint32_t swapchainIndex = i / 4;
+
+                        XrColor4f transparentClearColor{0, 0, 0, 0};
+
+                        // layers 0-3, 4-7, etc. are rendered into the same swapchain image
+                        if (i % layersPerSC == 0) {
+                            swapchainImage = compositionHelper.AcquireWaitImage(swapchains[swapchainIndex]);
+                            GetGlobalData().graphicsPlugin->ClearImageSlice(swapchainImage, 0, transparentClearColor);
+                        }
+
+                        std::vector<Cube> cubes;
+
+                        cubes.push_back({Cube::Make(gridPoses[i].position, width)});
+
+                        // Render into each view port of the wide swapchain using the projection layer view fov and pose.
+                        for (size_t view = 0; view < views.size(); view++) {
+                            const_cast<XrFovf&>(projLayers[i]->views[view].fov) = views[view].fov;
+                            const_cast<XrPosef&>(projLayers[i]->views[view].pose) = views[view].pose;
+                            GetGlobalData().graphicsPlugin->RenderView(projLayers[i]->views[view], swapchainImage,
+                                                                       RenderParams().Draw(cubes));
+                        }
+
+                        // after layer 3, 7, etc. has been rendered, the swapchain image can be released.
+                        // if maxSupportedProjectionLayers is not divisible by layersPerSC, we still need to release on the last one.
+                        if (i % layersPerSC == layersPerSC - 1 || i == projLayerCount - 1) {
+                            compositionHelper.ReleaseImage(swapchains[swapchainIndex]);
+                        }
+
+                        layers.push_back(reinterpret_cast<XrCompositionLayerBaseHeader*>(projLayers[i]));
+                    }
+                }
+
+                for (uint32_t i = 0; i < quadLayersToAdd; i++) {
+
+                    layers.push_back(reinterpret_cast<XrCompositionLayerBaseHeader*>(quadLayers[projLayerCount + i]));
+                }
+
+                compositionHelper.EndFrame(frameState.predictedDisplayTime, layers, false);
+
+                compositionHelper.PollEvents();
+
+                interactionManager.SyncActions(XR_NULL_PATH);
+                REQUIRE_MSG(!interactionManager.GetDefaultMenuPressed(session), "User failed the test by pressing MENU");
+
+                bool keepRunning = !interactionManager.GetDefaultSelectPressed(session);
+
+                return keepRunning;
+            };
+
+            RenderLoop(session, updateLayers).Loop();
+        }
     }
 
     TEST_CASE("QuadHands", "[composition][interactive]")

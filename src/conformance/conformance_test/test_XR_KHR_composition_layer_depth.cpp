@@ -60,8 +60,7 @@ namespace Conformance
         // Create depth buffer swapchains.
         std::vector<XrSwapchain> depthSwapchains(viewCount);
         for (XrSwapchain& depthSwapchain : depthSwapchains) {
-            XrResult result = CreateDepthSwapchain(session.GetSession(), graphicsPlugin.get(), &depthSwapchain, &session.swapchainExtent);
-            REQUIRE_RESULT_SUCCEEDED(result);
+            REQUIRE(XR_SUCCESS == CreateDepthSwapchain(session, graphicsPlugin.get(), &depthSwapchain, &session.swapchainExtent));
         }
 
         auto&& layerFlagsGenerator = bitmaskGeneratorIncluding0({XR_COMPOSITION_LAYER_CORRECT_CHROMATIC_ABERRATION_BIT,
@@ -96,13 +95,9 @@ namespace Conformance
                 DepthVaryingInfo{0.0f, 1.0f, std::numeric_limits<float>::max(), minimum_useful_z}};
 
             for (const DepthVaryingInfo& varyingInfo : varyingInfoTestArray) {
-                FrameIterator::RunResult runResult = frameIterator.PrepareSubmitFrame();
-                REQUIRE(runResult == FrameIterator::RunResult::Success);
+                REQUIRE(FrameIterator::RunResult::Success == frameIterator.PrepareSubmitFrame());
 
-                {
-                    XrResult result = CycleToNextSwapchainImage(depthSwapchains.data(), 2, 3_xrSeconds);
-                    REQUIRE_RESULT_SUCCEEDED(result);
-                }
+                REQUIRE_RESULT_SUCCEEDED(CycleToNextSwapchainImage(depthSwapchains.data(), 2, 3_xrSeconds));
 
                 // Set up our XrCompositionLayerDepthInfoKHR
                 XrCompositionLayerDepthInfoKHR depthInfoLayer{XR_TYPE_COMPOSITION_LAYER_DEPTH_INFO_KHR};
@@ -130,8 +125,7 @@ namespace Conformance
 
                 // xrEndFrame requires the XR_KHR_composition_layer_depth extension to be
                 // enabled or else it must return XR_ERROR_LAYER_INVALID.
-                XrResult result = xrEndFrame(session.GetSession(), &frameIterator.frameEndInfo);
-                CHECK(result == XR_SUCCESS);
+                CHECK(XR_SUCCESS == xrEndFrame(session, &frameIterator.frameEndInfo));
             }
         }
 
@@ -141,16 +135,12 @@ namespace Conformance
         }
 
         // Leave
-        {
-            XrResult result = xrRequestExitSession(session.GetSession());
-            CHECK(result == XR_SUCCESS);
-        }
+        CHECK(XR_SUCCESS == xrRequestExitSession(session));
 
         frameIterator.RunToSessionState(XR_SESSION_STATE_STOPPING);
 
         for (const XrSwapchain& swapchain : depthSwapchains) {
-            XrResult result = xrDestroySwapchain(swapchain);
-            CHECK(result == XR_SUCCESS);
+            CHECK(XR_SUCCESS == xrDestroySwapchain(swapchain));
         }
     }
 }  // namespace Conformance

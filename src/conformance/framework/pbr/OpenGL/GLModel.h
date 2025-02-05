@@ -7,17 +7,18 @@
 // SPDX-License-Identifier: MIT AND Apache-2.0
 
 #pragma once
-#include "GLCommon.h"
-#include "GLResources.h"
 
-#include "../GlslBuffers.h"
-#include "../PbrHandles.h"
-#include "../PbrModel.h"
+#include "GLCommon.h"
+#include "GlslBuffers.h"
+#include "PbrModel.h"
+
+#include "common/xr_linear.h"
+
+#include <memory>
 
 namespace Pbr
 {
 
-    struct GLPrimitive;
     struct GLResources;
 
     class GLModelInstance final : public ModelInstance

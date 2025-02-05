@@ -49,9 +49,10 @@ namespace Conformance
         constexpr XrColor4f Magenta = {1, 0, 1, 1};
         constexpr XrColor4f Transparent = {0, 0, 0, 0};
         constexpr XrColor4f Black = {0, 0, 0, 1};
+        constexpr XrColor4f Gray = {0.5f, 0.5f, 0.5f, 1};
 
         /// A list of unique colors, not including red which is a "failure color".
-        constexpr std::array<XrColor4f, 4> UniqueColors{Green, Blue, Yellow, Orange};
+        constexpr std::array<XrColor4f, 6> UniqueColors{Green, Blue, Yellow, Orange, Magenta, Gray};
 
     }  // namespace Colors
 }  // namespace Conformance

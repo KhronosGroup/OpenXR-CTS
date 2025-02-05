@@ -8,7 +8,7 @@
 
 #if defined(XR_USE_GRAPHICS_API_D3D11) || defined(XR_USE_GRAPHICS_API_D3D12)
 
-#include "D3DCommon.h"
+#include "PbrD3DCommon.h"
 
 #include <utilities/image.h>
 

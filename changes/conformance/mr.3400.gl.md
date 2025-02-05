@@ -1,0 +1,5 @@
+---
+- mr.3400.gl
+- mr.3655.gl
+---
+- New test: Verify that runtimes handle edge cases around `XrSystemGraphicsProperties::maxLayerCount` noninteractively, and interactively verify that multiple projection and quad layers are rendered as expected.

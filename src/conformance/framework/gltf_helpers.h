@@ -11,6 +11,7 @@
 #include <nonstd/span.hpp>
 
 #include <memory>
+#include <stdint.h>
 
 namespace tinygltf
 {

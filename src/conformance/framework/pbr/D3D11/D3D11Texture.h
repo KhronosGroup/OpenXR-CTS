@@ -11,14 +11,17 @@
 
 #pragma once
 
-#include "../PbrCommon.h"
+#if defined(XR_USE_GRAPHICS_API_D3D11)
+
+#include "PbrCommon.h"
 #include <utilities/image.h>
+
+#include <openxr/openxr.h>
 
 #include <DirectXColors.h>
 #include <DirectXMath.h>
 #include <d3d11.h>
 #include <d3d11_2.h>
-#include <openxr/openxr.h>
 #include <wrl/client.h>  // For Microsoft::WRL::ComPtr
 
 namespace Pbr
@@ -37,3 +40,5 @@ namespace Pbr
                                                                  D3D11_TEXTURE_ADDRESS_MODE addressMode = D3D11_TEXTURE_ADDRESS_CLAMP);
     }  // namespace D3D11Texture
 }  // namespace Pbr
+
+#endif

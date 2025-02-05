@@ -22,8 +22,6 @@
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/internal/catch_preprocessor.hpp>
 
-#include "conformance_framework.h"
-
 #include <string>
 #include <vector>
 

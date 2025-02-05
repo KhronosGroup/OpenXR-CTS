@@ -3,10 +3,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include "bitmask_to_string.h"
-
 #include "common/hex_and_handles.h"
 
 #include <openxr/openxr_reflection.h>
+#include <openxr/openxr.h>
 
 #include <cstdint>
 #include <sstream>

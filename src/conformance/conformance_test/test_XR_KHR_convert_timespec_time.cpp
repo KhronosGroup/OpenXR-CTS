@@ -14,14 +14,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "utilities/utils.h"
 #include "conformance_utils.h"
 #include "conformance_framework.h"
+
+#include "common/xr_dependencies.h"  // IWYU pragma: keep
 #include <catch2/catch_test_macros.hpp>
 #include <openxr/openxr.h>
-
-// Include all dependencies of openxr_platform as configured
-#include "common/xr_dependencies.h"
 #include <openxr/openxr_platform.h>
 
 #ifdef XR_USE_PLATFORM_WIN32

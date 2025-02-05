@@ -26,7 +26,6 @@
 #include <openxr/openxr.h>
 
 #include <cstdint>
-#include <memory>
 #include <string>
 #include <vector>
 

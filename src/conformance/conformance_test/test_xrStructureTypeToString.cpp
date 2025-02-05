@@ -18,7 +18,6 @@
 #include "conformance_utils.h"
 #include "matchers.h"
 #include "utilities/types_and_constants.h"
-#include "utilities/utils.h"
 
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers.hpp>

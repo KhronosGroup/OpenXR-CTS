@@ -14,8 +14,8 @@
 #include "stb_image.h"
 #include "GLFormats.h"
 
-#include "../PbrCommon.h"
-#include "../PbrTexture.h"
+#include "PbrCommon.h"
+#include "PbrTexture.h"
 #include <utilities/image.h>
 
 #include "common/gfxwrapper_opengl.h"

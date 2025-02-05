@@ -14,8 +14,8 @@
 #include "VkMaterial.h"
 #include "VkResources.h"
 
-#include "../PbrCommon.h"
-#include "../PbrSharedState.h"
+#include "PbrCommon.h"
+#include "PbrSharedState.h"
 
 #include "utilities/vulkan_utils.h"
 

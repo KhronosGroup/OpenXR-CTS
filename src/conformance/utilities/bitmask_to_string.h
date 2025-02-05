@@ -23,7 +23,8 @@ namespace Conformance
     _(XrCompositionLayerFlags)               \
     _(XrViewStateFlags)                      \
     _(XrSpaceLocationFlags)                  \
-    _(XrInputSourceLocalizedNameFlags)
+    _(XrInputSourceLocalizedNameFlags)       \
+    _(XrFrameSynthesisInfoFlagsEXT)
 
     namespace detail
     {

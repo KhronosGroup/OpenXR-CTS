@@ -16,9 +16,6 @@
 
 #pragma once
 
-#include <stdarg.h>
-#include <iostream>
-#include <streambuf>
 #include <functional>
 #include "utilities/utils.h"
 

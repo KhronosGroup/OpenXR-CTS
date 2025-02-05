@@ -11,18 +11,17 @@
 
 #include "VkTexture.h"
 
+#include "PbrCommon.h"
+#include "PbrTexture.h"
 #include "VkCommon.h"
 #include "VkFormats.h"
 #include "VkResources.h"
-#include "stb_image.h"
-
-#include "../PbrCommon.h"
-#include "../PbrTexture.h"
 
 #include "common/vulkan_debug_object_namer.hpp"
-#include "utilities/throw_helpers.h"
 #include "utilities/vulkan_scoped_handle.h"
 #include "utilities/vulkan_utils.h"
+
+#include "stb_image.h"
 
 #include <assert.h>
 #include <cstddef>

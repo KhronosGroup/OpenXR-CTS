@@ -13,7 +13,7 @@
 #include "D3D12Resources.h"
 #include "D3D12Texture.h"
 
-#include "../PbrMaterial.h"
+#include "PbrMaterial.h"
 
 #include "utilities/d3d12_utils.h"
 #include "utilities/throw_helpers.h"

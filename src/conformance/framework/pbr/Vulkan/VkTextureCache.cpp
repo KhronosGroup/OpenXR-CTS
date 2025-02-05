@@ -14,7 +14,7 @@
 #include "VkCommon.h"
 #include "VkTexture.h"
 
-#include "../PbrTexture.h"
+#include "PbrTexture.h"
 #include <utilities/image.h>
 
 #include <openxr/openxr.h>

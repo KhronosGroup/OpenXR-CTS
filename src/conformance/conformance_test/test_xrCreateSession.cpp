@@ -47,11 +47,11 @@ namespace Conformance
 
         if (globalData.IsGraphicsPluginRequired()) {
             // Should have quit earlier.
-            assert(!globalData.options.graphicsPlugin.empty());
+            assert(!Options::Get().graphicsPlugin.empty());
         }
-        if (!globalData.options.graphicsPlugin.empty()) {
-            REQUIRE_NOTHROW(graphicsPlugin = Conformance::CreateGraphicsPlugin(globalData.options.graphicsPlugin.c_str(),
-                                                                               globalData.GetPlatformPlugin()));
+        if (!Options::Get().graphicsPlugin.empty()) {
+            REQUIRE_NOTHROW(graphicsPlugin =
+                                Conformance::CreateGraphicsPlugin(Options::Get().graphicsPlugin.c_str(), globalData.GetPlatformPlugin()));
             REQUIRE(graphicsPlugin->Initialize());
         }
 
@@ -187,8 +187,8 @@ namespace Conformance
                 AutoBasicInstance instance{AutoBasicInstance::createSystemId};
                 XrSystemId systemId = instance.systemId;
 
-                if (!globalData.options.graphicsPlugin.empty()) {
-                    REQUIRE_NOTHROW(graphicsPlugin = Conformance::CreateGraphicsPlugin(globalData.options.graphicsPlugin.c_str(),
+                if (!Options::Get().graphicsPlugin.empty()) {
+                    REQUIRE_NOTHROW(graphicsPlugin = Conformance::CreateGraphicsPlugin(Options::Get().graphicsPlugin.c_str(),
                                                                                        globalData.GetPlatformPlugin()));
                     REQUIRE(graphicsPlugin->Initialize());
 
@@ -199,7 +199,7 @@ namespace Conformance
                 sessionCreateInfo.createFlags = 0;
                 sessionCreateInfo.systemId = systemId;
 
-                if (!globalData.options.graphicsPlugin.empty()) {
+                if (!Options::Get().graphicsPlugin.empty()) {
                     sessionCreateInfo.next = graphicsPlugin->GetGraphicsBinding();
                 }
 

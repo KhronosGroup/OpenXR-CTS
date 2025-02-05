@@ -85,11 +85,11 @@ void ConformanceHooks::ConformanceFailure(XrDebugUtilsMessageSeverityFlagsEXT se
     va_end(vl);
 }
 
-XrBaseStructChainValidator::XrBaseStructChainValidator(ConformanceHooksBase* conformanceHook, const void* arg, std::string parameterName,
-                                                       std::string functionName)
+XrBaseStructChainValidator::XrBaseStructChainValidator(ConformanceHooksBase* conformanceHook, const void* arg, const char* parameterName,
+                                                       const char* functionName)
     : m_conformanceHook(conformanceHook)
-    , m_parameterName(std::move(parameterName))
-    , m_functionName(std::move(functionName))
+    , m_parameterName(parameterName)
+    , m_functionName(functionName)
     , m_head(reinterpret_cast<const XrBaseInStructure*>(arg))
 {
     for (const XrBaseInStructure* baseArg = m_head; baseArg != nullptr; baseArg = baseArg->next) {
@@ -101,20 +101,19 @@ XrBaseStructChainValidator::~XrBaseStructChainValidator()
 {
     for (const XrBaseInStructure* baseArg = m_head; baseArg != nullptr; baseArg = baseArg->next) {
         if (m_chainCache.empty()) {
-            m_conformanceHook->ConformanceFailure(XR_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT, m_functionName.c_str(),
-                                                  "Parameter %s next chain was lengthened", m_parameterName.c_str());
+            m_conformanceHook->ConformanceFailure(XR_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT, m_functionName,
+                                                  "Parameter %s next chain was lengthened", m_parameterName);
             continue;
         }
         const XrBaseInStructure expected = m_chainCache.front();
         m_chainCache.pop_front();
         if (expected.type != baseArg->type) {
-            m_conformanceHook->ConformanceFailure(XR_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT, m_functionName.c_str(),
-                                                  "Struct 'type' modified for parameter %s or chained structure", m_parameterName.c_str());
+            m_conformanceHook->ConformanceFailure(XR_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT, m_functionName,
+                                                  "Struct 'type' modified for parameter %s or chained structure", m_parameterName);
         }
         if (expected.next != baseArg->next) {
-            m_conformanceHook->ConformanceFailure(XR_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT, m_functionName.c_str(),
-                                                  "Struct 'next' chain modified for parameter %s or chained structure",
-                                                  m_parameterName.c_str());
+            m_conformanceHook->ConformanceFailure(XR_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT, m_functionName,
+                                                  "Struct 'next' chain modified for parameter %s or chained structure", m_parameterName);
         }
     }
 }

@@ -6,8 +6,6 @@
 
 #pragma once
 
-#include <string>
-
 namespace Conformance
 {
     /// Sets an environment variable via ascii strings.

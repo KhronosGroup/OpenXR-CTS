@@ -15,15 +15,18 @@
 #include "GLPrimitive.h"
 #include "GLResources.h"
 
-#include "../GlslBuffers.h"
-#include "../PbrHandles.h"
-#include "../PbrModel.h"
-#include "../PbrSharedState.h"
+#include "GlslBuffers.h"
+#include "PbrHandles.h"
+#include "PbrModel.h"
+#include "PbrSharedState.h"
 
 #include "common/gfxwrapper_opengl.h"
+#include "common/xr_linear.h"
 #include "utilities/opengl_utils.h"
 
 #include <stddef.h>
+#include <utility>
+#include <vector>
 
 namespace Pbr
 {

@@ -15,19 +15,19 @@
 // limitations under the License.
 
 #include "mesh_projection_layer.h"
+
 #include "composition_utils.h"
 #include "conformance_framework.h"
 #include "graphics_plugin.h"
-#include "utilities/utils.h"
+#include "utilities/colors.h"
 
 #include <nonstd/span.hpp>
 
 #include <openxr/openxr.h>
 
 #include <initializer_list>
-#include <memory>
 #include <stdexcept>
-#include <type_traits>
+#include <utility>
 #include <vector>
 
 namespace

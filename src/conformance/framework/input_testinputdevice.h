@@ -20,11 +20,9 @@
 
 #include <openxr/openxr.h>
 
-#include <initializer_list>
 #include <map>
 #include <memory>
 #include <string>
-#include <vector>
 
 namespace Conformance
 {

@@ -16,7 +16,7 @@
 
 #include "utilities/metal_utils.h"
 
-#include "../../gltf/GltfHelper.h"
+#include "../gltf/GltfHelper.h"
 #include <tinygltf/tiny_gltf.h>
 #include "../../report.h"
 

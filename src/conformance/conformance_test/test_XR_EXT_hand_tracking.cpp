@@ -18,7 +18,6 @@
 #include "composition_utils.h"
 #include "conformance_utils.h"
 #include "utilities/system_properties_helper.h"
-#include "utilities/utils.h"
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_floating_point.hpp>
 #include <openxr/openxr.h>
@@ -259,35 +258,37 @@ namespace Conformance
 
             // Firstly test without joint velocities.
             for (auto hand : {LEFT_HAND, RIGHT_HAND}) {
+                INFO("Invalid joint count for locations, no velocities");
                 std::array<std::array<XrHandJointLocationEXT, XR_HAND_JOINT_COUNT_EXT>, HAND_COUNT> jointLocations;
 
                 XrHandJointLocationsEXT locations{XR_TYPE_HAND_JOINT_LOCATIONS_EXT};
-                locations.jointCount = INVALID_JOINT_COUNT;
+                CAPTURE(locations.jointCount = INVALID_JOINT_COUNT);
                 locations.jointLocations = jointLocations[hand].data();
 
                 XrHandJointsLocateInfoEXT locateInfo{XR_TYPE_HAND_JOINTS_LOCATE_INFO_EXT};
-                locateInfo.baseSpace = localSpace;
-                locateInfo.time = frameIterator.frameState.predictedDisplayTime;
+                CAPTURE(locateInfo.baseSpace = localSpace);
+                CAPTURE(locateInfo.time = frameIterator.frameState.predictedDisplayTime);
                 REQUIRE(XR_ERROR_VALIDATION_FAILURE == xrLocateHandJointsEXT(handTracker[hand], &locateInfo, &locations));
             }
 
             // Same test again but this time with invalid joint velocity count
             for (auto hand : {LEFT_HAND, RIGHT_HAND}) {
+                INFO("Invalid joint velocity count");
                 std::array<std::array<XrHandJointLocationEXT, XR_HAND_JOINT_COUNT_EXT>, HAND_COUNT> jointLocations;
                 std::array<std::array<XrHandJointVelocityEXT, XR_HAND_JOINT_COUNT_EXT>, HAND_COUNT> jointVelocities;
 
                 XrHandJointVelocitiesEXT velocities{XR_TYPE_HAND_JOINT_VELOCITIES_EXT};
-                velocities.jointCount = INVALID_JOINT_COUNT;
+                CAPTURE(velocities.jointCount = INVALID_JOINT_COUNT);
                 velocities.jointVelocities = jointVelocities[hand].data();
 
                 XrHandJointLocationsEXT locations{XR_TYPE_HAND_JOINT_LOCATIONS_EXT};
                 locations.next = &velocities;
-                locations.jointCount = XR_HAND_JOINT_COUNT_EXT;
+                CAPTURE(locations.jointCount = XR_HAND_JOINT_COUNT_EXT);
                 locations.jointLocations = jointLocations[hand].data();
 
                 XrHandJointsLocateInfoEXT locateInfo{XR_TYPE_HAND_JOINTS_LOCATE_INFO_EXT};
-                locateInfo.baseSpace = localSpace;
-                locateInfo.time = frameIterator.frameState.predictedDisplayTime;
+                CAPTURE(locateInfo.baseSpace = localSpace);
+                CAPTURE(locateInfo.time = frameIterator.frameState.predictedDisplayTime);
                 REQUIRE(XR_ERROR_VALIDATION_FAILURE == xrLocateHandJointsEXT(handTracker[hand], &locateInfo, &locations));
             }
         }
@@ -318,6 +319,7 @@ namespace Conformance
         }
 
         XrInstance instance = compositionHelper.GetInstance();
+        XrSession session = compositionHelper.GetSession();
 
         auto xrCreateHandTrackerEXT = GetInstanceExtensionFunction<PFN_xrCreateHandTrackerEXT>(instance, "xrCreateHandTrackerEXT");
         auto xrDestroyHandTrackerEXT = GetInstanceExtensionFunction<PFN_xrDestroyHandTrackerEXT>(instance, "xrDestroyHandTrackerEXT");
@@ -346,7 +348,7 @@ namespace Conformance
             XrHandTrackerCreateInfoEXT createInfo{XR_TYPE_HAND_TRACKER_CREATE_INFO_EXT};
             createInfo.handJointSet = XR_HAND_JOINT_SET_DEFAULT_EXT;
             createInfo.hand = (hand == LEFT_HAND ? XR_HAND_LEFT_EXT : XR_HAND_RIGHT_EXT);
-            REQUIRE(XR_SUCCESS == xrCreateHandTrackerEXT(compositionHelper.GetSession(), &createInfo, &handTracker[hand]));
+            REQUIRE(XR_SUCCESS == xrCreateHandTrackerEXT(session, &createInfo, &handTracker[hand]));
         }
 
         // Create the instructional quad layer placed to the left.
@@ -499,7 +501,7 @@ namespace Conformance
             return true;
         };
 
-        RenderLoop(compositionHelper.GetSession(), update).Loop();
+        RenderLoop(session, update).Loop();
 
         for (auto hand : {LEFT_HAND, RIGHT_HAND}) {
             REQUIRE(XR_SUCCESS == xrDestroyHandTrackerEXT(handTracker[hand]));

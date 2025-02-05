@@ -8,19 +8,22 @@
 
 #pragma once
 
-#include "D3D11Resources.h"
+#if defined(XR_USE_GRAPHICS_API_D3D11)
 
-#include "../PbrMaterial.h"
+#include "PbrMaterial.h"
 
 #include <DirectXColors.h>
 #include <d3d11.h>
 #include <d3d11_2.h>
 #include <wrl/client.h>  // For Microsoft::WRL::ComPtr
 
+#include <array>
 #include <memory>
 
 namespace Pbr
 {
+    struct D3D11Resources;
+
     /// A D3D11Material contains the metallic roughness parameters and textures.
     /// Primitives specify which D3D11Material to use when being rendered.
     struct D3D11Material final : public Material
@@ -53,3 +56,5 @@ namespace Pbr
         Microsoft::WRL::ComPtr<ID3D11Buffer> m_constantBuffer;
     };
 }  // namespace Pbr
+
+#endif

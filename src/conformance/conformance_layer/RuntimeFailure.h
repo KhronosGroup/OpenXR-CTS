@@ -16,21 +16,32 @@
 
 #pragma once
 
-#include "Common.h"
 #include "gen_dispatch.h"
 #include <openxr/openxr_reflection.h>
 
-// Backs up the chain of type and next pointers. On destruction, validates there have been no changes.
-// This should be used on all non-const pointer arguments (out parameters).
+#include <deque>
+
+struct ConformanceHooksBase;
+
+/// Backs up the chain of type and next pointers. On destruction, validates there have been no changes.
+/// This should be used on all non-const pointer arguments (out parameters).
+/// Assumed to be instantiated by a macro, which ensures appropriate arguments are string literals.
 struct XrBaseStructChainValidator
 {
-    XrBaseStructChainValidator(ConformanceHooksBase* conformanceHook, const void* arg, std::string parameterName, std::string functionName);
+    /// @param conformanceHook pointer to conformance hook impl
+    /// @param arg The chain to monitor
+    /// @param parameterName the name of the parameter - must be a string literal
+    /// @param functionName the name of the function - must be a string literal
+    XrBaseStructChainValidator(ConformanceHooksBase* conformanceHook, const void* arg, const char* parameterName, const char* functionName);
+
+    /// Checks that there has been no modification of type or next in the chain.
+    /// Calls @ref ConformanceHooksBase::ConformanceFailure if it finds a change.
     ~XrBaseStructChainValidator();
 
 private:
     ConformanceHooksBase* const m_conformanceHook;
-    const std::string m_parameterName;
-    const std::string m_functionName;
+    const char* m_parameterName;
+    const char* m_functionName;
     const XrBaseInStructure* const m_head;
     std::deque<XrBaseInStructure> m_chainCache;
 };

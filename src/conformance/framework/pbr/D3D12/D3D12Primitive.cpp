@@ -12,7 +12,7 @@
 
 #include "D3D12Resources.h"
 
-#include "../PbrCommon.h"
+#include "PbrCommon.h"
 
 #include "utilities/array_size.h"
 #include "utilities/throw_helpers.h"

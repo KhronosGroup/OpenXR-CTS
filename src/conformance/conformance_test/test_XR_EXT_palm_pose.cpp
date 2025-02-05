@@ -16,7 +16,6 @@
 
 #include "action_utils.h"
 #include "RGBAImage.h"
-#include "catch2/catch_message.hpp"
 #include "common/xr_linear.h"
 #include "composition_utils.h"
 #include "conformance_framework.h"
@@ -24,14 +23,13 @@
 #include "utilities/feature_availability.h"
 #include "utilities/throw_helpers.h"
 #include "utilities/types_and_constants.h"
-#include "utilities/utils.h"
 #include "availability_helper.h"
 #include "utilities/xr_math_operators.h"
 
+#include <catch2/catch_message.hpp>
 #include <catch2/catch_test_macros.hpp>
 #include <openxr/openxr.h>
 
-#include <algorithm>
 #include <array>
 #include <cstdint>
 #include <cstring>
@@ -592,10 +590,10 @@ namespace Conformance
             XrPath simpleInteractionProfile = StringToPath(instance, GetSimpleInteractionProfile().InteractionProfilePathString);
 
             std::shared_ptr<IInputTestDevice> leftHandInputDevice =
-                CreateTestDevice(&actionLayerManager, &compositionHelper.GetInteractionManager(), instance, compositionHelper.GetSession(),
+                CreateTestDevice(&actionLayerManager, &compositionHelper.GetInteractionManager(), instance, session,
                                  simpleInteractionProfile, handPaths[0], GetSimpleInteractionProfile().BindingPaths);
             std::shared_ptr<IInputTestDevice> rightHandInputDevice =
-                CreateTestDevice(&actionLayerManager, &compositionHelper.GetInteractionManager(), instance, compositionHelper.GetSession(),
+                CreateTestDevice(&actionLayerManager, &compositionHelper.GetInteractionManager(), instance, session,
                                  simpleInteractionProfile, handPaths[1], GetSimpleInteractionProfile().BindingPaths);
 
             // gripPoseAction and gripSurfacePoseAction are populated here

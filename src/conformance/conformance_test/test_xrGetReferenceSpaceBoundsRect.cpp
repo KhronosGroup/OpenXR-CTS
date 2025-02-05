@@ -25,7 +25,6 @@
 
 #include <cmath>
 #include <initializer_list>
-#include <vector>
 
 namespace Conformance
 {

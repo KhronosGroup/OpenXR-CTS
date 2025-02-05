@@ -171,7 +171,7 @@ namespace Catch
         }
 
         // Output CTS-specific info
-        Conformance::WriteTestEnvironment(xml, Conformance::GetGlobalData());
+        Conformance::WriteTestEnvironment(xml, Conformance::GetGlobalData(), Conformance::Options::Get());
         Conformance::WriteActiveApiLayersAndExtensions(xml, Conformance::GetGlobalData());
         Conformance::WriteConformanceReportSummary(xml, Conformance::GetGlobalData().GetConformanceReport());
 

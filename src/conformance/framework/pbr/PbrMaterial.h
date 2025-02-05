@@ -14,17 +14,9 @@
 
 #include <openxr/openxr.h>
 
-#include <array>
-#include <map>
-#include <memory>
+#include <stddef.h>
 #include <string>
-#include <vector>
-
-namespace tinygltf
-{
-    struct Image;
-    struct Sampler;
-}  // namespace tinygltf
+#include <type_traits>
 
 namespace Pbr
 {

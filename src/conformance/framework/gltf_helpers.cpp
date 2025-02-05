@@ -9,8 +9,13 @@
 #include "utilities/throw_helpers.h"
 #include "cts_tinygltf.h"
 
+#include <nonstd/span.hpp>
+
+#include <string>
+
 namespace Conformance
 {
+    using nonstd::span;
 
     std::shared_ptr<const tinygltf::Model> LoadGLTF(span<const uint8_t> data)
     {

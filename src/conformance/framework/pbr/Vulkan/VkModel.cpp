@@ -10,18 +10,19 @@
 
 #include "VkModel.h"
 
+#include "GlslBuffers.h"
+#include "PbrHandles.h"
+#include "PbrModel.h"
 #include "VkMaterial.h"
 #include "VkPrimitive.h"
 #include "VkResources.h"
-
-#include "../PbrHandles.h"
-#include "../PbrModel.h"
-
+#include "common/xr_linear.h"
 #include "utilities/vulkan_scoped_handle.h"
 #include "utilities/vulkan_utils.h"
 
 #include <memory>
 #include <stddef.h>
+#include <utility>
 
 namespace Pbr
 {

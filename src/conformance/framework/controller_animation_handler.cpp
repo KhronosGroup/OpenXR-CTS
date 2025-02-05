@@ -19,10 +19,8 @@
 
 #include <algorithm>
 #include <assert.h>
-#include <chrono>
 #include <stddef.h>
-
-using namespace std::literals::chrono_literals;
+#include <utility>
 
 namespace Conformance
 {

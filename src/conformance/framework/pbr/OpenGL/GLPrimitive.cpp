@@ -11,8 +11,8 @@
 #include "GLPrimitive.h"
 
 #include "GLCommon.h"
-
-#include "../PbrCommon.h"
+#include "PbrCommon.h"
+#include "PbrSharedState.h"
 
 #include "common/gfxwrapper_opengl.h"
 #include "utilities/opengl_utils.h"

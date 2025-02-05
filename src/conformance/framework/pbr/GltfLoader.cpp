@@ -24,6 +24,7 @@
 #include <cstdint>
 #include <limits>
 #include <map>
+#include <set>
 #include <stddef.h>
 #include <stdexcept>
 #include <string>

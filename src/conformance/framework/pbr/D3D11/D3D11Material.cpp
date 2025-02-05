@@ -13,7 +13,7 @@
 #include "D3D11Resources.h"
 #include "D3D11Texture.h"
 
-#include "../PbrMaterial.h"
+#include "PbrMaterial.h"
 
 #include "utilities/throw_helpers.h"
 

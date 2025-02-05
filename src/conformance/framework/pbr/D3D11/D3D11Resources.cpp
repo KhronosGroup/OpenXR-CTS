@@ -14,9 +14,9 @@
 #include "D3D11Texture.h"
 #include "D3D11TextureCache.h"
 
-#include "../D3DCommon.h"
-#include "../../gltf/GltfHelper.h"
-#include "../PbrMaterial.h"
+#include "../gltf/GltfHelper.h"
+#include "PbrD3DCommon.h"
+#include "PbrMaterial.h"
 
 #include "utilities/throw_helpers.h"
 

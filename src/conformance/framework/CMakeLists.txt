@@ -69,6 +69,7 @@ add_library(
     catch_reporter_cts.cpp
     composition_utils.cpp
     conformance_framework.cpp
+    conformance_options.cpp
     conformance_utils.cpp
     controller_animation_handler.cpp
     environment.cpp

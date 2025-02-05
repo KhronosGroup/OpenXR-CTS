@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include "stringification.h"
-#include "utils.h"
+#include "utilities/utils.h"  // IWYU pragma: keep
 
 #include <openxr/openxr.h>
 #include <openxr/openxr_reflection.h>

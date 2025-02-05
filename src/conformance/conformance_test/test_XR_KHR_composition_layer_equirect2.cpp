@@ -161,6 +161,7 @@ namespace Conformance
 
             std::string testTitle = SubtestTitle("Equirect2 layer", testCaseIdx, equirect2TestCases);
             CompositionHelper compositionHelper(testTitle.c_str(), {XR_KHR_COMPOSITION_LAYER_EQUIRECT2_EXTENSION_NAME});
+            XrSession session = compositionHelper.GetSession();
 
             std::ostringstream oss;
             oss << testTitle << ": " << testCase.name << '\n';
@@ -202,7 +203,7 @@ namespace Conformance
 
             interactiveLayerManager.AddBackgroundLayer(&equirect2Layer);
 
-            RenderLoop(compositionHelper.GetSession(), [&](const XrFrameState& frameState) {
+            RenderLoop(session, [&](const XrFrameState& frameState) {
                 if (!interactiveLayerManager.EndFrame(frameState)) {
                     // user has marked this test as complete
                     SUCCEED("User has marked this test as passed");

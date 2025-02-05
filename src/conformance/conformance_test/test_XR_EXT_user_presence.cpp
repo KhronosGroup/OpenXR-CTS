@@ -14,12 +14,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "utilities/utils.h"
 #include "conformance_framework.h"
 #include "conformance_utils.h"
 #include "utilities/system_properties_helper.h"
+
 #include <catch2/catch_test_macros.hpp>
 #include <openxr/openxr.h>
+
 #include <algorithm>
 
 using namespace Conformance;
@@ -54,7 +55,7 @@ namespace Conformance
         frameIterator.RunToSessionState(XR_SESSION_STATE_READY);
 
         XrSessionBeginInfo sessionBeginInfo{XR_TYPE_SESSION_BEGIN_INFO};
-        sessionBeginInfo.primaryViewConfigurationType = GetGlobalData().GetOptions().viewConfigurationValue;
+        sessionBeginInfo.primaryViewConfigurationType = Options::Get().viewConfigurationValue;
         REQUIRE(XR_SUCCESS == xrBeginSession(session, &sessionBeginInfo));
 
         // The runtime must: queue this event upon a successful call to the

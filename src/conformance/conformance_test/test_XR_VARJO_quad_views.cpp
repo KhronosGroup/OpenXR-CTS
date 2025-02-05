@@ -15,7 +15,6 @@
 #include <openxr/openxr.h>
 
 #include <stdint.h>
-#include <array>
 #include <vector>
 
 using Catch::Matchers::VectorContains;

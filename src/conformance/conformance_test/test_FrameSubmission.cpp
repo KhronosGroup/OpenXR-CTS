@@ -60,6 +60,7 @@ namespace Conformance
             AutoBasicSession session(AutoBasicSession::beginSession);
 
             XrFrameState frameState{XR_TYPE_FRAME_STATE};
+            auto environmentBlendMode = Options::Get().environmentBlendModeValue;
 
             SECTION("XrFrameWaitInfo without type")
             {
@@ -94,7 +95,7 @@ namespace Conformance
 
                 XrFrameEndInfo frameEndInfoWithoutType{};
                 frameEndInfoWithoutType.displayTime = frameState.predictedDisplayTime;
-                frameEndInfoWithoutType.environmentBlendMode = globalData.GetOptions().environmentBlendModeValue;
+                frameEndInfoWithoutType.environmentBlendMode = environmentBlendMode;
                 REQUIRE_RESULT(xrEndFrame(session, &frameEndInfoWithoutType), XR_ERROR_VALIDATION_FAILURE);
             }
             SECTION("XrFrameEndInfo with wrong type")
@@ -104,7 +105,7 @@ namespace Conformance
 
                 XrFrameEndInfo frameEndInfoWithInvalidType{XR_TYPE_ACTIONS_SYNC_INFO};
                 frameEndInfoWithInvalidType.displayTime = frameState.predictedDisplayTime;
-                frameEndInfoWithInvalidType.environmentBlendMode = globalData.GetOptions().environmentBlendModeValue;
+                frameEndInfoWithInvalidType.environmentBlendMode = environmentBlendMode;
                 REQUIRE_RESULT(xrEndFrame(session, &frameEndInfoWithInvalidType), XR_ERROR_VALIDATION_FAILURE);
             }
         }
@@ -115,7 +116,7 @@ namespace Conformance
 
             XrFrameState frameState{XR_TYPE_FRAME_STATE};
             XrFrameEndInfo frameEndInfo{XR_TYPE_FRAME_END_INFO};
-            frameEndInfo.environmentBlendMode = globalData.GetOptions().environmentBlendModeValue;
+            frameEndInfo.environmentBlendMode = Options::Get().environmentBlendModeValue;
 
             {  // Fresh session, test xrBeginFrame with no corresponding xrWaitFrame.
                 CHECK(XR_ERROR_CALL_ORDER_INVALID == xrBeginFrame(session, nullptr));
@@ -178,7 +179,7 @@ namespace Conformance
             XrFrameState frameState{XR_TYPE_FRAME_STATE};
 
             XrFrameEndInfo defaultFrameEndInfo{XR_TYPE_FRAME_END_INFO};
-            defaultFrameEndInfo.environmentBlendMode = globalData.GetOptions().environmentBlendModeValue;
+            defaultFrameEndInfo.environmentBlendMode = Options::Get().environmentBlendModeValue;
 
             {
                 INFO("No layers");
@@ -285,6 +286,7 @@ namespace Conformance
         }
 
         CompositionHelper compositionHelper("Timed Pipeline Frame Submission");
+        XrSession session = compositionHelper.GetSession();
         compositionHelper.GetInteractionManager().AttachActionSets();
         compositionHelper.BeginSession();
 
@@ -328,7 +330,7 @@ namespace Conformance
             // Initially prime things by submitting 180 frames without measuring performance.
             for (int frame = 0; frame < warmupFrameCount; ++frame) {
                 XrFrameState frameState{XR_TYPE_FRAME_STATE};
-                appThreadResult = xrWaitFrame(compositionHelper.GetSession(), nullptr, &frameState);
+                appThreadResult = xrWaitFrame(session, nullptr, &frameState);
                 if (appThreadResult != XR_SUCCESS) {
                     signalNoMoreFrames();
                     DETACH_THREAD;
@@ -349,7 +351,7 @@ namespace Conformance
                 XrFrameState frameState{XR_TYPE_FRAME_STATE};
                 {
                     Stopwatch waitTimer(true);
-                    appThreadResult = xrWaitFrame(compositionHelper.GetSession(), nullptr, &frameState);
+                    appThreadResult = xrWaitFrame(session, nullptr, &frameState);
                     if (appThreadResult != XR_SUCCESS) {
                         signalNoMoreFrames();
 
@@ -389,7 +391,7 @@ namespace Conformance
             }
 
             Stopwatch sw(true);
-            XRC_CHECK_THROW_XRCMD(xrBeginFrame(compositionHelper.GetSession(), nullptr));
+            XRC_CHECK_THROW_XRCMD(xrBeginFrame(session, nullptr));
             totalBeginTime += sw.Elapsed();
 
             sw.Restart();

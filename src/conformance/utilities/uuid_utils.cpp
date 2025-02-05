@@ -4,6 +4,9 @@
 
 #include "uuid_utils.h"
 
+#include <openxr/openxr.h>
+
+#include <stdint.h>
 #include <ios>
 #include <sstream>
 #include <iomanip>

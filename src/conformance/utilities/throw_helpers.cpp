@@ -15,8 +15,11 @@
 // limitations under the License.
 
 #include "throw_helpers.h"
+
 #include "stringification.h"
 #include "utils.h"
+
+#include <openxr/openxr.h>
 
 namespace Conformance
 {

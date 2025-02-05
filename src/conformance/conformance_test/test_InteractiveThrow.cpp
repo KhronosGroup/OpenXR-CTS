@@ -19,7 +19,6 @@
 #include "conformance_framework.h"
 #include "utilities/ballistics.h"
 #include "utilities/throw_helpers.h"
-#include "utilities/utils.h"
 #include "utilities/xr_math_operators.h"
 
 #include <catch2/catch_test_macros.hpp>

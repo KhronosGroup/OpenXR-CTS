@@ -6,7 +6,6 @@
 
 #include "utilities/throw_helpers.h"
 #include "utilities/types_and_constants.h"
-#include "utilities/xrduration_literals.h"
 
 #include <openxr/openxr.h>
 

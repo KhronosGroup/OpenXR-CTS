@@ -16,6 +16,7 @@
 
 #include <assert.h>
 #include <inttypes.h>
+#include "Common.h"
 #include "ConformanceHooks.h"
 #include "CustomHandleState.h"
 #include "RuntimeFailure.h"

@@ -15,6 +15,7 @@
 // limitations under the License.
 
 #include "conformance_framework.h"
+#include "conformance_options.h"
 #include "conformance_utils.h"
 #include "utilities/types_and_constants.h"
 #include "utilities/utils.h"
@@ -244,7 +245,7 @@ namespace Conformance
         strcpy(createInfo.applicationInfo.applicationName, "conformance test");
         createInfo.applicationInfo.applicationVersion = 1;
         // Leave engineName and engineVersion empty, which is valid usage.
-        createInfo.applicationInfo.apiVersion = globalData.options.desiredApiVersionValue;
+        createInfo.applicationInfo.apiVersion = Options::Get().desiredApiVersionValue;
 
         if (globalData.requiredPlatformInstanceCreateStruct) {
             createInfo.next = globalData.requiredPlatformInstanceCreateStruct;

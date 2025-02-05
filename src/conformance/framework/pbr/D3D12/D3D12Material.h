@@ -8,9 +8,11 @@
 
 #pragma once
 
+#if defined(XR_USE_GRAPHICS_API_D3D12)
+
 #include "D3D12Resources.h"
 
-#include "../PbrMaterial.h"
+#include "PbrMaterial.h"
 
 #include <DirectXColors.h>
 #include <d3d12.h>
@@ -59,3 +61,5 @@ namespace Pbr
         Conformance::D3D12BufferWithUpload<ConstantBufferData> m_constantBuffer;
     };
 }  // namespace Pbr
+
+#endif

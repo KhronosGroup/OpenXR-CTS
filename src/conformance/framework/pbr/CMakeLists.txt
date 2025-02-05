@@ -4,17 +4,17 @@
 
 add_library(
     conformance_framework_pbr STATIC
-    PbrCommon.cpp
     GltfLoader.cpp
+    PbrCommon.cpp
+    PbrD3DCommon.cpp
     PbrMaterial.cpp
     PbrModel.cpp
     PbrSharedState.cpp
     PbrTexture.cpp
-    D3DCommon.cpp
 )
 
 if(APPLE)
-    # use C++17 since there is a depeendency on metal-cpp
+    # use C++17 since there is a dependency on metal-cpp
     target_compile_features(conformance_framework_pbr PUBLIC cxx_std_17)
 endif()
 
@@ -145,7 +145,7 @@ if(XR_USE_GRAPHICS_API_OPENGL OR XR_USE_GRAPHICS_API_OPENGL_ES)
             OpenGL/GLMaterial.cpp
             OpenGL/GLModel.cpp
             OpenGL/GLPrimitive.cpp
-            )
+    )
 endif()
 
 if(TARGET openxr-gfxwrapper)

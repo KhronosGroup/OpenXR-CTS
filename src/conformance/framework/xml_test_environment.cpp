@@ -3,15 +3,24 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include "xml_test_environment.h"
-#include "graphics_plugin.h"
 
-#include "conformance_framework.h"
 #include "common/hex_and_handles.h"
+#include "conformance_framework.h"
+#include "graphics_plugin.h"
 #include "utilities/git_revision.h"
+#include "utilities/utils.h"
 
 #include <catch2/internal/catch_xmlwriter.hpp>
 
+#include <nonstd/span.hpp>
+#include <openxr/openxr.h>
+
 #include <chrono>
+#include <memory>
+#include <ratio>
+#include <string>
+#include <utility>
+#include <vector>
 
 #define CTS_XML_NS_PREFIX "cts"
 #define CTS_XML_NS_PREFIX_QUALIFIER CTS_XML_NS_PREFIX ":"
@@ -175,7 +184,7 @@ namespace Conformance
         }
     }
 
-    void WriteTestEnvironment(Catch::XmlWriter& xml, GlobalData& globalData)
+    void WriteTestEnvironment(Catch::XmlWriter& xml, GlobalData& globalData, const Options& options)
     {
         auto e = xml.scopedElement(CTS_XML_NS_PREFIX_QUALIFIER "ctsTestEnvironment");
 
@@ -195,7 +204,7 @@ namespace Conformance
         WriteInstanceProperties(xml, globalData.GetInstanceProperties());
 
         // Report the users-selected options
-        WriteTestOptions(xml, globalData.GetOptions());
+        WriteTestOptions(xml, options);
 
         // Report the available API layers.
         WriteAvailableApiLayers(xml, globalData.availableAPILayers);

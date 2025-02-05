@@ -11,7 +11,7 @@
 
 #include "VkPipelineStates.h"
 
-#include "../PbrSharedState.h"
+#include "PbrSharedState.h"
 
 #include "utilities/array_size.h"
 #include "utilities/vulkan_scoped_handle.h"

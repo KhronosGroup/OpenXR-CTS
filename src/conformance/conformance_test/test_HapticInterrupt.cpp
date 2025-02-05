@@ -14,7 +14,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "RGBAImage.h"
 #include "common/xr_linear.h"
 #include "composition_utils.h"
 #include "conformance_framework.h"
@@ -30,8 +29,6 @@
 #include <cstdint>
 #include <cstring>
 #include <functional>
-#include <memory>
-#include <tuple>
 #include <vector>
 
 using namespace Conformance;

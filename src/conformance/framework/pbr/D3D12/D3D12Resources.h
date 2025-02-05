@@ -7,11 +7,13 @@
 // SPDX-License-Identifier: MIT AND Apache-2.0
 #pragma once
 
-#include "../../gltf/GltfHelper.h"
-#include "../IGltfBuilder.h"
-#include "../PbrCommon.h"
-#include "../PbrHandles.h"
-#include "../PbrSharedState.h"
+#if defined(XR_USE_GRAPHICS_API_D3D12)
+
+#include "../gltf/GltfHelper.h"
+#include "IGltfBuilder.h"
+#include "PbrCommon.h"
+#include "PbrHandles.h"
+#include "PbrSharedState.h"
 
 #include "utilities/d3d12_utils.h"
 #include "utilities/throw_helpers.h"
@@ -170,3 +172,5 @@ namespace Pbr
         std::vector<Microsoft::WRL::ComPtr<ID3D12Resource>> m_stagingResources;
     };
 }  // namespace Pbr
+
+#endif

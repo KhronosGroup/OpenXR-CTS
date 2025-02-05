@@ -11,7 +11,7 @@
 
 #include "D3D12PipelineStates.h"
 
-#include "../PbrCommon.h"
+#include "PbrCommon.h"
 
 #include "utilities/throw_helpers.h"
 
