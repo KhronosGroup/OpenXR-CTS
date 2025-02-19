@@ -85,7 +85,8 @@ namespace Conformance
         if (globalData.enabledAPILayerNames.empty()) {
             AppendSprintf(reportString, "    <none>\n");
         }
-        AppendSprintf(reportString, "Tested instance extensions:\n");
+        AppendSprintf(reportString, "Instance extensions enabled for all tests:\n");
+        AppendSprintf(reportString, "    (Individual tests enable additional extensions)\n");
         for (const char* const& extensionName : globalData.enabledInstanceExtensionNames) {
             AppendSprintf(reportString, "    %s\n", extensionName);
         }

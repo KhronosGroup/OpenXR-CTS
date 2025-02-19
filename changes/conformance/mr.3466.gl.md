@@ -1,7 +1,0 @@
----
-- issue.2315.gl
-- issue.2419.gl
-- mr.3466.gl
-- mr.3652.gl
----
-- Improvement: Validate more action and action set names. Explicitly allow . and .. as action set names.

@@ -1,2 +1,0 @@
-- Fix: Handling Android Intent extras with embedded commas.
-- Improvement: Adds support for "enabledInstanceExtension" and "interactionProfiles" intent values (lists).
