@@ -1,4 +1,4 @@
-// Copyright 2022-2024, The Khronos Group Inc.
+// Copyright 2022-2025 The Khronos Group Inc.
 //
 // Based in part on code that is:
 // Copyright (C) Microsoft Corporation.  All Rights Reserved
@@ -13,13 +13,10 @@
 
 #include "GLCommon.h"
 #include "GLResources.h"
-
 #include <utilities/image.h>
-#include "../PbrCommon.h"
+#include "PbrCommon.h"
 
-#include "common/gfxwrapper_opengl.h"
-
-#include <openxr/openxr.h>
+#include "common/gfxwrapper_opengl.h"  // IWYU pragma: keep
 
 #include <stdint.h>
 

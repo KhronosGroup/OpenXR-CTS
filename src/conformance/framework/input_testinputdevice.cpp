@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2024, The Khronos Group Inc.
+// Copyright (c) 2019-2025 The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -20,23 +20,23 @@
 #include "conformance_framework.h"
 #include "conformance_utils.h"
 #include "two_call.h"
+#include "utilities/feature_availability.h"
+#include "utilities/string_utils.h"
 #include "utilities/throw_helpers.h"
 #include "utilities/types_and_constants.h"
-#include "utilities/string_utils.h"
 
 #include <catch2/catch_test_macros.hpp>
-
 #include <openxr/openxr.h>
 
-#include <algorithm>
+#include <array>
 #include <chrono>
 #include <cmath>
 #include <cstdint>
 #include <cstring>
-#include <functional>
-#include <ratio>
 #include <tuple>
 #include <utility>
+#include <utility>
+#include <vector>
 
 using namespace std::chrono_literals;
 

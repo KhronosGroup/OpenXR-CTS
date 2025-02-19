@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2024, The Khronos Group Inc.
+// Copyright (c) 2019-2025 The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -14,7 +14,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "RGBAImage.h"
 #include "common/xr_linear.h"
 #include "composition_utils.h"
 #include "conformance_framework.h"
@@ -30,8 +29,6 @@
 #include <cstdint>
 #include <cstring>
 #include <functional>
-#include <memory>
-#include <tuple>
 #include <vector>
 
 using namespace Conformance;

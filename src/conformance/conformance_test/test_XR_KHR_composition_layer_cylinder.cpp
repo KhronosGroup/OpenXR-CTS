@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2024, The Khronos Group Inc.
+// Copyright (c) 2019-2025 The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -24,8 +24,6 @@
 
 #include <array>
 #include <cmath>
-#include <ostream>
-#include <ratio>
 #include <vector>
 
 namespace Conformance
@@ -53,7 +51,6 @@ namespace Conformance
 
         // At this point we have a session ready for us to generate custom frames for.
         // The current XrSessionState is XR_SESSION_STATE_FOCUSED.
-        XrResult result;
 
         auto&& layerFlagsGenerator = bitmaskGeneratorIncluding0({XR_COMPOSITION_LAYER_CORRECT_CHROMATIC_ABERRATION_BIT,
                                                                  XR_COMPOSITION_LAYER_BLEND_TEXTURE_SOURCE_ALPHA_BIT,
@@ -67,8 +64,7 @@ namespace Conformance
                     std::array<float, 3> radiusTestArray{0, 1.f, INFINITY};  // Spec explicitly supports radius 0 and +infinity
 
                     for (float radius : radiusTestArray) {
-                        FrameIterator::RunResult runResult = frameIterator.PrepareSubmitFrame();
-                        REQUIRE(runResult == FrameIterator::RunResult::Success);
+                        REQUIRE(FrameIterator::RunResult::Success == frameIterator.PrepareSubmitFrame());
 
                         // Set up our cylinder layer. We always make two, and some of the time we
                         // split them into left and right eye layers. If we have a left eye then
@@ -104,16 +100,14 @@ namespace Conformance
 
                         // xrEndFrame requires the XR_KHR_composition_layer_cylinder extension to be enabled or else
                         // it will return XR_ERROR_LAYER_INVALID.
-                        result = xrEndFrame(session.GetSession(), &frameIterator.frameEndInfo);
-                        CHECK(result == XR_SUCCESS);
+                        CHECK(XR_SUCCESS == xrEndFrame(session, &frameIterator.frameEndInfo));
                     }
                 }
             }
         }
 
         // Leave
-        result = xrRequestExitSession(session.GetSession());
-        CHECK(result == XR_SUCCESS);
+        CHECK(XR_SUCCESS == xrRequestExitSession(session));
 
         frameIterator.RunToSessionState(XR_SESSION_STATE_STOPPING);
     }

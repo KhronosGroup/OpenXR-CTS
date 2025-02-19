@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2024, The Khronos Group Inc.
+// Copyright (c) 2019-2025 The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -25,7 +25,6 @@
 
 #include <algorithm>
 #include <initializer_list>
-#include <string>
 #include <vector>
 
 using Catch::Matchers::VectorContains;
@@ -39,8 +38,6 @@ namespace Conformance
 
     TEST_CASE("xrEnumerateEnvironmentBlendModes", "")
     {
-        GlobalData& globalData = GetGlobalData();
-
         AutoBasicInstance instance(AutoBasicInstance::createSystemId);
 
         // Exercise all known view configurations types and ensure unsupported types fail.
@@ -91,16 +88,16 @@ namespace Conformance
         uint32_t countOutput;
 
         // Exercise zero input size.
-        result = xrEnumerateEnvironmentBlendModes(instance, instance.systemId, globalData.options.viewConfigurationValue, 0, &countOutput,
-                                                  nullptr);
+        result =
+            xrEnumerateEnvironmentBlendModes(instance, instance.systemId, Options::Get().viewConfigurationValue, 0, &countOutput, nullptr);
         REQUIRE_MSG(result == XR_SUCCESS, "xrEnumerateEnvironmentBlendModes failure.");
         CHECK_MSG(countOutput >= 1, "xrEnumerateEnvironmentBlendModes must enumerate at least one blend mode");
 
         // Exercise XR_ERROR_SIZE_INSUFFICIENT
         if (countOutput >= 2) {  // Need at least two in order to exercise XR_ERROR_SIZE_INSUFFICIENT
             v.resize(countOutput, XR_ENVIRONMENT_BLEND_MODE_MAX_ENUM);
-            result = xrEnumerateEnvironmentBlendModes(instance, instance.systemId, globalData.options.viewConfigurationValue, 1,
-                                                      &countOutput, v.data());
+            result = xrEnumerateEnvironmentBlendModes(instance, instance.systemId, Options::Get().viewConfigurationValue, 1, &countOutput,
+                                                      v.data());
             REQUIRE(result == XR_ERROR_SIZE_INSUFFICIENT);
             REQUIRE_MSG(v[1] == XR_ENVIRONMENT_BLEND_MODE_MAX_ENUM,
                         "xrEnumerateEnvironmentBlendModes failure: data written beyond input count.");
@@ -110,14 +107,14 @@ namespace Conformance
         // Exercise invalid system id
         {
             REQUIRE(XR_ERROR_SYSTEM_INVALID == xrEnumerateEnvironmentBlendModes(instance, XR_NULL_SYSTEM_ID,
-                                                                                globalData.options.viewConfigurationValue, 0, &countOutput,
+                                                                                Options::Get().viewConfigurationValue, 0, &countOutput,
                                                                                 nullptr));
         }
 
         // Exercise enough capacity
         v = std::vector<XrEnvironmentBlendMode>(countOutput, XR_ENVIRONMENT_BLEND_MODE_MAX_ENUM);
         REQUIRE_RESULT_UNQUALIFIED_SUCCESS(xrEnumerateEnvironmentBlendModes(
-            instance, instance.systemId, globalData.options.viewConfigurationValue, countOutput, &countOutput, v.data()));
+            instance, instance.systemId, Options::Get().viewConfigurationValue, countOutput, &countOutput, v.data()));
         CHECK_THAT(v, VectorHasOnlyUniqueElements<XrEnvironmentBlendMode>());
         CHECK_THAT(v, !VectorContains(XR_ENVIRONMENT_BLEND_MODE_MAX_ENUM));
 

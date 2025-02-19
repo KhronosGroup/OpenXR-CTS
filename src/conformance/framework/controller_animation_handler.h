@@ -1,5 +1,5 @@
 
-// Copyright 2023-2024, The Khronos Group Inc.
+// Copyright 2023-2025 The Khronos Group Inc.
 //
 // Based in part on code that is:
 //
@@ -11,16 +11,15 @@
 #pragma once
 
 #include "pbr/PbrCommon.h"
-#include "pbr/PbrModel.h"
 
 #include <openxr/openxr.h>
 
-#include <memory>
 #include <vector>
 
 namespace Pbr
 {
     class Model;
+    class ModelInstance;
 }  // namespace Pbr
 
 namespace Conformance

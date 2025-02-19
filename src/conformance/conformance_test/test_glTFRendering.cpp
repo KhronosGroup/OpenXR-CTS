@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2024, The Khronos Group Inc.
+// Copyright (c) 2019-2025 The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 
@@ -18,13 +18,9 @@
 
 #include <array>
 #include <cstdint>
-#include <fstream>
 #include <future>
-#include <memory>
 #include <sstream>
 #include <string>
-#include <tuple>
-#include <utility>
 #include <vector>
 
 namespace Conformance

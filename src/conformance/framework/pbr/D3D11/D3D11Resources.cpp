@@ -1,4 +1,4 @@
-// Copyright 2022-2024, The Khronos Group Inc.
+// Copyright 2022-2025 The Khronos Group Inc.
 //
 // Based in part on code that is:
 // Copyright (C) Microsoft Corporation.  All Rights Reserved
@@ -14,9 +14,9 @@
 #include "D3D11Texture.h"
 #include "D3D11TextureCache.h"
 
-#include "../D3DCommon.h"
-#include "../../gltf/GltfHelper.h"
-#include "../PbrMaterial.h"
+#include "../gltf/GltfHelper.h"
+#include "PbrD3DCommon.h"
+#include "PbrMaterial.h"
 
 #include "utilities/throw_helpers.h"
 

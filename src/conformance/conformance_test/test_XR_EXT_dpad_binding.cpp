@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2024, The Khronos Group Inc.
+// Copyright (c) 2019-2025 The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -668,9 +668,12 @@ namespace Conformance
                                                     XrPath topLevelPath, XrActionSet actionSet,
                                                     std::vector<XrActionSuggestedBinding>& vActionBindings)
     {
+        XrInstance instance = compositionHelper.GetInstance();
+        XrSession session = compositionHelper.GetSession();
+
         // Get active interaction profile
         XrInteractionProfileState xrInteractionProfileState{XR_TYPE_INTERACTION_PROFILE_STATE};
-        REQUIRE_RESULT_SUCCEEDED(xrGetCurrentInteractionProfile(compositionHelper.GetSession(), topLevelPath, &xrInteractionProfileState));
+        REQUIRE_RESULT_SUCCEEDED(xrGetCurrentInteractionProfile(session, topLevelPath, &xrInteractionProfileState));
 
         // Create input map for the test device
         std::map<XrPath, XrAction> actionMap;
@@ -692,9 +695,8 @@ namespace Conformance
             }
         }
 
-        return CreateTestDevice(&actionLayerManager, compositionHelper.GetInstance(), compositionHelper.GetSession(),
-                                xrInteractionProfileState.interactionProfile, topLevelPath, actionSet,
-                                (topLevelPath == pathHand_L) ? dpadUp_L : dpadUp_R, actionMap);
+        return CreateTestDevice(&actionLayerManager, instance, session, xrInteractionProfileState.interactionProfile, topLevelPath,
+                                actionSet, (topLevelPath == pathHand_L) ? dpadUp_L : dpadUp_R, actionMap);
     }
 
     void Test_Interactive(std::vector<TestSet>& tests, XrPath interactionProfile, XrActionSet dpadActionSet,

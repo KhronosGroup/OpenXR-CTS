@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2024, The Khronos Group Inc.
+// Copyright (c) 2019-2025 The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -19,7 +19,6 @@
 #include "conformance_framework.h"
 #include "utilities/ballistics.h"
 #include "utilities/throw_helpers.h"
-#include "utilities/utils.h"
 #include "utilities/xr_math_operators.h"
 
 #include <catch2/catch_test_macros.hpp>

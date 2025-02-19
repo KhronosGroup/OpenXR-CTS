@@ -1,4 +1,4 @@
-// Copyright 2022-2024, The Khronos Group Inc.
+// Copyright 2022-2025 The Khronos Group Inc.
 //
 // Based in part on code that is:
 // Copyright (C) Microsoft Corporation.  All Rights Reserved
@@ -11,15 +11,19 @@
 #include "D3D12Texture.h"
 
 #include "D3D12Resources.h"
-#include "../PbrTexture.h"
-#include "../D3DCommon.h"
+#include "PbrTexture.h"
+#include "PbrD3DCommon.h"
 
 #include "stb_image.h"
 
 #include "utilities/throw_helpers.h"
 
-#include <d3dx12.h>
 #include <tinygltf/tiny_gltf.h>
+
+#include <d3dx12.h>
+#include <wrl/client.h>  // For Microsoft::WRL::ComPtr
+
+#include <memory>
 
 using namespace DirectX;
 

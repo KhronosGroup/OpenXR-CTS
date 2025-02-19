@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2024, The Khronos Group Inc.
+// Copyright (c) 2019-2025 The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -17,19 +17,19 @@
 #pragma once
 
 #include "RGBAImage.h"
-#include "utilities/colors.h"
 #include "common/xr_linear.h"
 #include "utilities/xr_math_operators.h"
 #include "conformance_framework.h"
+#include "conformance_options.h"
 #include "conformance_utils.h"
 #include "graphics_plugin.h"
+
 #include "utilities/throw_helpers.h"
 #include "utilities/types_and_constants.h"
 
 #include <catch2/catch_test_macros.hpp>
 #include <openxr/openxr.h>
 
-#include <array>
 #include <atomic>
 #include <cstdint>
 #include <cstring>
@@ -39,8 +39,9 @@
 #include <map>
 #include <memory>
 #include <mutex>
+#include <string>
 #include <tuple>
-#include <type_traits>
+#include <utility>
 #include <vector>
 
 namespace Conformance
@@ -89,9 +90,42 @@ namespace Conformance
         void AddActionBindings(XrPath interactionProfile, std::vector<XrActionSuggestedBinding> bindings);
 
         void AddActionSet(XrActionSet actionSet);
+        void AddDefaultActions(XrInstance instance);
         void AttachActionSets(std::vector<XrPath>* assertInteractionProfilePath = nullptr);
         void SyncActions(XrPath subactionPath);
         void SyncActions(const std::initializer_list<XrPath>& subactionPaths);
+
+        /// XR_NULL_HANDLE if AddDefaultActions has not been called
+        XrAction GetDefaultSelectAction() const noexcept
+        {
+            return m_select;
+        }
+
+        /// XR_NULL_HANDLE if AddDefaultActions has not been called
+        XrAction GetDefaultMenuAction() const noexcept
+        {
+            return m_menu;
+        }
+
+        /// Returns true when the select action input has been RELEASED with the most recent SyncActions call
+        bool GetDefaultSelectPressed(XrSession session)
+        {
+            XrActionStateBoolean actionState{XR_TYPE_ACTION_STATE_BOOLEAN};
+            XrActionStateGetInfo getInfo{XR_TYPE_ACTION_STATE_GET_INFO};
+            getInfo.action = m_select;
+            XRC_CHECK_THROW_XRCMD(xrGetActionStateBoolean(session, &getInfo, &actionState));
+            return (actionState.isActive && actionState.changedSinceLastSync && !actionState.currentState);
+        }
+
+        /// Returns true when the menu action input has been RELEASED with the most recent SyncActions call
+        bool GetDefaultMenuPressed(XrSession session)
+        {
+            XrActionStateBoolean actionState{XR_TYPE_ACTION_STATE_BOOLEAN};
+            XrActionStateGetInfo getInfo{XR_TYPE_ACTION_STATE_GET_INFO};
+            getInfo.action = m_menu;
+            XRC_CHECK_THROW_XRCMD(xrGetActionStateBoolean(session, &getInfo, &actionState));
+            return (actionState.isActive && actionState.changedSinceLastSync && !actionState.currentState);
+        }
 
     private:
         XrInstance m_instance;
@@ -100,6 +134,10 @@ namespace Conformance
         // Some tests require control of the binding order
         std::vector<XrPath> m_bindingsOrder;
         std::vector<XrActionSet> m_actionSets;
+
+        XrActionSet m_actionSet{XR_NULL_HANDLE};
+        XrAction m_select{XR_NULL_HANDLE};
+        XrAction m_menu{XR_NULL_HANDLE};
     };
 
     /// A helper for basic frame loop and rendering operations, wrapping an instance, session, and @ref InteractionManager.
@@ -111,6 +149,7 @@ namespace Conformance
         ///
         /// Note that "testName" is the title that will be shown on the device: it is limited in size and often cannot show the entire actual test name.
         CompositionHelper(const char* testName, const std::vector<const char*>& additionalEnabledExtensions = std::vector<const char*>());
+        CompositionHelper(const char* testName, const FeatureSet& featureSet);
 
         /// Constructor for when you already have an instance, and maybe know your view config type you want to use.
         CompositionHelper(const char* testName, XrInstance instance, XrViewConfigurationType viewConfigType = (XrViewConfigurationType)0,
@@ -155,7 +194,7 @@ namespace Conformance
         EventQueue& GetEventQueue() const;
 
         /// Call xrEndFrame submitting the given layers.
-        void EndFrame(XrTime predictedDisplayTime, std::vector<XrCompositionLayerBaseHeader*> layers);
+        void EndFrame(XrTime predictedDisplayTime, std::vector<XrCompositionLayerBaseHeader*> layers, bool showTestNameQuad = true);
 
         /// Create a handle for a reference space of type @p type owned by this class.
         ///
@@ -213,6 +252,28 @@ namespace Conformance
         /// @param swapchain A swapchain created with @ref CreateSwapchain or a specialization of it.
         /// @param doUpdate A functor to call between Wait and Release that will be passed the swapchain image as a base header pointer.
         void AcquireWaitReleaseImage(XrSwapchain swapchain, const std::function<void(const XrSwapchainImageBaseHeader*)>& doUpdate);
+
+        /// Perform an xrAcquireSwapchainImage, xrWaitSwapchainImage sequence and returns the color XrSwapchainImage that was acquired.
+        /// MUST be followed up by a call to AcquireWaitImage.
+        ///
+        /// Also does Acquire, Wait on corresponding depth image managed by the graphics plugin.
+        ///
+        /// @throws on timeout or other error
+        ///
+        /// @param swapchain A swapchain created with @ref CreateSwapchain or a specialization of it.
+        /// @param doUpdate A functor to call between Wait and Release that will be passed the swapchain image as a base header pointer.
+        const XrSwapchainImageBaseHeader* AcquireWaitImage(XrSwapchain swapchain);
+
+        /// Perform a xrAcquireWaitReleaseImage.
+        /// Only use this with AcquireWaitImage.
+        ///
+        /// Also does Acquire, Wait on corresponding depth image managed by the graphics plugin.
+        ///
+        /// @throws on timeout or other error
+        ///
+        /// @param swapchain A swapchain created with @ref CreateSwapchain or a specialization of it.
+        /// @param doUpdate A functor to call between Wait and Release that will be passed the swapchain image as a base header pointer.
+        void ReleaseImage(XrSwapchain swapchain);
 
         /// Create and return a static swapchain that has had a solid color texture copied to it: specialization of @ref CreateSwapchain
         ///
@@ -400,40 +461,12 @@ namespace Conformance
     struct InteractiveLayerManager
     {
         InteractiveLayerManager(CompositionHelper& compositionHelper, const char* exampleImage, const char* descriptionText)
-            : m_compositionHelper(compositionHelper), m_testStopwatch(true)
+            : m_compositionHelper(compositionHelper), m_autoSkipTimeout(Options::Get().autoSkipTimeout), m_testStopwatch(true)
         {
             using namespace openxr::math_operators;
 
             // Set up the input system for toggling between modes and passing/failing.
-            {
-                XrActionSetCreateInfo actionSetInfo{XR_TYPE_ACTION_SET_CREATE_INFO};
-                strcpy(actionSetInfo.actionSetName, "interaction_test");
-                strcpy(actionSetInfo.localizedActionSetName, "Interaction Test");
-                XRC_CHECK_THROW_XRCMD(xrCreateActionSet(compositionHelper.GetInstance(), &actionSetInfo, &m_actionSet));
-
-                compositionHelper.GetInteractionManager().AddActionSet(m_actionSet);
-
-                XrActionCreateInfo actionInfo{XR_TYPE_ACTION_CREATE_INFO};
-                actionInfo.actionType = XR_ACTION_TYPE_BOOLEAN_INPUT;
-                strcpy(actionInfo.actionName, "interaction_manager_select");
-                strcpy(actionInfo.localizedActionName, "Interaction Manager Select");
-                XRC_CHECK_THROW_XRCMD(xrCreateAction(m_actionSet, &actionInfo, &m_select));
-
-                strcpy(actionInfo.actionName, "interaction_manager_menu");
-                strcpy(actionInfo.localizedActionName, "Interaction Manager Menu");
-                XRC_CHECK_THROW_XRCMD(xrCreateAction(m_actionSet, &actionInfo, &m_menu));
-
-                XrPath simpleInteractionProfile =
-                    StringToPath(compositionHelper.GetInstance(), "/interaction_profiles/khr/simple_controller");
-                compositionHelper.GetInteractionManager().AddActionBindings(
-                    simpleInteractionProfile,
-                    {{
-                        {m_select, StringToPath(compositionHelper.GetInstance(), "/user/hand/left/input/select/click")},
-                        {m_select, StringToPath(compositionHelper.GetInstance(), "/user/hand/right/input/select/click")},
-                        {m_menu, StringToPath(compositionHelper.GetInstance(), "/user/hand/left/input/menu/click")},
-                        {m_menu, StringToPath(compositionHelper.GetInstance(), "/user/hand/right/input/menu/click")},
-                    }});
-            }
+            compositionHelper.GetInteractionManager().AddDefaultActions(compositionHelper.GetInstance());
 
             m_viewSpace = compositionHelper.CreateReferenceSpace(XR_REFERENCE_SPACE_TYPE_VIEW);
             m_localSpace = compositionHelper.CreateReferenceSpace(XR_REFERENCE_SPACE_TYPE_LOCAL);
@@ -584,16 +617,17 @@ namespace Conformance
 
             XrActionStateBoolean actionState{XR_TYPE_ACTION_STATE_BOOLEAN};
             XrActionStateGetInfo getInfo{XR_TYPE_ACTION_STATE_GET_INFO};
+            XrSession session = m_compositionHelper.GetSession();
 
             LayerMode mode = LayerMode::Scene;
-            getInfo.action = m_menu;
-            XRC_CHECK_THROW_XRCMD(xrGetActionStateBoolean(m_compositionHelper.GetSession(), &getInfo, &actionState));
+            getInfo.action = m_compositionHelper.GetInteractionManager().GetDefaultMenuAction();
+            XRC_CHECK_THROW_XRCMD(xrGetActionStateBoolean(session, &getInfo, &actionState));
             if (actionState.currentState) {
                 mode = LayerMode::Help;
             }
 
-            getInfo.action = m_select;
-            XRC_CHECK_THROW_XRCMD(xrGetActionStateBoolean(m_compositionHelper.GetSession(), &getInfo, &actionState));
+            getInfo.action = m_compositionHelper.GetInteractionManager().GetDefaultSelectAction();
+            XRC_CHECK_THROW_XRCMD(xrGetActionStateBoolean(session, &getInfo, &actionState));
             if (actionState.changedSinceLastSync && actionState.currentState) {
                 if (mode != LayerMode::Scene) {
                     // Select on the non-Scene modes (help description/preview image) means FAIL and move to the next.
@@ -604,8 +638,8 @@ namespace Conformance
                 mode = LayerMode::Complete;
             }
 
-            if (GetGlobalData().options.autoSkipTimeout != std::chrono::milliseconds(0)) {
-                if (m_testStopwatch.Elapsed() > GetGlobalData().options.autoSkipTimeout) {
+            if (m_autoSkipTimeout != std::chrono::milliseconds(0)) {
+                if (m_testStopwatch.Elapsed() > m_autoSkipTimeout) {
                     WARN("Automatically skipping test due to timeout");
                     mode = LayerMode::Complete;
                 }
@@ -615,10 +649,6 @@ namespace Conformance
         }
 
         CompositionHelper& m_compositionHelper;
-
-        XrActionSet m_actionSet{XR_NULL_HANDLE};
-        XrAction m_select{XR_NULL_HANDLE};
-        XrAction m_menu{XR_NULL_HANDLE};
 
         XrSpace m_viewSpace;
         XrSpace m_localSpace;
@@ -633,6 +663,7 @@ namespace Conformance
         std::vector<XrCompositionLayerBaseHeader*> m_sceneLayers;
         std::vector<XrCompositionLayerBaseHeader*> m_backgroundLayers;
 
+        std::chrono::milliseconds m_autoSkipTimeout{0};
         Stopwatch m_testStopwatch;
     };
 }  // namespace Conformance

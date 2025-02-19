@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2024, The Khronos Group Inc.
+// Copyright (c) 2019-2025 The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -66,13 +66,12 @@ namespace Conformance
         // Create motion vector and depth buffer swapchains.
         std::vector<XrSwapchain> motionVectorSwapchains(viewCount);
         for (XrSwapchain& motionVectorSwapchain : motionVectorSwapchains) {
-            REQUIRE(CreateMotionVectorSwapchain(session.GetSession(), graphicsPlugin.get(), &motionVectorSwapchain, &mvSwapchainExtent) ==
-                    XR_SUCCESS);
+            REQUIRE(CreateMotionVectorSwapchain(session, graphicsPlugin.get(), &motionVectorSwapchain, &mvSwapchainExtent) == XR_SUCCESS);
         }
 
         std::vector<XrSwapchain> depthSwapchains(viewCount);
         for (XrSwapchain& depthSwapchain : depthSwapchains) {
-            REQUIRE(CreateDepthSwapchain(session.GetSession(), graphicsPlugin.get(), &depthSwapchain, &mvSwapchainExtent) == XR_SUCCESS);
+            REQUIRE(CreateDepthSwapchain(session, graphicsPlugin.get(), &depthSwapchain, &mvSwapchainExtent) == XR_SUCCESS);
         }
 
         auto&& layerFlagsGenerator = bitmaskGeneratorIncluding0({XR_COMPOSITION_LAYER_CORRECT_CHROMATIC_ABERRATION_BIT,
@@ -172,10 +171,7 @@ namespace Conformance
                 frameIterator.frameEndInfo.layerCount = 1;
                 frameIterator.frameEndInfo.layers = headerPtrArray;
 
-                // xrEndFrame requires the XR_FB_space_warp extension to be
-                // enabled or else it must return XR_ERROR_LAYER_INVALID.
-                XrResult result = xrEndFrame(session.GetSession(), &frameIterator.frameEndInfo);
-                CHECK(result == varyingInfo.result);
+                CHECK(varyingInfo.result == xrEndFrame(session, &frameIterator.frameEndInfo));
             }
         }
 

@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2024, The Khronos Group Inc.
+// Copyright (c) 2019-2025 The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -15,8 +15,10 @@
 // limitations under the License.
 
 #include "report.h"
-#include <string>
+
 #include <cstdio>
+#include <stdarg.h>
+#include <string>
 
 #ifdef _WIN32
 #include <windows.h>

@@ -1,4 +1,4 @@
-// Copyright 2023-2024, The Khronos Group Inc.
+// Copyright 2023-2025 The Khronos Group Inc.
 //
 // Based in part on code that is:
 //
@@ -14,8 +14,8 @@
 #include "D3D12Resources.h"
 #include "D3D12Texture.h"
 
-#include "../PbrMaterial.h"
-#include "../PbrTexture.h"
+#include "PbrMaterial.h"
+#include "PbrTexture.h"
 
 #include "utilities/d3d12_utils.h"
 
@@ -39,7 +39,7 @@ namespace Pbr
         // Check cache to see if this flat texture already exists.
         const uint32_t colorKey = *reinterpret_cast<const uint32_t*>(rgba.data());
         {
-            std::lock_guard<std::mutex> guard(*m_cacheMutex);
+            std::lock_guard<std::mutex> guard{*m_cacheMutex};
             auto textureIt = m_solidColorTextureCache.find(colorKey);
             if (textureIt != m_solidColorTextureCache.end()) {
                 return textureIt->second;
@@ -52,7 +52,7 @@ namespace Pbr
 
         Conformance::D3D12ResourceWithSRVDesc texture = D3D12Texture::CreateTexture(pbrResources, copyCommandList, stagingResources, image);
 
-        std::lock_guard<std::mutex> guard(*m_cacheMutex);
+        std::lock_guard<std::mutex> guard{*m_cacheMutex};
         // If the key already exists then the existing texture will be returned.
         return m_solidColorTextureCache.emplace(colorKey, texture).first->second;
     }

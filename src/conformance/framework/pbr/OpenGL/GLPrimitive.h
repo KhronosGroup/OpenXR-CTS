@@ -1,4 +1,4 @@
-// Copyright 2022-2024, The Khronos Group Inc.
+// Copyright 2022-2025 The Khronos Group Inc.
 //
 // Based in part on code that is:
 // Copyright (C) Microsoft Corporation.  All Rights Reserved
@@ -7,21 +7,19 @@
 // SPDX-License-Identifier: MIT AND Apache-2.0
 #pragma once
 
-#include "GLCommon.h"
-#include "GLMaterial.h"
-
-#include "../PbrSharedState.h"
-
-#include "common/gfxwrapper_opengl.h"
-
 #include <memory>
 #include <utility>
 #include <vector>
 
+#include "GLCommon.h"
+#include "PbrSharedState.h"
+#include "PbrCommon.h"
+
+#include "common/gfxwrapper_opengl.h"  // IWYU pragma: keep
+
 namespace Pbr
 {
     struct GLMaterial;
-    struct PrimitiveBuilder;
 
     /// A primitive holds a vertex buffer, index buffer, and a pointer to a PBR material.
     struct GLPrimitive final

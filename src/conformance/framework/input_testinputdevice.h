@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2024, The Khronos Group Inc.
+// Copyright (c) 2019-2025 The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -20,11 +20,9 @@
 
 #include <openxr/openxr.h>
 
-#include <initializer_list>
 #include <map>
 #include <memory>
 #include <string>
-#include <vector>
 
 namespace Conformance
 {

@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2024, The Khronos Group Inc.
+// Copyright (c) 2019-2025 The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -47,14 +47,10 @@
 #include <iterator>
 #include <map>
 #include <memory>
-#include <ostream>
-#include <ratio>
 #include <regex>
 #include <set>
 #include <string>
 #include <tuple>
-#include <type_traits>
-#include <utility>
 #include <vector>
 
 using namespace std::chrono_literals;
@@ -73,6 +69,32 @@ namespace Conformance
 {
     using namespace openxr::math_operators;
 
+    struct ExpectedResult
+    {
+        const char* pathStr;
+        XrResult expectedResult;
+    };
+    std::array<ExpectedResult, 18> expectedSingleLevelPathNameResult = {{
+        {"INVALID_PATH_COMPONENT", XR_ERROR_PATH_FORMAT_INVALID},     //
+        {"invalid path component", XR_ERROR_PATH_FORMAT_INVALID},     //
+        {"invalid_path_component_!", XR_ERROR_PATH_FORMAT_INVALID},   //
+        {"invalid_path_component_\"", XR_ERROR_PATH_FORMAT_INVALID},  //
+        {"invalid_path_component_@", XR_ERROR_PATH_FORMAT_INVALID},   //
+        {"invalid_path_component_€", XR_ERROR_PATH_FORMAT_INVALID},   //
+        {"invalid_path_component_ß", XR_ERROR_PATH_FORMAT_INVALID},   //
+        {"invalid_path_component_,", XR_ERROR_PATH_FORMAT_INVALID},   //
+        {"invalid_path_component_ä", XR_ERROR_PATH_FORMAT_INVALID},   //
+        {"invalid_path_component_~", XR_ERROR_PATH_FORMAT_INVALID},   //
+        {"invalid/path_component", XR_ERROR_PATH_FORMAT_INVALID},     //
+        {"valid_path_component", XR_SUCCESS},                         //
+        {"valid_path_component_0", XR_SUCCESS},                       //
+        {"valid-path-component", XR_SUCCESS},                         //
+        {"valid.path.component", XR_SUCCESS},                         //
+        {".", XR_SUCCESS},                                            //
+        {"..", XR_SUCCESS},                                           //
+        {"...", XR_SUCCESS},                                          //
+    }};
+
     TEST_CASE("xrCreateActionSet", "[actions]")
     {
         AutoBasicInstance instance(AutoBasicInstance::createSystemId);
@@ -80,8 +102,6 @@ namespace Conformance
                     "If this (XrInstance creation) fails, ensure the runtime location is set and the runtime is started, if applicable.");
         REQUIRE_MSG(instance.systemId != XR_NULL_SYSTEM_ID,
                     "XrInstance SystemId creation failed. Does the runtime have hardware available?");
-
-        XrInstance invalidInstance = (XrInstance)0x1234;
 
         XrActionSet actionSet{XR_NULL_HANDLE};
         XrActionSetCreateInfo actionSetCreateInfo{XR_TYPE_ACTION_SET_CREATE_INFO};
@@ -108,7 +128,7 @@ namespace Conformance
         }
         OPTIONAL_INVALID_HANDLE_VALIDATION_SECTION
         {
-            REQUIRE_RESULT(xrCreateActionSet(invalidInstance, &actionSetCreateInfo, &actionSet), XR_ERROR_HANDLE_INVALID);
+            REQUIRE_RESULT(xrCreateActionSet(GetGlobalData().invalidInstance, &actionSetCreateInfo, &actionSet), XR_ERROR_HANDLE_INVALID);
         }
         SECTION("Naming rules")
         {
@@ -123,8 +143,17 @@ namespace Conformance
             }
             SECTION("Invalid names")
             {
-                strcpy(actionSetCreateInfo.actionSetName, "INVALID PATH COMPONENT");
-                REQUIRE_RESULT(xrCreateActionSet(instance, &actionSetCreateInfo, &actionSet), XR_ERROR_PATH_FORMAT_INVALID);
+                for (auto& value : expectedSingleLevelPathNameResult) {
+                    CAPTURE(value.pathStr);
+                    strcpy(actionSetCreateInfo.actionSetName, value.pathStr);
+                    strcpy(actionSetCreateInfo.localizedActionSetName, value.pathStr);  // easy way to avoid duplication
+
+                    XrResult result = XR_SUCCESS;
+                    CHECK((result = xrCreateActionSet(instance, &actionSetCreateInfo, &actionSet)) == value.expectedResult);
+                    if (result == XR_SUCCESS) {
+                        CHECK(xrDestroyActionSet(actionSet) == XR_SUCCESS);
+                    }
+                }
             }
             SECTION("Name duplication")
             {
@@ -295,8 +324,17 @@ namespace Conformance
             }
             SECTION("Invalid names")
             {
-                strcpy(actionCreateInfo.actionName, "INVALID PATH COMPONENT");
-                REQUIRE_RESULT(xrCreateAction(actionSet, &actionCreateInfo, &action), XR_ERROR_PATH_FORMAT_INVALID);
+                for (auto& value : expectedSingleLevelPathNameResult) {
+                    CAPTURE(value.pathStr);
+                    strcpy(actionCreateInfo.actionName, value.pathStr);
+                    strcpy(actionCreateInfo.localizedActionName, value.pathStr);  // easy way to avoid duplication
+
+                    XrResult result = XR_SUCCESS;
+                    CHECK((result = xrCreateAction(actionSet, &actionCreateInfo, &action)) == value.expectedResult);
+                    if (result == XR_SUCCESS) {
+                        CHECK(xrDestroyAction(action) == XR_SUCCESS);
+                    }
+                }
             }
             SECTION("Name duplication")
             {
@@ -411,8 +449,6 @@ namespace Conformance
         REQUIRE_MSG(instance.systemId != XR_NULL_SYSTEM_ID,
                     "XrInstance SystemId creation failed. Does the runtime have hardware available?");
 
-        XrInstance invalidInstance = (XrInstance)0x1234;
-
         XrActionSet actionSet{XR_NULL_HANDLE};
         XrActionSetCreateInfo actionSetCreateInfo{XR_TYPE_ACTION_SET_CREATE_INFO};
         strcpy(actionSetCreateInfo.localizedActionSetName, "test action set localized name");
@@ -449,7 +485,8 @@ namespace Conformance
             {
                 SECTION("Invalid instance")
                 {
-                    REQUIRE_RESULT(xrSuggestInteractionProfileBindings(invalidInstance, &bindings), XR_ERROR_HANDLE_INVALID);
+                    REQUIRE_RESULT(xrSuggestInteractionProfileBindings(GetGlobalData().invalidInstance, &bindings),
+                                   XR_ERROR_HANDLE_INVALID);
                 }
                 SECTION("Invalid action")
                 {
@@ -1278,7 +1315,7 @@ namespace Conformance
                     INFO("XR_NULL_PATH topLevelPath");
                     REQUIRE_RESULT(xrGetCurrentInteractionProfile(session, XR_NULL_PATH, &interactionProfileState), XR_ERROR_PATH_INVALID);
                 }
-                OPTIONAL_INVALID_HANDLE_VALIDATION_INFO
+                OPTIONAL_INVALID_HANDLE_VALIDATION_SECTION
                 {
                     XrSession invalidSession = (XrSession)0x1234;
                     REQUIRE_RESULT(xrGetCurrentInteractionProfile(invalidSession, leftHandPath, &interactionProfileState),
@@ -1495,7 +1532,7 @@ namespace Conformance
                         REQUIRE(actionStateBoolean.currentState);
                     }
 
-                    OPTIONAL_DISCONNECTABLE_DEVICE_INFO
+                    OPTIONAL_DISCONNECTABLE_DEVICE_SECTION
                     {
                         defaultInputDevice->SetDeviceActive(false, true, XR_NULL_HANDLE, XR_NULL_HANDLE, " and wait for 20s");
 
@@ -2025,13 +2062,12 @@ namespace Conformance
                         XrBoundSourcesForActionEnumerateInfo info{XR_TYPE_BOUND_SOURCES_FOR_ACTION_ENUMERATE_INFO};
                         info.action = unboundAction;
                         uint32_t count = 0;
-                        REQUIRE_RESULT(xrEnumerateBoundSourcesForAction(compositionHelper.GetSession(), &info, 0, &count, nullptr),
-                                       XR_SUCCESS);
+                        REQUIRE_RESULT(xrEnumerateBoundSourcesForAction(session, &info, 0, &count, nullptr), XR_SUCCESS);
                         if (count == 0) {
                             XrActionStateBoolean state{XR_TYPE_ACTION_STATE_BOOLEAN};
                             getInfo.action = unboundAction;
                             getInfo.subactionPath = defaultDevicePath;
-                            REQUIRE_RESULT(xrGetActionStateBoolean(compositionHelper.GetSession(), &getInfo, &state), XR_SUCCESS);
+                            REQUIRE_RESULT(xrGetActionStateBoolean(session, &getInfo, &state), XR_SUCCESS);
                             REQUIRE(state.currentState == XR_FALSE);
                             REQUIRE(state.changedSinceLastSync == XR_FALSE);
                             REQUIRE(state.lastChangeTime == 0);
@@ -2740,7 +2776,7 @@ namespace Conformance
                 }
             }
 
-            OPTIONAL_DISCONNECTABLE_DEVICE_INFO
+            OPTIONAL_DISCONNECTABLE_DEVICE_SECTION
             {
                 INFO("Pose state query");
 
@@ -3268,6 +3304,8 @@ namespace Conformance
     {
         CompositionHelper compositionHelper("action_space_creation-noni");
         compositionHelper.BeginSession();
+        XrSession session = compositionHelper.GetSession();
+
         ActionLayerManager actionLayerManager(compositionHelper);
 
         XrActionSet actionSet{XR_NULL_HANDLE};
@@ -3295,8 +3333,7 @@ namespace Conformance
             XrActionSpaceCreateInfo spaceCreateInfoWithoutType = spaceCreateInfo;
             spaceCreateInfoWithoutType.type = (XrStructureType)0;
 
-            REQUIRE_RESULT(xrCreateActionSpace(compositionHelper.GetSession(), &spaceCreateInfoWithoutType, &space),
-                           XR_ERROR_VALIDATION_FAILURE);
+            REQUIRE_RESULT(xrCreateActionSpace(session, &spaceCreateInfoWithoutType, &space), XR_ERROR_VALIDATION_FAILURE);
         }
 
         OPTIONAL_INVALID_TYPE_VALIDATION_SECTION
@@ -3304,8 +3341,7 @@ namespace Conformance
             XrActionSpaceCreateInfo spaceCreateInfoWithInvalidType = spaceCreateInfo;
             spaceCreateInfoWithInvalidType.type = XR_TYPE_ACTIONS_SYNC_INFO;
 
-            REQUIRE_RESULT(xrCreateActionSpace(compositionHelper.GetSession(), &spaceCreateInfoWithInvalidType, &space),
-                           XR_ERROR_VALIDATION_FAILURE);
+            REQUIRE_RESULT(xrCreateActionSpace(session, &spaceCreateInfoWithInvalidType, &space), XR_ERROR_VALIDATION_FAILURE);
         }
     }
 
@@ -3479,7 +3515,7 @@ namespace Conformance
             rightHandInputDevice->SetDeviceActive(true);
         }
 
-        OPTIONAL_DISCONNECTABLE_DEVICE_INFO
+        OPTIONAL_DISCONNECTABLE_DEVICE_SECTION
         {
             XrSpaceVelocity leftVelocity{XR_TYPE_SPACE_VELOCITY};
             XrSpaceVelocity rightVelocity{XR_TYPE_SPACE_VELOCITY};

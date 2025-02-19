@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2024, The Khronos Group Inc.
+// Copyright (c) 2019-2025 The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -75,7 +75,7 @@ namespace Conformance
             XRC_CHECK_THROW_XRCMD(xrBeginFrame(session, nullptr));
 
             XrFrameEndInfo frameEndInfo{XR_TYPE_FRAME_END_INFO};
-            frameEndInfo.environmentBlendMode = globalData.GetOptions().environmentBlendModeValue;
+            frameEndInfo.environmentBlendMode = Options::Get().environmentBlendModeValue;
             frameEndInfo.displayTime = frameState.predictedDisplayTime;
             frameEndInfo.layerCount = (uint32_t)layers.size();
             frameEndInfo.layers = reinterpret_cast<const XrCompositionLayerBaseHeader* const*>(layers.data());

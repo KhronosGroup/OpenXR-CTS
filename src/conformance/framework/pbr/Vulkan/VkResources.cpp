@@ -1,4 +1,4 @@
-// Copyright 2023-2024, The Khronos Group Inc.
+// Copyright 2023-2025 The Khronos Group Inc.
 //
 // Based in part on code that is:
 //
@@ -19,18 +19,21 @@
 #include "VkTexture.h"
 #include "VkTextureCache.h"
 
-#include "../../gltf/GltfHelper.h"
-#include "../GlslBuffers.h"
-#include "../PbrCommon.h"
-#include "../PbrHandles.h"
-#include "../PbrSharedState.h"
+#include "../gltf/GltfHelper.h"
+#include "GlslBuffers.h"
+#include "PbrCommon.h"
+#include "PbrHandles.h"
+#include "PbrSharedState.h"
 
 #include "common/vulkan_debug_object_namer.hpp"
+#include "common/xr_linear.h"
 #include "utilities/vulkan_scoped_handle.h"
 #include "utilities/vulkan_utils.h"
 #include "utilities/xr_math_operators.h"
 
+#include <nonstd/span.hpp>
 #include <nonstd/type.hpp>
+#include <openxr/openxr.h>
 #include <tinygltf/tiny_gltf.h>
 #include <vulkan/vulkan_core.h>
 

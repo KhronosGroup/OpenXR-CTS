@@ -1,4 +1,4 @@
-// Copyright 2023-2024, The Khronos Group Inc.
+// Copyright 2023-2025 The Khronos Group Inc.
 //
 // Based in part on code that is:
 //
@@ -6,10 +6,7 @@
 // Licensed under the MIT License. See License.txt in the project root for license information.
 //
 // SPDX-License-Identifier: MIT AND Apache-2.0
-
 #include "GLCommon.h"
-
-#include "common/gfxwrapper_opengl.h"
 
 #include <openxr/openxr.h>
 

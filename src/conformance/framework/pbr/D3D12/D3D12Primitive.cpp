@@ -1,4 +1,4 @@
-// Copyright 2022-2024, The Khronos Group Inc.
+// Copyright 2022-2025 The Khronos Group Inc.
 //
 // Based in part on code that is:
 // Copyright (C) Microsoft Corporation.  All Rights Reserved
@@ -12,7 +12,7 @@
 
 #include "D3D12Resources.h"
 
-#include "../PbrCommon.h"
+#include "PbrCommon.h"
 
 #include "utilities/array_size.h"
 #include "utilities/throw_helpers.h"

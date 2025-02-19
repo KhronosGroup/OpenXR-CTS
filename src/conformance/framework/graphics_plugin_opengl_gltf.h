@@ -1,4 +1,4 @@
-// Copyright (c) 2022-2024, The Khronos Group Inc.
+// Copyright (c) 2022-2025 The Khronos Group Inc.
 //
 // SPDX-License-Identifier: MIT
 
@@ -8,19 +8,10 @@
 #include "gltf_model.h"
 
 #include "common/xr_linear.h"
-#include "gltf/GltfHelper.h"
 #include "pbr/OpenGL/GLModel.h"
-#include "pbr/OpenGL/GLResources.h"
-#include "pbr/PbrSharedState.h"
-
-#include <functional>
-#include <map>
-#include <string>
-#include <vector>
 
 namespace Pbr
 {
-    class GLModel;
     struct GLResources;
 }  // namespace Pbr
 

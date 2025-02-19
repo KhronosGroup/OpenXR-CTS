@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2024, The Khronos Group Inc.
+// Copyright (c) 2019-2025 The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -61,16 +61,13 @@ namespace Conformance
         XrSwapchain swapchainPair[2];
         XrExtent2Di extents{256, 256};
 
-        XrResult result = CreateColorSwapchain(session.GetSession(), graphicsPlugin.get(), &swapchainPair[0], &extents, 1, true /* cube */);
-        REQUIRE_RESULT_SUCCEEDED(result);
+        REQUIRE(XR_SUCCESS == CreateColorSwapchain(session, graphicsPlugin.get(), &swapchainPair[0], &extents, 1, true /* cube */));
         SwapchainCHECK swapchainCHECK0(swapchainPair[0]);  // Auto-deletes the swapchain.
 
-        result = CreateColorSwapchain(session.GetSession(), graphicsPlugin.get(), &swapchainPair[1], &extents, 1, true /* cube */);
-        REQUIRE_RESULT_SUCCEEDED(result);
+        REQUIRE(XR_SUCCESS == CreateColorSwapchain(session, graphicsPlugin.get(), &swapchainPair[1], &extents, 1, true /* cube */));
         SwapchainCHECK swapchainCHECK1(swapchainPair[1]);  // Auto-deletes the swapchain.
 
-        result = CycleToNextSwapchainImage(swapchainPair, 2, 3_xrSeconds);
-        REQUIRE_RESULT_SUCCEEDED(result);
+        REQUIRE(XR_SUCCESS == CycleToNextSwapchainImage(swapchainPair, 2, 3_xrSeconds));
 
         auto&& layerFlagsGenerator = bitmaskGeneratorIncluding0({XR_COMPOSITION_LAYER_CORRECT_CHROMATIC_ABERRATION_BIT,
                                                                  XR_COMPOSITION_LAYER_BLEND_TEXTURE_SOURCE_ALPHA_BIT,
@@ -100,8 +97,7 @@ namespace Conformance
                     // } XrCompositionLayerCubeKHR;
 
                     for (const XrQuaternionf& orientation : orientationTestArray) {
-                        FrameIterator::RunResult runResult = frameIterator.PrepareSubmitFrame();
-                        REQUIRE(runResult == FrameIterator::RunResult::Success);
+                        REQUIRE(FrameIterator::RunResult::Success == frameIterator.PrepareSubmitFrame());
 
                         // Set up our cubemap layer. We always make two, and some of the time we
                         // split them into left and right eye layers. If we have a left eye then
@@ -136,15 +132,13 @@ namespace Conformance
 
                         // xrEndFrame requires the XR_KHR_composition_layer_cube extension to be enabled or else
                         // it will return XR_ERROR_LAYER_INVALID.
-                        result = xrEndFrame(session.GetSession(), &frameIterator.frameEndInfo);
-                        CHECK(result == XR_SUCCESS);
+                        CHECK(XR_SUCCESS == xrEndFrame(session, &frameIterator.frameEndInfo));
                     }
                 }
             }
         }
 
-        result = xrRequestExitSession(session.GetSession());
-        CHECK(result == XR_SUCCESS);
+        CHECK(XR_SUCCESS == xrRequestExitSession(session));
 
         frameIterator.RunToSessionState(XR_SESSION_STATE_STOPPING);
     }

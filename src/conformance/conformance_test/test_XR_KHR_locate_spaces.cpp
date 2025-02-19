@@ -1,4 +1,4 @@
-// Copyright (c) 2024, The Khronos Group Inc.
+// Copyright (c) 2024-2025 The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -309,7 +309,7 @@ namespace Conformance
         SECTION("space location math")
         {
             // to capture only the handle and not the full object below
-            XrSession sessionHandle = session.GetSession();
+            XrSession sessionHandle = session;
 
             // Creates a space to be used as baseSpace using baseSpacePose and additionally spaceCount spaces with the corresponding spacePose array entry,
             // locates them and compares the result with the expected expectedPoses entry. Intention is to check the math behind xrLocateSpace.

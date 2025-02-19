@@ -1,24 +1,27 @@
-// Copyright (c) 2017-2024, The Khronos Group Inc.
+// Copyright (c) 2017-2025 The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 
 #include "RGBAImage.h"
 
-#include "utilities/colors.h"
-#include "conformance_framework.h"
 #include "report.h"
+#include "utilities/colors.h"
 
 #ifdef XR_USE_PLATFORM_ANDROID
-#include "common/unique_asset.h"
-
 #include <android/asset_manager.h>
+
+#include "common/unique_asset.h"
+#include "utilities/android_declarations.h"
 #endif
 
 // Only one compilation unit can have the STB implementations.
 #define STB_IMAGE_IMPLEMENTATION
 #define STB_TRUETYPE_IMPLEMENTATION
+
 #include "stb/stb_image.h"
 #include "stb/stb_truetype.h"
+
+#include <openxr/openxr.h>
 
 #include <algorithm>
 #include <array>

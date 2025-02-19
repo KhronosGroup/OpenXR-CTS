@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2024, The Khronos Group Inc.
+// Copyright (c) 2019-2025 The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -21,8 +21,6 @@
 #include <catch2/catch_test_macros.hpp>
 #include <openxr/openxr.h>
 
-#include <string>
-
 namespace Conformance
 {
 
@@ -35,7 +33,7 @@ namespace Conformance
 
         XrResult result;
         XrSystemGetInfo systemGetInfo{XR_TYPE_SYSTEM_GET_INFO};
-        systemGetInfo.formFactor = globalData.options.formFactorValue;
+        systemGetInfo.formFactor = Options::Get().formFactorValue;
 
         // We require that for the conformance test to successfully complete, a system of the specified form factor must be present.
         XrSystemId systemId;

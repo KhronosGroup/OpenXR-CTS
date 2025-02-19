@@ -1,4 +1,4 @@
-// Copyright 2023-2024, The Khronos Group Inc.
+// Copyright 2023-2025 The Khronos Group Inc.
 //
 // Based in part on code that is:
 //
@@ -11,7 +11,7 @@
 
 #include "D3D12PipelineStates.h"
 
-#include "../PbrCommon.h"
+#include "PbrCommon.h"
 
 #include "utilities/throw_helpers.h"
 

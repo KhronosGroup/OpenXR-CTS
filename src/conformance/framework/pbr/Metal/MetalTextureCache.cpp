@@ -1,4 +1,4 @@
-// Copyright 2023-2024, The Khronos Group Inc.
+// Copyright 2023-2025 The Khronos Group Inc.
 //
 // Based in part on code that is:
 //
@@ -15,7 +15,7 @@
 #include "MetalTexture.h"
 
 #include "../PbrMaterial.h"
-#include "../PbrTexture.h"
+#include "PbrTexture.h"
 
 #include "utilities/metal_utils.h"
 

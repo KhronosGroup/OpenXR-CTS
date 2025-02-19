@@ -1,4 +1,4 @@
-// Copyright 2022-2024, The Khronos Group Inc.
+// Copyright 2022-2025 The Khronos Group Inc.
 //
 // Based in part on code that is:
 // Copyright (C) Microsoft Corporation.  All Rights Reserved
@@ -20,11 +20,9 @@
 #include <assert.h>
 #include <cctype>
 #include <cstdint>
-#include <functional>
 #include <iterator>
 #include <limits>
 #include <map>
-#include <memory>
 #include <stdexcept>
 #include <string.h>
 #include <string>

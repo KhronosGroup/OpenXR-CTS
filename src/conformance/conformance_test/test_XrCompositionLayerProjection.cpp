@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2024, The Khronos Group Inc.
+// Copyright (c) 2019-2025 The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -104,7 +104,7 @@ namespace Conformance
             XrViewLocateInfo locateInfo{XR_TYPE_VIEW_LOCATE_INFO};
             locateInfo.space = session.spaceVector.front();
             locateInfo.displayTime = frameState.predictedDisplayTime;
-            locateInfo.viewConfigurationType = globalData.GetOptions().viewConfigurationValue;
+            locateInfo.viewConfigurationType = Options::Get().viewConfigurationValue;
 
             XrViewState viewState{XR_TYPE_VIEW_STATE};
             std::vector<XrView> views(viewCount, {XR_TYPE_VIEW});
@@ -122,7 +122,7 @@ namespace Conformance
 
         auto endFrame = [&](const XrFrameState& frameState, std::vector<void*> layers) {
             XrFrameEndInfo frameEndInfo{XR_TYPE_FRAME_END_INFO};
-            frameEndInfo.environmentBlendMode = globalData.GetOptions().environmentBlendModeValue;
+            frameEndInfo.environmentBlendMode = Options::Get().environmentBlendModeValue;
             frameEndInfo.displayTime = frameState.predictedDisplayTime;
             frameEndInfo.layerCount = (uint32_t)layers.size();
             frameEndInfo.layers = reinterpret_cast<const XrCompositionLayerBaseHeader* const*>(layers.data());

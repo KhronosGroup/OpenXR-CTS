@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2024, The Khronos Group Inc.
+// Copyright (c) 2019-2025 The Khronos Group Inc.
 // Copyright (c) 2019 Collabora, Ltd.
 //
 // SPDX-License-Identifier: Apache-2.0
@@ -17,6 +17,7 @@
 #pragma once
 
 #include <openxr/openxr.h>
+
 #include <cstdint>
 #include <iosfwd>
 #include <utility>

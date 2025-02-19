@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2024, The Khronos Group Inc.
+// Copyright (c) 2019-2025 The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -65,6 +65,8 @@ struct HandleState
     }
 
     /// "fork-exec" for handles, basically. Called from generated ConformanceHooksBase implementations
+    ///
+    /// @note Locks and unlocks the child list mutex in this object
     std::unique_ptr<HandleState> CloneForChild(IntHandle handle_, XrObjectType childType)
     {
         // Note that the cloned HandleState will start with a null customState and no children.
@@ -78,12 +80,18 @@ struct HandleState
         return childState;
     }
 
+    /// Assign a custom state object to this handle.
+    ///
+    /// @note Locks and unlocks the custom state mutex in this object
     void SetCustomState(std::unique_ptr<ICustomHandleState>&& newCustomState)
     {
         std::unique_lock<std::mutex> lock(customStateMutex);
         customState = std::move(newCustomState);
     }
 
+    /// Access the custom state object in this handle.
+    ///
+    /// @note Locks and unlocks the custom state mutex in this object
     ICustomHandleState* GetCustomState() const
     {
         std::unique_lock<std::mutex> lock(customStateMutex);
@@ -123,11 +131,24 @@ struct HandleNotFoundException : public HandleException
     }
 };
 
+/// Global handle state map key: The value of a handle as an int, and its XrObjectType enumerant.
 using HandleStateKey = std::pair<IntHandle, XrObjectType>;
 
+/// Destroy a handle state object owned by the global handle state map.
+/// Also destroys state for all child handles (recursively)
+///
+/// @note Locks and unlocks the mutex for the global handlne state map, as well
+/// as a child-list mutex in the parent handle and every child handle.
 void UnregisterHandleState(HandleStateKey key);
+
+/// Transfer ownership of a handle state object to the global handle state map.
+/// Usually called directly with the return value of @ref HandleState::CloneForChild
+///
+/// @note Locks and unlocks the mutex for the global handlne state map
 void RegisterHandleState(std::unique_ptr<HandleState> handleState);
 
 /// Retrieve common handle state based on a handle and object type enum.
 /// Throws if not found.
+///
+/// @note Locks and unlocks the mutex for the global handlne state map
 HandleState* GetHandleState(HandleStateKey key);

@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2024, The Khronos Group Inc.
+// Copyright (c) 2019-2025 The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -16,24 +16,29 @@
 
 #include "conformance_framework.h"
 
-#include "composition_utils.h"  // for Colors
 #include "graphics_plugin.h"
 #include "interaction_info.h"
 #include "platform_plugin.h"
 #include "report.h"
 #include "two_call_util.h"
+#include "utilities/colors.h"
 #include "utilities/feature_availability.h"
 #include "utilities/throw_helpers.h"
 #include "utilities/utils.h"
 #include "utilities/uuid_utils.h"
 
+#include <catch2/catch_tostring.hpp>
 #include <openxr/openxr.h>
 
 #include <algorithm>
+#include <array>
 #include <exception>
 #include <inttypes.h>
+#include <initializer_list>
+#include <iterator>
 #include <mutex>
 #include <sstream>
+#include <string.h>
 #include <thread>
 #include <unordered_map>
 #include <utility>
@@ -65,45 +70,6 @@ namespace Conformance
         return *globalDataInstance;
     }
 
-    std::string Options::DescribeOptions() const
-    {
-        std::string result;
-
-        AppendSprintf(result, "   apiVersion: %s\n", desiredApiVersion.c_str());
-
-        AppendSprintf(result, "   graphicsPlugin: %s\n", graphicsPlugin.c_str());
-
-        AppendSprintf(result, "   formFactor: %s\n", formFactor.c_str());
-
-        AppendSprintf(result, "   hands: %s\n", enabledHands.c_str());
-
-        AppendSprintf(result, "   environmentBlendMode: %s\n", environmentBlendMode.c_str());
-
-        AppendSprintf(result, "   viewConfiguration: %s\n", viewConfiguration.c_str());
-
-        AppendSprintf(result, "   enabledAPILayers:\n");
-        for (auto& str : enabledAPILayers) {
-            AppendSprintf(result, "      %s\n", str.c_str());
-        }
-
-        AppendSprintf(result, "   enabledInstanceExtensions:\n");
-        for (auto& str : enabledInstanceExtensions) {
-            AppendSprintf(result, "      %s\n", str.c_str());
-        }
-
-        AppendSprintf(result, "   invalidHandleValidation: %s\n", invalidHandleValidation ? "yes" : "no");
-
-        AppendSprintf(result, "   invalidTypeValidation: %s\n", invalidTypeValidation ? "yes" : "no");
-
-        AppendSprintf(result, "   fileLineLoggingEnabled: %s\n", fileLineLoggingEnabled ? "yes" : "no");
-
-        AppendSprintf(result, "   pollGetSystem: %s\n", pollGetSystem ? "yes" : "no");
-
-        AppendSprintf(result, "   debugMode: %s", debugMode ? "yes" : "no");
-
-        return result;
-    }
-
     std::string ConformanceReport::GetReportString() const
     {
         GlobalData& globalData = GetGlobalData();
@@ -112,7 +78,6 @@ namespace Conformance
         AppendSprintf(reportString, "Random seed used: %" PRIu64 "\n", globalData.randEngine.GetSeed());
         AppendSprintf(reportString, "API version: %u.%u.%u\n", XR_VERSION_MAJOR(apiVersion), XR_VERSION_MINOR(apiVersion),
                       XR_VERSION_PATCH(apiVersion));
-        AppendSprintf(reportString, "Graphics system: %s\n", globalData.options.graphicsPlugin.c_str());
         AppendSprintf(reportString, "Present API layers:\n");
         for (const char* const& apiLayerName : globalData.enabledAPILayerNames) {
             AppendSprintf(reportString, "    %s\n", apiLayerName);
@@ -120,20 +85,15 @@ namespace Conformance
         if (globalData.enabledAPILayerNames.empty()) {
             AppendSprintf(reportString, "    <none>\n");
         }
-        AppendSprintf(reportString, "Tested instance extensions:\n");
+        AppendSprintf(reportString, "Instance extensions enabled for all tests:\n");
+        AppendSprintf(reportString, "    (Individual tests enable additional extensions)\n");
         for (const char* const& extensionName : globalData.enabledInstanceExtensionNames) {
             AppendSprintf(reportString, "    %s\n", extensionName);
         }
         if (globalData.enabledInstanceExtensionNames.empty()) {
             AppendSprintf(reportString, "    <none>\n");
         }
-        AppendSprintf(reportString, "Tested form factor: %s\n", globalData.options.formFactor.c_str());
-        AppendSprintf(reportString, "Tested hands: %s\n", globalData.options.enabledHands.c_str());
-        AppendSprintf(reportString, "Tested view configuration: %s\n", globalData.options.viewConfiguration.c_str());
-        AppendSprintf(reportString, "Tested environment blend mode: %s\n", globalData.options.environmentBlendMode.c_str());
-        AppendSprintf(reportString, "Handle invalidation tested: %s\n", globalData.options.invalidHandleValidation ? "yes" : "no");
-        AppendSprintf(reportString, "Type invalidation tested: %s\n", globalData.options.invalidTypeValidation ? "yes" : "no");
-        AppendSprintf(reportString, "Non-disconnectable devices: %s\n", globalData.options.nonDisconnectableDevices ? "yes" : "no");
+        Options::Get().AppendToReportString(reportString);
         AppendSprintf(reportString, "Test Success Count: %zu\n", static_cast<size_t>(TestSuccessCount()));
         AppendSprintf(reportString, "Test Failure Count: %zu\n", static_cast<size_t>(TestFailureCount()));
         if (TestFailureCount() > 0) {
@@ -174,7 +134,7 @@ namespace Conformance
         return failure;
     }
 
-    bool GlobalData::Initialize()
+    bool GlobalData::Initialize(Options& options)
     {
         // NOTE: Runs *after* population of command-line options.
 
@@ -247,7 +207,7 @@ namespace Conformance
             const auto e = availableAPILayerNames.end();
             bool hasConfLayer = (e != std::find(availableAPILayerNames.begin(), e, kConformanceLayerName));
             if (hasConfLayer) {
-                if (!globalData.options.invalidHandleValidation) {
+                if (!options.invalidHandleValidation) {
                     enabledAPILayerNames.push_back_unique(kConformanceLayerName);
                     useDebugMessenger = true;
                 }
@@ -382,32 +342,7 @@ namespace Conformance
             }
         }
 
-        // Find available blend modes
-        result = doTwoCallInPlace(availableBlendModes, xrEnumerateEnvironmentBlendModes, autoInstance.GetInstance(), systemId,
-                                  options.viewConfigurationValue);
-        if (XR_FAILED(result)) {
-            ReportF("GlobalData::Initialize: xrEnumerateEnvironmentBlendModes failed with result: %s", ResultToString(result));
-            return false;
-        }
-        if (options.environmentBlendMode.empty()) {
-            // Default to the first enumerated blend mode
-            options.environmentBlendModeValue = availableBlendModes.front();
-            // convert to string, indicating auto selection
-            switch (options.environmentBlendModeValue) {
-            case XR_ENVIRONMENT_BLEND_MODE_OPAQUE:
-                options.environmentBlendMode = "opaque (auto-selected)";
-                break;
-            case XR_ENVIRONMENT_BLEND_MODE_ADDITIVE:
-                options.environmentBlendMode = "additive (auto-selected)";
-                break;
-            case XR_ENVIRONMENT_BLEND_MODE_ALPHA_BLEND:
-                options.environmentBlendMode = "alphablend (auto-selected)";
-                break;
-            default:
-                XRC_THROW("Got unrecognized environment blend mode value as the front of the enumerated list.");
-                break;
-            }
-        }
+        options.PopulateDefaultEnvironmentBlendMode(autoInstance, systemId);
 
         isInitialized = true;
         return true;
@@ -456,11 +391,6 @@ namespace Conformance
         }
 
         return nullFunctionInfo;
-    }
-
-    const Options& GlobalData::GetOptions() const
-    {
-        return options;
     }
 
     const XrInstanceProperties& GlobalData::GetInstanceProperties() const
@@ -533,7 +463,7 @@ namespace Conformance
 
     bool GlobalData::IsUsingGraphicsPlugin() const
     {
-        return IsGraphicsPluginRequired() || !options.graphicsPlugin.empty();
+        return IsGraphicsPluginRequired() || !Options::Get().graphicsPlugin.empty();
     }
 
     bool GlobalData::IsUsingConformanceAutomation() const
@@ -549,7 +479,8 @@ namespace Conformance
 
     XrColor4f GlobalData::GetClearColorForBackground() const
     {
-        switch (options.environmentBlendModeValue) {
+        // TODO move over to Options?
+        switch (Options::Get().environmentBlendModeValue) {
         case XR_ENVIRONMENT_BLEND_MODE_OPAQUE:
             return DarkSlateGrey;
         case XR_ENVIRONMENT_BLEND_MODE_ADDITIVE:
@@ -563,7 +494,7 @@ namespace Conformance
 
     void GlobalData::PopulateVersionAndAvailableExtensions(FeatureSet& out) const
     {
-        out = FeatureSet(options.desiredApiVersionValue);
+        out = FeatureSet(Options::Get().desiredApiVersionValue);
         for (const XrExtensionProperties& extProp : availableInstanceExtensions) {
             out.SetByExtensionNameString(extProp.extensionName);
         }
@@ -571,7 +502,7 @@ namespace Conformance
 
     void GlobalData::PopulateVersionAndEnabledExtensions(FeatureSet& out) const
     {
-        out = FeatureSet(options.desiredApiVersionValue);
+        out = FeatureSet(Options::Get().desiredApiVersionValue);
         for (const auto& ext : enabledInstanceExtensionNames) {
             out.SetByExtensionNameString(ext);
         }

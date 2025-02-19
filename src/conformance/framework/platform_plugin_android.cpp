@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2024, The Khronos Group Inc.
+// Copyright (c) 2019-2025 The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -14,11 +14,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "platform_plugin.h"
-
 #ifdef XR_USE_PLATFORM_ANDROID
 
 #include "conformance_framework.h"
+#include "platform_plugin.h"
 #include "common/xr_dependencies.h"
 
 #include <openxr/openxr.h>

@@ -1,0 +1,149 @@
+// Copyright (c) 2019-2025 The Khronos Group Inc.
+//
+// SPDX-License-Identifier: CC-BY-4.0
+
+== Automating CTS for Internal Testing and Development
+
+As the CTS can be a useful tool when developing and maintaining a runtime,
+there are ways to run it that are amenable to automation
+
+
+=== With Conformance Automation
+
+If your runtime implements `XR_EXT_conformance_automation`, you can run a
+large number of tests without actually interacting.
+
+The key parts to the command line here are:
+
+* `-E XR_EXT_conformance_automation` - Force enable the conformance
+  automation extension.
+  This is detected and used to replace user input in many tests.
+* `--autoSkipTimeout 3000` - Proceeds without interaction (via a test
+  "skip") through tests awaiting user judgement, after 3 seconds (3000ms).
+  This mainly affects the interactive composition tests.
+  This is primarily to exercise runtime behavior incidentally triggered by
+  these tests.
+* `exclude:[noauto]` - the `[noauto]` tag is applied to test cases that
+  support neither conformance automation nor the auto-skip timeout.
+
+
+.Example command lines for OpenXR 1.0
+[%collapsible]
+====
+
+[source,sh]
+----
+conformance_cli "exclude:[noauto]" -E XR_EXT_conformance_automation --autoSkipTimeout 3000 -G d3d11 --apiVersion 1.0 --reporter ctsxml::out=conformance_automation_d3d11.xml --reporter console
+
+conformance_cli "exclude:[noauto]" -E XR_EXT_conformance_automation --autoSkipTimeout 3000 -G d3d12 --apiVersion 1.0 --reporter ctsxml::out=conformance_automation_d3d12.xml  --reporter console
+
+conformance_cli "exclude:[noauto]" -E XR_EXT_conformance_automation --autoSkipTimeout 3000 -G vulkan --apiVersion 1.0 --reporter ctsxml::out=conformance_automation_vulkan.xml  --reporter console
+
+conformance_cli "exclude:[noauto]" -E XR_EXT_conformance_automation --autoSkipTimeout 3000 -G vulkan2 --apiVersion 1.0 --reporter ctsxml::out=conformance_automation_vulkan2.xml  --reporter console
+
+conformance_cli "exclude:[noauto]" -E XR_EXT_conformance_automation --autoSkipTimeout 3000 -G opengl --apiVersion 1.0 --reporter ctsxml::out=conformance_automation_opengl.xml  --reporter console
+
+conformance_cli "exclude:[noauto]" -E XR_EXT_conformance_automation --autoSkipTimeout 3000 -G metal --apiVersion 1.0 --reporter ctsxml::out=conformance_automation_metal.xml  --reporter console
+
+----
+====
+
+
+.Corresponding ADB commands to launch on Android for OpenXR 1.0
+[%collapsible]
+====
+Omit any graphics API binding extensions your runtime does not support.
+These commands do not match one-to-one with the desktop examples due to
+different graphics API availability on Android.
+
+[source,sh]
+----
+adb shell am start-activity -S -n org.khronos.openxr.cts/android.app.NativeActivity --esa args "exclude:[noauto],-E,XR_EXT_conformance_automation,--autoSkipTimeout,3000" -e graphicsPlugin vulkan -e apiVersion 1.0 -e xmlFilename conformance_automation_vulkan.xml
+
+# Wait until tests complete, then retrieve results with
+adb pull /sdcard/Android/data/org.khronos.openxr.cts/files/conformance_automation_vulkan.xml
+
+
+adb shell am start-activity -S -n org.khronos.openxr.cts/android.app.NativeActivity --esa args "exclude:[noauto],-E,XR_EXT_conformance_automation,--autoSkipTimeout,3000" -e graphicsPlugin vulkan2 -e apiVersion 1.0 -e xmlFilename conformance_automation_vulkan2.xml
+
+# Wait until tests complete, then retrieve results with
+adb pull /sdcard/Android/data/org.khronos.openxr.cts/files/conformance_automation_vulkan2.xml
+
+
+adb shell am start-activity -S -n org.khronos.openxr.cts/android.app.NativeActivity --esa args "exclude:[noauto],-E,XR_EXT_conformance_automation,--autoSkipTimeout,3000" -e graphicsPlugin opengles -e apiVersion 1.0 -e xmlFilename conformance_automation_opengles.xml
+
+# Wait until tests complete, then retrieve results with
+adb pull /sdcard/Android/data/org.khronos.openxr.cts/files/conformance_automation_opengles.xml
+
+----
+====
+
+=== Without Conformance Automation
+
+If your runtime does not implement `XR_EXT_conformance_automation`, fewer
+tests are available for automatic use.
+
+The first collection of such tests are the non-interactive (automated)
+tests: see <<submissions-testing-steps>>.
+
+The second collection are the interactive composition tests, configured in
+auto-skip mode as previously discussed.
+The key parts to the command line here are:
+
+* `"[composition][interactive]"` - Select only the interactive composition
+  tests, which are all compatible with auto-skip timeouts.
+* `--autoSkipTimeout 3000` - Proceeds without interaction (via a test
+  "skip") through tests awaiting user judgement, after 3 seconds (3000ms).
+  This is primarily to exercise runtime behavior incidentally triggered by
+  these tests.
+
+
+.Example command lines for OpenXR 1.0
+[%collapsible]
+====
+
+[source,sh]
+----
+conformance_cli "[composition][interactive]"  --autoSkipTimeout 3000 -G d3d11 --apiVersion 1.0 --reporter ctsxml::out=interactive_composition_autoskip_d3d11.xml  --reporter console
+
+conformance_cli "[composition][interactive]"  --autoSkipTimeout 3000 -G d3d12 --apiVersion 1.0 --reporter ctsxml::out=interactive_composition_autoskip_d3d12.xml  --reporter console
+
+conformance_cli "[composition][interactive]"  --autoSkipTimeout 3000 -G vulkan --apiVersion 1.0 --reporter ctsxml::out=interactive_composition_autoskip_vulkan.xml  --reporter console
+
+conformance_cli "[composition][interactive]"  --autoSkipTimeout 3000 -G vulkan2 --apiVersion 1.0 --reporter ctsxml::out=interactive_composition_autoskip_vulkan2.xml  --reporter console
+
+conformance_cli "[composition][interactive]"  --autoSkipTimeout 3000 -G opengl --apiVersion 1.0 --reporter ctsxml::out=interactive_composition_autoskip_opengl.xml  --reporter console
+
+conformance_cli "[composition][interactive]"  --autoSkipTimeout 3000 -G metal --apiVersion 1.0 --reporter ctsxml::out=interactive_composition_autoskip_metal.xml  --reporter console
+
+----
+====
+
+.Corresponding ADB commands to launch on Android for OpenXR 1.0
+[%collapsible]
+====
+Omit any graphics API binding extensions your runtime does not support.
+These commands do not match one-to-one with the desktop examples due to
+different graphics API availability on Android.
+
+[source,sh]
+----
+adb shell am start-activity -S -n org.khronos.openxr.cts/android.app.NativeActivity --esa args "[composition][interactive],--autoSkipTimeout,3000" -e graphicsPlugin vulkan -e apiVersion 1.0 -e xmlFilename interactive_composition_autoskip_vulkan.xml
+
+# Wait until tests complete, then retrieve results with
+adb pull /sdcard/Android/data/org.khronos.openxr.cts/files/interactive_composition_autoskip_vulkan.xml
+
+
+adb shell am start-activity -S -n org.khronos.openxr.cts/android.app.NativeActivity --esa args "[composition][interactive],--autoSkipTimeout,3000" -e graphicsPlugin vulkan2 -e apiVersion 1.0 -e xmlFilename interactive_composition_autoskip_vulkan2.xml
+
+# Wait until tests complete, then retrieve results with
+adb pull /sdcard/Android/data/org.khronos.openxr.cts/files/interactive_composition_autoskip_vulkan2.xml
+
+
+adb shell am start-activity -S -n org.khronos.openxr.cts/android.app.NativeActivity --esa args "[composition][interactive],--autoSkipTimeout,3000" -e graphicsPlugin opengles -e apiVersion 1.0 -e xmlFilename interactive_composition_autoskip_opengles.xml
+
+# Wait until tests complete, then retrieve results with
+adb pull /sdcard/Android/data/org.khronos.openxr.cts/files/interactive_composition_autoskip_opengles.xml
+
+----
+====

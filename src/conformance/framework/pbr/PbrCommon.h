@@ -1,4 +1,4 @@
-// Copyright 2022-2024, The Khronos Group Inc.
+// Copyright 2022-2025 The Khronos Group Inc.
 //
 // Based in part on code that is:
 // Copyright (C) Microsoft Corporation.  All Rights Reserved
@@ -14,9 +14,7 @@
 
 #include <openxr/openxr.h>
 
-#include <array>
 #include <set>
-#include <stddef.h>
 #include <stdint.h>
 #include <tuple>
 #include <vector>

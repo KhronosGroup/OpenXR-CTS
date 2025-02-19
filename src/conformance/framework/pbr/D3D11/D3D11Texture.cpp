@@ -1,4 +1,4 @@
-// Copyright 2022-2024, The Khronos Group Inc.
+// Copyright 2022-2025 The Khronos Group Inc.
 //
 // Based in part on code that is:
 // Copyright (C) Microsoft Corporation.  All Rights Reserved
@@ -11,12 +11,16 @@
 #include "D3D11Texture.h"
 
 #include "D3D11Resources.h"
-#include "../D3DCommon.h"
-#include "../PbrTexture.h"
+#include "PbrD3DCommon.h"
+#include "PbrTexture.h"
 
 #include "stb_image.h"
 
 #include "utilities/throw_helpers.h"
+
+#include <d3d11.h>
+#include <d3d11_2.h>
+#include <wrl/client.h>  // For Microsoft::WRL::ComPtr
 
 #include <memory>
 #include <stdexcept>

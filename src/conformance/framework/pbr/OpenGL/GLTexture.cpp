@@ -1,4 +1,4 @@
-// Copyright 2022-2024, The Khronos Group Inc.
+// Copyright 2022-2025 The Khronos Group Inc.
 //
 // Based in part on code that is:
 // Copyright (C) Microsoft Corporation.  All Rights Reserved
@@ -14,8 +14,8 @@
 #include "stb_image.h"
 #include "GLFormats.h"
 
-#include "../PbrCommon.h"
-#include "../PbrTexture.h"
+#include "PbrCommon.h"
+#include "PbrTexture.h"
 #include <utilities/image.h>
 
 #include "common/gfxwrapper_opengl.h"

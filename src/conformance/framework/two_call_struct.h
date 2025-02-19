@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2024, The Khronos Group Inc.
+// Copyright (c) 2019-2025 The Khronos Group Inc.
 // Copyright (c) 2019 Collabora, Ltd.
 //
 // SPDX-License-Identifier: Apache-2.0
@@ -18,19 +18,15 @@
 #pragma once
 
 #include "type_utils.h"
-#include "utilities/throw_helpers.h"
 #include "common/hex_and_handles.h"
 
+#include <catch2/catch_test_macros.hpp>
 #include <openxr/openxr.h>
 
-#include <vector>
-#include <tuple>
-#include <type_traits>
-#include <functional>
 #include <sstream>
-
 #include <stdint.h>
-#include <catch2/catch_test_macros.hpp>
+#include <tuple>
+#include <vector>
 
 namespace Conformance
 {

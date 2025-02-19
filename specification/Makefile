@@ -1,4 +1,4 @@
-# Copyright 2013-2024, The Khronos Group Inc.
+# Copyright 2013-2025 The Khronos Group Inc.
 #
 # SPDX-License-Identifier: Apache-2.0
 
@@ -39,7 +39,7 @@ endif
 VERSIONS := XR_VERSION_1_0 XR_VERSION_1_1 XR_LOADER_VERSION_1_0
 VERSIONOPTIONS := $(foreach version,$(VERSIONS),-feature $(version))
 
-SPECREVISION = 1.1.43
+SPECREVISION = 1.1.45
 REVISION_COMPONENTS = $(subst ., ,$(SPECREVISION))
 MAJORMINORVER = $(word 1,$(REVISION_COMPONENTS)).$(word 2,$(REVISION_COMPONENTS))
 

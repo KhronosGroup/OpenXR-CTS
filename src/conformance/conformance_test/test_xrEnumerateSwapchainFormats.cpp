@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2024, The Khronos Group Inc.
+// Copyright (c) 2019-2025 The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -29,16 +29,35 @@ namespace Conformance
     {
         AutoBasicSession session(AutoBasicSession::OptionFlags::createSession);
 
-        if (GetGlobalData().IsUsingGraphicsPlugin()) {
-            INFO("A non-headless session should provide at least one swapchain format");
-            auto formats = REQUIRE_TWO_CALL(int64_t, {}, xrEnumerateSwapchainFormats, session);
-            REQUIRE(formats.size() > 0);
-        }
-        else {
-
+        if (!GetGlobalData().IsUsingGraphicsPlugin()) {
             INFO("Headless shouldn't provide any swapchain formats");
             auto formats = REQUIRE_TWO_CALL(int64_t, {}, xrEnumerateSwapchainFormats, session);
             REQUIRE(formats.empty());
+            return;
+        }
+
+        auto formats = REQUIRE_TWO_CALL(int64_t, {}, xrEnumerateSwapchainFormats, session);
+        REQUIRE(formats.size() > 0);
+
+        // https://registry.khronos.org/OpenXR/specs/1.1/html/xrspec.html#xrEnumerateSwapchainFormats
+        //
+        // Texture formats should be in order from highest to lowest runtime preference. The
+        // application should use the highest preference format that it supports for optimal
+        // performance and quality.
+        SECTION("format order")
+        {
+            if (formats.size() > 1) {
+                bool inNumericalOrder = true;
+                for (size_t i = 1; i < formats.size(); ++i) {
+                    if (formats[i] < formats[i - 1]) {
+                        inNumericalOrder = false;
+                    }
+                }
+                if (inNumericalOrder) {
+                    WARN(
+                        "swapchain formats are listed in numerical order; this is not inherently a conformance failure, but potentially indicates that the runtime is not indicating a preference.");
+                }
+            }
         }
     }
 

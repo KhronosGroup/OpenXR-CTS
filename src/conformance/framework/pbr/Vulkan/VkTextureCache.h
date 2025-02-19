@@ -1,4 +1,4 @@
-// Copyright 2023-2024, The Khronos Group Inc.
+// Copyright 2023-2025 The Khronos Group Inc.
 //
 // Based in part on code that is:
 //
@@ -6,11 +6,7 @@
 // Licensed under the MIT License. See License.txt in the project root for license information.
 //
 // SPDX-License-Identifier: MIT AND Apache-2.0
-
-#include "VkCommon.h"
-#include "VkResources.h"
-
-#include "utilities/vulkan_utils.h"
+#pragma once
 
 #include <openxr/openxr.h>
 #include <vulkan/vulkan_core.h>

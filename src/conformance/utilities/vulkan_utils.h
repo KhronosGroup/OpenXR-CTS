@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2024, The Khronos Group Inc.
+// Copyright (c) 2019-2025 The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 
@@ -9,11 +9,10 @@
 
 #include "throw_helpers.h"
 #include "common/xr_linear.h"
-#include "common/xr_dependencies.h"
 #include "common/vulkan_debug_object_namer.hpp"
 
+#include "common/xr_dependencies.h"  // IWYU pragma: keep
 #include <openxr/openxr_platform.h>
-
 #include <nonstd/span.hpp>
 
 #include <string>

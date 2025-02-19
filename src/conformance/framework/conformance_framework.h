@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2024, The Khronos Group Inc.
+// Copyright (c) 2019-2025 The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -16,27 +16,29 @@
 
 #pragma once
 
+#include "conformance_options.h"
 #include "conformance_utils.h"
-#include "utilities/feature_availability.h"
+#include "utilities/android_declarations.h"  // IWYU pragma: keep
 #include "utilities/stringification.h"
 #include "utilities/types_and_constants.h"
 #include "utilities/utils.h"
-#include "utilities/android_declarations.h"
 
 #include <openxr/openxr.h>
 #include <openxr/openxr_reflection.h>
 
-#include <catch2/catch_test_macros.hpp>
 #include <catch2/catch_message.hpp>
+#include <catch2/catch_test_macros.hpp>
 #include <catch2/catch_tostring.hpp>
+#include <catch2/catch_totals.hpp>
 
+#include <chrono>
+#include <cstdint>
 #include <memory>
 #include <mutex>
 #include <stdexcept>
 #include <string>
+#include <utility>
 #include <vector>
-#include <chrono>
-#include <cstdint>
 
 #ifdef XR_USE_PLATFORM_WIN32
 #include "windows.h"
@@ -127,110 +129,6 @@ namespace Conformance
     class FeatureSet;
     struct IGraphicsPlugin;
     struct IPlatformPlugin;
-    /// Specifies runtime options for the application.
-    /// String options are case-insensitive.
-    /// Each of these can be specified from the command line via a command of the same name as
-    /// the variable name. For example, the application can be run with --graphicsPlugin "vulkan"
-    /// String vector options are specified space delimited strings. For example, the app could be
-    /// run with --enabledAPILayers "api_validation handle_validation"
-    ///
-    struct Options
-    {
-        /// Describes the option set in a way suitable for printing.
-        std::string DescribeOptions() const;
-
-        /// Options include: "vulkan" "d3d11" d3d12" "opengl" "opengles"
-        /// Default is none. Must be manually specified.
-        std::string graphicsPlugin{};
-
-        /// Options include: "1.0" "1.1"
-        /// Default is 1.1.
-        std::string desiredApiVersion{"1.1"};
-        /// Will contain the results of XR_MAKE_VERSION using the requested major and minor version
-        /// combined with the patch component of XR_CURRENT_API_VERSION.
-        XrVersion desiredApiVersionValue{XR_CURRENT_API_VERSION};
-
-        /// Options include "hmd" "handheld". See enum XrFormFactor.
-        /// Default is hmd.
-        std::string formFactor{"Hmd"};
-        XrFormFactor formFactorValue{XR_FORM_FACTOR_HEAD_MOUNTED_DISPLAY};
-
-        /// Which hands have been selected for test. This is to allow for devices which only have
-        /// one controller, and also to allow skipping one of the controllers during development.
-        /// Options are "left", "right", and "both".
-        /// Default is "both".
-        std::string enabledHands{"both"};
-        bool leftHandEnabled{true};
-        bool rightHandEnabled{true};
-
-        /// Description of how long to wait before skipping tests which support auto skip
-        /// or 0 when auto skip is disabled.
-        std::chrono::milliseconds autoSkipTimeout{0};
-
-        /// Options include "stereo" "mono" "foveatedInset" "firstPersonObserver". See enum XrViewConfigurationType.
-        /// Default is stereo.
-        std::string viewConfiguration{"Stereo"};
-        XrViewConfigurationType viewConfigurationValue{XR_VIEW_CONFIGURATION_TYPE_PRIMARY_STEREO};
-
-        /// Options include "opaque" "additive" "alphablend". See enum XrEnvironmentBlendMode.
-        /// Default is the first enumerated value
-        std::string environmentBlendMode{};
-        XrEnvironmentBlendMode environmentBlendModeValue{(XrEnvironmentBlendMode)0};
-
-        /// Options can vary depending on their platform availability. If a requested API layer is
-        /// not supported then the test fails.
-        /// Default is empty.
-        std::vector<std::string> enabledAPILayers;
-
-        /// Options include at least any of the documented extensions. The runtime supported extensions
-        /// are enumerated by xrEnumerateApiLayerProperties. If a requested extension is not supported
-        /// then the test fails.
-        /// Default is empty.
-        std::vector<std::string> enabledInstanceExtensions;
-
-        /// Options include at least any of the documented interaction profiles.
-        /// The conformance tests will generically test the runtime supports each of the provided
-        /// interaction profile.
-        /// Default is /interaction_profiles/khr/simple_controller alone.
-        std::vector<std::string> enabledInteractionProfiles;
-
-        /// Indicates if the runtime should be tested to ensure it returns XR_ERROR_HANDLE_INVALID
-        /// upon usage of invalid handles that are not undefined behavior to read.
-        /// The OpenXR specification does not require this because it cannot (uninitialized memory
-        /// used as a handle may trigger undefined behavior at the C level), but some runtimes will
-        /// attempt to identify bad handles where they can.
-        /// Default is false.
-        bool invalidHandleValidation{false};
-
-        /// Indicates if the runtime should be tested to ensure it returns XR_ERROR_VALIDATION_FAILURE
-        /// upon passing structs with invalid .type fields.
-        /// The OpenXR specification does not require this check, but some runtimes will.
-        /// Default is false.
-        bool invalidTypeValidation{false};
-
-        /// Indicates if the runtime supports disconnecting a device, specifically left and right devices.
-        /// Some input tests depends on the side-effects of device disconnection to test various features.
-        /// If true the runtime does not support disconnectable devices.
-        bool nonDisconnectableDevices{false};
-
-        /// If true then all test diagnostics are reported with the file/line that they occurred on.
-        /// Default is true (enabled).
-        bool fileLineLoggingEnabled{true};
-
-        /// If true then xrGetSystem will be attempted repeatedly for a limited time at the beginning of a run
-        /// before beginning a test case.
-        bool pollGetSystem{false};
-
-        /// Defines if executing in debug mode. By default this follows the build type.
-        bool debugMode
-        {
-#if defined(NDEBUG)
-            false
-#else
-            true
-#endif
-        };
-    };
 
     /// Results of the "test_FrameSubmission" timed pipelined submission test, which verifies correct
     /// waiting behavior in the frame loop.
@@ -341,8 +239,9 @@ namespace Conformance
         GlobalData& operator=(const GlobalData&) = delete;
 
         /// Sets up global data for usage. Required before use of GlobalData.
+        /// Also performs some auto-detection of values in @p options if not specified.
         /// Returns false if already Initialized.
-        bool Initialize();
+        bool Initialize(Options& options);
 
         bool IsInitialized() const;
 
@@ -353,8 +252,6 @@ namespace Conformance
         RandEngine& GetRandEngine();
 
         const FunctionInfo& GetFunctionInfo(const char* functionName) const;
-
-        const Options& GetOptions() const;
 
         const ConformanceReport& GetConformanceReport() const;
 
@@ -408,7 +305,7 @@ namespace Conformance
         RandEngine randEngine;
 
         /// User selected options for the program execution.
-        Options options;
+        // Options* options;
 
         ConformanceReport conformanceReport;
 
@@ -570,38 +467,22 @@ FunctionType GetInstanceExtensionFunctionNoexcept(XrInstance instance, const cha
  */
 /// @{
 
-/// Start a scope that checks for handle validation.
-/// This is not required by the spec, but some runtimes do it as it is permitted.
-#define OPTIONAL_INVALID_HANDLE_VALIDATION_INFO            \
-    if (GetGlobalData().options.invalidHandleValidation) { \
-        INFO("Invalid handle validation (optional)");      \
-    }                                                      \
-    if (GetGlobalData().options.invalidHandleValidation)
-
 /// Start a Catch2 SECTION that checks for handle validation.
 /// This is not required by the spec, but some runtimes do it as it is permitted.
-#define OPTIONAL_INVALID_HANDLE_VALIDATION_SECTION       \
-    if (GetGlobalData().options.invalidHandleValidation) \
+#define OPTIONAL_INVALID_HANDLE_VALIDATION_SECTION \
+    if (Options::Get().invalidHandleValidation)    \
     SECTION("Invalid handle validation (optional)")
 
 /// Start a Catch2 SECTION that checks for type validation.
 /// This is not required by the spec, but some runtimes do it as it is permitted.
-#define OPTIONAL_INVALID_TYPE_VALIDATION_SECTION       \
-    if (GetGlobalData().options.invalidTypeValidation) \
+#define OPTIONAL_INVALID_TYPE_VALIDATION_SECTION \
+    if (Options::Get().invalidTypeValidation)    \
     SECTION("Invalid type validation (optional)")
-
-/// Start a scope that will require the user to disconnect a device.
-/// Not all devices can do this.
-#define OPTIONAL_DISCONNECTABLE_DEVICE_INFO                  \
-    if (!GetGlobalData().options.nonDisconnectableDevices) { \
-        INFO("Disconnectable device (optional)");            \
-    }                                                        \
-    if (!GetGlobalData().options.nonDisconnectableDevices)
 
 /// Start a Catch2 SECTION that will require the user to disconnect a device.
 /// Not all devices can do this.
-#define OPTIONAL_DISCONNECTABLE_DEVICE_SECTION             \
-    if (!GetGlobalData().options.nonDisconnectableDevices) \
+#define OPTIONAL_DISCONNECTABLE_DEVICE_SECTION    \
+    if (!Options::Get().nonDisconnectableDevices) \
     SECTION("Disconnectable device (optional)")
 
 /// @}

@@ -1,4 +1,4 @@
-// Copyright 2023-2024, The Khronos Group Inc.
+// Copyright 2023-2025 The Khronos Group Inc.
 //
 // Based in part on code that is:
 //
@@ -10,17 +10,19 @@
 #pragma once
 
 #include "VkCommon.h"
-#include "VkResources.h"
+#include "PbrCommon.h"
 
-#include "../PbrCommon.h"
-
-#include "utilities/vulkan_scoped_handle.h"
-
-#include <openxr/openxr.h>
 #include <vulkan/vulkan_core.h>
 
 #include <stdint.h>
-#include <vector>
+
+namespace Conformance
+{
+    namespace Image
+    {
+        struct Image;
+    }
+}  // namespace Conformance
 
 namespace Pbr
 {

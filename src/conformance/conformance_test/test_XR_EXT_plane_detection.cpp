@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2024, The Khronos Group Inc.
+// Copyright (c) 2019-2025 The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -14,15 +14,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "utilities/utils.h"
-#include "conformance_utils.h"
+#include "common/xr_linear.h"
 #include "composition_utils.h"
+#include "conformance_utils.h"
 #include "mesh_projection_layer.h"
 
 #include <catch2/catch_test_macros.hpp>
 #include <earcut.hpp>
 #include <openxr/openxr.h>
-#include "common/xr_linear.h"
 
 #include <future>
 
@@ -137,6 +136,7 @@ namespace Conformance
         }
 
         CompositionHelper compositionHelper("XR_EXT_plane_detection", {XR_EXT_PLANE_DETECTION_EXTENSION_NAME});
+        XrSession session = compositionHelper.GetSession();
         XrPlaneDetectionCapabilityFlagsEXT flags =
             SystemPlaneDetectionCapabilities(compositionHelper.GetInstance(), compositionHelper.GetSystemId());
 
@@ -234,14 +234,14 @@ namespace Conformance
         XrSessionActionSetsAttachInfo attachInfo{XR_TYPE_SESSION_ACTION_SETS_ATTACH_INFO};
         attachInfo.actionSets = &actionSet;
         attachInfo.countActionSets = 1;
-        XRC_CHECK_THROW_XRCMD(xrAttachSessionActionSets(compositionHelper.GetSession(), &attachInfo))
+        XRC_CHECK_THROW_XRCMD(xrAttachSessionActionSets(session, &attachInfo))
 
         compositionHelper.BeginSession();
 
         XrPlaneDetectorCreateInfoEXT createInfo{XR_TYPE_PLANE_DETECTOR_CREATE_INFO_EXT};
         createInfo.flags = XR_PLANE_DETECTOR_ENABLE_CONTOUR_BIT_EXT;
         XrPlaneDetectorEXT detection = XR_NULL_HANDLE;
-        REQUIRE(XR_SUCCESS == xrCreatePlaneDetectorEXT(compositionHelper.GetSession(), &createInfo, &detection));
+        REQUIRE(XR_SUCCESS == xrCreatePlaneDetectorEXT(session, &createInfo, &detection));
 
         // Create the instructional quad layer placed to the left.
         XrCompositionLayerQuad* const instructionsQuad =
@@ -263,7 +263,7 @@ namespace Conformance
             XrActionsSyncInfo syncInfo{XR_TYPE_ACTIONS_SYNC_INFO};
             syncInfo.activeActionSets = activeActionSets.data();
             syncInfo.countActiveActionSets = (uint32_t)activeActionSets.size();
-            XRC_CHECK_THROW_XRCMD(xrSyncActions(compositionHelper.GetSession(), &syncInfo))
+            XRC_CHECK_THROW_XRCMD(xrSyncActions(session, &syncInfo))
 
             // if an autoCompleteSemanticType is specified it will be used to complete the
             // test.
@@ -271,7 +271,7 @@ namespace Conformance
                 XrActionStateGetInfo completeActionGetInfo{XR_TYPE_ACTION_STATE_GET_INFO};
                 completeActionGetInfo.action = completeAction;
                 XrActionStateBoolean completeActionState{XR_TYPE_ACTION_STATE_BOOLEAN};
-                XRC_CHECK_THROW_XRCMD(xrGetActionStateBoolean(compositionHelper.GetSession(), &completeActionGetInfo, &completeActionState))
+                XRC_CHECK_THROW_XRCMD(xrGetActionStateBoolean(session, &completeActionGetInfo, &completeActionState))
                 if (completeActionState.currentState == XR_TRUE && completeActionState.changedSinceLastSync) {
                     return false;
                 }
@@ -400,7 +400,7 @@ namespace Conformance
             return true;
         };
 
-        RenderLoop(compositionHelper.GetSession(), update).Loop();
+        RenderLoop(session, update).Loop();
 
         REQUIRE(XR_SUCCESS == xrDestroyPlaneDetectorEXT(detection));
     }
@@ -490,6 +490,7 @@ namespace Conformance
         }
 
         XrInstance instance = compositionHelper.GetInstance();
+        XrSession session = compositionHelper.GetSession();
 
         auto xrCreatePlaneDetectorEXT = GetInstanceExtensionFunction<PFN_xrCreatePlaneDetectorEXT>(instance, "xrCreatePlaneDetectorEXT");
         auto xrDestroyPlaneDetectorEXT = GetInstanceExtensionFunction<PFN_xrDestroyPlaneDetectorEXT>(instance, "xrDestroyPlaneDetectorEXT");
@@ -515,7 +516,7 @@ namespace Conformance
         XrPlaneDetectorCreateInfoEXT createInfo{XR_TYPE_PLANE_DETECTOR_CREATE_INFO_EXT};
         createInfo.flags = XR_PLANE_DETECTOR_ENABLE_CONTOUR_BIT_EXT;
         XrPlaneDetectorEXT detection = XR_NULL_HANDLE;
-        REQUIRE(XR_SUCCESS == xrCreatePlaneDetectorEXT(compositionHelper.GetSession(), &createInfo, &detection));
+        REQUIRE(XR_SUCCESS == xrCreatePlaneDetectorEXT(session, &createInfo, &detection));
 
         // Lambda to create the instructional quad layer placed to the left.
         auto makeInstructionsQuad = [&](const char* instructions) {
@@ -553,7 +554,7 @@ namespace Conformance
 
             makeInstructionsQuad("Testing null filters with count");
 
-            RenderLoop(compositionHelper.GetSession(), [&](const XrFrameState& frameState) {
+            RenderLoop(session, [&](const XrFrameState& frameState) {
                 beginInfo.time = frameState.predictedDisplayTime;
                 REQUIRE(XR_ERROR_VALIDATION_FAILURE == xrBeginPlaneDetectionEXT(detection, &beginInfo));
                 return false;
@@ -564,7 +565,7 @@ namespace Conformance
 
             makeInstructionsQuad("Testing invalid time");
 
-            RenderLoop(compositionHelper.GetSession(), [&](const XrFrameState& /* frameState */) {
+            RenderLoop(session, [&](const XrFrameState& /* frameState */) {
                 beginInfo.time = 0;
                 REQUIRE(XR_ERROR_TIME_INVALID == xrBeginPlaneDetectionEXT(detection, &beginInfo));
                 return false;
@@ -577,7 +578,7 @@ namespace Conformance
 
             makeInstructionsQuad("Testing invalid pose");
 
-            RenderLoop(compositionHelper.GetSession(), [&](const XrFrameState& frameState) {
+            RenderLoop(session, [&](const XrFrameState& frameState) {
                 beginInfo.time = frameState.predictedDisplayTime;
                 beginInfo.boundingBoxPose = pose;
                 REQUIRE(XR_ERROR_POSE_INVALID == xrBeginPlaneDetectionEXT(detection, &beginInfo));
@@ -613,6 +614,7 @@ namespace Conformance
         }
 
         CompositionHelper compositionHelper("XR_EXT_plane_detection", {XR_EXT_PLANE_DETECTION_EXTENSION_NAME});
+        XrSession session = compositionHelper.GetSession();
 
         if (!SystemSupportsEXTPlaneDetection(compositionHelper.GetInstance(), compositionHelper.GetSystemId())) {
             SKIP("System does not support plane detection");
@@ -656,7 +658,7 @@ namespace Conformance
         XrPlaneDetectorCreateInfoEXT createInfo{XR_TYPE_PLANE_DETECTOR_CREATE_INFO_EXT};
         createInfo.flags = XR_PLANE_DETECTOR_ENABLE_CONTOUR_BIT_EXT;
         XrPlaneDetectorEXT detection = XR_NULL_HANDLE;
-        REQUIRE(XR_SUCCESS == xrCreatePlaneDetectorEXT(compositionHelper.GetSession(), &createInfo, &detection));
+        REQUIRE(XR_SUCCESS == xrCreatePlaneDetectorEXT(session, &createInfo, &detection));
 
         enum DetectState
         {
@@ -824,7 +826,7 @@ namespace Conformance
             return interactiveLayerManager.EndFrame(frameState, layers);
         };
 
-        RenderLoop(compositionHelper.GetSession(), update).Loop();
+        RenderLoop(session, update).Loop();
 
         REQUIRE(XR_SUCCESS == xrDestroyPlaneDetectorEXT(detection));
     }

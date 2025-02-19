@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2024, The Khronos Group Inc.
+// Copyright (c) 2019-2025 The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 
@@ -11,6 +11,7 @@
 #include <nonstd/span.hpp>
 
 #include <memory>
+#include <stdint.h>
 
 namespace tinygltf
 {

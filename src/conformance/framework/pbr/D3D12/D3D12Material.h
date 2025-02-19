@@ -1,4 +1,4 @@
-// Copyright 2022-2024, The Khronos Group Inc.
+// Copyright 2022-2025 The Khronos Group Inc.
 //
 // Based in part on code that is:
 // Copyright (C) Microsoft Corporation.  All Rights Reserved
@@ -8,9 +8,11 @@
 
 #pragma once
 
+#if defined(XR_USE_GRAPHICS_API_D3D12)
+
 #include "D3D12Resources.h"
 
-#include "../PbrMaterial.h"
+#include "PbrMaterial.h"
 
 #include <DirectXColors.h>
 #include <d3d12.h>
@@ -59,3 +61,5 @@ namespace Pbr
         Conformance::D3D12BufferWithUpload<ConstantBufferData> m_constantBuffer;
     };
 }  // namespace Pbr
+
+#endif

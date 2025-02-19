@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2024, The Khronos Group Inc.
+// Copyright (c) 2019-2025 The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -16,9 +16,9 @@
 
 #include "utilities/array_size.h"
 #ifdef XR_USE_GRAPHICS_API_VULKAN
+
 #include "RGBAImage.h"
 #include "conformance_utils.h"
-#include "gltf_helpers.h"
 #include "graphics_plugin.h"
 #include "graphics_plugin_impl_helpers.h"
 #include "graphics_plugin_vulkan_gltf.h"
@@ -27,13 +27,15 @@
 
 #include "common/hex_and_handles.h"
 #include "common/vulkan_debug_object_namer.hpp"
-#include "common/xr_dependencies.h"
 #include "common/xr_linear.h"
+
+#include "pbr/GltfLoader.h"
 #include "pbr/PbrCommon.h"
+#include "pbr/PbrModel.h"
 #include "pbr/Vulkan/VkCommon.h"
+#include "pbr/Vulkan/VkModel.h"
 #include "pbr/Vulkan/VkResources.h"
 #include "pbr/Vulkan/VkTexture.h"
-#include "pbr/Vulkan/VkModel.h"
 #include "utilities/Geometry.h"
 #include "utilities/swapchain_format_data.h"
 #include "utilities/swapchain_parameters.h"
@@ -41,7 +43,6 @@
 #include "utilities/utils.h"
 #include "utilities/vulkan_utils.h"
 
-#include <catch2/catch_message.hpp>
 #include <catch2/catch_test_macros.hpp>
 #include <nonstd/span.hpp>
 #include <nonstd/type.hpp>
@@ -55,6 +56,7 @@
 #include <assert.h>
 #include <cstdint>
 #include <inttypes.h>
+#include <initializer_list>
 #include <iterator>
 #include <map>
 #include <memory>
@@ -66,14 +68,14 @@
 #include <utility>
 #include <vector>
 
+namespace tinygltf
+{
+    class Model;
+}  // namespace tinygltf
+
 #ifdef USE_CHECKPOINTS
 #include <unordered_set>
 #endif
-
-namespace Pbr
-{
-    class Model;
-}  // namespace Pbr
 
 namespace Conformance
 {
@@ -1366,6 +1368,7 @@ namespace Conformance
 #else
         std::vector<uint32_t> vertexSPIRV = SPV_PREFIX
 #include "vert.spv"  // IWYU pragma: keep
+
             SPV_SUFFIX;
         std::vector<uint32_t> fragmentSPIRV = SPV_PREFIX
 #include "frag.spv"  // IWYU pragma: keep

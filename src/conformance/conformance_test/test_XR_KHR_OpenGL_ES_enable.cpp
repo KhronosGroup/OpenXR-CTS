@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2024, The Khronos Group Inc.
+// Copyright (c) 2019-2025 The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -19,7 +19,7 @@
 #include "conformance_utils.h"
 #include "graphics_plugin.h"
 #include "matchers.h"
-#include "common/xr_dependencies.h"
+#include "common/xr_dependencies.h"  // IWYU pragma: keep
 
 #include <catch2/catch_test_macros.hpp>
 
@@ -42,14 +42,14 @@ namespace Conformance
         AutoBasicInstance instance;
 
         XrSystemId systemId{XR_NULL_SYSTEM_ID};
-        REQUIRE(XR_SUCCESS == FindBasicSystem(instance.GetInstance(), &systemId));
+        REQUIRE(XR_SUCCESS == FindBasicSystem(instance, &systemId));
 
         // Create the graphics plugin we'll need to exercise session create functionality below.
         std::shared_ptr<IGraphicsPlugin> graphicsPlugin;
 
-        if (!globalData.options.graphicsPlugin.empty()) {
-            REQUIRE_NOTHROW(graphicsPlugin = Conformance::CreateGraphicsPlugin(globalData.options.graphicsPlugin.c_str(),
-                                                                               globalData.GetPlatformPlugin()));
+        if (!Options::Get().graphicsPlugin.empty()) {
+            REQUIRE_NOTHROW(graphicsPlugin =
+                                Conformance::CreateGraphicsPlugin(Options::Get().graphicsPlugin.c_str(), globalData.GetPlatformPlugin()));
             REQUIRE(graphicsPlugin->Initialize());
         }
 
@@ -100,7 +100,7 @@ namespace Conformance
 
             // Using the same instance pass valid binding the second time
             {
-                REQUIRE(XR_SUCCESS == FindBasicSystem(instance.GetInstance(), &systemId));
+                REQUIRE(XR_SUCCESS == FindBasicSystem(instance, &systemId));
                 sessionCreateInfo.systemId = systemId;
 
                 REQUIRE(graphicsPlugin->InitializeDevice(instance, systemId, true));
@@ -138,7 +138,7 @@ namespace Conformance
                 *reinterpret_cast<const XrGraphicsBindingOpenGLESAndroidKHR*>(graphicsPlugin->GetGraphicsBinding());
             sessionCreateInfo.next = reinterpret_cast<const void*>(&graphicsBinding);
             for (int i = 0; i < 3; ++i) {
-                REQUIRE(XR_SUCCESS == FindBasicSystem(instance.GetInstance(), &systemId));
+                REQUIRE(XR_SUCCESS == FindBasicSystem(instance, &systemId));
                 sessionCreateInfo.systemId = systemId;
 
                 XrGraphicsRequirementsOpenGLESKHR graphicsRequirements{XR_TYPE_GRAPHICS_REQUIREMENTS_OPENGL_ES_KHR};

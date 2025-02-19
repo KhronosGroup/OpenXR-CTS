@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2024, The Khronos Group Inc.
+// Copyright (c) 2019-2025 The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -31,8 +31,6 @@ namespace Conformance
 {
     TEST_CASE("xrLocateViews", "")
     {
-        GlobalData& globalData = GetGlobalData();
-
         // Get a session, but do not start it yet, we might pick a different view config type.
         // Swapchain will be sized based on default view config type, but that is OK.
         AutoBasicSession session(AutoBasicSession::createInstance | AutoBasicSession::createSession | AutoBasicSession::createSwapchains |
@@ -62,7 +60,7 @@ namespace Conformance
         };
         SECTION("Selected view config")
         {
-            viewConfigDependentSetup(globalData.GetOptions().viewConfigurationValue);
+            viewConfigDependentSetup(Options::Get().viewConfigurationValue);
 
             XrViewState viewState{XR_TYPE_VIEW_STATE};
             uint32_t viewCount = (uint32_t)session.viewConfigurationViewVector.size();
@@ -173,7 +171,7 @@ namespace Conformance
                         INFO("Calling xrLocateViews with the noted viewType, which is claimed to be not supported");
 
                         // Start the session with the default view config, so we get a reasonable display time.
-                        viewConfigDependentSetup(globalData.GetOptions().viewConfigurationValue);
+                        viewConfigDependentSetup(Options::Get().viewConfigurationValue);
 
                         // but use our not-supported view config type for xrLocateViews
                         locateInfo.viewConfigurationType = viewType;

@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2024, The Khronos Group Inc.
+// Copyright (c) 2019-2025 The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -16,9 +16,6 @@
 
 #pragma once
 
-#include <stdarg.h>
-#include <iostream>
-#include <streambuf>
 #include <functional>
 #include "utilities/utils.h"
 

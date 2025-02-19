@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2024, The Khronos Group Inc.
+// Copyright (c) 2019-2025 The Khronos Group Inc.
 // Copyright (c) 2019 Collabora, Ltd.
 //
 // SPDX-License-Identifier: Apache-2.0
@@ -17,27 +17,32 @@
 
 #pragma once
 
-#include "utilities/event_reader.h"
 #include "utilities/types_and_constants.h"
 
 #include <openxr/openxr.h>
-
 #include <array>
 #include <chrono>
 #include <cstdint>
 #include <cstring>
 #include <functional>
+#include <iosfwd>
 #include <memory>
 #include <string>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
 namespace Conformance
 {
+    class EventQueue;
+    class EventReader;
+    class FeatureSet;
+
     using namespace std::chrono_literals;
 
     // Forward declarations
     struct IGraphicsPlugin;
+    class FeatureSet;
 
     /// PathToString
     ///
@@ -458,6 +463,9 @@ namespace Conformance
     XrResult CreateBasicInstance(XrInstance* instance, bool permitDebugMessenger = true,
                                  const std::vector<const char*>& additionalEnabledExtensions = std::vector<const char*>());
 
+    /// Overload taking a FeatureSet (including possibly a version) instead of a list of extensions.
+    XrResult CreateBasicInstance(XrInstance* instance, const FeatureSet& featureSet, bool permitDebugMessenger = true);
+
     /// Similar to CreateBasicInstance but manages handle lifetime, including destroying
     /// the handle if a test exception occurs. Do not call xrDestroyInstance on this, as it
     /// will handle that itself.
@@ -487,13 +495,19 @@ namespace Conformance
             skipDebugMessenger = 0x02,
         };
 
-        /// Create a new XrInstance.
-        AutoBasicInstance(const std::vector<const char*>& additionalEnabledExtensions, int optionFlags = 0);
+        /// Create a new XrInstance, using the default extensions and default API version.
+        explicit AutoBasicInstance(int optionFlags = 0);
+
+        /// Create a new XrInstance, using the default extensions plus those specified in @p featureSet ,
+        /// with the API version either also specified in @p featureSet or the default.
+        explicit AutoBasicInstance(const FeatureSet& featureSet, int optionFlags = 0);
+
+        /// Create a new XrInstance, using the default extensions plus those specified in @p additionalEnabledExtensions ,
+        /// and default API version.
+        explicit AutoBasicInstance(const std::vector<const char*>& additionalEnabledExtensions, int optionFlags = 0);
 
         /// Take over ownership of a supplied XrInstance.
-        /// AutoBasicInstance(XrInstance instance, int optionFlags = 0);
-        /// Create a new XrInstance or take ownership of an existing instance handle.
-        AutoBasicInstance(int optionFlags = 0, XrInstance instance_ = XR_NULL_HANDLE);
+        explicit AutoBasicInstance(XrInstance instance_, int optionFlags = 0);
 
         ~AutoBasicInstance() noexcept;
 
@@ -515,8 +529,7 @@ namespace Conformance
         }
 
     private:
-        void Initialize(int optionFlags, XrInstance instance_,
-                        const std::vector<const char*>& additionalEnabledExtensions = std::vector<const char*>());
+        void Initialize(int optionFlags);
 
     public:
         XrInstance instance{XR_NULL_HANDLE_CPP};
@@ -688,12 +701,16 @@ namespace Conformance
     struct FunctionInfo
     {
         bool nullInstanceOk;
+        XrVersion requiredVersion;
         const char* requiredExtension;
         std::vector<XrResult> validResults;
 
-        FunctionInfo(bool nullInstanceOk = false, const char* requiredExtension = nullptr,
+        FunctionInfo(bool nullInstanceOk = false, XrVersion requiredVersion = XrVersion{}, const char* requiredExtension = nullptr,
                      std::vector<XrResult> validResults = std::vector<XrResult>())
-            : nullInstanceOk(nullInstanceOk), requiredExtension(requiredExtension), validResults(std::move(validResults))
+            : nullInstanceOk(nullInstanceOk)
+            , requiredVersion(requiredVersion)
+            , requiredExtension(requiredExtension)
+            , validResults(std::move(validResults))
         {
         }
     };
@@ -763,7 +780,7 @@ namespace Conformance
     ///    frameIterator.frameEndInfo.layerCount = 1;
     ///    frameIterator.frameEndInfo.layers = headerPtrArray;
     ///
-    ///    XrResult result = xrEndFrame(session.GetSession(), &frameIterator.frameEndInfo);
+    ///    XrResult result = xrEndFrame(session, &frameIterator.frameEndInfo);
     ///    CHECK(result == XR_SUCCESS);
     /// ```
     class FrameIterator

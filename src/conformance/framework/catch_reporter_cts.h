@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2024, The Khronos Group Inc.
+// Copyright (c) 2019-2025 The Khronos Group Inc.
 //              Copyright Catch2 Authors
 // Distributed under the Boost Software License, Version 1.0.
 //   (See accompanying file LICENSE_1_0.txt or copy at
@@ -15,9 +15,12 @@
 XRC_DISABLE_MSVC_WARNING(4324)
 
 #include <catch2/reporters/catch_reporter_cumulative_base.hpp>
+#include <catch2/interfaces/catch_interfaces_reporter.hpp>
 #include <catch2/internal/catch_xmlwriter.hpp>
 #include <catch2/catch_timer.hpp>
 #include <catch2/interfaces/catch_interfaces_reporter_factory.hpp>
+
+#include <string>
 
 namespace Catch
 {

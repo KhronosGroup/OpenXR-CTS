@@ -1,4 +1,4 @@
-// Copyright 2022-2024, The Khronos Group Inc.
+// Copyright 2022-2025 The Khronos Group Inc.
 //
 // Based in part on code that is:
 // Copyright (C) Microsoft Corporation.  All Rights Reserved
@@ -19,12 +19,8 @@
 #include <nonstd/span.hpp>
 #include <openxr/openxr.h>
 
-#include <chrono>
 #include <functional>
 #include <map>
-#include <memory>
-#include <mutex>
-#include <numeric>
 #include <stdint.h>
 #include <string>
 #include <utility>

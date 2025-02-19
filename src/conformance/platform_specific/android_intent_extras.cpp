@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2024, The Khronos Group Inc.
+// Copyright (c) 2019-2025 The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 #include "android_intent_extras.h"
@@ -15,6 +15,13 @@
 
 // We first check for a string array intent extra named this
 static constexpr const char* kStringArrayExtraName = "args";
+
+// Then, we check for array string intent extras with the following names, which match
+// the names of command line options in the CLI: see `MakeCLIParser` for help.
+static constexpr auto kStringArrayExtraNames = {
+    "enabledInstanceExtension",
+    "interactionProfiles",
+};
 
 // Then, we check for individual string intent extras with the following names, which match
 // the names of command line options in the CLI: see `MakeCLIParser` for help.
@@ -52,7 +59,41 @@ namespace Conformance
                 const long n = args.getLength();
                 ALOGV("Got a string array intent extras of size %ld", n);
                 for (long i = 0; i < n; ++i) {
-                    ret.arguments.emplace_back(args[i]);
+                    // Passing multiple elements in here works as follows:
+                    // --esa args element1,element2
+                    // this will show up as a 2 element string array.
+                    //
+                    // If you wish to pass in a list of OR'd tests they must be comma separated.
+                    // however Android treats the "," as a special character and recommends escaping
+                    // the comma using a backslash: \,
+                    //
+                    // Unfortunately Android does not unescape before passing the data along, confusing
+                    // Catch2. Hence we unescape here ourselves.
+                    // https://android.googlesource.com/platform/frameworks/base/+/21bdaf1/cmds/am/src/com/android/commands/am/Am.java#581
+                    //
+                    // The code below allows: --esa args InteractiveThrow\\,GripAndAimPose
+                    // Which will run just the two tests above.
+                    std::string argument = args[i];
+                    size_t pos = 0;
+                    while ((pos = argument.find("\\,")) != std::string::npos) {
+                        argument.replace(pos, 2, ",");
+                    }
+                    ret.arguments.emplace_back(argument);
+                }
+            }
+
+            // Example usage --esa enabledInstanceExtension XR_EXT_user_presence,XR_KHR_visibility_mask
+            for (const char* name : kStringArrayExtraNames) {
+                auto esa_args = intent.call<jni::Array<std::string>>(getStringArrayExtra, name);
+                if (!esa_args.isNull()) {
+                    // jnipp does not have iterators for java arrays so no range-for
+                    const long n = esa_args.getLength();
+                    ALOGV("Got a string array intent extras of size %ld for %s", n, name);
+                    for (long i = 0; i < n; ++i) {
+                        ALOGV("Adding option %s for %s", esa_args[i].c_str(), name);
+                        ret.arguments.emplace_back(std::string("--") + name);
+                        ret.arguments.emplace_back(esa_args[i]);
+                    }
                 }
             }
         }

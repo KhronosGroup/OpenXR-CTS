@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2024, The Khronos Group Inc.
+// Copyright (c) 2017-2025 The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -19,6 +19,14 @@ static const FunctionInfoMap functionInfoMapInternal{
 //# else
      false, /* null instance not OK */
 //# endif
+//# if cur_cmd.ext_name and "XR_VERSION_1_0" in cur_cmd.ext_name
+     XR_MAKE_VERSION(1, 0, 0),
+//# elif cur_cmd.ext_name and "XR_VERSION_1_1" in cur_cmd.ext_name
+     XR_MAKE_VERSION(1, 1, 0),
+//# else
+     XrVersion{},
+//# endif
+
 //# if cur_cmd.ext_name and "XR_VERSION_" not in cur_cmd.ext_name
      /*{ cur_cmd.ext_name | quote_string }*/, /* extension required */
 //# else

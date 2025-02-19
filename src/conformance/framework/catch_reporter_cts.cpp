@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2024, The Khronos Group Inc.
+// Copyright (c) 2019-2025 The Khronos Group Inc.
 //              Copyright Catch2 Authors
 // Distributed under the Boost Software License, Version 1.0.
 //   (See accompanying file LICENSE_1_0.txt or copy at
@@ -171,7 +171,7 @@ namespace Catch
         }
 
         // Output CTS-specific info
-        Conformance::WriteTestEnvironment(xml, Conformance::GetGlobalData());
+        Conformance::WriteTestEnvironment(xml, Conformance::GetGlobalData(), Conformance::Options::Get());
         Conformance::WriteActiveApiLayersAndExtensions(xml, Conformance::GetGlobalData());
         Conformance::WriteConformanceReportSummary(xml, Conformance::GetGlobalData().GetConformanceReport());
 

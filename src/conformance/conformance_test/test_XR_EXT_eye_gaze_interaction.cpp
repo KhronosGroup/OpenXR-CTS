@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2024, The Khronos Group Inc.
+// Copyright (c) 2019-2025 The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -19,7 +19,6 @@
 #include "conformance_framework.h"
 #include "composition_utils.h"
 #include "two_call.h"
-#include "utilities/utils.h"
 #include "utilities/system_properties_helper.h"
 #include "common/xr_linear.h"
 #include <catch2/catch_test_macros.hpp>
@@ -287,15 +286,15 @@ namespace Conformance
         SECTION("Localize eye gaze paths")
         {
             CompositionHelper compositionHelper("XR_EXT_eye_gaze_interaction localization", {XR_EXT_EYE_GAZE_INTERACTION_EXTENSION_NAME});
+            const XrInstance instance = compositionHelper.GetInstance();
+            const XrSession session = compositionHelper.GetSession();
 
-            if (!SystemSupportsEyeGazeInteraction(compositionHelper.GetInstance(), compositionHelper.GetSystemId())) {
+            if (!SystemSupportsEyeGazeInteraction(instance, compositionHelper.GetSystemId())) {
                 // This runtime does support eye tracking, but this headset does not which is fine.
-                WARN("System does not support eye gaze interaction");
-                return;
+                SKIP("System does not support eye gaze interaction");
             }
 
             ActionLayerManager actionLayerManager(compositionHelper);
-            XrInstance instance = compositionHelper.GetInstance();
 
             // Create action set
             XrActionSetCreateInfo actionSetInfo{XR_TYPE_ACTION_SET_CREATE_INFO};
@@ -333,7 +332,7 @@ namespace Conformance
             XrSessionActionSetsAttachInfo attachInfo{XR_TYPE_SESSION_ACTION_SETS_ATTACH_INFO};
             attachInfo.countActionSets = 1;
             attachInfo.actionSets = &gameplayActionSet;
-            REQUIRE_RESULT(xrAttachSessionActionSets(compositionHelper.GetSession(), &attachInfo), XR_SUCCESS);
+            REQUIRE_RESULT(xrAttachSessionActionSets(session, &attachInfo), XR_SUCCESS);
 
             // Wait for session to focus
             compositionHelper.BeginSession();
@@ -344,11 +343,11 @@ namespace Conformance
             syncInfo.countActiveActionSets = 1;
 
             actionLayerManager.WaitWithMessage("Waiting for eye gaze isActive=true", [&] {
-                if (XR_UNQUALIFIED_SUCCESS(xrSyncActions(compositionHelper.GetSession(), &syncInfo))) {
+                if (XR_UNQUALIFIED_SUCCESS(xrSyncActions(session, &syncInfo))) {
                     XrActionStatePose actionStatePose{XR_TYPE_ACTION_STATE_POSE};
                     XrActionStateGetInfo getActionStateInfo{XR_TYPE_ACTION_STATE_GET_INFO};
                     getActionStateInfo.action = userIntentAction;
-                    REQUIRE_RESULT(XR_SUCCESS, xrGetActionStatePose(compositionHelper.GetSession(), &getActionStateInfo, &actionStatePose));
+                    REQUIRE_RESULT(XR_SUCCESS, xrGetActionStatePose(session, &getActionStateInfo, &actionStatePose));
                     return (bool)actionStatePose.isActive;
                 }
                 return false;
@@ -356,18 +355,15 @@ namespace Conformance
 
             XrBoundSourcesForActionEnumerateInfo info{XR_TYPE_BOUND_SOURCES_FOR_ACTION_ENUMERATE_INFO};
             info.action = userIntentAction;
-            std::vector<XrPath> enumerateResult =
-                REQUIRE_TWO_CALL(XrPath, {}, xrEnumerateBoundSourcesForAction, compositionHelper.GetSession(), &info);
-            REQUIRE_MSG(enumerateResult.size() > 0,
-                        "user_intent action not bound to any source. Expected to be bound to /user/eyes_ext/input/gaze_ext/pose source");
+            std::vector<XrPath> enumerateResult = REQUIRE_TWO_CALL(XrPath, {}, xrEnumerateBoundSourcesForAction, session, &info);
+            REQUIRE_MSG(enumerateResult.size() > 0, "user_intent action not bound to any source, expected at least one source");
 
             // Now obtain localized names for paths
             XrInputSourceLocalizedNameGetInfo localizeInfo = {XR_TYPE_INPUT_SOURCE_LOCALIZED_NAME_GET_INFO};
 
             localizeInfo.sourcePath = enumerateResult[0];
             localizeInfo.whichComponents = XR_INPUT_SOURCE_LOCALIZED_NAME_USER_PATH_BIT;
-            std::string localizedStringResult =
-                REQUIRE_TWO_CALL(char, {}, xrGetInputSourceLocalizedName, compositionHelper.GetSession(), &localizeInfo).data();
+            std::string localizedStringResult = REQUIRE_TWO_CALL(char, {}, xrGetInputSourceLocalizedName, session, &localizeInfo).data();
             REQUIRE_FALSE(localizedStringResult.empty());
 
             // clean up
@@ -387,7 +383,10 @@ namespace Conformance
         CompositionHelper compositionHelper("XR_EXT_eye_gaze_interaction interactive gaze only",
                                             {XR_EXT_EYE_GAZE_INTERACTION_EXTENSION_NAME});
 
-        if (!SystemSupportsEyeGazeInteraction(compositionHelper.GetInstance(), compositionHelper.GetSystemId())) {
+        const XrInstance instance = compositionHelper.GetInstance();
+        const XrSession session = compositionHelper.GetSession();
+
+        if (!SystemSupportsEyeGazeInteraction(instance, compositionHelper.GetSystemId())) {
             // This runtime does support eye tracking, but this headset does not which is fine.
             SKIP("System does not support eye gaze interaction");
         }
@@ -399,7 +398,7 @@ namespace Conformance
         XrActionSetCreateInfo actionSetInfo{XR_TYPE_ACTION_SET_CREATE_INFO};
         strcpy(actionSetInfo.actionSetName, "eye_gaze_test");
         strcpy(actionSetInfo.localizedActionSetName, "Eye Gaze Interaction Test");
-        REQUIRE_RESULT(XR_SUCCESS, xrCreateActionSet(compositionHelper.GetInstance(), &actionSetInfo, &actionSet));
+        REQUIRE_RESULT(XR_SUCCESS, xrCreateActionSet(instance, &actionSetInfo, &actionSet));
 
         XrActionCreateInfo actionInfo{XR_TYPE_ACTION_CREATE_INFO};
         actionInfo.actionType = XR_ACTION_TYPE_POSE_INPUT;
@@ -407,19 +406,19 @@ namespace Conformance
         strcpy(actionInfo.localizedActionName, "Eye Gaze Pose");
         REQUIRE_RESULT(XR_SUCCESS, xrCreateAction(actionSet, &actionInfo, &gazeAction));
 
-        const XrPath gazePath = StringToPath(compositionHelper.GetInstance(), kEyeGazeInteractionPoseInputPath);
+        const XrPath gazePath = StringToPath(instance, kEyeGazeInteractionPoseInputPath);
         const XrActionSuggestedBinding binding{gazeAction, gazePath};
 
         XrInteractionProfileSuggestedBinding suggestedBindings{XR_TYPE_INTERACTION_PROFILE_SUGGESTED_BINDING};
-        suggestedBindings.interactionProfile = StringToPath(compositionHelper.GetInstance(), kEyeGazeInteractionProfilePath);
+        suggestedBindings.interactionProfile = StringToPath(instance, kEyeGazeInteractionProfilePath);
         suggestedBindings.suggestedBindings = &binding;
         suggestedBindings.countSuggestedBindings = 1;
-        REQUIRE_RESULT(XR_SUCCESS, xrSuggestInteractionProfileBindings(compositionHelper.GetInstance(), &suggestedBindings));
+        REQUIRE_RESULT(XR_SUCCESS, xrSuggestInteractionProfileBindings(instance, &suggestedBindings));
 
         XrSessionActionSetsAttachInfo attachInfo{XR_TYPE_SESSION_ACTION_SETS_ATTACH_INFO};
         attachInfo.actionSets = &actionSet;
         attachInfo.countActionSets = 1;
-        REQUIRE_RESULT(XR_SUCCESS, xrAttachSessionActionSets(compositionHelper.GetSession(), &attachInfo));
+        REQUIRE_RESULT(XR_SUCCESS, xrAttachSessionActionSets(session, &attachInfo));
 
         const XrSpace localSpace = compositionHelper.CreateReferenceSpace(XR_REFERENCE_SPACE_TYPE_LOCAL);
         const XrSpace viewSpace = compositionHelper.CreateReferenceSpace(XR_REFERENCE_SPACE_TYPE_VIEW);
@@ -428,7 +427,7 @@ namespace Conformance
         createActionSpaceInfo.action = gazeAction;
         createActionSpaceInfo.poseInActionSpace = kPoseIdentity;
         XrSpace gazeActionSpace{XR_NULL_HANDLE};
-        REQUIRE_RESULT(XR_SUCCESS, xrCreateActionSpace(compositionHelper.GetSession(), &createActionSpaceInfo, &gazeActionSpace));
+        REQUIRE_RESULT(XR_SUCCESS, xrCreateActionSpace(session, &createActionSpaceInfo, &gazeActionSpace));
 
         SECTION("Gaze display")
         {
@@ -507,12 +506,12 @@ namespace Conformance
                 syncInfo.activeActionSets = &activeActionSet;
                 syncInfo.countActiveActionSets = 1;
                 // xrSyncActions may return XR_SUCCESS or XR_SESSION_NOT_FOCUSED
-                REQUIRE(XR_SUCCEEDED(xrSyncActions(compositionHelper.GetSession(), &syncInfo)));
+                REQUIRE(XR_SUCCEEDED(xrSyncActions(session, &syncInfo)));
 
                 XrActionStatePose actionStatePose{XR_TYPE_ACTION_STATE_POSE};
                 XrActionStateGetInfo getActionStateInfo{XR_TYPE_ACTION_STATE_GET_INFO};
                 getActionStateInfo.action = gazeAction;
-                REQUIRE_RESULT(XR_SUCCESS, xrGetActionStatePose(compositionHelper.GetSession(), &getActionStateInfo, &actionStatePose));
+                REQUIRE_RESULT(XR_SUCCESS, xrGetActionStatePose(session, &getActionStateInfo, &actionStatePose));
 
                 if (actionStatePose.isActive) {
                     XrEyeGazeSampleTimeEXT eyeGazeSampleTime{XR_TYPE_EYE_GAZE_SAMPLE_TIME_EXT};
@@ -564,9 +563,7 @@ namespace Conformance
 
                         XrVector3f gazeDirection = Quat::RotateVector(rayPose.orientation, kVectorForward);
                         const float rayOffsetForward = rayEdgesScale.z / 2 + rayOffsetFromHead;
-                        rayPose.position = XrVector3f{rayPose.position.x + (rayOffsetForward)*gazeDirection.x,
-                                                      rayPose.position.y + (rayOffsetForward)*gazeDirection.y,
-                                                      rayPose.position.z + (rayOffsetForward)*gazeDirection.z};
+                        rayPose.position += gazeDirection * rayOffsetForward;
 
                         renderedCubes.push_back(Cube{rayPose, rayEdgesScale});
                     }
@@ -603,7 +600,7 @@ namespace Conformance
                 return true;
             };
 
-            RenderLoop(compositionHelper.GetSession(), update).Loop();
+            RenderLoop(session, update).Loop();
 
             REQUIRE_MSG(eyeGazeSampleTimeFound, "Eye gaze sample time never available");
         }

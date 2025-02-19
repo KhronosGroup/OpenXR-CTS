@@ -1,4 +1,4 @@
-// Copyright 2022-2024, The Khronos Group Inc.
+// Copyright 2022-2025 The Khronos Group Inc.
 //
 // Based in part on code that is:
 // Copyright (C) Microsoft Corporation.  All Rights Reserved
@@ -6,16 +6,14 @@
 //
 // SPDX-License-Identifier: MIT AND Apache-2.0
 #pragma once
-
 #include "GLCommon.h"
-
 #include <utilities/image.h>
-#include "../IGltfBuilder.h"
-#include "../PbrCommon.h"
-#include "../PbrHandles.h"
-#include "../PbrSharedState.h"
+#include "IGltfBuilder.h"
+#include "PbrCommon.h"
+#include "PbrHandles.h"
+#include "PbrSharedState.h"
 
-#include "common/gfxwrapper_opengl.h"
+#include "common/gfxwrapper_opengl.h"  // IWYU pragma: keep
 #include "common/xr_linear.h"
 
 #include <nonstd/span.hpp>
@@ -34,12 +32,10 @@ namespace Pbr
 {
     using nonstd::span;
 
-    struct Primitive;
     struct Material;
 
     using Duration = std::chrono::high_resolution_clock::duration;
     struct GLPrimitive;
-    struct GLMaterial;
 
     struct GLTextureAndSampler : public ITexture
     {
@@ -114,6 +110,7 @@ namespace Pbr
         friend struct GLMaterial;
 
         struct Impl;
+
         std::unique_ptr<Impl> m_impl;
 
         SharedState m_sharedState;

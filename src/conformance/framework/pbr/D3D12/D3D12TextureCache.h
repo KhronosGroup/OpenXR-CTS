@@ -1,4 +1,4 @@
-// Copyright 2023-2024, The Khronos Group Inc.
+// Copyright 2023-2025 The Khronos Group Inc.
 //
 // Based in part on code that is:
 //
@@ -9,7 +9,9 @@
 
 #pragma once
 
-#include "D3D12Resources.h"
+#if defined(XR_USE_GRAPHICS_API_D3D12)
+
+#include "D3D12Resources.h"  // for StagingResources
 
 #include "utilities/d3d12_utils.h"
 
@@ -25,6 +27,8 @@ namespace Pbr
 {
     template <typename T>
     using ComPtr = Microsoft::WRL::ComPtr<T>;
+
+    struct D3D12Resources;
 
     /// Cache of single-color textures.
     ///
@@ -49,3 +53,5 @@ namespace Pbr
     };
 
 }  // namespace Pbr
+
+#endif

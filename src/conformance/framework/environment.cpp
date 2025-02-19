@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2024, The Khronos Group Inc.
+// Copyright (c) 2017-2025 The Khronos Group Inc.
 // Copyright (c) 2017-2019 Valve Corporation
 // Copyright (c) 2017-2019 LunarG, Inc.
 //
@@ -8,9 +8,7 @@
 
 #if defined(XR_OS_LINUX) || defined(XR_OS_APPLE)
 
-#include <unistd.h>
-#include <fcntl.h>
-#include <iostream>
+#include <stdlib.h>
 
 #elif defined(XR_OS_WINDOWS)
 

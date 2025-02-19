@@ -1,4 +1,4 @@
-// Copyright (c) 2022-2024, The Khronos Group Inc.
+// Copyright (c) 2022-2025 The Khronos Group Inc.
 //
 // SPDX-License-Identifier: MIT
 
@@ -6,8 +6,8 @@
 
 #include "graphics_plugin_vulkan_gltf.h"
 
+#include "common/xr_linear.h"
 #include "pbr/Vulkan/VkModel.h"
-#include "pbr/Vulkan/VkPrimitive.h"
 #include "pbr/Vulkan/VkResources.h"
 
 namespace Conformance

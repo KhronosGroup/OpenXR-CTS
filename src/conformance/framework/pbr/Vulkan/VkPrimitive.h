@@ -1,4 +1,4 @@
-// Copyright 2023-2024, The Khronos Group Inc.
+// Copyright 2023-2025 The Khronos Group Inc.
 //
 // Based in part on code that is:
 //
@@ -9,14 +9,9 @@
 
 #pragma once
 
-#include "VkMaterial.h"
-
-#include "../PbrCommon.h"
-
-#include "utilities/vulkan_scoped_handle.h"
+#include "PbrCommon.h"
 #include "utilities/vulkan_utils.h"
 
-#include <nonstd/span.hpp>
 #include <vulkan/vulkan_core.h>
 
 #include <cstdint>
