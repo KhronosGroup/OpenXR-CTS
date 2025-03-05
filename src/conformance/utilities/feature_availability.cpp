@@ -121,7 +121,7 @@ namespace Conformance
 #error "Needs updating"
 #endif
         get_XR_VERSION_1_1() = (major == 1) && (minor >= 1);
-        get_XR_VERSION_1_0() = (major == 1) && (minor >= 0);
+        get_XR_VERSION_1_0() = (major == 1) /* && (minor >= 0)*/;
     }
 
     FeatureSet::FeatureSet(const std::initializer_list<FeatureBitIndex>& features) : FeatureSet()

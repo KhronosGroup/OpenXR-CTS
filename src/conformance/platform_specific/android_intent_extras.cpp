@@ -6,12 +6,10 @@
 
 #include "jnipp/jnipp.h"
 
-#include <android/log.h>
 #include <string>
 
 #define LOG_TAG "OpenXR_Conformance"
-#define ALOGE(...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__)
-#define ALOGV(...) __android_log_print(ANDROID_LOG_VERBOSE, LOG_TAG, __VA_ARGS__)
+#include "common/android_logging.h"
 
 // We first check for a string array intent extra named this
 static constexpr const char* kStringArrayExtraName = "args";

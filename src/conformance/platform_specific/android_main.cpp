@@ -40,9 +40,9 @@
 #include <conformance_framework.h>
 
 /// #define DEBUG 1
+
 #define LOG_TAG "OpenXR_Conformance"
-#define ALOGE(...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__)
-#define ALOGV(...) __android_log_print(ANDROID_LOG_VERBOSE, LOG_TAG, __VA_ARGS__)
+#include "common/android_logging.h"
 
 /*
 ================================================================================

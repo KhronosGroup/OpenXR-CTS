@@ -1,0 +1,1 @@
+- Fix: Fix glTF loading spinner using wrong pose, making the animation not visible.

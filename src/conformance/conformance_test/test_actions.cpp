@@ -15,6 +15,7 @@
 // limitations under the License.
 
 #include "action_utils.h"
+#include "availability_helper.h"
 #include "composition_utils.h"
 #include "conformance_framework.h"
 #include "conformance_utils.h"
@@ -59,11 +60,6 @@ using namespace Conformance;
 // Stores the top level path in slot 2 and the identifier path in slot 5 or 6 based on whether or not the component was included.
 // If the component was included, 6 and 7 will be matched with the parent and component, otherwise 5 will be matched.
 const std::regex cInteractionSourcePathRegex("^((.+)/(input|output))/(([^/]+)|([^/]+)/([^/]+))$");
-
-#define OPTIONAL_ACTIVE_ACTION_SET_PRIORITY_SECTION                                                       \
-    if (GetGlobalData().IsInstanceExtensionSupported(XR_EXT_ACTIVE_ACTION_SET_PRIORITY_EXTENSION_NAME) && \
-        GetGlobalData().leftHandUnderTest && GetGlobalData().rightHandUnderTest)                          \
-    SECTION("XR_EXT_active_action_set_priority")
 
 namespace Conformance
 {
@@ -1387,10 +1383,8 @@ namespace Conformance
     TEST_CASE("xrSyncActions", "[actions][interactive]")
     {
         GlobalData& globalData = GetGlobalData();
-        std::vector<const char*> extensions;
-        if (globalData.IsInstanceExtensionSupported(XR_EXT_ACTIVE_ACTION_SET_PRIORITY_EXTENSION_NAME))
-            extensions.push_back(XR_EXT_ACTIVE_ACTION_SET_PRIORITY_EXTENSION_NAME);
-        CompositionHelper compositionHelper("xrSyncActions", extensions);
+
+        CompositionHelper compositionHelper("xrSyncActions");
         XrInstance instance = compositionHelper.GetInstance();
         XrSession session = compositionHelper.GetSession();
 
@@ -1516,8 +1510,8 @@ namespace Conformance
                     REQUIRE(actionStateBoolean.isActive);
                     REQUIRE_FALSE(actionStateBoolean.currentState);
 
-                    INFO("Repeated state query calls return the same value");
                     {
+                        INFO("Repeated state query calls return the same value");
 
                         defaultInputDevice->SetButtonStateBool(selectPath, true);
 
@@ -1569,343 +1563,6 @@ namespace Conformance
                 }
             }
 
-            SECTION("Priority rules")
-            {
-                const XrPath bothPaths[2] = {leftHandPath, rightHandPath};
-
-                XrActionSet highPriorityActionSet{XR_NULL_HANDLE};
-                XrActionSetCreateInfo setCreateInfo{XR_TYPE_ACTION_SET_CREATE_INFO};
-                strcpy(setCreateInfo.actionSetName, "high_priority_action_set");
-                strcpy(setCreateInfo.localizedActionSetName, "high priority action set");
-                setCreateInfo.priority = 3;
-                REQUIRE_RESULT(xrCreateActionSet(instance, &setCreateInfo, &highPriorityActionSet), XR_SUCCESS);
-
-                XrAction highPrioritySelectAction{XR_NULL_HANDLE};
-                XrAction highPrioritySelectAction2{XR_NULL_HANDLE};
-                XrActionCreateInfo createInfo{XR_TYPE_ACTION_CREATE_INFO};
-                strcpy(createInfo.actionName, std::string("test_click_a").c_str());
-                createInfo.actionType = XR_ACTION_TYPE_BOOLEAN_INPUT;
-                strcpy(createInfo.localizedActionName, "test click action a");
-                createInfo.countSubactionPaths = 2;
-                createInfo.subactionPaths = bothPaths;
-                REQUIRE_RESULT(xrCreateAction(highPriorityActionSet, &createInfo, &highPrioritySelectAction), XR_SUCCESS);
-
-                strcpy(createInfo.actionName, std::string("test_click_a_2").c_str());
-                strcpy(createInfo.localizedActionName, "test click action a 2");
-                REQUIRE_RESULT(xrCreateAction(highPriorityActionSet, &createInfo, &highPrioritySelectAction2), XR_SUCCESS);
-
-                XrActionSet lowPriorityActionSet{XR_NULL_HANDLE};
-                strcpy(setCreateInfo.actionSetName, "low_priority_action_set");
-                strcpy(setCreateInfo.localizedActionSetName, "low priority action set");
-                setCreateInfo.priority = 2;
-                REQUIRE_RESULT(xrCreateActionSet(instance, &setCreateInfo, &lowPriorityActionSet), XR_SUCCESS);
-
-                XrAction lowPrioritySelectAction{XR_NULL_HANDLE};
-                XrAction lowPriorityMenuAction{XR_NULL_HANDLE};
-                XrAction lowPrioritySelectAndMenuAction{XR_NULL_HANDLE};
-                strcpy(createInfo.actionName, std::string("test_click_b").c_str());
-                createInfo.actionType = XR_ACTION_TYPE_BOOLEAN_INPUT;
-                strcpy(createInfo.localizedActionName, "test click action b");
-                REQUIRE_RESULT(xrCreateAction(lowPriorityActionSet, &createInfo, &lowPrioritySelectAction), XR_SUCCESS);
-
-                strcpy(createInfo.actionName, std::string("test_click_b_2").c_str());
-                strcpy(createInfo.localizedActionName, "test click action b 2");
-                REQUIRE_RESULT(xrCreateAction(lowPriorityActionSet, &createInfo, &lowPriorityMenuAction), XR_SUCCESS);
-
-                strcpy(createInfo.actionName, std::string("test_click_b_3").c_str());
-                strcpy(createInfo.localizedActionName, "test click action b 3");
-                REQUIRE_RESULT(xrCreateAction(lowPriorityActionSet, &createInfo, &lowPrioritySelectAndMenuAction), XR_SUCCESS);
-
-                compositionHelper.GetInteractionManager().AddActionBindings(
-                    simpleControllerInteractionProfile,
-                    {
-                        {highPrioritySelectAction, StringToPath(instance, "/user/hand/left/input/select/click")},
-                        {highPrioritySelectAction, StringToPath(instance, "/user/hand/right/input/select/click")},
-                        {highPrioritySelectAction2, StringToPath(instance, "/user/hand/left/input/select/click")},
-                        {highPrioritySelectAction2, StringToPath(instance, "/user/hand/right/input/select/click")},
-                        {lowPrioritySelectAction, StringToPath(instance, "/user/hand/left/input/select/click")},
-                        {lowPrioritySelectAction, StringToPath(instance, "/user/hand/right/input/select/click")},
-                        {lowPriorityMenuAction, StringToPath(instance, "/user/hand/left/input/menu/click")},
-                        {lowPriorityMenuAction, StringToPath(instance, "/user/hand/right/input/menu/click")},
-                        {lowPrioritySelectAndMenuAction, StringToPath(instance, "/user/hand/left/input/select/click")},
-                        {lowPrioritySelectAndMenuAction, StringToPath(instance, "/user/hand/left/input/menu/click")},
-                        {lowPrioritySelectAndMenuAction, StringToPath(instance, "/user/hand/right/input/select/click")},
-                        {lowPrioritySelectAndMenuAction, StringToPath(instance, "/user/hand/right/input/menu/click")},
-                    });
-
-                compositionHelper.GetInteractionManager().AddActionSet(highPriorityActionSet);
-                compositionHelper.GetInteractionManager().AddActionSet(lowPriorityActionSet);
-                compositionHelper.GetInteractionManager().AttachActionSets();
-
-                if (globalData.leftHandUnderTest) {
-                    leftHandInputDevice->SetDeviceActive(true);
-                }
-                if (globalData.rightHandUnderTest) {
-                    rightHandInputDevice->SetDeviceActive(true);
-                }
-
-                XrActiveActionSet highPriorityRightHandActiveActionSet{highPriorityActionSet, rightHandPath};
-                XrActiveActionSet lowPriorityRightHandActiveActionSet{lowPriorityActionSet, rightHandPath};
-                XrActiveActionSet highPriorityLeftHandActiveActionSet{highPriorityActionSet, leftHandPath};
-                XrActiveActionSet lowPriorityLeftHandActiveActionSet{lowPriorityActionSet, leftHandPath};
-
-                auto getActionActiveState = [&](XrAction action, XrPath subactionPath) {
-                    XrActionStateGetInfo getInfo{XR_TYPE_ACTION_STATE_GET_INFO};
-                    getInfo.action = action;
-                    getInfo.subactionPath = subactionPath;
-                    XrActionStateBoolean booleanData{XR_TYPE_ACTION_STATE_BOOLEAN};
-                    REQUIRE_RESULT(xrGetActionStateBoolean(session, &getInfo, &booleanData), XR_SUCCESS);
-                    return static_cast<bool>(booleanData.isActive);
-                };
-
-                std::vector<XrActiveActionSet> activeSets;
-                XrActionsSyncInfo syncInfo{XR_TYPE_ACTIONS_SYNC_INFO};
-
-                if (globalData.leftHandUnderTest && globalData.rightHandUnderTest) {
-                    // Both sets with null subaction path
-                    activeSets = {lowPriorityLeftHandActiveActionSet, lowPriorityRightHandActiveActionSet,
-                                  highPriorityLeftHandActiveActionSet, highPriorityRightHandActiveActionSet};
-                    syncInfo.countActiveActionSets = static_cast<uint32_t>(activeSets.size());
-                    syncInfo.activeActionSets = activeSets.data();
-                    actionLayerManager.SyncActionsUntilFocusWithMessage(syncInfo);
-
-                    INFO("high priority + low priority");
-                    REQUIRE(getActionActiveState(highPrioritySelectAction, XR_NULL_PATH) == true);
-                    REQUIRE(getActionActiveState(highPrioritySelectAction, leftHandPath) == true);
-                    REQUIRE(getActionActiveState(highPrioritySelectAction, rightHandPath) == true);
-                    REQUIRE(getActionActiveState(highPrioritySelectAction2, XR_NULL_PATH) == true);
-                    REQUIRE(getActionActiveState(highPrioritySelectAction2, leftHandPath) == true);
-                    REQUIRE(getActionActiveState(highPrioritySelectAction2, rightHandPath) == true);
-
-                    REQUIRE(getActionActiveState(lowPrioritySelectAction, XR_NULL_PATH) == false);   // Blocked by high priority
-                    REQUIRE(getActionActiveState(lowPrioritySelectAction, leftHandPath) == false);   // Blocked by high priority
-                    REQUIRE(getActionActiveState(lowPrioritySelectAction, rightHandPath) == false);  // Blocked by high priority
-                    REQUIRE(getActionActiveState(lowPriorityMenuAction, XR_NULL_PATH) == true);
-                    REQUIRE(getActionActiveState(lowPriorityMenuAction, leftHandPath) == true);
-                    REQUIRE(getActionActiveState(lowPriorityMenuAction, rightHandPath) == true);
-                    REQUIRE(getActionActiveState(lowPrioritySelectAndMenuAction, XR_NULL_PATH) == true);
-                    REQUIRE(getActionActiveState(lowPrioritySelectAndMenuAction, leftHandPath) == true);
-                    REQUIRE(getActionActiveState(lowPrioritySelectAndMenuAction, rightHandPath) == true);
-                }
-
-                if (globalData.rightHandUnderTest) {
-                    // Both sets with right hand subaction path
-                    activeSets = {highPriorityRightHandActiveActionSet, lowPriorityRightHandActiveActionSet};
-                    syncInfo.countActiveActionSets = static_cast<uint32_t>(activeSets.size());
-                    syncInfo.activeActionSets = activeSets.data();
-                    actionLayerManager.SyncActionsUntilFocusWithMessage(syncInfo);
-
-                    INFO("right handed high priority + right handed low priority");
-                    REQUIRE(getActionActiveState(highPrioritySelectAction, XR_NULL_PATH) == true);
-                    REQUIRE(getActionActiveState(highPrioritySelectAction, leftHandPath) == false);
-                    REQUIRE(getActionActiveState(highPrioritySelectAction, rightHandPath) == true);
-                    REQUIRE(getActionActiveState(highPrioritySelectAction2, XR_NULL_PATH) == true);
-                    REQUIRE(getActionActiveState(highPrioritySelectAction2, leftHandPath) == false);
-                    REQUIRE(getActionActiveState(highPrioritySelectAction2, rightHandPath) == true);
-
-                    REQUIRE(getActionActiveState(lowPrioritySelectAction, XR_NULL_PATH) == false);
-                    REQUIRE(getActionActiveState(lowPrioritySelectAction, leftHandPath) == false);
-                    REQUIRE(getActionActiveState(lowPrioritySelectAction, rightHandPath) == false);
-                    REQUIRE(getActionActiveState(lowPriorityMenuAction, XR_NULL_PATH) == true);
-                    REQUIRE(getActionActiveState(lowPriorityMenuAction, leftHandPath) == false);
-                    REQUIRE(getActionActiveState(lowPriorityMenuAction, rightHandPath) == true);
-                    REQUIRE(getActionActiveState(lowPrioritySelectAndMenuAction, XR_NULL_PATH) == true);
-                    REQUIRE(getActionActiveState(lowPrioritySelectAndMenuAction, leftHandPath) == false);
-                    REQUIRE(getActionActiveState(lowPrioritySelectAndMenuAction, rightHandPath) == true);
-                }
-
-                if (globalData.leftHandUnderTest) {
-                    // Both sets with left hand subaction path
-                    activeSets = {highPriorityLeftHandActiveActionSet, lowPriorityLeftHandActiveActionSet};
-                    syncInfo.countActiveActionSets = static_cast<uint32_t>(activeSets.size());
-                    syncInfo.activeActionSets = activeSets.data();
-                    actionLayerManager.SyncActionsUntilFocusWithMessage(syncInfo);
-
-                    INFO("left handed high priority + left handed low priority");
-                    REQUIRE(getActionActiveState(highPrioritySelectAction, XR_NULL_PATH) == true);
-                    REQUIRE(getActionActiveState(highPrioritySelectAction, leftHandPath) == true);
-                    REQUIRE(getActionActiveState(highPrioritySelectAction, rightHandPath) == false);
-                    REQUIRE(getActionActiveState(highPrioritySelectAction2, XR_NULL_PATH) == true);
-                    REQUIRE(getActionActiveState(highPrioritySelectAction2, leftHandPath) == true);
-                    REQUIRE(getActionActiveState(highPrioritySelectAction2, rightHandPath) == false);
-
-                    REQUIRE(getActionActiveState(lowPrioritySelectAction, XR_NULL_PATH) == false);
-                    REQUIRE(getActionActiveState(lowPrioritySelectAction, leftHandPath) == false);
-                    REQUIRE(getActionActiveState(lowPrioritySelectAction, rightHandPath) == false);
-                    REQUIRE(getActionActiveState(lowPriorityMenuAction, XR_NULL_PATH) == true);
-                    REQUIRE(getActionActiveState(lowPriorityMenuAction, leftHandPath) == true);
-                    REQUIRE(getActionActiveState(lowPriorityMenuAction, rightHandPath) == false);
-                    REQUIRE(getActionActiveState(lowPrioritySelectAndMenuAction, XR_NULL_PATH) == true);
-                    REQUIRE(getActionActiveState(lowPrioritySelectAndMenuAction, leftHandPath) == true);
-                    REQUIRE(getActionActiveState(lowPrioritySelectAndMenuAction, rightHandPath) == false);
-                }
-
-                if (globalData.leftHandUnderTest && globalData.rightHandUnderTest) {
-                    // Both sets with differing subaction path
-                    activeSets = {highPriorityRightHandActiveActionSet, lowPriorityLeftHandActiveActionSet};
-                    syncInfo.countActiveActionSets = static_cast<uint32_t>(activeSets.size());
-                    syncInfo.activeActionSets = activeSets.data();
-                    actionLayerManager.SyncActionsUntilFocusWithMessage(syncInfo);
-
-                    INFO("right handed high priority + left handed low priority");
-                    REQUIRE(getActionActiveState(highPrioritySelectAction, XR_NULL_PATH) == true);
-                    REQUIRE(getActionActiveState(highPrioritySelectAction, leftHandPath) == false);
-                    REQUIRE(getActionActiveState(highPrioritySelectAction, rightHandPath) == true);
-                    REQUIRE(getActionActiveState(highPrioritySelectAction2, XR_NULL_PATH) == true);
-                    REQUIRE(getActionActiveState(highPrioritySelectAction2, leftHandPath) == false);
-                    REQUIRE(getActionActiveState(highPrioritySelectAction2, rightHandPath) == true);
-
-                    REQUIRE(getActionActiveState(lowPrioritySelectAction, XR_NULL_PATH) == true);
-                    REQUIRE(getActionActiveState(lowPrioritySelectAction, leftHandPath) == true);
-                    REQUIRE(getActionActiveState(lowPrioritySelectAction, rightHandPath) == false);
-                    REQUIRE(getActionActiveState(lowPriorityMenuAction, XR_NULL_PATH) == true);
-                    REQUIRE(getActionActiveState(lowPriorityMenuAction, leftHandPath) == true);
-                    REQUIRE(getActionActiveState(lowPriorityMenuAction, rightHandPath) == false);
-                    REQUIRE(getActionActiveState(lowPrioritySelectAndMenuAction, XR_NULL_PATH) == true);
-                    REQUIRE(getActionActiveState(lowPrioritySelectAndMenuAction, leftHandPath) == true);
-                    REQUIRE(getActionActiveState(lowPrioritySelectAndMenuAction, rightHandPath) == false);
-
-                    // Both sets with differing subaction path
-                    activeSets = {highPriorityLeftHandActiveActionSet, lowPriorityRightHandActiveActionSet};
-                    syncInfo.countActiveActionSets = static_cast<uint32_t>(activeSets.size());
-                    syncInfo.activeActionSets = activeSets.data();
-                    actionLayerManager.SyncActionsUntilFocusWithMessage(syncInfo);
-
-                    INFO("left handed high priority + right handed low priority");
-                    REQUIRE(getActionActiveState(highPrioritySelectAction, XR_NULL_PATH) == true);
-                    REQUIRE(getActionActiveState(highPrioritySelectAction, leftHandPath) == true);
-                    REQUIRE(getActionActiveState(highPrioritySelectAction, rightHandPath) == false);
-                    REQUIRE(getActionActiveState(highPrioritySelectAction2, XR_NULL_PATH) == true);
-                    REQUIRE(getActionActiveState(highPrioritySelectAction2, leftHandPath) == true);
-                    REQUIRE(getActionActiveState(highPrioritySelectAction2, rightHandPath) == false);
-
-                    REQUIRE(getActionActiveState(lowPrioritySelectAction, XR_NULL_PATH) == true);
-                    REQUIRE(getActionActiveState(lowPrioritySelectAction, leftHandPath) == false);
-                    REQUIRE(getActionActiveState(lowPrioritySelectAction, rightHandPath) == true);
-                    REQUIRE(getActionActiveState(lowPriorityMenuAction, XR_NULL_PATH) == true);
-                    REQUIRE(getActionActiveState(lowPriorityMenuAction, leftHandPath) == false);
-                    REQUIRE(getActionActiveState(lowPriorityMenuAction, rightHandPath) == true);
-                    REQUIRE(getActionActiveState(lowPrioritySelectAndMenuAction, XR_NULL_PATH) == true);
-                    REQUIRE(getActionActiveState(lowPrioritySelectAndMenuAction, leftHandPath) == false);
-                    REQUIRE(getActionActiveState(lowPrioritySelectAndMenuAction, rightHandPath) == true);
-
-                    // Both sets with differing subaction path
-                    activeSets = {highPriorityRightHandActiveActionSet, lowPriorityLeftHandActiveActionSet,
-                                  lowPriorityRightHandActiveActionSet};
-                    syncInfo.countActiveActionSets = static_cast<uint32_t>(activeSets.size());
-                    syncInfo.activeActionSets = activeSets.data();
-                    actionLayerManager.SyncActionsUntilFocusWithMessage(syncInfo);
-
-                    INFO("right handed high priority + low priority");
-                    REQUIRE(getActionActiveState(highPrioritySelectAction, XR_NULL_PATH) == true);
-                    REQUIRE(getActionActiveState(highPrioritySelectAction, leftHandPath) == false);
-                    REQUIRE(getActionActiveState(highPrioritySelectAction, rightHandPath) == true);
-                    REQUIRE(getActionActiveState(highPrioritySelectAction2, XR_NULL_PATH) == true);
-                    REQUIRE(getActionActiveState(highPrioritySelectAction2, leftHandPath) == false);
-                    REQUIRE(getActionActiveState(highPrioritySelectAction2, rightHandPath) == true);
-
-                    REQUIRE(getActionActiveState(lowPrioritySelectAction, XR_NULL_PATH) == true);
-                    REQUIRE(getActionActiveState(lowPrioritySelectAction, leftHandPath) == true);
-                    REQUIRE(getActionActiveState(lowPrioritySelectAction, rightHandPath) == false);  // Blocked by high priority
-                    REQUIRE(getActionActiveState(lowPriorityMenuAction, XR_NULL_PATH) == true);
-                    REQUIRE(getActionActiveState(lowPriorityMenuAction, leftHandPath) == true);
-                    REQUIRE(getActionActiveState(lowPriorityMenuAction, rightHandPath) == true);
-                    REQUIRE(getActionActiveState(lowPrioritySelectAndMenuAction, XR_NULL_PATH) == true);
-                    REQUIRE(getActionActiveState(lowPrioritySelectAndMenuAction, leftHandPath) == true);
-                    REQUIRE(getActionActiveState(lowPrioritySelectAndMenuAction, rightHandPath) ==
-                            true);  // Menu blocked but squeeze active
-
-                    // Both sets with differing subaction path
-                    activeSets = {highPriorityRightHandActiveActionSet, lowPriorityLeftHandActiveActionSet,
-                                  lowPriorityRightHandActiveActionSet};
-                    syncInfo.countActiveActionSets = static_cast<uint32_t>(activeSets.size());
-                    syncInfo.activeActionSets = activeSets.data();
-                    actionLayerManager.SyncActionsUntilFocusWithMessage(syncInfo);
-
-                    INFO("right handed high priority + left handed low priority + right handed low priority");
-                    REQUIRE(getActionActiveState(highPrioritySelectAction, XR_NULL_PATH) == true);
-                    REQUIRE(getActionActiveState(highPrioritySelectAction, leftHandPath) == false);
-                    REQUIRE(getActionActiveState(highPrioritySelectAction, rightHandPath) == true);
-                    REQUIRE(getActionActiveState(highPrioritySelectAction2, XR_NULL_PATH) == true);
-                    REQUIRE(getActionActiveState(highPrioritySelectAction2, leftHandPath) == false);
-                    REQUIRE(getActionActiveState(highPrioritySelectAction2, rightHandPath) == true);
-
-                    REQUIRE(getActionActiveState(lowPrioritySelectAction, XR_NULL_PATH) == true);
-                    REQUIRE(getActionActiveState(lowPrioritySelectAction, leftHandPath) == true);
-                    REQUIRE(getActionActiveState(lowPrioritySelectAction, rightHandPath) == false);  // Blocked by high priority
-                    REQUIRE(getActionActiveState(lowPriorityMenuAction, XR_NULL_PATH) == true);
-                    REQUIRE(getActionActiveState(lowPriorityMenuAction, leftHandPath) == true);
-                    REQUIRE(getActionActiveState(lowPriorityMenuAction, rightHandPath) == true);
-                    REQUIRE(getActionActiveState(lowPrioritySelectAndMenuAction, XR_NULL_PATH) == true);
-                    REQUIRE(getActionActiveState(lowPrioritySelectAndMenuAction, leftHandPath) == true);
-                    REQUIRE(getActionActiveState(lowPrioritySelectAndMenuAction, rightHandPath) ==
-                            true);  // Menu blocked but squeeze active
-                }
-
-                // Optional active action set priority tests
-                OPTIONAL_ACTIVE_ACTION_SET_PRIORITY_SECTION
-                {
-                    std::vector<XrActiveActionSetPriorityEXT> actionSetPriorities;
-                    XrActiveActionSetPrioritiesEXT activeActionSetPriorities{XR_TYPE_ACTIVE_ACTION_SET_PRIORITIES_EXT};
-
-                    // Both sets with priorities swapped
-                    activeSets = {lowPriorityLeftHandActiveActionSet, lowPriorityRightHandActiveActionSet,
-                                  highPriorityLeftHandActiveActionSet, highPriorityRightHandActiveActionSet};
-                    actionSetPriorities = {{highPriorityActionSet, 2}, {lowPriorityActionSet, 3}};
-                    syncInfo.countActiveActionSets = static_cast<uint32_t>(activeSets.size());
-                    syncInfo.activeActionSets = activeSets.data();
-                    activeActionSetPriorities.actionSetPriorityCount = static_cast<uint32_t>(actionSetPriorities.size());
-                    activeActionSetPriorities.actionSetPriorities = actionSetPriorities.data();
-                    syncInfo.next = &activeActionSetPriorities;
-                    actionLayerManager.SyncActionsUntilFocusWithMessage(syncInfo);
-
-                    INFO("high priority + low priority with active priorities swapped");
-                    REQUIRE(getActionActiveState(highPrioritySelectAction, XR_NULL_PATH) == false);    // Blocked by high priority
-                    REQUIRE(getActionActiveState(highPrioritySelectAction, leftHandPath) == false);    // Blocked by high priority
-                    REQUIRE(getActionActiveState(highPrioritySelectAction, rightHandPath) == false);   // Blocked by high priority
-                    REQUIRE(getActionActiveState(highPrioritySelectAction2, XR_NULL_PATH) == false);   // Blocked by high priority
-                    REQUIRE(getActionActiveState(highPrioritySelectAction2, leftHandPath) == false);   // Blocked by high priority
-                    REQUIRE(getActionActiveState(highPrioritySelectAction2, rightHandPath) == false);  // Blocked by high priority
-
-                    REQUIRE(getActionActiveState(lowPrioritySelectAction, XR_NULL_PATH) == true);
-                    REQUIRE(getActionActiveState(lowPrioritySelectAction, leftHandPath) == true);
-                    REQUIRE(getActionActiveState(lowPrioritySelectAction, rightHandPath) == true);
-                    REQUIRE(getActionActiveState(lowPriorityMenuAction, XR_NULL_PATH) == true);
-                    REQUIRE(getActionActiveState(lowPriorityMenuAction, leftHandPath) == true);
-                    REQUIRE(getActionActiveState(lowPriorityMenuAction, rightHandPath) == true);
-                    REQUIRE(getActionActiveState(lowPrioritySelectAndMenuAction, XR_NULL_PATH) == true);
-                    REQUIRE(getActionActiveState(lowPrioritySelectAndMenuAction, leftHandPath) == true);
-                    REQUIRE(getActionActiveState(lowPrioritySelectAndMenuAction, rightHandPath) == true);
-
-                    // Both sets with equal priorities
-                    activeSets = {lowPriorityLeftHandActiveActionSet, lowPriorityRightHandActiveActionSet,
-                                  highPriorityLeftHandActiveActionSet, highPriorityRightHandActiveActionSet};
-                    actionSetPriorities = {{highPriorityActionSet, 2}, {lowPriorityActionSet, 2}};
-                    syncInfo.countActiveActionSets = static_cast<uint32_t>(activeSets.size());
-                    syncInfo.activeActionSets = activeSets.data();
-                    activeActionSetPriorities.actionSetPriorityCount = static_cast<uint32_t>(actionSetPriorities.size());
-                    activeActionSetPriorities.actionSetPriorities = actionSetPriorities.data();
-                    actionLayerManager.SyncActionsUntilFocusWithMessage(syncInfo);
-
-                    INFO("active priorities set to be equal");
-                    REQUIRE(getActionActiveState(highPrioritySelectAction, XR_NULL_PATH) == true);
-                    REQUIRE(getActionActiveState(highPrioritySelectAction, leftHandPath) == true);
-                    REQUIRE(getActionActiveState(highPrioritySelectAction, rightHandPath) == true);
-                    REQUIRE(getActionActiveState(highPrioritySelectAction2, XR_NULL_PATH) == true);
-                    REQUIRE(getActionActiveState(highPrioritySelectAction2, leftHandPath) == true);
-                    REQUIRE(getActionActiveState(highPrioritySelectAction2, rightHandPath) == true);
-
-                    REQUIRE(getActionActiveState(lowPrioritySelectAction, XR_NULL_PATH) == true);
-                    REQUIRE(getActionActiveState(lowPrioritySelectAction, leftHandPath) == true);
-                    REQUIRE(getActionActiveState(lowPrioritySelectAction, rightHandPath) == true);
-                    REQUIRE(getActionActiveState(lowPriorityMenuAction, XR_NULL_PATH) == true);
-                    REQUIRE(getActionActiveState(lowPriorityMenuAction, leftHandPath) == true);
-                    REQUIRE(getActionActiveState(lowPriorityMenuAction, rightHandPath) == true);
-                    REQUIRE(getActionActiveState(lowPrioritySelectAndMenuAction, XR_NULL_PATH) == true);
-                    REQUIRE(getActionActiveState(lowPrioritySelectAndMenuAction, leftHandPath) == true);
-                    REQUIRE(getActionActiveState(lowPrioritySelectAndMenuAction, rightHandPath) == true);
-                }
-            }
             SECTION("subaction path rules")
             {
                 XrActionSet subactionPathFreeActionSet{XR_NULL_HANDLE};
@@ -2099,6 +1756,434 @@ namespace Conformance
                 }
             }
         }
+    }
+
+    void xrSyncActions_priorityTest(const FeatureSet& featureSet)
+    {
+        GlobalData& globalData = GetGlobalData();
+
+        const bool EXT_active_action_set_priority_enabled = featureSet.Get(FeatureBitIndex::BIT_XR_EXT_active_action_set_priority);
+        const std::vector<const char*> extensions = SkipOrGetExtensions("xrSyncActions_priorityTest", globalData, featureSet);
+        REQUIRE(extensions.size() == static_cast<size_t>((EXT_active_action_set_priority_enabled ? 1 : 0)));
+
+        CompositionHelper compositionHelper("xrSyncActions", extensions);
+        XrInstance instance = compositionHelper.GetInstance();
+        XrSession session = compositionHelper.GetSession();
+
+        ActionLayerManager actionLayerManager(compositionHelper);
+
+        XrPath simpleControllerInteractionProfile = StringToPath(instance, GetSimpleInteractionProfile().InteractionProfilePathString);
+
+        std::string leftHandPathString = "/user/hand/left";
+        XrPath leftHandPath{StringToPath(instance, "/user/hand/left")};
+        std::shared_ptr<IInputTestDevice> leftHandInputDevice =
+            CreateTestDevice(&actionLayerManager, &compositionHelper.GetInteractionManager(), instance, session,
+                             simpleControllerInteractionProfile, leftHandPath, GetSimpleInteractionProfile().BindingPaths);
+
+        std::string rightHandPathString = "/user/hand/right";
+        XrPath rightHandPath{StringToPath(instance, "/user/hand/right")};
+        std::shared_ptr<IInputTestDevice> rightHandInputDevice =
+            CreateTestDevice(&actionLayerManager, &compositionHelper.GetInteractionManager(), instance, session,
+                             simpleControllerInteractionProfile, rightHandPath, GetSimpleInteractionProfile().BindingPaths);
+
+        XrActionSet actionSet{XR_NULL_HANDLE};
+        XrActionSetCreateInfo actionSetCreateInfo{XR_TYPE_ACTION_SET_CREATE_INFO};
+        strcpy(actionSetCreateInfo.localizedActionSetName, "test action set localized name");
+        strcpy(actionSetCreateInfo.actionSetName, "test_action_set_name");
+        REQUIRE_RESULT(xrCreateActionSet(instance, &actionSetCreateInfo, &actionSet), XR_SUCCESS);
+
+        XrAction action{XR_NULL_HANDLE};
+        XrActionCreateInfo actionCreateInfo{XR_TYPE_ACTION_CREATE_INFO};
+        actionCreateInfo.actionType = XR_ACTION_TYPE_BOOLEAN_INPUT;
+        strcpy(actionCreateInfo.localizedActionName, "test action");
+        strcpy(actionCreateInfo.actionName, "test_action");
+        REQUIRE_RESULT(xrCreateAction(actionSet, &actionCreateInfo, &action), XR_SUCCESS);
+
+        XrActionStateBoolean actionStateBoolean{XR_TYPE_ACTION_STATE_BOOLEAN};
+        PoisonStructContents(actionStateBoolean);
+        XrActionStateGetInfo getInfo{XR_TYPE_ACTION_STATE_GET_INFO};
+        getInfo.action = action;
+
+        compositionHelper.BeginSession();
+
+        actionLayerManager.WaitForSessionFocusWithMessage();
+
+        const XrPath bothPaths[2] = {leftHandPath, rightHandPath};
+
+        XrActionSet highPriorityActionSet{XR_NULL_HANDLE};
+        XrActionSetCreateInfo setCreateInfo{XR_TYPE_ACTION_SET_CREATE_INFO};
+        strcpy(setCreateInfo.actionSetName, "high_priority_action_set");
+        strcpy(setCreateInfo.localizedActionSetName, "high priority action set");
+        setCreateInfo.priority = 3;
+        REQUIRE_RESULT(xrCreateActionSet(instance, &setCreateInfo, &highPriorityActionSet), XR_SUCCESS);
+
+        XrAction highPrioritySelectAction{XR_NULL_HANDLE};
+        XrAction highPrioritySelectAction2{XR_NULL_HANDLE};
+        XrActionCreateInfo createInfo{XR_TYPE_ACTION_CREATE_INFO};
+        strcpy(createInfo.actionName, std::string("test_click_a").c_str());
+        createInfo.actionType = XR_ACTION_TYPE_BOOLEAN_INPUT;
+        strcpy(createInfo.localizedActionName, "test click action a");
+        createInfo.countSubactionPaths = 2;
+        createInfo.subactionPaths = bothPaths;
+        REQUIRE_RESULT(xrCreateAction(highPriorityActionSet, &createInfo, &highPrioritySelectAction), XR_SUCCESS);
+
+        strcpy(createInfo.actionName, std::string("test_click_a_2").c_str());
+        strcpy(createInfo.localizedActionName, "test click action a 2");
+        REQUIRE_RESULT(xrCreateAction(highPriorityActionSet, &createInfo, &highPrioritySelectAction2), XR_SUCCESS);
+
+        XrActionSet lowPriorityActionSet{XR_NULL_HANDLE};
+        strcpy(setCreateInfo.actionSetName, "low_priority_action_set");
+        strcpy(setCreateInfo.localizedActionSetName, "low priority action set");
+        setCreateInfo.priority = 2;
+        REQUIRE_RESULT(xrCreateActionSet(instance, &setCreateInfo, &lowPriorityActionSet), XR_SUCCESS);
+
+        XrAction lowPrioritySelectAction{XR_NULL_HANDLE};
+        XrAction lowPriorityMenuAction{XR_NULL_HANDLE};
+        XrAction lowPrioritySelectAndMenuAction{XR_NULL_HANDLE};
+        strcpy(createInfo.actionName, std::string("test_click_b").c_str());
+        createInfo.actionType = XR_ACTION_TYPE_BOOLEAN_INPUT;
+        strcpy(createInfo.localizedActionName, "test click action b");
+        REQUIRE_RESULT(xrCreateAction(lowPriorityActionSet, &createInfo, &lowPrioritySelectAction), XR_SUCCESS);
+
+        strcpy(createInfo.actionName, std::string("test_click_b_2").c_str());
+        strcpy(createInfo.localizedActionName, "test click action b 2");
+        REQUIRE_RESULT(xrCreateAction(lowPriorityActionSet, &createInfo, &lowPriorityMenuAction), XR_SUCCESS);
+
+        strcpy(createInfo.actionName, std::string("test_click_b_3").c_str());
+        strcpy(createInfo.localizedActionName, "test click action b 3");
+        REQUIRE_RESULT(xrCreateAction(lowPriorityActionSet, &createInfo, &lowPrioritySelectAndMenuAction), XR_SUCCESS);
+
+        compositionHelper.GetInteractionManager().AddActionBindings(
+            simpleControllerInteractionProfile,
+            {
+                {highPrioritySelectAction, StringToPath(instance, "/user/hand/left/input/select/click")},
+                {highPrioritySelectAction, StringToPath(instance, "/user/hand/right/input/select/click")},
+                {highPrioritySelectAction2, StringToPath(instance, "/user/hand/left/input/select/click")},
+                {highPrioritySelectAction2, StringToPath(instance, "/user/hand/right/input/select/click")},
+                {lowPrioritySelectAction, StringToPath(instance, "/user/hand/left/input/select/click")},
+                {lowPrioritySelectAction, StringToPath(instance, "/user/hand/right/input/select/click")},
+                {lowPriorityMenuAction, StringToPath(instance, "/user/hand/left/input/menu/click")},
+                {lowPriorityMenuAction, StringToPath(instance, "/user/hand/right/input/menu/click")},
+                {lowPrioritySelectAndMenuAction, StringToPath(instance, "/user/hand/left/input/select/click")},
+                {lowPrioritySelectAndMenuAction, StringToPath(instance, "/user/hand/left/input/menu/click")},
+                {lowPrioritySelectAndMenuAction, StringToPath(instance, "/user/hand/right/input/select/click")},
+                {lowPrioritySelectAndMenuAction, StringToPath(instance, "/user/hand/right/input/menu/click")},
+            });
+
+        compositionHelper.GetInteractionManager().AddActionSet(highPriorityActionSet);
+        compositionHelper.GetInteractionManager().AddActionSet(lowPriorityActionSet);
+        compositionHelper.GetInteractionManager().AttachActionSets();
+
+        if (globalData.leftHandUnderTest) {
+            leftHandInputDevice->SetDeviceActive(true);
+        }
+        if (globalData.rightHandUnderTest) {
+            rightHandInputDevice->SetDeviceActive(true);
+        }
+
+        XrActiveActionSet highPriorityRightHandActiveActionSet{highPriorityActionSet, rightHandPath};
+        XrActiveActionSet lowPriorityRightHandActiveActionSet{lowPriorityActionSet, rightHandPath};
+        XrActiveActionSet highPriorityLeftHandActiveActionSet{highPriorityActionSet, leftHandPath};
+        XrActiveActionSet lowPriorityLeftHandActiveActionSet{lowPriorityActionSet, leftHandPath};
+
+        auto getActionActiveState = [&](XrAction action, XrPath subactionPath) {
+            XrActionStateGetInfo getInfo{XR_TYPE_ACTION_STATE_GET_INFO};
+            getInfo.action = action;
+            getInfo.subactionPath = subactionPath;
+            XrActionStateBoolean booleanData{XR_TYPE_ACTION_STATE_BOOLEAN};
+            REQUIRE_RESULT(xrGetActionStateBoolean(session, &getInfo, &booleanData), XR_SUCCESS);
+            return booleanData.isActive == XR_TRUE;
+        };
+
+        if (globalData.leftHandUnderTest && globalData.rightHandUnderTest) {
+            {
+                // Both sets with null subaction path
+                std::array<XrActiveActionSet, 4> activeSets = {lowPriorityLeftHandActiveActionSet, lowPriorityRightHandActiveActionSet,
+                                                               highPriorityLeftHandActiveActionSet, highPriorityRightHandActiveActionSet};
+
+                XrActionsSyncInfo syncInfo{XR_TYPE_ACTIONS_SYNC_INFO};
+                syncInfo.countActiveActionSets = static_cast<uint32_t>(activeSets.size());
+                syncInfo.activeActionSets = activeSets.data();
+                actionLayerManager.SyncActionsUntilFocusWithMessage(syncInfo);
+
+                INFO("high priority + low priority");
+                REQUIRE(getActionActiveState(highPrioritySelectAction, XR_NULL_PATH) == true);
+                REQUIRE(getActionActiveState(highPrioritySelectAction, leftHandPath) == true);
+                REQUIRE(getActionActiveState(highPrioritySelectAction, rightHandPath) == true);
+                REQUIRE(getActionActiveState(highPrioritySelectAction2, XR_NULL_PATH) == true);
+                REQUIRE(getActionActiveState(highPrioritySelectAction2, leftHandPath) == true);
+                REQUIRE(getActionActiveState(highPrioritySelectAction2, rightHandPath) == true);
+
+                REQUIRE(getActionActiveState(lowPrioritySelectAction, XR_NULL_PATH) == false);   // Blocked by high priority
+                REQUIRE(getActionActiveState(lowPrioritySelectAction, leftHandPath) == false);   // Blocked by high priority
+                REQUIRE(getActionActiveState(lowPrioritySelectAction, rightHandPath) == false);  // Blocked by high priority
+                REQUIRE(getActionActiveState(lowPriorityMenuAction, XR_NULL_PATH) == true);
+                REQUIRE(getActionActiveState(lowPriorityMenuAction, leftHandPath) == true);
+                REQUIRE(getActionActiveState(lowPriorityMenuAction, rightHandPath) == true);
+                REQUIRE(getActionActiveState(lowPrioritySelectAndMenuAction, XR_NULL_PATH) == true);
+                REQUIRE(getActionActiveState(lowPrioritySelectAndMenuAction, leftHandPath) == true);
+                REQUIRE(getActionActiveState(lowPrioritySelectAndMenuAction, rightHandPath) == true);
+            }
+
+            // Now run the same test again - using both hands using active action set
+            if (EXT_active_action_set_priority_enabled) {
+                {
+                    std::vector<XrActiveActionSetPriorityEXT> actionSetPriorities;
+                    XrActiveActionSetPrioritiesEXT activeActionSetPriorities{XR_TYPE_ACTIVE_ACTION_SET_PRIORITIES_EXT};
+
+                    // Both sets with priorities swapped
+                    std::array<XrActiveActionSet, 4> activeSets = {lowPriorityLeftHandActiveActionSet, lowPriorityRightHandActiveActionSet,
+                                                                   highPriorityLeftHandActiveActionSet,
+                                                                   highPriorityRightHandActiveActionSet};
+                    actionSetPriorities = {{highPriorityActionSet, 2}, {lowPriorityActionSet, 3}};
+
+                    XrActionsSyncInfo syncInfo{XR_TYPE_ACTIONS_SYNC_INFO};
+                    syncInfo.countActiveActionSets = static_cast<uint32_t>(activeSets.size());
+                    syncInfo.activeActionSets = activeSets.data();
+                    activeActionSetPriorities.actionSetPriorityCount = static_cast<uint32_t>(actionSetPriorities.size());
+                    activeActionSetPriorities.actionSetPriorities = actionSetPriorities.data();
+                    syncInfo.next = &activeActionSetPriorities;
+                    actionLayerManager.SyncActionsUntilFocusWithMessage(syncInfo);
+
+                    INFO("high priority + low priority with active priorities swapped");
+                    REQUIRE(getActionActiveState(highPrioritySelectAction, XR_NULL_PATH) == false);    // Blocked by high priority
+                    REQUIRE(getActionActiveState(highPrioritySelectAction, leftHandPath) == false);    // Blocked by high priority
+                    REQUIRE(getActionActiveState(highPrioritySelectAction, rightHandPath) == false);   // Blocked by high priority
+                    REQUIRE(getActionActiveState(highPrioritySelectAction2, XR_NULL_PATH) == false);   // Blocked by high priority
+                    REQUIRE(getActionActiveState(highPrioritySelectAction2, leftHandPath) == false);   // Blocked by high priority
+                    REQUIRE(getActionActiveState(highPrioritySelectAction2, rightHandPath) == false);  // Blocked by high priority
+
+                    REQUIRE(getActionActiveState(lowPrioritySelectAction, XR_NULL_PATH) == true);
+                    REQUIRE(getActionActiveState(lowPrioritySelectAction, leftHandPath) == true);
+                    REQUIRE(getActionActiveState(lowPrioritySelectAction, rightHandPath) == true);
+                    REQUIRE(getActionActiveState(lowPriorityMenuAction, XR_NULL_PATH) == true);
+                    REQUIRE(getActionActiveState(lowPriorityMenuAction, leftHandPath) == true);
+                    REQUIRE(getActionActiveState(lowPriorityMenuAction, rightHandPath) == true);
+                    REQUIRE(getActionActiveState(lowPrioritySelectAndMenuAction, XR_NULL_PATH) == true);
+                    REQUIRE(getActionActiveState(lowPrioritySelectAndMenuAction, leftHandPath) == true);
+                    REQUIRE(getActionActiveState(lowPrioritySelectAndMenuAction, rightHandPath) == true);
+                }
+
+                {
+                    std::vector<XrActiveActionSetPriorityEXT> actionSetPriorities;
+                    XrActiveActionSetPrioritiesEXT activeActionSetPriorities{XR_TYPE_ACTIVE_ACTION_SET_PRIORITIES_EXT};
+
+                    // Both sets with equal priorities
+                    std::array<XrActiveActionSet, 4> activeSets = {lowPriorityLeftHandActiveActionSet, lowPriorityRightHandActiveActionSet,
+                                                                   highPriorityLeftHandActiveActionSet,
+                                                                   highPriorityRightHandActiveActionSet};
+                    actionSetPriorities = {{highPriorityActionSet, 2}, {lowPriorityActionSet, 2}};
+
+                    XrActionsSyncInfo syncInfo{XR_TYPE_ACTIONS_SYNC_INFO};
+                    syncInfo.countActiveActionSets = static_cast<uint32_t>(activeSets.size());
+                    syncInfo.activeActionSets = activeSets.data();
+                    activeActionSetPriorities.actionSetPriorityCount = static_cast<uint32_t>(actionSetPriorities.size());
+                    activeActionSetPriorities.actionSetPriorities = actionSetPriorities.data();
+                    syncInfo.next = &activeActionSetPriorities;
+                    actionLayerManager.SyncActionsUntilFocusWithMessage(syncInfo);
+
+                    INFO("active priorities set to be equal");
+                    REQUIRE(getActionActiveState(highPrioritySelectAction, XR_NULL_PATH) == true);
+                    REQUIRE(getActionActiveState(highPrioritySelectAction, leftHandPath) == true);
+                    REQUIRE(getActionActiveState(highPrioritySelectAction, rightHandPath) == true);
+                    REQUIRE(getActionActiveState(highPrioritySelectAction2, XR_NULL_PATH) == true);
+                    REQUIRE(getActionActiveState(highPrioritySelectAction2, leftHandPath) == true);
+                    REQUIRE(getActionActiveState(highPrioritySelectAction2, rightHandPath) == true);
+
+                    REQUIRE(getActionActiveState(lowPrioritySelectAction, XR_NULL_PATH) == true);
+                    REQUIRE(getActionActiveState(lowPrioritySelectAction, leftHandPath) == true);
+                    REQUIRE(getActionActiveState(lowPrioritySelectAction, rightHandPath) == true);
+                    REQUIRE(getActionActiveState(lowPriorityMenuAction, XR_NULL_PATH) == true);
+                    REQUIRE(getActionActiveState(lowPriorityMenuAction, leftHandPath) == true);
+                    REQUIRE(getActionActiveState(lowPriorityMenuAction, rightHandPath) == true);
+                    REQUIRE(getActionActiveState(lowPrioritySelectAndMenuAction, XR_NULL_PATH) == true);
+                    REQUIRE(getActionActiveState(lowPrioritySelectAndMenuAction, leftHandPath) == true);
+                    REQUIRE(getActionActiveState(lowPrioritySelectAndMenuAction, rightHandPath) == true);
+                }
+            }
+        }
+
+        if (globalData.rightHandUnderTest) {
+            // Both sets with right hand subaction path
+            std::array<XrActiveActionSet, 2> activeSets = {highPriorityRightHandActiveActionSet, lowPriorityRightHandActiveActionSet};
+
+            XrActionsSyncInfo syncInfo{XR_TYPE_ACTIONS_SYNC_INFO};
+            syncInfo.countActiveActionSets = static_cast<uint32_t>(activeSets.size());
+            syncInfo.activeActionSets = activeSets.data();
+            actionLayerManager.SyncActionsUntilFocusWithMessage(syncInfo);
+
+            INFO("right handed high priority + right handed low priority");
+            REQUIRE(getActionActiveState(highPrioritySelectAction, XR_NULL_PATH) == true);
+            REQUIRE(getActionActiveState(highPrioritySelectAction, leftHandPath) == false);
+            REQUIRE(getActionActiveState(highPrioritySelectAction, rightHandPath) == true);
+            REQUIRE(getActionActiveState(highPrioritySelectAction2, XR_NULL_PATH) == true);
+            REQUIRE(getActionActiveState(highPrioritySelectAction2, leftHandPath) == false);
+            REQUIRE(getActionActiveState(highPrioritySelectAction2, rightHandPath) == true);
+
+            REQUIRE(getActionActiveState(lowPrioritySelectAction, XR_NULL_PATH) == false);
+            REQUIRE(getActionActiveState(lowPrioritySelectAction, leftHandPath) == false);
+            REQUIRE(getActionActiveState(lowPrioritySelectAction, rightHandPath) == false);
+            REQUIRE(getActionActiveState(lowPriorityMenuAction, XR_NULL_PATH) == true);
+            REQUIRE(getActionActiveState(lowPriorityMenuAction, leftHandPath) == false);
+            REQUIRE(getActionActiveState(lowPriorityMenuAction, rightHandPath) == true);
+            REQUIRE(getActionActiveState(lowPrioritySelectAndMenuAction, XR_NULL_PATH) == true);
+            REQUIRE(getActionActiveState(lowPrioritySelectAndMenuAction, leftHandPath) == false);
+            REQUIRE(getActionActiveState(lowPrioritySelectAndMenuAction, rightHandPath) == true);
+        }
+
+        if (globalData.leftHandUnderTest) {
+            // Both sets with left hand subaction path
+            std::array<XrActiveActionSet, 2> activeSets = {highPriorityLeftHandActiveActionSet, lowPriorityLeftHandActiveActionSet};
+
+            XrActionsSyncInfo syncInfo{XR_TYPE_ACTIONS_SYNC_INFO};
+            syncInfo.countActiveActionSets = static_cast<uint32_t>(activeSets.size());
+            syncInfo.activeActionSets = activeSets.data();
+            actionLayerManager.SyncActionsUntilFocusWithMessage(syncInfo);
+
+            INFO("left handed high priority + left handed low priority");
+            REQUIRE(getActionActiveState(highPrioritySelectAction, XR_NULL_PATH) == true);
+            REQUIRE(getActionActiveState(highPrioritySelectAction, leftHandPath) == true);
+            REQUIRE(getActionActiveState(highPrioritySelectAction, rightHandPath) == false);
+            REQUIRE(getActionActiveState(highPrioritySelectAction2, XR_NULL_PATH) == true);
+            REQUIRE(getActionActiveState(highPrioritySelectAction2, leftHandPath) == true);
+            REQUIRE(getActionActiveState(highPrioritySelectAction2, rightHandPath) == false);
+
+            REQUIRE(getActionActiveState(lowPrioritySelectAction, XR_NULL_PATH) == false);
+            REQUIRE(getActionActiveState(lowPrioritySelectAction, leftHandPath) == false);
+            REQUIRE(getActionActiveState(lowPrioritySelectAction, rightHandPath) == false);
+            REQUIRE(getActionActiveState(lowPriorityMenuAction, XR_NULL_PATH) == true);
+            REQUIRE(getActionActiveState(lowPriorityMenuAction, leftHandPath) == true);
+            REQUIRE(getActionActiveState(lowPriorityMenuAction, rightHandPath) == false);
+            REQUIRE(getActionActiveState(lowPrioritySelectAndMenuAction, XR_NULL_PATH) == true);
+            REQUIRE(getActionActiveState(lowPrioritySelectAndMenuAction, leftHandPath) == true);
+            REQUIRE(getActionActiveState(lowPrioritySelectAndMenuAction, rightHandPath) == false);
+        }
+
+        if (globalData.leftHandUnderTest && globalData.rightHandUnderTest) {
+            {
+                // Both sets with differing subaction path
+                std::array<XrActiveActionSet, 2> activeSets = {highPriorityRightHandActiveActionSet, lowPriorityLeftHandActiveActionSet};
+
+                XrActionsSyncInfo syncInfo{XR_TYPE_ACTIONS_SYNC_INFO};
+                syncInfo.countActiveActionSets = static_cast<uint32_t>(activeSets.size());
+                syncInfo.activeActionSets = activeSets.data();
+                actionLayerManager.SyncActionsUntilFocusWithMessage(syncInfo);
+
+                INFO("right handed high priority + left handed low priority");
+                REQUIRE(getActionActiveState(highPrioritySelectAction, XR_NULL_PATH) == true);
+                REQUIRE(getActionActiveState(highPrioritySelectAction, leftHandPath) == false);
+                REQUIRE(getActionActiveState(highPrioritySelectAction, rightHandPath) == true);
+                REQUIRE(getActionActiveState(highPrioritySelectAction2, XR_NULL_PATH) == true);
+                REQUIRE(getActionActiveState(highPrioritySelectAction2, leftHandPath) == false);
+                REQUIRE(getActionActiveState(highPrioritySelectAction2, rightHandPath) == true);
+
+                REQUIRE(getActionActiveState(lowPrioritySelectAction, XR_NULL_PATH) == true);
+                REQUIRE(getActionActiveState(lowPrioritySelectAction, leftHandPath) == true);
+                REQUIRE(getActionActiveState(lowPrioritySelectAction, rightHandPath) == false);
+                REQUIRE(getActionActiveState(lowPriorityMenuAction, XR_NULL_PATH) == true);
+                REQUIRE(getActionActiveState(lowPriorityMenuAction, leftHandPath) == true);
+                REQUIRE(getActionActiveState(lowPriorityMenuAction, rightHandPath) == false);
+                REQUIRE(getActionActiveState(lowPrioritySelectAndMenuAction, XR_NULL_PATH) == true);
+                REQUIRE(getActionActiveState(lowPrioritySelectAndMenuAction, leftHandPath) == true);
+                REQUIRE(getActionActiveState(lowPrioritySelectAndMenuAction, rightHandPath) == false);
+            }
+            {
+                // Both sets with differing subaction path
+                std::array<XrActiveActionSet, 2> activeSets = {highPriorityLeftHandActiveActionSet, lowPriorityRightHandActiveActionSet};
+                XrActionsSyncInfo syncInfo{XR_TYPE_ACTIONS_SYNC_INFO};
+                syncInfo.countActiveActionSets = static_cast<uint32_t>(activeSets.size());
+                syncInfo.activeActionSets = activeSets.data();
+                actionLayerManager.SyncActionsUntilFocusWithMessage(syncInfo);
+
+                INFO("left handed high priority + right handed low priority");
+                REQUIRE(getActionActiveState(highPrioritySelectAction, XR_NULL_PATH) == true);
+                REQUIRE(getActionActiveState(highPrioritySelectAction, leftHandPath) == true);
+                REQUIRE(getActionActiveState(highPrioritySelectAction, rightHandPath) == false);
+                REQUIRE(getActionActiveState(highPrioritySelectAction2, XR_NULL_PATH) == true);
+                REQUIRE(getActionActiveState(highPrioritySelectAction2, leftHandPath) == true);
+                REQUIRE(getActionActiveState(highPrioritySelectAction2, rightHandPath) == false);
+
+                REQUIRE(getActionActiveState(lowPrioritySelectAction, XR_NULL_PATH) == true);
+                REQUIRE(getActionActiveState(lowPrioritySelectAction, leftHandPath) == false);
+                REQUIRE(getActionActiveState(lowPrioritySelectAction, rightHandPath) == true);
+                REQUIRE(getActionActiveState(lowPriorityMenuAction, XR_NULL_PATH) == true);
+                REQUIRE(getActionActiveState(lowPriorityMenuAction, leftHandPath) == false);
+                REQUIRE(getActionActiveState(lowPriorityMenuAction, rightHandPath) == true);
+                REQUIRE(getActionActiveState(lowPrioritySelectAndMenuAction, XR_NULL_PATH) == true);
+                REQUIRE(getActionActiveState(lowPrioritySelectAndMenuAction, leftHandPath) == false);
+                REQUIRE(getActionActiveState(lowPrioritySelectAndMenuAction, rightHandPath) == true);
+            }
+            {
+                // Both sets with differing subaction path
+                std::array<XrActiveActionSet, 3> activeSets = {highPriorityRightHandActiveActionSet, lowPriorityLeftHandActiveActionSet,
+                                                               lowPriorityRightHandActiveActionSet};
+                XrActionsSyncInfo syncInfo{XR_TYPE_ACTIONS_SYNC_INFO};
+                syncInfo.countActiveActionSets = static_cast<uint32_t>(activeSets.size());
+                syncInfo.activeActionSets = activeSets.data();
+                actionLayerManager.SyncActionsUntilFocusWithMessage(syncInfo);
+
+                INFO("right handed high priority + low priority");
+                REQUIRE(getActionActiveState(highPrioritySelectAction, XR_NULL_PATH) == true);
+                REQUIRE(getActionActiveState(highPrioritySelectAction, leftHandPath) == false);
+                REQUIRE(getActionActiveState(highPrioritySelectAction, rightHandPath) == true);
+                REQUIRE(getActionActiveState(highPrioritySelectAction2, XR_NULL_PATH) == true);
+                REQUIRE(getActionActiveState(highPrioritySelectAction2, leftHandPath) == false);
+                REQUIRE(getActionActiveState(highPrioritySelectAction2, rightHandPath) == true);
+
+                REQUIRE(getActionActiveState(lowPrioritySelectAction, XR_NULL_PATH) == true);
+                REQUIRE(getActionActiveState(lowPrioritySelectAction, leftHandPath) == true);
+                REQUIRE(getActionActiveState(lowPrioritySelectAction, rightHandPath) == false);  // Blocked by high priority
+                REQUIRE(getActionActiveState(lowPriorityMenuAction, XR_NULL_PATH) == true);
+                REQUIRE(getActionActiveState(lowPriorityMenuAction, leftHandPath) == true);
+                REQUIRE(getActionActiveState(lowPriorityMenuAction, rightHandPath) == true);
+                REQUIRE(getActionActiveState(lowPrioritySelectAndMenuAction, XR_NULL_PATH) == true);
+                REQUIRE(getActionActiveState(lowPrioritySelectAndMenuAction, leftHandPath) == true);
+                REQUIRE(getActionActiveState(lowPrioritySelectAndMenuAction, rightHandPath) == true);  // Menu blocked but squeeze active
+            }
+            {
+                // Both sets with differing subaction path
+                std::array<XrActiveActionSet, 3> activeSets = {highPriorityRightHandActiveActionSet, lowPriorityLeftHandActiveActionSet,
+                                                               lowPriorityRightHandActiveActionSet};
+                XrActionsSyncInfo syncInfo{XR_TYPE_ACTIONS_SYNC_INFO};
+                syncInfo.countActiveActionSets = static_cast<uint32_t>(activeSets.size());
+                syncInfo.activeActionSets = activeSets.data();
+                actionLayerManager.SyncActionsUntilFocusWithMessage(syncInfo);
+
+                INFO("right handed high priority + left handed low priority + right handed low priority");
+                REQUIRE(getActionActiveState(highPrioritySelectAction, XR_NULL_PATH) == true);
+                REQUIRE(getActionActiveState(highPrioritySelectAction, leftHandPath) == false);
+                REQUIRE(getActionActiveState(highPrioritySelectAction, rightHandPath) == true);
+                REQUIRE(getActionActiveState(highPrioritySelectAction2, XR_NULL_PATH) == true);
+                REQUIRE(getActionActiveState(highPrioritySelectAction2, leftHandPath) == false);
+                REQUIRE(getActionActiveState(highPrioritySelectAction2, rightHandPath) == true);
+
+                REQUIRE(getActionActiveState(lowPrioritySelectAction, XR_NULL_PATH) == true);
+                REQUIRE(getActionActiveState(lowPrioritySelectAction, leftHandPath) == true);
+                REQUIRE(getActionActiveState(lowPrioritySelectAction, rightHandPath) == false);  // Blocked by high priority
+                REQUIRE(getActionActiveState(lowPriorityMenuAction, XR_NULL_PATH) == true);
+                REQUIRE(getActionActiveState(lowPriorityMenuAction, leftHandPath) == true);
+                REQUIRE(getActionActiveState(lowPriorityMenuAction, rightHandPath) == true);
+                REQUIRE(getActionActiveState(lowPrioritySelectAndMenuAction, XR_NULL_PATH) == true);
+                REQUIRE(getActionActiveState(lowPrioritySelectAndMenuAction, leftHandPath) == true);
+                REQUIRE(getActionActiveState(lowPrioritySelectAndMenuAction, rightHandPath) == true);  // Menu blocked but squeeze active
+            }
+        }
+    }
+
+    // In theory enabling XR_EXT_active_action_set_priority should not change the
+    // runtime behavior unless the extension is enabled. But we are going to run
+    // the test with and without the extension to be sure.
+    TEST_CASE("xrSyncActions_priority_rules", "[actions][interactive]")
+    {
+        const auto kCoreRequirements = FeatureSet{FeatureBitIndex::BIT_XR_VERSION_1_0};
+        xrSyncActions_priorityTest(kCoreRequirements);
+    }
+
+    TEST_CASE("xrSyncActions_priority_rules_EXT_active_action_set_priority", "[actions][interactive]")
+    {
+        const auto kExtensionRequirements =
+            FeatureSet{FeatureBitIndex::BIT_XR_VERSION_1_0, FeatureBitIndex::BIT_XR_EXT_active_action_set_priority};
+        xrSyncActions_priorityTest(kExtensionRequirements);
     }
 
     TEST_CASE("StateQueryFunctionsInteractive", "[actions][interactive][gamepad]")

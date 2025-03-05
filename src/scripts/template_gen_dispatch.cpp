@@ -7,9 +7,10 @@
 #include "gen_dispatch.h"
 
 #if defined(ANDROID)
-#include <android/log.h>
-#define LOG_ERROR(...) __android_log_print(ANDROID_LOG_ERROR, "XrApiLayer_runtime_conformance", __VA_ARGS__)
-#define LOG_FATAL(...) __android_log_print(ANDROID_LOG_FATAL, "XrApiLayer_runtime_conformance", __VA_ARGS__)
+#define LOG_TAG "XrApiLayer_runtime_conformance"
+#include "android_logging.h"
+#define LOG_ERROR(...) ALOGE(__VA_ARGS__)
+#define LOG_FATAL(...) ALOGF(__VA_ARGS__)
 #else
 #include <cstdio>
 #define LOG_ERROR(...) fprintf(stderr, __VA_ARGS__)

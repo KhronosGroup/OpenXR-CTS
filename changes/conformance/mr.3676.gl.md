@@ -1,0 +1,1 @@
+- Improvement: `WARN` when the runtime allows the application to create an instance with `XR_EXT_dpad_binding` but without `XR_KHR_binding_modification`

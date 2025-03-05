@@ -263,7 +263,7 @@ namespace Conformance
                                 XrPosef relativePose = {Quat::FromAxisAngle({0, 1, 0}, (2 * MATH_PI / zones) * zone)};
                                 XrVector3f radialOffset = {0, 0, 0.1f};
                                 XrPosef_TransformVector3f(&relativePose.position, &relativePose, &radialOffset);
-                                XrPosef adjustedPose = location.pose * testCase.poseInGripSpace;
+                                XrPosef adjustedPose = location.pose * relativePose;
                                 renderedCubes.push_back(Cube{adjustedPose, {0.02f, 0.02f, 0.1f}, tintColor});
                             }
                         }

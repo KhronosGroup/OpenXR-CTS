@@ -30,8 +30,9 @@
 #endif
 
 #ifdef XR_USE_PLATFORM_ANDROID
-#include <android/log.h>
 #include <stdlib.h>
+#define LOG_TAG "OpenXR_Conformance_Throw"
+#include "common/android_logging.h"
 #endif  // XR_USE_PLATFORM_ANDROID
 
 namespace Conformance
@@ -61,7 +62,7 @@ namespace Conformance
         }
 #ifdef XR_USE_PLATFORM_ANDROID
         // write to the log too
-        __android_log_write(ANDROID_LOG_ERROR, "OpenXR_Conformance_Throw", failureMessage.c_str());
+        ALOGE("%s", failureMessage.c_str());
 #endif
         throw std::logic_error(failureMessage);
     }
