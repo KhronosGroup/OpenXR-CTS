@@ -9,7 +9,7 @@ start =
 
 ConformanceReportSummary =
     element ctsConformanceReport {
-        element apiVersion { MajorAttr, MinorAttr, PatchAttr, text },
+        element minApiVersion { MajorAttr, MinorAttr, PatchAttr, text },
         element results {
             attribute testSuccessCount { xsd:nonNegativeInteger },
             attribute testFailureCount { xsd:nonNegativeInteger }
@@ -47,6 +47,7 @@ SwapchainFormats =
 
 InstanceProperties =
     element runtimeInstanceProperties {
+        element apiVersion { MajorAttr, MinorAttr, PatchAttr },
         element runtimeVersion { MajorAttr, MinorAttr, PatchAttr },
         element runtimeName { text }
     }
@@ -124,7 +125,7 @@ TestOptions =
 TestEnvironment =
     element ctsTestEnvironment {
         RevisionInfo,
-        InstanceProperties,
+        InstanceProperties*,
         TestOptions,
         AvailableApiLayers,
         AvailableInstanceExtensions,

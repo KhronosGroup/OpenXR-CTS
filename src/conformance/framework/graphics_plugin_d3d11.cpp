@@ -692,13 +692,9 @@ namespace Conformance
         ComPtr<ID3D11DepthStencilView> depthStencilView;
         const XrSwapchainCreateInfo* depthCreateInfo = swapchainData.GetDepthCreateInfo();
         DXGI_FORMAT depthSwapchainFormatDX = GetDepthStencilFormatOrDefault(depthCreateInfo);
-        uint32_t depthArraySize = 1;
-        if (depthCreateInfo != nullptr) {
-            depthArraySize = depthCreateInfo->arraySize;
-        }
         CD3D11_DEPTH_STENCIL_VIEW_DESC depthStencilViewDesc(
             (swapchainData.DepthSampleCount() > 1) ? D3D11_DSV_DIMENSION_TEXTURE2DMSARRAY : D3D11_DSV_DIMENSION_TEXTURE2DARRAY,
-            depthSwapchainFormatDX, 0 /* mipSlice */, imageArrayIndex, depthArraySize);
+            depthSwapchainFormatDX, 0 /* mipSlice */, imageArrayIndex, 1 /* arraySize */);
         XRC_CHECK_THROW_HRCMD(
             d3d11Device->CreateDepthStencilView(depthStencilTexture.Get(), &depthStencilViewDesc, depthStencilView.GetAddressOf()));
         return depthStencilView;

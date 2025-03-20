@@ -49,8 +49,9 @@ namespace Conformance
         // This tests everything without calling xrLocateViews
         void StereoWithFoveatedInsetNonInteractive(const FeatureSet& featureSet, bool mustSupportVct)
         {
-            auto extensions = SkipOrGetExtensions("Stereo with foveated inset/quad views", GetGlobalData(), featureSet);
-            AutoBasicInstance instance(extensions, AutoBasicInstance::createSystemId);
+            SkipIfNotSatisfiable("Stereo with foveated inset/quad views", GetGlobalData(), featureSet);
+            AutoBasicInstance instance(featureSet, AutoBasicInstance::createSystemId);
+
             XrSystemId systemId = instance.systemId;
             // xrEnumerateViewConfigurations
             std::vector<XrViewConfigurationType> vctArray = getViewConfigurations(instance, systemId);
@@ -79,25 +80,38 @@ namespace Conformance
                 REQUIRE(countOutput == kFourViews);
             }
         }
-
     }  // namespace
 
     TEST_CASE("XR_VARJO_quad_views", "[XR_VARJO_quad_views]")
     {
-        FeatureSet enabled;
-        GetGlobalData().PopulateVersionAndEnabledExtensions(enabled);
-        if (!kOverallRequirements.IsSatisfiedBy(enabled)) {
-            SECTION("Requirements not enabled")
-            {
-                AutoBasicSession session(AutoBasicSession::OptionFlags::createSession);
-
-                std::vector<XrViewConfigurationType> vctArray = getViewConfigurations(session.GetInstance(), session.GetSystemId());
-
-                REQUIRE_THAT(vctArray, !VectorContains(XR_VIEW_CONFIGURATION_TYPE_PRIMARY_STEREO_WITH_FOVEATED_INSET));
-            }
-        }
-
         StereoWithFoveatedInsetNonInteractive(kExtensionRequirements, true);
+    }
+    TEST_CASE("XR_VARJO_quad_views_1_1", "[XR_VARJO_quad_views][XR_VERSION_1_1]")
+    {
+        StereoWithFoveatedInsetNonInteractive(kExtensionRequirements + FeatureSet{FeatureBitIndex::BIT_XR_VERSION_1_1}, true);
+    }
+    TEST_CASE("StereoWithFoveatedInset", "[XR_VERSION_1_1]")
+    {
+        StereoWithFoveatedInsetNonInteractive(kPromotedCoreRequirements, false);
+    }
+
+    TEST_CASE("StereoWithFoveatedInset_not_enabled", "")
+    {
+        SECTION("Requirements not enabled")
+        {
+            FeatureSet enabled;
+            GetGlobalData().PopulateMinVersionAndEnabledExtensions(enabled);
+            if (kOverallRequirements.IsSatisfiedBy(enabled)) {
+                SKIP(XR_VARJO_QUAD_VIEWS_EXTENSION_NAME
+                     " or OpenXR 1.1 force-enabled, cannot test behavior when"
+                     " XR_VIEW_CONFIGURATION_TYPE_PRIMARY_STEREO_WITH_FOVEATED_INSET is unavailable.");
+            }
+            AutoBasicSession session(AutoBasicSession::OptionFlags::createSession);
+
+            std::vector<XrViewConfigurationType> vctArray = getViewConfigurations(session.GetInstance(), session.GetSystemId());
+
+            REQUIRE_THAT(vctArray, !VectorContains(XR_VIEW_CONFIGURATION_TYPE_PRIMARY_STEREO_WITH_FOVEATED_INSET));
+        }
     }
 
     namespace
@@ -126,12 +140,12 @@ namespace Conformance
                 SKIP("Cannot test view location without a graphics plugin");
             }
 
-            auto extensions = SkipOrGetExtensions("Stereo with foveated inset/quad views", GetGlobalData(), featureSet);
+            SkipIfNotSatisfiable("Stereo with foveated inset/quad views", GetGlobalData(), featureSet);
 
             InstanceREQUIRE instance;
             {
                 XrInstance instanceRaw{XR_NULL_HANDLE_CPP};
-                XRC_CHECK_THROW_XRCMD(CreateBasicInstance(&instanceRaw, true, extensions));
+                XRC_CHECK_THROW_XRCMD(CreateBasicInstance(&instanceRaw, featureSet));
                 instance.adopt(instanceRaw);
             }
 
@@ -182,7 +196,7 @@ namespace Conformance
         StereoWithFoveatedInsetNonInteractiveFOV(kExtensionRequirements);
     }
 
-    TEST_CASE("StereoWithFoveatedInset", "[XR_VERSION_1_1]")
+    TEST_CASE("StereoWithFoveatedInset-fov", "[XR_VERSION_1_1]")
     {
         StereoWithFoveatedInsetNonInteractiveFOV(kPromotedCoreRequirements);
     }
@@ -196,12 +210,12 @@ namespace Conformance
                 SKIP("Cannot test view location without a graphics plugin");
             }
 
-            auto extensions = SkipOrGetExtensions("Stereo with foveated inset/quad views", GetGlobalData(), featureSet);
+            SkipIfNotSatisfiable("Stereo with foveated inset/quad views", GetGlobalData(), featureSet);
 
             InstanceREQUIRE instance;
             {
                 XrInstance instanceRaw{XR_NULL_HANDLE_CPP};
-                XRC_CHECK_THROW_XRCMD(CreateBasicInstance(&instanceRaw, true, extensions));
+                XRC_CHECK_THROW_XRCMD(CreateBasicInstance(&instanceRaw, featureSet));
                 instance.adopt(instanceRaw);
             }
 

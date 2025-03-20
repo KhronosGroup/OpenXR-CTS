@@ -20,37 +20,22 @@ renderer.
 
 To run the self-tests, commands similar to the following can be used:
 
-.Example command lines for OpenXR 1.0
+.Example command lines
 [%collapsible]
 ====
 Omit any graphics API binding extensions your runtime does not support.
 
 [source,sh]
 ----
-conformance_cli "[self_test][interactive]" -G d3d11 --apiVersion 1.0 --reporter ctsxml::out=interactive_self_test_d3d11_1_0.xml
-conformance_cli "[self_test][interactive]" -G d3d12 --apiVersion 1.0 --reporter ctsxml::out=interactive_self_test_d3d12_1_0.xml
-conformance_cli "[self_test][interactive]" -G vulkan --apiVersion 1.0 --reporter ctsxml::out=interactive_self_test_vulkan_1_0.xml
-conformance_cli "[self_test][interactive]" -G vulkan2 --apiVersion 1.0 --reporter ctsxml::out=interactive_self_test_vulkan2_1_0.xml
-conformance_cli "[self_test][interactive]" -G opengl --apiVersion 1.0 --reporter ctsxml::out=interactive_self_test_opengl_1_0.xml
+conformance_cli "[self_test][interactive]" -G d3d11 --reporter ctsxml::out=interactive_self_test_d3d11.xml
+conformance_cli "[self_test][interactive]" -G d3d12 --reporter ctsxml::out=interactive_self_test_d3d12.xml
+conformance_cli "[self_test][interactive]" -G vulkan --reporter ctsxml::out=interactive_self_test_vulkan.xml
+conformance_cli "[self_test][interactive]" -G vulkan2 --reporter ctsxml::out=interactive_self_test_vulkan2.xml
+conformance_cli "[self_test][interactive]" -G opengl --reporter ctsxml::out=interactive_self_test_opengl.xml
 ----
 ====
 
-.Example command lines for OpenXR 1.1
-[%collapsible]
-====
-Omit any graphics API binding extensions your runtime does not support.
-
-[source,sh]
-----
-conformance_cli "[self_test][interactive]" -G d3d11 --apiVersion 1.1 --reporter ctsxml::out=interactive_self_test_d3d11_1_1.xml
-conformance_cli "[self_test][interactive]" -G d3d12 --apiVersion 1.1 --reporter ctsxml::out=interactive_self_test_d3d12_1_1.xml
-conformance_cli "[self_test][interactive]" -G vulkan --apiVersion 1.1 --reporter ctsxml::out=interactive_self_test_vulkan_1_1.xml
-conformance_cli "[self_test][interactive]" -G vulkan2 --apiVersion 1.1 --reporter ctsxml::out=interactive_self_test_vulkan2_1_1.xml
-conformance_cli "[self_test][interactive]" -G opengl --apiVersion 1.1 --reporter ctsxml::out=interactive_self_test_opengl_1_1.xml
-----
-====
-
-.Corresponding ADB commands to launch on Android for OpenXR 1.0
+.Corresponding ADB commands to launch on Android
 [%collapsible]
 ====
 Omit any graphics API binding extensions your runtime does not support.
@@ -59,51 +44,22 @@ different graphics API availability on Android.
 
 [source,sh]
 ----
-adb shell am start-activity -S -n org.khronos.openxr.cts/android.app.NativeActivity --esa args "[self_test][interactive]" -e graphicsPlugin vulkan -e apiVersion 1.0 -e xmlFilename interactive_self_test_vulkan_1_0.xml
+adb shell am start-activity -S -n org.khronos.openxr.cts/android.app.NativeActivity --esa args "[self_test][interactive]" -e graphicsPlugin vulkan -e xmlFilename interactive_self_test_vulkan.xml
 
 # Wait until tests complete, then retrieve results with
-adb pull /sdcard/Android/data/org.khronos.openxr.cts/files/interactive_self_test_vulkan_1_0.xml
+adb pull /sdcard/Android/data/org.khronos.openxr.cts/files/interactive_self_test_vulkan.xml
 
 
-adb shell am start-activity -S -n org.khronos.openxr.cts/android.app.NativeActivity --esa args "[self_test][interactive]" -e graphicsPlugin vulkan2 -e apiVersion 1.0 -e xmlFilename interactive_self_test_vulkan2_1_0.xml
-
-# Wait until tests complete, then retrieve results with
-adb pull /sdcard/Android/data/org.khronos.openxr.cts/files/interactive_self_test_vulkan2_1_0.xml
-
-
-adb shell am start-activity -S -n org.khronos.openxr.cts/android.app.NativeActivity --esa args "[self_test][interactive]" -e graphicsPlugin opengles -e apiVersion 1.0 -e xmlFilename interactive_self_test_opengles_1_0.xml
+adb shell am start-activity -S -n org.khronos.openxr.cts/android.app.NativeActivity --esa args "[self_test][interactive]" -e graphicsPlugin vulkan2 -e xmlFilename interactive_self_test_vulkan2.xml
 
 # Wait until tests complete, then retrieve results with
-adb pull /sdcard/Android/data/org.khronos.openxr.cts/files/interactive_self_test_opengles_1_0.xml
+adb pull /sdcard/Android/data/org.khronos.openxr.cts/files/interactive_self_test_vulkan2.xml
 
-----
-====
 
-.Corresponding ADB commands to launch on Android for OpenXR 1.1
-[%collapsible]
-====
-Omit any graphics API binding extensions your runtime does not support.
-These commands do not match one-to-one with the desktop examples due to
-different graphics API availability on Android.
-
-[source,sh]
-----
-adb shell am start-activity -S -n org.khronos.openxr.cts/android.app.NativeActivity --esa args "[self_test][interactive]" -e graphicsPlugin vulkan -e apiVersion 1.1 -e xmlFilename interactive_self_test_vulkan_1_1.xml
+adb shell am start-activity -S -n org.khronos.openxr.cts/android.app.NativeActivity --esa args "[self_test][interactive]" -e graphicsPlugin opengles -e xmlFilename interactive_self_test_opengles.xml
 
 # Wait until tests complete, then retrieve results with
-adb pull /sdcard/Android/data/org.khronos.openxr.cts/files/interactive_self_test_vulkan_1_1.xml
-
-
-adb shell am start-activity -S -n org.khronos.openxr.cts/android.app.NativeActivity --esa args "[self_test][interactive]" -e graphicsPlugin vulkan2 -e apiVersion 1.1 -e xmlFilename interactive_self_test_vulkan2_1_1.xml
-
-# Wait until tests complete, then retrieve results with
-adb pull /sdcard/Android/data/org.khronos.openxr.cts/files/interactive_self_test_vulkan2_1_1.xml
-
-
-adb shell am start-activity -S -n org.khronos.openxr.cts/android.app.NativeActivity --esa args "[self_test][interactive]" -e graphicsPlugin opengles -e apiVersion 1.1 -e xmlFilename interactive_self_test_opengles_1_1.xml
-
-# Wait until tests complete, then retrieve results with
-adb pull /sdcard/Android/data/org.khronos.openxr.cts/files/interactive_self_test_opengles_1_1.xml
+adb pull /sdcard/Android/data/org.khronos.openxr.cts/files/interactive_self_test_opengles.xml
 
 ----
 ====

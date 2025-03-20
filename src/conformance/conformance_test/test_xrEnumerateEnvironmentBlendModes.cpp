@@ -17,6 +17,7 @@
 #include "conformance_framework.h"
 #include "conformance_utils.h"
 #include "matchers.h"
+#include "utilities/feature_availability.h"
 
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_vector.hpp>
@@ -40,6 +41,9 @@ namespace Conformance
     {
         AutoBasicInstance instance(AutoBasicInstance::createSystemId);
 
+        FeatureSet globalFeatures;
+        GetGlobalData().PopulateMinVersionAndEnabledExtensions(globalFeatures);
+
         // Exercise all known view configurations types and ensure unsupported types fail.
         {
             // Get the list of supported view configurations
@@ -54,7 +58,7 @@ namespace Conformance
                 CAPTURE(viewType);
 
                 // Is this enum valid, check against enabled extensions.
-                bool valid = IsViewConfigurationTypeEnumValid(viewType);
+                bool valid = IsViewConfigurationTypeEnumValid(globalFeatures, viewType);
 
                 const bool isSupportedType =
                     std::find(runtimeViewTypes.begin(), runtimeViewTypes.end(), viewType) != runtimeViewTypes.end();

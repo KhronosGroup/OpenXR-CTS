@@ -26,6 +26,7 @@
 #include "report.h"
 #include "utilities/feature_availability.h"
 #include "utilities/git_revision.h"
+#include "utilities/stringification.h"
 #include "utilities/utils.h"
 
 #include "catch_reporter_cts.h"
@@ -90,8 +91,7 @@ namespace
     void ReportTestHeader()
     {
         ReportConsoleOnlyF("*********************************************");
-        ReportConsoleOnlyF("OpenXR Conformance Test v%d.%d.%d", XR_VERSION_MAJOR(XR_CURRENT_API_VERSION),
-                           XR_VERSION_MINOR(XR_CURRENT_API_VERSION), XR_VERSION_PATCH(XR_CURRENT_API_VERSION));
+        ReportConsoleOnlyF("OpenXR Conformance Test v%s", VersionToString(XR_CURRENT_API_VERSION).c_str());
         ReportConsoleOnlyF("*********************************************\n");
     }
 
@@ -102,10 +102,16 @@ namespace
         GlobalData& globalData = GetGlobalData();
 
         // Report the runtime name and info.
-        const XrInstanceProperties& instanceProperties = globalData.GetInstanceProperties();
-        ReportConsoleOnlyF("Runtime instance properties:\n   Runtime name: %s\n   Runtime version %d.%d.%d", instanceProperties.runtimeName,
-                           XR_VERSION_MAJOR(instanceProperties.runtimeVersion), XR_VERSION_MINOR(instanceProperties.runtimeVersion),
-                           XR_VERSION_PATCH(instanceProperties.runtimeVersion));
+        const VersionDependentDataArray& versionDependentData = globalData.GetVersionDependentData();
+        ReportConsoleOnlyF("Runtime instance properties:");
+        for (uint16_t minor = 0; minor < versionDependentData.size(); minor++) {
+            if (versionDependentData[minor].support == VersionSupportState::SupportedByRuntime) {
+                XrVersion version = XR_MAKE_VERSION(1, minor, XR_VERSION_PATCH(XR_CURRENT_API_VERSION));
+                ReportConsoleOnlyF("   API version %s\n   Runtime name: %s\n   Runtime version %s", VersionToString(version).c_str(),
+                                   versionDependentData[minor].instanceProperties.runtimeName,
+                                   VersionToString(versionDependentData[minor].instanceProperties.runtimeVersion).c_str());
+            }
+        }
 
         // Report the users-selected options
         std::string optionsDescription = Options::Get().DescribeOptions();
@@ -117,9 +123,8 @@ namespace
             ReportConsoleOnlyF("    <none>");
         else {
             for (const XrApiLayerProperties& layerProperties : globalData.availableAPILayers) {
-                ReportConsoleOnlyF("    %s, version %u, spec version %d.%d.%d", layerProperties.layerName, layerProperties.layerVersion,
-                                   XR_VERSION_MAJOR(layerProperties.specVersion), XR_VERSION_MINOR(layerProperties.specVersion),
-                                   XR_VERSION_PATCH(layerProperties.specVersion));
+                ReportConsoleOnlyF("    %s, version %u, spec version %s", layerProperties.layerName, layerProperties.layerVersion,
+                                   VersionToString(layerProperties.specVersion).c_str());
             }
         }
 
@@ -216,7 +221,7 @@ namespace
             GlobalData& globalData = GetGlobalData();
 
             FeatureSet available;
-            globalData.PopulateVersionAndAvailableExtensions(available);
+            globalData.PopulateMaxSupportedVersionAndAvailableExtensions(available);
 
             if (available.Get(FeatureBitIndex::BIT_XR_VERSION_1_1)) {
                 bool openxr1_1_supported = validateOpenXRVersionSupported(XR_API_VERSION_1_1);
@@ -324,12 +329,12 @@ namespace
         using namespace Catch::Clara;
 
         /// Handle apiVersion arg
-        auto const parseDesiredApiVersion = [&](std::string const& arg) {
-            if (options.SetDesiredApiVersion(arg)) {
+        auto const parseMinApiVersion = [&](std::string const& arg) {
+            if (options.SetMinApiVersion(arg)) {
                 return ParserResult::ok(ParseResultType::Matched);
             }
             ReportConsoleOnlyF("invalid arg: %s", arg.c_str());
-            return ParserResult::runtimeError("invalid OpenXR version '" + arg + "' passed on command line");
+            return ParserResult::runtimeError("invalid (minimum) OpenXR version '" + arg + "' passed on command line");
         };
 
         /// Handle rand seed arg
@@ -403,10 +408,10 @@ namespace
             ("Specify a graphics plugin to use. Required.")
                 .required()
 
-            | Opt(parseDesiredApiVersion,
-                  Options::AvailableDesiredApiVersions())  // OpenXR version
-                  ["--apiVersion"]                         //
-              ("Specify the OpenXR API version to use. Default is 1.1.")
+            | Opt(parseMinApiVersion,
+                  Options::AvailableMinApiVersions())  // OpenXR version
+                  ["--minApiVersion"]                  //
+              ("Specify the minimum (and default) OpenXR API version to use. Default is 1.0.")
                   .optional()
 
             | Opt(parseRandSeed, "uint64_t random seed")  // seed for default global rand.
@@ -506,7 +511,7 @@ namespace
         globalData.enabledInteractionProfiles = options.enabledInteractionProfiles;
         globalData.leftHandUnderTest = options.leftHandEnabled;
         globalData.rightHandUnderTest = options.rightHandEnabled;
-        globalData.conformanceReport.apiVersion = options.desiredApiVersionValue;
+        globalData.conformanceReport.minApiVersion = options.minApiVersionValue;
 
         if (!(catchSession.configData().listTests || catchSession.configData().listTags || catchSession.configData().listListeners ||
               catchSession.configData().listReporters)) {

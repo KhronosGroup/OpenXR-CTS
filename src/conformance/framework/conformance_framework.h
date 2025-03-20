@@ -127,6 +127,9 @@
 namespace Conformance
 {
     class FeatureSet;
+    class Availability;
+
+    struct InteractionProfileAvailMetadata;
     struct IGraphicsPlugin;
     struct IPlatformPlugin;
 
@@ -220,13 +223,37 @@ namespace Conformance
         /// The total failed test case runs across all test cases.
         uint64_t TestFailureCount() const;
 
-        XrVersion apiVersion{XR_CURRENT_API_VERSION};
+        XrVersion minApiVersion{XR_API_VERSION_1_0};
         std::unordered_map<std::string, Score> results;
         std::vector<std::string> unmatchedTestSpecs;
         Catch::Totals totals{};
         TimedSubmissionResults timedSubmission;
         std::vector<std::pair<int64_t, std::string>> swapchainFormats;
     };
+
+    enum class VersionSupportState
+    {
+        Uninitialized,
+        BelowMinVersion,
+        UnsupportedByRuntime,
+        SupportedByRuntime,
+    };
+
+    struct VersionDependentData
+    {
+        VersionDependentData() = default;
+
+        bool Initialize(Options& options, XrVersion version, bool minVersion);
+
+        VersionSupportState support;
+
+        XrInstanceProperties instanceProperties{XR_TYPE_INSTANCE_PROPERTIES};
+        /// The environment blend modes available for the view configuration type.
+        std::vector<XrEnvironmentBlendMode> availableBlendModes;
+    };
+
+    static_assert(XR_VERSION_MAJOR(XR_CURRENT_API_VERSION) == 1, "Array indexed by minor version");
+    using VersionDependentDataArray = std::array<VersionDependentData, XR_VERSION_MINOR(XR_CURRENT_API_VERSION) + 1>;
 
     // A single place where all singleton data hangs off of.
     class GlobalData
@@ -255,7 +282,7 @@ namespace Conformance
 
         const ConformanceReport& GetConformanceReport() const;
 
-        const XrInstanceProperties& GetInstanceProperties() const;
+        const VersionDependentDataArray& GetVersionDependentData() const;
 
         /// case sensitive check.
         bool IsAPILayerEnabled(const char* layerName) const;
@@ -288,11 +315,11 @@ namespace Conformance
         /// Calculate the clear color to use for the background based on the XrEnvironmentBlendMode in use.
         XrColor4f GetClearColorForBackground() const;
 
-        /// Populate a FeatureSet with the current core version and all *available* extensions.
-        void PopulateVersionAndAvailableExtensions(FeatureSet& out) const;
+        /// Populate a FeatureSet with the max supported core version and all *available* extensions.
+        void PopulateMaxSupportedVersionAndAvailableExtensions(FeatureSet& out) const;
 
-        /// Populate a FeatureSet with the current core version and (default or manually) enabled extensions.
-        void PopulateVersionAndEnabledExtensions(FeatureSet& out) const;
+        /// Populate a FeatureSet with the configured min core version and (default or manually) enabled extensions.
+        void PopulateMinVersionAndEnabledExtensions(FeatureSet& out) const;
 
     public:
         /// Guards all member data.
@@ -308,8 +335,6 @@ namespace Conformance
         // Options* options;
 
         ConformanceReport conformanceReport;
-
-        XrInstanceProperties instanceProperties{XR_TYPE_INSTANCE_PROPERTIES};
 
         FunctionInfo nullFunctionInfo;
 
@@ -334,6 +359,9 @@ namespace Conformance
         /// The API layers that have been requested to be enabled. Suitable for passing to OpenXR.
         StringVec enabledAPILayerNames;
 
+        /// Highest OpenXR API version supported by the runtime
+        XrVersion maxSupportedVersion;
+
         /// The instance extensions currently available.
         std::vector<XrExtensionProperties> availableInstanceExtensions;
         std::vector<std::string> availableInstanceExtensionNames;
@@ -351,6 +379,7 @@ namespace Conformance
         StringVec enabledInteractionProfiles;
 
         /// The environment blend modes available for the view configuration type.
+        /// This is queried with a 1.0 instance and assumed to be the same for all API versions.
         std::vector<XrEnvironmentBlendMode> availableBlendModes;
 
         /// Whether each controller is to be used during testing
@@ -360,6 +389,9 @@ namespace Conformance
         /// Required instance creation extension struct, or nullptr.
         /// This is a pointer into IPlatformPlugin-provided memory.
         XrBaseInStructure* requiredPlatformInstanceCreateStruct{};
+
+    private:
+        VersionDependentDataArray versionDependentData;
     };
 
     /// Returns the default singleton global data.

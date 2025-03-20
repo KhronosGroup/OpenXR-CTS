@@ -24,6 +24,7 @@
 #include <d3d12.h>
 #include <wrl/client.h>  // For Microsoft::WRL::ComPtr
 
+#include <chrono>
 #include <map>
 #include <memory>
 #include <stdint.h>

@@ -53,26 +53,26 @@ namespace Conformance
         /// Default is none. Must be manually specified.
         std::string graphicsPlugin{};
 
-        /// @name Desired API Version
+        /// @name Minimum API Version
         /// Valid values include: "1.0" "1.1"
-        /// Default is 1.1.
+        /// Default is 1.0.
         /// @{
 
-        /// String value matching @ref desiredApiVersionValue.
-        /// To assign, call @ref SetDesiredApiVersion
-        std::string desiredApiVersion{"1.1"};
+        /// String value matching @ref minApiVersionValue.
+        /// To assign, call @ref SetMinApiVersion
+        std::string minApiVersion{"1.0"};
 
         /// Will contain the results of XR_MAKE_VERSION using the requested major and minor version
         /// combined with the patch component of XR_CURRENT_API_VERSION.
-        /// To assign, call @ref SetDesiredApiVersion
-        XrVersion desiredApiVersionValue{XR_CURRENT_API_VERSION};
+        /// To assign, call @ref SetMinApiVersion
+        XrVersion minApiVersionValue{XR_API_VERSION_1_0};
 
-        /// Set the value of @ref desiredApiVersion and @ref desiredApiVersionValue
+        /// Set the value of @ref minApiVersion and @ref minApiVersionValue
         /// @return false if a parsing error
-        bool SetDesiredApiVersion(const std::string& arg);
+        bool SetMinApiVersion(const std::string& arg);
 
-        /// The recognized strings accepted by @ref SetDesiredApiVersion, delimited by |, for CLI usage help.
-        static const char* AvailableDesiredApiVersions();
+        /// The recognized strings accepted by @ref SetMinApiVersion, delimited by |, for CLI usage help.
+        static const char* AvailableMinApiVersions();
         /// @}
 
         /// @name Form Factor

@@ -49,7 +49,7 @@ namespace Conformance
         {
             // See if it is explicitly enabled by default
             FeatureSet enabled;
-            globalData.PopulateVersionAndEnabledExtensions(enabled);
+            globalData.PopulateMinVersionAndEnabledExtensions(enabled);
 
             if (featureSet.Get(FeatureBitIndex::BIT_XR_KHR_locate_spaces) && !enabled.Get(FeatureBitIndex::BIT_XR_KHR_locate_spaces)) {
                 AutoBasicInstance instance;
@@ -66,9 +66,9 @@ namespace Conformance
         }
 
         // Skip after the "Requirements not enabled" tests, so that unavailability of xrLocateSpaces{,KHR} on OpenXR 1.0 is tested before the skip.
-        const std::vector<const char*> extensions = SkipOrGetExtensions("Locate spaces", globalData, featureSet);
+        SkipIfNotSatisfiable("Locate spaces", globalData, featureSet);
 
-        AutoBasicInstance instance(extensions, AutoBasicInstance::createSystemId);
+        AutoBasicInstance instance(featureSet, AutoBasicInstance::createSystemId);
 
         PFN_xrLocateSpacesKHR xrLocateSpacesPFN = nullptr;
 
@@ -555,5 +555,9 @@ namespace Conformance
     TEST_CASE("XR_KHR_locate_spaces", "[XR_KHR_locate_spaces]")
     {
         SharedLocateSpaces(kExtensionRequirements);
+    }
+    TEST_CASE("XR_KHR_locate_spaces_1_1", "[XR_KHR_locate_spaces][XR_VERSION_1_1]")
+    {
+        SharedLocateSpaces(kExtensionRequirements + FeatureSet{FeatureBitIndex::BIT_XR_VERSION_1_1});
     }
 }  // namespace Conformance

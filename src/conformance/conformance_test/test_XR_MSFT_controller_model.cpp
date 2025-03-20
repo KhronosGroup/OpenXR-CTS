@@ -134,7 +134,8 @@ namespace Conformance
             SKIP(XR_MSFT_CONTROLLER_MODEL_EXTENSION_NAME " not supported");
         }
 
-        CompositionHelper compositionHelper("XR_MSFT_controller_model", {"XR_MSFT_controller_model"});
+        FeatureSet additionalFeatures = FeatureSet{FeatureBitIndex::BIT_XR_MSFT_controller_model};
+        CompositionHelper compositionHelper("XR_MSFT_controller_model", additionalFeatures);
         XrInstance instance = compositionHelper.GetInstance();
         XrSession session = compositionHelper.GetSession();
 
@@ -143,14 +144,14 @@ namespace Conformance
         ActionLayerManager actionLayerManager(compositionHelper);
         XrPath simpleKHR = StringToPath(instance, "/interaction_profiles/microsoft/motion_controller");
         XrPath leftHandPath{StringToPath(instance, "/user/hand/left")};
-        std::shared_ptr<IInputTestDevice> leftHandInputDevice =
-            CreateTestDevice(&actionLayerManager, &compositionHelper.GetInteractionManager(), instance, session, simpleKHR, leftHandPath,
-                             GetInteractionProfile(InteractionProfileIndex::Profile_microsoft_motion_controller).BindingPaths);
+        std::shared_ptr<IInputTestDevice> leftHandInputDevice = CreateTestDevice(
+            &actionLayerManager, &compositionHelper.GetInteractionManager(), instance, session, simpleKHR, leftHandPath,
+            GetInteractionProfile(InteractionProfileIndex::Profile_microsoft_motion_controller).BindingPaths, &additionalFeatures);
 
         XrPath rightHandPath{StringToPath(instance, "/user/hand/right")};
-        std::shared_ptr<IInputTestDevice> rightHandInputDevice =
-            CreateTestDevice(&actionLayerManager, &compositionHelper.GetInteractionManager(), instance, session, simpleKHR, rightHandPath,
-                             GetInteractionProfile(InteractionProfileIndex::Profile_microsoft_motion_controller).BindingPaths);
+        std::shared_ptr<IInputTestDevice> rightHandInputDevice = CreateTestDevice(
+            &actionLayerManager, &compositionHelper.GetInteractionManager(), instance, session, simpleKHR, rightHandPath,
+            GetInteractionProfile(InteractionProfileIndex::Profile_microsoft_motion_controller).BindingPaths, &additionalFeatures);
 
         const std::array<XrPath, 2> subactionPaths{
             leftHandPath,
@@ -325,7 +326,8 @@ namespace Conformance
             "Ensure the controller model is positioned in the same position as the physical controller. "
             "Press menu to complete the validation.";
 
-        CompositionHelper compositionHelper("XR_MSFT_controller_model_inte...", {"XR_MSFT_controller_model"});
+        FeatureSet additionalFeatures = FeatureSet{FeatureBitIndex::BIT_XR_MSFT_controller_model};
+        CompositionHelper compositionHelper("XR_MSFT_controller_model_inte...", additionalFeatures);
 
         XrInstance instance = compositionHelper.GetInstance();
         XrSession session = compositionHelper.GetSession();

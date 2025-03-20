@@ -49,7 +49,7 @@ namespace Conformance
     {
         std::string result;
 
-        AppendSprintf(result, "   apiVersion: %s\n", desiredApiVersion.c_str());
+        AppendSprintf(result, "   minApiVersion: %s\n", minApiVersion.c_str());
 
         AppendSprintf(result, "   graphicsPlugin: %s\n", graphicsPlugin.c_str());
 
@@ -109,17 +109,17 @@ namespace Conformance
         return false;
     }
 
-    bool Options::SetDesiredApiVersion(const std::string& arg)
+    bool Options::SetMinApiVersion(const std::string& arg)
     {
         return ParseEnumFromString(
             {
                 {"1.0", XR_API_VERSION_1_0},
                 {"1.1", XR_API_VERSION_1_1},
             },
-            arg.c_str(), desiredApiVersionValue, desiredApiVersion);
+            arg.c_str(), minApiVersionValue, minApiVersion);
     }
 
-    const char* Options::AvailableDesiredApiVersions()
+    const char* Options::AvailableMinApiVersions()
     {
         return "1.0|1.1";
     }

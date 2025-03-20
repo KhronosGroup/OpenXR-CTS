@@ -34,11 +34,11 @@ namespace Conformance
     void WriteConformanceReportSummary(Catch::XmlWriter& xml, const ConformanceReport& cr)
     {
         auto e = xml.scopedElement(CTS_XML_NS_PREFIX_QUALIFIER "ctsConformanceReport");
-        xml.scopedElement(CTS_XML_NS_PREFIX_QUALIFIER "apiVersion")
-            .writeAttribute("major", XR_VERSION_MAJOR(cr.apiVersion))
-            .writeAttribute("minor", XR_VERSION_MINOR(cr.apiVersion))
-            .writeAttribute("patch", XR_VERSION_PATCH(cr.apiVersion))
-            .writeText(to_hex(cr.apiVersion));
+        xml.scopedElement(CTS_XML_NS_PREFIX_QUALIFIER "minApiVersion")
+            .writeAttribute("major", XR_VERSION_MAJOR(cr.minApiVersion))
+            .writeAttribute("minor", XR_VERSION_MINOR(cr.minApiVersion))
+            .writeAttribute("patch", XR_VERSION_PATCH(cr.minApiVersion))
+            .writeText(to_hex(cr.minApiVersion));
         xml.scopedElement(CTS_XML_NS_PREFIX_QUALIFIER "results")
             .writeAttribute("testSuccessCount", cr.TestSuccessCount())
             .writeAttribute("testFailureCount", cr.TestFailureCount());
@@ -66,9 +66,14 @@ namespace Conformance
         }
     }
 
-    void WriteInstanceProperties(Catch::XmlWriter& xml, const XrInstanceProperties& instanceProperties)
+    void WriteInstanceProperties(Catch::XmlWriter& xml, XrVersion apiVersion, const XrInstanceProperties& instanceProperties)
     {
         auto e = xml.scopedElement(CTS_XML_NS_PREFIX_QUALIFIER "runtimeInstanceProperties");
+        xml.scopedElement(CTS_XML_NS_PREFIX_QUALIFIER "apiVersion")
+            .writeAttribute("major", XR_VERSION_MAJOR(apiVersion))
+            .writeAttribute("minor", XR_VERSION_MINOR(apiVersion))
+            .writeAttribute("patch", XR_VERSION_PATCH(apiVersion))
+            .writeText(to_hex(apiVersion));
         xml.scopedElement(CTS_XML_NS_PREFIX_QUALIFIER "runtimeVersion")
             .writeAttribute("major", XR_VERSION_MAJOR(instanceProperties.runtimeVersion))
             .writeAttribute("minor", XR_VERSION_MINOR(instanceProperties.runtimeVersion))
@@ -108,9 +113,9 @@ namespace Conformance
         auto e = xml.scopedElement(CTS_XML_NS_PREFIX_QUALIFIER "testOptions");
         xml.scopedElement(CTS_XML_NS_PREFIX_QUALIFIER "graphicsPlugin").writeAttribute("value", options.graphicsPlugin);
 
-        xml.scopedElement(CTS_XML_NS_PREFIX_QUALIFIER "version")
-            .writeAttribute("string", options.desiredApiVersion)
-            .writeAttribute("value", to_hex(options.desiredApiVersionValue));
+        xml.scopedElement(CTS_XML_NS_PREFIX_QUALIFIER "minApiVersion")
+            .writeAttribute("string", options.minApiVersion)
+            .writeAttribute("value", to_hex(options.minApiVersionValue));
 
         xml.scopedElement(CTS_XML_NS_PREFIX_QUALIFIER "formFactor")
             .writeAttribute("string", options.formFactor)
@@ -201,7 +206,13 @@ namespace Conformance
         }
 
         // Report the runtime name and info.
-        WriteInstanceProperties(xml, globalData.GetInstanceProperties());
+        const VersionDependentDataArray& versionDependentData = globalData.GetVersionDependentData();
+        for (uint16_t minor = 0; minor < versionDependentData.size(); minor++) {
+            if (versionDependentData[minor].support == VersionSupportState::SupportedByRuntime) {
+                XrVersion version = XR_MAKE_VERSION(1, minor, XR_VERSION_PATCH(XR_CURRENT_API_VERSION));
+                WriteInstanceProperties(xml, version, versionDependentData[minor].instanceProperties);
+            }
+        }
 
         // Report the users-selected options
         WriteTestOptions(xml, options);

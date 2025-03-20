@@ -23,6 +23,13 @@ namespace Conformance
     _(XR_LOADER_VERSION_1_0, 0) \
     _(XR_VERSION_1_1, 0)
 
+#define XRC_ENUM_VERSIONS(_) \
+    _(1, 0)                  \
+    _(1, 1)
+#define XRC_ENUM_VERSIONS_REV(_) \
+    _(1, 1)                      \
+    _(1, 0)
+
     namespace
     {
 
@@ -138,18 +145,28 @@ namespace Conformance
         return FeatureSet(other.m_bits & feat_bitset(mask));
     }
 
+    XrVersion FeatureSet::AsMinSetVersion() const
+    {
+#define TRY_VERSION(MAJOR, MINOR)                \
+    if (get_XR_VERSION_##MAJOR##_##MINOR()) {    \
+        return XR_API_VERSION_##MAJOR##_##MINOR; \
+    }
+
+        XRC_ENUM_VERSIONS(TRY_VERSION)
+#undef TRY_VERSION
+        return 0;
+    }
     XrVersion FeatureSet::AsMaxSetVersion() const
     {
-#ifdef XR_VERSION_1_2
-#error "Needs updating"
-#endif
-        if (get_XR_VERSION_1_1()) {
-            return XR_API_VERSION_1_1;
-        }
-        if (get_XR_VERSION_1_0()) {
-            return XR_API_VERSION_1_0;
-        }
-        return 0;
+        XrVersion ret = 0;
+#define TRY_VERSION(MAJOR, MINOR)               \
+    if (get_XR_VERSION_##MAJOR##_##MINOR()) {   \
+        ret = XR_API_VERSION_##MAJOR##_##MINOR; \
+    }
+        XRC_ENUM_VERSIONS(TRY_VERSION)
+#undef TRY_VERSION
+
+        return ret;
     }
 
     FeatureSet FeatureSet::operator+(const FeatureSet& other) const

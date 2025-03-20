@@ -8,6 +8,7 @@
 
 namespace Conformance
 {
+    class Availability;
     struct BindingPathData
     {
         const char* Path;
@@ -45,5 +46,11 @@ namespace Conformance
     inline const InteractionProfileAvailMetadata& GetSimpleInteractionProfile()
     {
         return GetInteractionProfile(InteractionProfileIndex::Profile_khr_simple_controller);
+    }
+
+    /// Look up an interaction profile availability enum to find the equivalent full @ref Availability object.
+    inline const Availability& GetInteractionProfileAvailability(const InteractionProfileAvailability& avail)
+    {
+        return kInteractionAvailabilities[(size_t)avail];
     }
 }  // namespace Conformance

@@ -260,6 +260,14 @@ void android_main(struct android_app* app)
                         }
                     };
 
+                    bool enableHeadless = false;
+
+                    auto checkForHeadless = [&](const std::string& arg) {
+                        if (arg == "XR_MND_headless") {
+                            enableHeadless = true;
+                        }
+                    };
+
                     // First grab the old property args.
                     std::vector<std::string> propertyArgs;
                     Conformance::DelimitedStringToStringVector(argstr, propertyArgs);
@@ -272,6 +280,7 @@ void android_main(struct android_app* app)
                         }
                         args.push_back(arg);
                         checkForGraphics(arg);
+                        checkForHeadless(arg);
                     }
 
                     // Now check the startup intent extras for the "new style" way of passing args
@@ -283,8 +292,9 @@ void android_main(struct android_app* app)
                     for (const auto& arg : intentExtraData.arguments) {
                         args.push_back(arg);
                         checkForGraphics(arg);
+                        checkForHeadless(arg);
                     }
-                    if (!haveGraphicsPlugin) {
+                    if (!haveGraphicsPlugin && !enableHeadless) {
                         args.push_back("--graphicsPlugin");
                         args.push_back("OpenGLES");
                     }

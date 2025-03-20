@@ -22,8 +22,9 @@ avoid conflicting with the underlying Catch2 options.
 ----
   -G, --graphicsPlugin <Vulkan|Vulkan2      Specify a graphics plugin to use.
   |OpenGLES|OpenGL|D3D11|D3D12|Metal>       Required.
-  --apiVersion <1.0|1.1>                    Specify the OpenXR API version to
-                                            use. Default is 1.1.
+  --minApiVersion <1.0|1.1>                 Specify the minimum (and default)
+                                            OpenXR API version to use.
+                                            Default is 1.0.
   -S, --randSeed <uint64_t random seed>     Specify a random seed to use
                                             (decimal or hex). Default is a
                                             dynamically chosen value.
@@ -69,14 +70,23 @@ The correct value to use for these options may be dictated by the testing
 step you are on and the features and versions of OpenXR you support.
 See <<submissions-testing-steps>>.
 
-==== API Version
+==== Minimum API Version
 
 The same basic instance configuration is used across the test suite for a
-single execution.
-Specify the desired OpenXR API version with `--apiVersion <major.minor>`.
+single execution, with additional versions and extensions added as required.
+By default, all tests are run as OpenXR 1.0 except those that require a
+higher version.
+Tests whose behavior is expected to change between versions are invoked from
+two separate test cases: one run as each version.
+In this way, a default run will test all API versions reported to be
+supported by the runtime.
+In the rare case that you are testing a runtime that is 1.1 conformant but
+not aiming to be 1.0 conformant (not recommended!), or if you want to verify
+that even basic functionality works when running at the OpenXR 1.1 level,
+you can pass:
 
-* `--apiversion 1.0` - Create OpenXR 1.0.x `XrInstance` handles
-* `--apiversion 1.1` - Create OpenXR 1.1.x `XrInstance` handles
+* `--minApiVersion 1.1` - Create at least OpenXR 1.1.x `XrInstance` handles.
+  (Do not run any tests as OpenXR 1.0.x.)
 
 ==== Graphics Plugin
 
@@ -109,9 +119,10 @@ Pass `-I` or `--interactionProfiles` followed by an interaction profile to
 test, without the leading `/interaction_profile/` (omitted due to technical
 reasons).
 
-**Any extension** required to permit the use of a given interaction profile
-specified this way is **automatically enabled** (for all tests, not just the
-ones that use a user-specified interaction profile).
+Any extension required to permit the use of a given interaction profile
+specified this way (but not any additional binding paths in it) is
+automatically enabled, but only for the tests that use interaction profile
+specified in this way.
 
 [[configuration-optional]]
 === Optional Assertions

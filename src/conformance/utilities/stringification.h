@@ -5,6 +5,8 @@
 #pragma once
 
 #include <openxr/openxr.h>
+
+#include <string>
 #include <map>
 
 namespace Conformance
@@ -27,6 +29,9 @@ namespace Conformance
     /// printf("%d: %s", result, ResultToString(result));
     /// ```
     const char* ResultToString(XrResult result);
+
+    /// Helper to convert an XrVersion to a string formatted as major.minor.patch
+    std::string VersionToString(XrVersion version);
 
 #define XRC_CHECK_STRINGIFY(x) #x
 #define XRC_TO_STRING(x) XRC_CHECK_STRINGIFY(x)

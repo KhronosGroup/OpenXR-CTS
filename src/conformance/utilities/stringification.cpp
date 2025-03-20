@@ -9,6 +9,7 @@
 #include <openxr/openxr_reflection.h>
 
 #include <utility>
+#include <sstream>
 
 namespace Conformance
 {
@@ -31,5 +32,14 @@ namespace Conformance
         }
 
         return "<unknown>";
+    }
+
+    std::string VersionToString(XrVersion version)
+    {
+        std::ostringstream oss;
+        oss << XR_VERSION_MAJOR(version) << "."  //
+            << XR_VERSION_MINOR(version) << "."  //
+            << XR_VERSION_PATCH(version);
+        return oss.str();
     }
 }  // namespace Conformance

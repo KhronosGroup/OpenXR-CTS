@@ -82,7 +82,7 @@ namespace Conformance
 
         HumanDrivenInputdevice(ITestMessageDisplay* const messageDisplay, InteractionManager* const interactionManager, XrInstance instance,
                                XrSession session, XrPath interactionProfile, XrPath topLevelPath,
-                               const BindingPathDataCollection& interactionProfilePaths)
+                               const BindingPathDataCollection& interactionProfilePaths, const FeatureSet* additionalFeatures = nullptr)
             : m_messageDisplay(messageDisplay)
             , m_instance(instance)
             , m_session(session)
@@ -108,13 +108,16 @@ namespace Conformance
             std::string topLevelPathString = std::string(CHECK_TWO_CALL(char, {}, xrPathToString, m_instance, m_topLevelPath).data());
 
             FeatureSet enabled;
-            GetGlobalData().PopulateVersionAndEnabledExtensions(enabled);
+            GetGlobalData().PopulateMinVersionAndEnabledExtensions(enabled);
+            if (additionalFeatures != nullptr) {
+                enabled += *additionalFeatures;
+            }
 
             for (const BindingPathData& bindingPathData : interactionProfilePaths) {
                 if (!starts_with(bindingPathData.Path, topLevelPathString)) {
                     continue;
                 }
-                if (!kInteractionAvailabilities[(size_t)bindingPathData.Availability].IsSatisfiedBy(enabled)) {
+                if (!GetInteractionProfileAvailability(bindingPathData.Availability).IsSatisfiedBy(enabled)) {
                     continue;
                 }
 
@@ -560,10 +563,11 @@ namespace Conformance
     std::unique_ptr<IInputTestDevice> CreateTestDevice(ITestMessageDisplay* const messageDisplay,
                                                        InteractionManager* const interactionManager, XrInstance instance, XrSession session,
                                                        XrPath interactionProfile, XrPath topLevelPath,
-                                                       const BindingPathDataCollection& bindingPaths)
+                                                       const BindingPathDataCollection& bindingPaths,
+                                                       const FeatureSet* additionalFeatures /* = nullptr */)
     {
         return std::make_unique<HumanDrivenInputdevice>(messageDisplay, interactionManager, instance, session, interactionProfile,
-                                                        topLevelPath, bindingPaths);
+                                                        topLevelPath, bindingPaths, additionalFeatures);
     }
 
     std::unique_ptr<IInputTestDevice> CreateTestDevice(ITestMessageDisplay* const messageDisplay, XrInstance instance, XrSession session,

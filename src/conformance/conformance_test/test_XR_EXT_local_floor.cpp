@@ -163,7 +163,7 @@ namespace Conformance
 
         // See if it is explicitly enabled by default
         FeatureSet enabled;
-        globalData.PopulateVersionAndEnabledExtensions(enabled);
+        globalData.PopulateMinVersionAndEnabledExtensions(enabled);
         if (!kOverallRequirements.IsSatisfiedBy(enabled)) {
             SECTION("Requirements not enabled")
             {
@@ -177,11 +177,11 @@ namespace Conformance
         }
 
         // Skip after the "Requirements not enabled" tests, so that unavailability of LOCAL_FLOOR on OpenXR 1.0 is tested before the skip.
-        const std::vector<const char*> extensions = SkipOrGetExtensions("Local floor", globalData, featureSet);
+        SkipIfNotSatisfiable("Local floor", globalData, featureSet);
 
         SECTION("Validate creation")
         {
-            AutoBasicInstance instance(extensions);
+            AutoBasicInstance instance(featureSet);
             AutoBasicSession session(AutoBasicSession::OptionFlags::createSession, instance);
 
             std::vector<XrReferenceSpaceType> refSpaceTypes = CHECK_TWO_CALL(XrReferenceSpaceType, {}, xrEnumerateReferenceSpaces, session);
@@ -197,7 +197,7 @@ namespace Conformance
 
         SECTION("Validate correctness")
         {
-            AutoBasicInstance instance(extensions);
+            AutoBasicInstance instance(featureSet);
             AutoBasicSession session(AutoBasicSession::createInstance | AutoBasicSession::createSession | AutoBasicSession::beginSession |
                                          AutoBasicSession::createSwapchains | AutoBasicSession::createSpaces,
                                      instance);
@@ -310,6 +310,10 @@ namespace Conformance
     {
         SharedLocalFloorAutomated(kExtensionRequirements);
     }
+    TEST_CASE("XR_EXT_local_floor_1_1", "[XR_EXT_local_floor][XR_VERSION_1_1]")
+    {
+        SharedLocalFloorAutomated(kExtensionRequirements + FeatureSet{FeatureBitIndex::BIT_XR_VERSION_1_1});
+    }
 
     TEST_CASE("XR_VERSION_1_1-local_floor", "[XR_VERSION_1_1]")
     {
@@ -325,13 +329,9 @@ namespace Conformance
             SKIP("Not using graphics, which the test requires");
         }
 
-        FeatureSet available;
-        globalData.PopulateVersionAndAvailableExtensions(available);
-        if (!featureSet.IsSatisfiedBy(available)) {
-            SKIP("Local floor not supported via " << featureSet.ToString());
-        }
+        SkipIfNotSatisfiable("Local floor", globalData, featureSet);
 
-        CompositionHelper compositionHelper(testName, featureSet.GetExtensions());
+        CompositionHelper compositionHelper(testName, featureSet);
 
         XrSession session = compositionHelper.GetSession();
 

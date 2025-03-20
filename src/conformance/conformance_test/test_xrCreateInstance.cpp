@@ -44,7 +44,7 @@ namespace Conformance
         strcpy(createInfo.applicationInfo.applicationName, "conformance test");
         createInfo.applicationInfo.applicationVersion = 1;
         // Leave engineName and engineVersion empty, which is valid usage.
-        createInfo.applicationInfo.apiVersion = Options::Get().desiredApiVersionValue;
+        createInfo.applicationInfo.apiVersion = Options::Get().minApiVersionValue;
 
         if (globalData.requiredPlatformInstanceCreateStruct) {
             createInfo.next = globalData.requiredPlatformInstanceCreateStruct;

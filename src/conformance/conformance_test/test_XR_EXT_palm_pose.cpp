@@ -57,7 +57,7 @@ namespace Conformance
 
             // This test intentionally skips instead of testing that grip_surface is not available in a core OpenXR 1.0 instance
             // because the non-interactive test already tests this case.
-            const std::vector<const char*> extensions = SkipOrGetExtensions("Grip Surface", globalData, featureSet);
+            SkipIfNotSatisfiable("Grip Surface", globalData, featureSet);
 
             // Check whether we should test palm_ext or grip_surface names.
             // TODO test both palm_pose_ext and core OpenXR 1.1 grip_surface in the same test?
@@ -72,7 +72,7 @@ namespace Conformance
             instructions << "A hand in a pointing pose is rendered in the other hand using the " << poseIdentifier << " action space. ";
             instructions << "Press select to swap hands. Press menu to complete the validation.";
 
-            CompositionHelper compositionHelper(spaceName, extensions);
+            CompositionHelper compositionHelper(spaceName, featureSet);
             XrInstance instance = compositionHelper.GetInstance();
             XrSession session = compositionHelper.GetSession();
 
@@ -472,7 +472,7 @@ namespace Conformance
 
             // See if it is explicitly enabled by default
             FeatureSet enabled;
-            globalData.PopulateVersionAndEnabledExtensions(enabled);
+            globalData.PopulateMinVersionAndEnabledExtensions(enabled);
 
             XrActionSet actionSet;
             XrAction gripPoseAction, gripSurfacePoseAction;
@@ -567,10 +567,12 @@ namespace Conformance
             }
 
             // Skip after the "Requirements not enabled" tests, so that unavailability of e.g. grip_surface paths on OpenXR 1.0 is tested before the skip.
-            const std::vector<const char*> extensions = SkipOrGetExtensions("Grip Surface", globalData, featureSet);
+            SkipIfNotSatisfiable("Grip Surface", globalData, featureSet);
 
-            const char* testName = testExtension ? "XR_EXT_palm_pose-noninteractive" : "GripSurface-noninteractive";
-            CompositionHelper compositionHelper(testName, extensions);
+            const char* testName = (!testExtension)                  ? "GripSurface-objective"
+                                   : featureSet.get_XR_VERSION_1_1() ? "EXT_palm_pose_1_1-objective"
+                                                                     : "EXT_palm_pose-objective";
+            CompositionHelper compositionHelper(testName, featureSet);
             compositionHelper.BeginSession();
             ActionLayerManager actionLayerManager(compositionHelper);
 
@@ -591,10 +593,10 @@ namespace Conformance
 
             std::shared_ptr<IInputTestDevice> leftHandInputDevice =
                 CreateTestDevice(&actionLayerManager, &compositionHelper.GetInteractionManager(), instance, session,
-                                 simpleInteractionProfile, handPaths[0], GetSimpleInteractionProfile().BindingPaths);
+                                 simpleInteractionProfile, handPaths[0], GetSimpleInteractionProfile().BindingPaths, &featureSet);
             std::shared_ptr<IInputTestDevice> rightHandInputDevice =
                 CreateTestDevice(&actionLayerManager, &compositionHelper.GetInteractionManager(), instance, session,
-                                 simpleInteractionProfile, handPaths[1], GetSimpleInteractionProfile().BindingPaths);
+                                 simpleInteractionProfile, handPaths[1], GetSimpleInteractionProfile().BindingPaths, &featureSet);
 
             // gripPoseAction and gripSurfacePoseAction are populated here
             const std::vector<XrActionSuggestedBinding> bindings = makeActionSuggestedBindings(instance, testExtension);
@@ -796,6 +798,10 @@ namespace Conformance
     TEST_CASE("XR_EXT_palm_pose-objective", "[XR_EXT_palm_pose][actions][interactive]")
     {
         SharedGripSurfaceAutomated(kExtensionRequirements);
+    }
+    TEST_CASE("XR_EXT_palm_pose_1_1-objective", "[XR_EXT_palm_pose][XR_VERSION_1_1][actions][interactive]")
+    {
+        SharedGripSurfaceAutomated(kExtensionRequirements + FeatureSet{FeatureBitIndex::BIT_XR_VERSION_1_1});
     }
 
     TEST_CASE("GripSurface-objective", "[XR_VERSION_1_1][actions][interactive]")
