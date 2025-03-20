@@ -41,8 +41,11 @@ namespace Conformance
     using namespace std::chrono_literals;
 
     // Forward declarations
-    struct IGraphicsPlugin;
+    class Availability;
+    enum class InteractionProfileAvailability;
     class FeatureSet;
+    struct IGraphicsPlugin;
+    struct InteractionProfileAvailMetadata;
 
     /// PathToString
     ///
@@ -251,6 +254,11 @@ namespace Conformance
             typedef XrSwapchain pointer;
             void operator()(XrSwapchain s) const;
         };
+        struct ActionSetDelete
+        {
+            typedef XrActionSet pointer;
+            void operator()(XrActionSet s) const;
+        };
     }  // namespace deleters
 
     /// Defines a type similar to std::unique_ptr for XrInstance which uses CHECK() on destruction to verify that the
@@ -338,6 +346,11 @@ namespace Conformance
     ///
     /// Like SwapchainREQUIRE but with no checking of the return value.
     using SwapchainScoped = ScopedHandle<XrSwapchain, deleters::SwapchainDelete>;
+
+    /// ActionSetScoped
+    ///
+    /// Scoped action set similar to other *Scoped types above. CHECK and REQUIRE can be added if needed.
+    using ActionSetScoped = ScopedHandle<XrActionSet, deleters::ActionSetDelete>;
 
     /// Returns an extension struct pointer suitable for use as a struct next parameter.
     /// The returns extension is one that is not defined by the OpenXR spec and serves the
@@ -451,6 +464,16 @@ namespace Conformance
         std::chrono::nanoseconds timeoutDuration;
     };
 
+    /// Find the interaction profile data from an interaction profile path with `/interaction_profile/` removed.
+    const InteractionProfileAvailMetadata* LookUpInteractionProfileShortName(const char* shortName);
+
+    /// Find a FeatureSet, possible with a runtime advertising @p available , that allows satisfying @p requirements
+    /// @return true if one is found
+    bool FindFeasibleFeatureSetFromAvailability(const InteractionProfileAvailability& requirements, const FeatureSet& available,
+                                                const FeatureSet& enabled, bool reportIfUnavailable, FeatureSet& out_required);
+    bool FindFeasibleFeatureSetFromAvailability(const Availability& requirements, const FeatureSet& available, const FeatureSet& enabled,
+                                                bool reportIfUnavailable, FeatureSet& out_required);
+
     /// Creates an XrInstance suitable for enabling testing of additional functionality.
     ///
     /// Example usage:
@@ -464,6 +487,7 @@ namespace Conformance
                                  const std::vector<const char*>& additionalEnabledExtensions = std::vector<const char*>());
 
     /// Overload taking a FeatureSet (including possibly a version) instead of a list of extensions.
+    /// Throws if the version is provided but below minVersion.
     XrResult CreateBasicInstance(XrInstance* instance, const FeatureSet& featureSet, bool permitDebugMessenger = true);
 
     /// Similar to CreateBasicInstance but manages handle lifetime, including destroying
@@ -519,6 +543,10 @@ namespace Conformance
         {
             return instance;
         }
+        XrVersion GetVersion() const
+        {
+            return m_version;
+        }
 
         bool operator==(NullHandleType const& /*unused*/) const;
         bool operator!=(NullHandleType const& /*unused*/) const;
@@ -536,6 +564,9 @@ namespace Conformance
         XrResult instanceCreateResult{XR_SUCCESS};
         XrDebugUtilsMessengerEXT debugMessenger{XR_NULL_HANDLE_CPP};
         XrSystemId systemId{XR_NULL_SYSTEM_ID};
+
+    private:
+        XrVersion m_version{};
     };
 
     /// Output operator for the `XrInstance` handle in a @ref AutoBasicInstance
@@ -738,7 +769,7 @@ namespace Conformance
 
     /// Returns true if the enum is valid, either being in the core of the spec or enabled via
     /// an extension (using IsInstanceExtensionEnabled), the max value is never valid.
-    bool IsViewConfigurationTypeEnumValid(XrViewConfigurationType viewType);
+    bool IsViewConfigurationTypeEnumValid(FeatureSet enabledFeatures, XrViewConfigurationType viewType);
 
     /// Returns only the major/minor version of the runtime, not also the patch version.
     bool GetRuntimeMajorMinorVersion(XrVersion& version);

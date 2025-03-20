@@ -274,7 +274,7 @@ namespace Conformance
             strcpy(createInfo.applicationInfo.applicationName, "conformance test : XR_EXT_debug_utils");
             createInfo.applicationInfo.applicationVersion = 1;
             // Leave engineName and engineVersion empty, which is valid usage.
-            createInfo.applicationInfo.apiVersion = Options::Get().desiredApiVersionValue;
+            createInfo.applicationInfo.apiVersion = Options::Get().minApiVersionValue;
 
             createInfo.enabledApiLayerCount = (uint32_t)enabledApiLayers.size();
             createInfo.enabledApiLayerNames = enabledApiLayers.data();
@@ -320,7 +320,7 @@ namespace Conformance
             strcpy(createInfo.applicationInfo.applicationName, "conformance test : XR_EXT_debug_utils");
             createInfo.applicationInfo.applicationVersion = 1;
             // Leave engineName and engineVersion empty, which is valid usage.
-            createInfo.applicationInfo.apiVersion = Options::Get().desiredApiVersionValue;
+            createInfo.applicationInfo.apiVersion = Options::Get().minApiVersionValue;
 
             // Add debug info
             createInfo.next = &debugInfo;

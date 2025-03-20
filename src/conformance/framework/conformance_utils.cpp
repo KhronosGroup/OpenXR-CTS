@@ -18,6 +18,8 @@
 #include "conformance_options.h"
 #include "conformance_utils.h"
 #include "graphics_plugin.h"
+#include "interaction_info.h"
+#include "report.h"
 #include "two_call_util.h"
 #include "utilities/event_reader.h"
 #include "utilities/feature_availability.h"
@@ -204,6 +206,13 @@ namespace Conformance
             }
         }
 
+        void ActionSetDelete::operator()(XrActionSet s) const
+        {
+            if (s != XR_NULL_HANDLE) {
+                xrDestroyActionSet(s);
+            }
+        }
+
     }  // namespace deleters
 
     static XrBaseInStructure unrecognizedExtension{XRC_UNRECOGNIZABLE_STRUCTURE_TYPE};
@@ -251,6 +260,59 @@ namespace Conformance
 
         return lastTime - startTime;
     }
+
+    const InteractionProfileAvailMetadata* LookUpInteractionProfileShortName(const char* shortName)
+    {
+        const auto beginProfiles = std::begin(GetAllInteractionProfiles());
+        const auto endProfiles = std::end(GetAllInteractionProfiles());
+
+        // Look up the interaction profile named on the command line
+        auto ipIt = std::find_if(beginProfiles, endProfiles, [&](const InteractionProfileAvailMetadata& ip) {
+            return strcmp(ip.InteractionProfileShortname, shortName) == 0;
+        });
+
+        if (ipIt == endProfiles) {
+            // Interaction profile path not found in the generated database, presumably missing from XML.
+            ReportF("LookUpInteractionProfileShortName: Interaction profile \"%s\" not recognized by conformance test", shortName);
+            return nullptr;
+        }
+        return &(*ipIt);
+    }
+
+    bool FindFeasibleFeatureSetFromAvailability(const InteractionProfileAvailability& availability, const FeatureSet& available,
+                                                const FeatureSet& enabled, bool reportIfUnavailable, FeatureSet& out_required)
+    {
+        return FindFeasibleFeatureSetFromAvailability(GetInteractionProfileAvailability(availability), available, enabled,
+                                                      reportIfUnavailable, out_required);
+    }
+
+    bool FindFeasibleFeatureSetFromAvailability(const Availability& requirements, const FeatureSet& available, const FeatureSet& enabled,
+                                                bool reportIfUnavailable, FeatureSet& out_required)
+    {
+        if (requirements.IsSatisfiedBy(enabled)) {
+            // The currently enabled extensions are enough to get this profile, no need to add more.
+            out_required = enabled;
+            return true;
+        }
+
+        // There may be multiple ways of satisfying this, search for the first that the current version and available extensions
+        // can satisfy.
+        // This is not necessarily meaningful - would be better to find the feature set that enables the fewest things not already enabled in `enabled`
+        auto fsIt = std::find_if(std::begin(requirements), std::end(requirements),
+                                 [&](const FeatureSet& featureSet) { return featureSet.IsSatisfiedBy(available); });
+
+        if (fsIt == std::end(requirements)) {
+            // Could not do it!
+            if (reportIfUnavailable) {
+                ReportF("FindFeasibleFeatureSetFromAvailability: Cannot meet requirements: need: %s, have: %s",
+                        requirements.ToString().c_str(), available.ToString().c_str());
+            }
+            return false;
+        }
+        out_required = *fsIt;
+        return true;
+    }
+
     static XRAPI_ATTR XrBool32 XRAPI_CALL ConformanceLayerCallback(XrDebugUtilsMessageSeverityFlagsEXT messageSeverity,
                                                                    XrDebugUtilsMessageTypeFlagsEXT /* messageTypes */,
                                                                    const XrDebugUtilsMessengerCallbackDataEXT* callbackData,
@@ -320,23 +382,35 @@ namespace Conformance
         }
 
         return CreateBasicInstanceImpl(instance, globalData.requiredPlatformInstanceCreateStruct, permitDebugMessenger,
-                                       Options::Get().desiredApiVersionValue, extensions, globalData.enabledAPILayerNames);
+                                       Options::Get().minApiVersionValue, extensions, globalData.enabledAPILayerNames);
     }
 
-    XrResult CreateBasicInstance(XrInstance* instance, const FeatureSet& featureSet, bool permitDebugMessenger)
+    static XrVersion GetDesiredVersion(const FeatureSet& featureSet, const Options& opts)
     {
-        GlobalData& globalData = GetGlobalData();
 
         XrVersion requestedVersion = featureSet.AsMaxSetVersion();
         if (requestedVersion == 0) {
             // no requested version.
-            requestedVersion = Options::Get().desiredApiVersionValue;
+            requestedVersion = opts.minApiVersionValue;
         }
         if (requestedVersion == 0) {
             // no requested version, options not parsed yet
             requestedVersion = XR_API_VERSION_1_0;
         }
         // TODO do we actually want the max of the feature set's max and the options version?
+        return requestedVersion;
+    }
+
+    XrResult CreateBasicInstance(XrInstance* instance, const FeatureSet& featureSet, bool permitDebugMessenger)
+    {
+        GlobalData& globalData = GetGlobalData();
+        XrVersion requestedVersion = GetDesiredVersion(featureSet, Options::Get());
+
+        if (requestedVersion < Options::Get().minApiVersionValue) {
+            throw std::logic_error("CreateBasicInstance called with version " + VersionToString(requestedVersion) +
+                                   " which is below the configured minApiVersionValue of " +
+                                   VersionToString(Options::Get().minApiVersionValue));
+        }
 
         StringVec extensions(globalData.enabledInstanceExtensionNames);
         for (auto& ext : featureSet.GetExtensions()) {
@@ -358,6 +432,7 @@ namespace Conformance
     {
         const bool permitDebugMessenger =
             IsInstanceExtensionEnabled(XR_EXT_DEBUG_UTILS_EXTENSION_NAME) && ((optionFlags & skipDebugMessenger) == 0);
+        m_version = Options::Get().minApiVersionValue;
         instanceCreateResult = CreateBasicInstance(&instance, permitDebugMessenger, additionalEnabledExtensions);
         XRC_CHECK_THROW_XRRESULT(instanceCreateResult, "CreateBasicInstance");
         Initialize(optionFlags);
@@ -367,6 +442,7 @@ namespace Conformance
     {
         const bool permitDebugMessenger =
             IsInstanceExtensionEnabled(XR_EXT_DEBUG_UTILS_EXTENSION_NAME) && ((optionFlags & skipDebugMessenger) == 0);
+        m_version = GetDesiredVersion(featureSet, Options::Get());
         instanceCreateResult = CreateBasicInstance(&instance, featureSet, permitDebugMessenger);
         XRC_CHECK_THROW_XRRESULT(instanceCreateResult, "CreateBasicInstance");
         Initialize(optionFlags);
@@ -1093,14 +1169,9 @@ namespace Conformance
         return false;  // Function is unknown. Was it case-mismatched?
     }
 
-    bool IsViewConfigurationTypeEnumValid(XrViewConfigurationType viewType)
+    bool IsViewConfigurationTypeEnumValid(FeatureSet enabledFeatures, XrViewConfigurationType viewType)
     {
         //! @todo This function should be auto-generated from the spec.
-
-        GlobalData& globalData = GetGlobalData();
-
-        FeatureSet enabled;
-        globalData.PopulateVersionAndEnabledExtensions(enabled);
 
         switch (viewType) {
         case XR_VIEW_CONFIGURATION_TYPE_PRIMARY_MONO:
@@ -1112,9 +1183,9 @@ namespace Conformance
             return false;
         case XR_VIEW_CONFIGURATION_TYPE_PRIMARY_QUAD_VARJO:
             // XR_VIEW_CONFIGURATION_TYPE_PRIMARY_STEREO_WITH_FOVEATED_INSET promoted to 1.1
-            return enabled.get_XR_VARJO_quad_views() || enabled.get_XR_VERSION_1_1();
+            return enabledFeatures.get_XR_VARJO_quad_views() || enabledFeatures.get_XR_VERSION_1_1();
         case XR_VIEW_CONFIGURATION_TYPE_SECONDARY_MONO_FIRST_PERSON_OBSERVER_MSFT:
-            return enabled.get_XR_MSFT_first_person_observer();
+            return enabledFeatures.get_XR_MSFT_first_person_observer();
         default:
             assert(false);
             return false;

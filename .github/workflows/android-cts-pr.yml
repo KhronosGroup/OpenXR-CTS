@@ -19,12 +19,12 @@ jobs:
           lfs: true
 
       - name: Get modern CMake and Ninja
-        uses: lukka/get-cmake@v3.30.5
+        uses: "lukka/get-cmake@v3.31.6"
 
-      - name: set up JDK 11
+      - name: set up JDK
         uses: actions/setup-java@v4
         with:
-          java-version: "11"
+          java-version-file: ".github/.java-version"
           distribution: "temurin"
           cache: gradle
 

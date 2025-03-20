@@ -27,29 +27,29 @@ The key parts to the command line here are:
   support neither conformance automation nor the auto-skip timeout.
 
 
-.Example command lines for OpenXR 1.0
+.Example command lines
 [%collapsible]
 ====
 
 [source,sh]
 ----
-conformance_cli "exclude:[noauto]" -E XR_EXT_conformance_automation --autoSkipTimeout 3000 -G d3d11 --apiVersion 1.0 --reporter ctsxml::out=conformance_automation_d3d11.xml --reporter console
+conformance_cli "exclude:[noauto]" -E XR_EXT_conformance_automation --autoSkipTimeout 3000 -G d3d11 --reporter ctsxml::out=conformance_automation_d3d11.xml --reporter console
 
-conformance_cli "exclude:[noauto]" -E XR_EXT_conformance_automation --autoSkipTimeout 3000 -G d3d12 --apiVersion 1.0 --reporter ctsxml::out=conformance_automation_d3d12.xml  --reporter console
+conformance_cli "exclude:[noauto]" -E XR_EXT_conformance_automation --autoSkipTimeout 3000 -G d3d12 --reporter ctsxml::out=conformance_automation_d3d12.xml  --reporter console
 
-conformance_cli "exclude:[noauto]" -E XR_EXT_conformance_automation --autoSkipTimeout 3000 -G vulkan --apiVersion 1.0 --reporter ctsxml::out=conformance_automation_vulkan.xml  --reporter console
+conformance_cli "exclude:[noauto]" -E XR_EXT_conformance_automation --autoSkipTimeout 3000 -G vulkan --reporter ctsxml::out=conformance_automation_vulkan.xml  --reporter console
 
-conformance_cli "exclude:[noauto]" -E XR_EXT_conformance_automation --autoSkipTimeout 3000 -G vulkan2 --apiVersion 1.0 --reporter ctsxml::out=conformance_automation_vulkan2.xml  --reporter console
+conformance_cli "exclude:[noauto]" -E XR_EXT_conformance_automation --autoSkipTimeout 3000 -G vulkan2 --reporter ctsxml::out=conformance_automation_vulkan2.xml  --reporter console
 
-conformance_cli "exclude:[noauto]" -E XR_EXT_conformance_automation --autoSkipTimeout 3000 -G opengl --apiVersion 1.0 --reporter ctsxml::out=conformance_automation_opengl.xml  --reporter console
+conformance_cli "exclude:[noauto]" -E XR_EXT_conformance_automation --autoSkipTimeout 3000 -G opengl --reporter ctsxml::out=conformance_automation_opengl.xml  --reporter console
 
-conformance_cli "exclude:[noauto]" -E XR_EXT_conformance_automation --autoSkipTimeout 3000 -G metal --apiVersion 1.0 --reporter ctsxml::out=conformance_automation_metal.xml  --reporter console
+conformance_cli "exclude:[noauto]" -E XR_EXT_conformance_automation --autoSkipTimeout 3000 -G metal --reporter ctsxml::out=conformance_automation_metal.xml  --reporter console
 
 ----
 ====
 
 
-.Corresponding ADB commands to launch on Android for OpenXR 1.0
+.Corresponding ADB commands to launch on Android
 [%collapsible]
 ====
 Omit any graphics API binding extensions your runtime does not support.
@@ -58,19 +58,19 @@ different graphics API availability on Android.
 
 [source,sh]
 ----
-adb shell am start-activity -S -n org.khronos.openxr.cts/android.app.NativeActivity --esa args "exclude:[noauto],-E,XR_EXT_conformance_automation,--autoSkipTimeout,3000" -e graphicsPlugin vulkan -e apiVersion 1.0 -e xmlFilename conformance_automation_vulkan.xml
+adb shell am start-activity -S -n org.khronos.openxr.cts/android.app.NativeActivity --esa args "exclude:[noauto],-E,XR_EXT_conformance_automation,--autoSkipTimeout,3000" -e graphicsPlugin vulkan -e xmlFilename conformance_automation_vulkan.xml
 
 # Wait until tests complete, then retrieve results with
 adb pull /sdcard/Android/data/org.khronos.openxr.cts/files/conformance_automation_vulkan.xml
 
 
-adb shell am start-activity -S -n org.khronos.openxr.cts/android.app.NativeActivity --esa args "exclude:[noauto],-E,XR_EXT_conformance_automation,--autoSkipTimeout,3000" -e graphicsPlugin vulkan2 -e apiVersion 1.0 -e xmlFilename conformance_automation_vulkan2.xml
+adb shell am start-activity -S -n org.khronos.openxr.cts/android.app.NativeActivity --esa args "exclude:[noauto],-E,XR_EXT_conformance_automation,--autoSkipTimeout,3000" -e graphicsPlugin vulkan2 -e xmlFilename conformance_automation_vulkan2.xml
 
 # Wait until tests complete, then retrieve results with
 adb pull /sdcard/Android/data/org.khronos.openxr.cts/files/conformance_automation_vulkan2.xml
 
 
-adb shell am start-activity -S -n org.khronos.openxr.cts/android.app.NativeActivity --esa args "exclude:[noauto],-E,XR_EXT_conformance_automation,--autoSkipTimeout,3000" -e graphicsPlugin opengles -e apiVersion 1.0 -e xmlFilename conformance_automation_opengles.xml
+adb shell am start-activity -S -n org.khronos.openxr.cts/android.app.NativeActivity --esa args "exclude:[noauto],-E,XR_EXT_conformance_automation,--autoSkipTimeout,3000" -e graphicsPlugin opengles -e xmlFilename conformance_automation_opengles.xml
 
 # Wait until tests complete, then retrieve results with
 adb pull /sdcard/Android/data/org.khronos.openxr.cts/files/conformance_automation_opengles.xml
@@ -98,28 +98,28 @@ The key parts to the command line here are:
   these tests.
 
 
-.Example command lines for OpenXR 1.0
+.Example command lines
 [%collapsible]
 ====
 
 [source,sh]
 ----
-conformance_cli "[composition][interactive]"  --autoSkipTimeout 3000 -G d3d11 --apiVersion 1.0 --reporter ctsxml::out=interactive_composition_autoskip_d3d11.xml  --reporter console
+conformance_cli "[composition][interactive]"  --autoSkipTimeout 3000 -G d3d11 --reporter ctsxml::out=interactive_composition_autoskip_d3d11.xml  --reporter console
 
-conformance_cli "[composition][interactive]"  --autoSkipTimeout 3000 -G d3d12 --apiVersion 1.0 --reporter ctsxml::out=interactive_composition_autoskip_d3d12.xml  --reporter console
+conformance_cli "[composition][interactive]"  --autoSkipTimeout 3000 -G d3d12 --reporter ctsxml::out=interactive_composition_autoskip_d3d12.xml  --reporter console
 
-conformance_cli "[composition][interactive]"  --autoSkipTimeout 3000 -G vulkan --apiVersion 1.0 --reporter ctsxml::out=interactive_composition_autoskip_vulkan.xml  --reporter console
+conformance_cli "[composition][interactive]"  --autoSkipTimeout 3000 -G vulkan --reporter ctsxml::out=interactive_composition_autoskip_vulkan.xml  --reporter console
 
-conformance_cli "[composition][interactive]"  --autoSkipTimeout 3000 -G vulkan2 --apiVersion 1.0 --reporter ctsxml::out=interactive_composition_autoskip_vulkan2.xml  --reporter console
+conformance_cli "[composition][interactive]"  --autoSkipTimeout 3000 -G vulkan2 --reporter ctsxml::out=interactive_composition_autoskip_vulkan2.xml  --reporter console
 
-conformance_cli "[composition][interactive]"  --autoSkipTimeout 3000 -G opengl --apiVersion 1.0 --reporter ctsxml::out=interactive_composition_autoskip_opengl.xml  --reporter console
+conformance_cli "[composition][interactive]"  --autoSkipTimeout 3000 -G opengl --reporter ctsxml::out=interactive_composition_autoskip_opengl.xml  --reporter console
 
-conformance_cli "[composition][interactive]"  --autoSkipTimeout 3000 -G metal --apiVersion 1.0 --reporter ctsxml::out=interactive_composition_autoskip_metal.xml  --reporter console
+conformance_cli "[composition][interactive]"  --autoSkipTimeout 3000 -G metal --reporter ctsxml::out=interactive_composition_autoskip_metal.xml  --reporter console
 
 ----
 ====
 
-.Corresponding ADB commands to launch on Android for OpenXR 1.0
+.Corresponding ADB commands to launch on Android
 [%collapsible]
 ====
 Omit any graphics API binding extensions your runtime does not support.
@@ -128,19 +128,19 @@ different graphics API availability on Android.
 
 [source,sh]
 ----
-adb shell am start-activity -S -n org.khronos.openxr.cts/android.app.NativeActivity --esa args "[composition][interactive],--autoSkipTimeout,3000" -e graphicsPlugin vulkan -e apiVersion 1.0 -e xmlFilename interactive_composition_autoskip_vulkan.xml
+adb shell am start-activity -S -n org.khronos.openxr.cts/android.app.NativeActivity --esa args "[composition][interactive],--autoSkipTimeout,3000" -e graphicsPlugin vulkan -e xmlFilename interactive_composition_autoskip_vulkan.xml
 
 # Wait until tests complete, then retrieve results with
 adb pull /sdcard/Android/data/org.khronos.openxr.cts/files/interactive_composition_autoskip_vulkan.xml
 
 
-adb shell am start-activity -S -n org.khronos.openxr.cts/android.app.NativeActivity --esa args "[composition][interactive],--autoSkipTimeout,3000" -e graphicsPlugin vulkan2 -e apiVersion 1.0 -e xmlFilename interactive_composition_autoskip_vulkan2.xml
+adb shell am start-activity -S -n org.khronos.openxr.cts/android.app.NativeActivity --esa args "[composition][interactive],--autoSkipTimeout,3000" -e graphicsPlugin vulkan2 -e xmlFilename interactive_composition_autoskip_vulkan2.xml
 
 # Wait until tests complete, then retrieve results with
 adb pull /sdcard/Android/data/org.khronos.openxr.cts/files/interactive_composition_autoskip_vulkan2.xml
 
 
-adb shell am start-activity -S -n org.khronos.openxr.cts/android.app.NativeActivity --esa args "[composition][interactive],--autoSkipTimeout,3000" -e graphicsPlugin opengles -e apiVersion 1.0 -e xmlFilename interactive_composition_autoskip_opengles.xml
+adb shell am start-activity -S -n org.khronos.openxr.cts/android.app.NativeActivity --esa args "[composition][interactive],--autoSkipTimeout,3000" -e graphicsPlugin opengles -e xmlFilename interactive_composition_autoskip_opengles.xml
 
 # Wait until tests complete, then retrieve results with
 adb pull /sdcard/Android/data/org.khronos.openxr.cts/files/interactive_composition_autoskip_opengles.xml

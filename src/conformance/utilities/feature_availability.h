@@ -72,6 +72,12 @@ namespace Conformance
         /// Extract only the versions from the feature set
         static FeatureSet VersionsOnly(const FeatureSet& other);
 
+        /// Returns the lowest XrVersion in the feature set, with patch set to current.
+        /// Note that the FeatureSet(XrVersion coreVersion) constructor sets all versions
+        /// with the same major version and a lower minor version.
+        /// Returns zero if no version is found.
+        XrVersion AsMinSetVersion() const;
+
         /// Returns the highest XrVersion in the feature set, with patch set to current.
         /// Returns zero if no version is found.
         XrVersion AsMaxSetVersion() const;

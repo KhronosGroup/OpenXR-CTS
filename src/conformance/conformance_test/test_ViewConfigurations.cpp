@@ -17,6 +17,7 @@
 #include "conformance_utils.h"
 #include "conformance_framework.h"
 #include "matchers.h"
+#include "utilities/feature_availability.h"
 
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers.hpp>
@@ -39,6 +40,9 @@ namespace Conformance
         // XrViewConfigurationView* views);
 
         AutoBasicInstance instance(AutoBasicInstance::createSystemId);
+
+        FeatureSet globalFeatures;
+        GetGlobalData().PopulateMinVersionAndEnabledExtensions(globalFeatures);
 
         uint32_t countOutput = 0;
         std::vector<XrViewConfigurationType> vctArray;
@@ -92,9 +96,9 @@ namespace Conformance
                 CAPTURE(viewType);
 
                 // Is this enum valid, check against enabled extensions.
-                bool valid = IsViewConfigurationTypeEnumValid(viewType);
+                bool valid = IsViewConfigurationTypeEnumValid(globalFeatures, viewType);
 
-                if (!IsViewConfigurationTypeEnumValid(viewType)) {
+                if (!IsViewConfigurationTypeEnumValid(globalFeatures, viewType)) {
                     INFO("Must not enumerate invalid view configuration type");
                     CHECK_THAT(runtimeViewTypes, !Catch::Matchers::VectorContains(viewType));
                 }

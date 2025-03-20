@@ -726,7 +726,7 @@ namespace Conformance
         }
     }
 
-    TEST_CASE("MaxLayers", "[composition][interactive]")
+    TEST_CASE("MaxLayers", "[composition][interactive][no_auto]")
     {
         GlobalData& globalData = GetGlobalData();
         if (!globalData.IsUsingGraphicsPlugin()) {

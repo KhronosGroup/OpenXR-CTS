@@ -23,6 +23,7 @@
 #include "two_call_util.h"
 #include "utilities/colors.h"
 #include "utilities/feature_availability.h"
+#include "utilities/stringification.h"
 #include "utilities/throw_helpers.h"
 #include "utilities/utils.h"
 #include "utilities/uuid_utils.h"
@@ -76,8 +77,7 @@ namespace Conformance
         std::string reportString;
 
         AppendSprintf(reportString, "Random seed used: %" PRIu64 "\n", globalData.randEngine.GetSeed());
-        AppendSprintf(reportString, "API version: %u.%u.%u\n", XR_VERSION_MAJOR(apiVersion), XR_VERSION_MINOR(apiVersion),
-                      XR_VERSION_PATCH(apiVersion));
+        AppendSprintf(reportString, "Minimum API version: %s\n", VersionToString(minApiVersion).c_str());
         AppendSprintf(reportString, "Present API layers:\n");
         for (const char* const& apiLayerName : globalData.enabledAPILayerNames) {
             AppendSprintf(reportString, "    %s\n", apiLayerName);
@@ -224,15 +224,6 @@ namespace Conformance
             return false;
         }
 
-        // Create an initial instance for the purpose of identifying available extensions. And API layers, in some platform configurations.
-        AutoBasicInstance autoInstance(AutoBasicInstance::skipDebugMessenger);
-
-        result = xrGetInstanceProperties(autoInstance, &instanceProperties);
-        if (XR_FAILED(result)) {
-            ReportF("GlobalData::Initialize: GetInstanceProperties failed with result: %s", ResultToString(result));
-            return false;
-        }
-
         /// @todo Also query extensions provided by any layers that are enabled.
         availableInstanceExtensionNames.clear();
         for (auto& value : availableInstanceExtensions) {
@@ -250,51 +241,64 @@ namespace Conformance
             enabledInstanceExtensionNames.push_back_unique(XR_EXT_DEBUG_UTILS_EXTENSION_NAME);
         }
 
-        // Now that we know our available extensions, try to enable the requested interaction profile(s)
-        {
-            FeatureSet enabled;
-            PopulateVersionAndEnabledExtensions(enabled);
-            FeatureSet available;
-            PopulateVersionAndAvailableExtensions(available);
-
-            // Consistency check: enabled should always be a subset of available
-            XRC_CHECK_THROW_MSG(enabled.IsSatisfiedBy(available), "An unavailable extension is enabled.");
-
-            const auto beginProfiles = std::begin(GetAllInteractionProfiles());
-            const auto endProfiles = std::end(GetAllInteractionProfiles());
-            for (auto& str : globalData.enabledInteractionProfiles) {
-                auto ipIt = std::find_if(beginProfiles, endProfiles, [&](const InteractionProfileAvailMetadata& ip) {
-                    return strcmp(ip.InteractionProfileShortname, str) == 0;
-                });
-
-                if (ipIt == endProfiles) {
-                    // Interaction profile path not found in the generated database, presumably missing from XML.
-                    ReportF("GlobalData::Initialize: Interaction profile \"%s\" not supported by conformance test", str);
-                    return false;
-                }
-                Availability availability = kInteractionAvailabilities[(size_t)ipIt->Availability];
-
-                if (availability.IsSatisfiedBy(enabled)) {
-                    // The currently enabled extensions are enough to get this profile, no need to add more.
-                    continue;
-                }
-
-                // There may be multiple ways of enabling this profile, search for the first that the current version and available extensions
-                // can satisfy.
-                auto fsIt = std::find_if(std::begin(availability), std::end(availability),
-                                         [&](const FeatureSet& featureSet) { return featureSet.IsSatisfiedBy(available); });
-
-                if (fsIt == std::end(availability)) {
-                    // Could not do it!
-                    ReportF("GlobalData::Initialize: Cannot meet requirements for interaction profile \"%s\": need: %s, have: %s", str,
-                            availability.ToString().c_str(), available.ToString().c_str());
-                    return false;
-                }
-
-                for (const char* extension : fsIt->GetExtensions()) {
-                    globalData.enabledInstanceExtensionNames.push_back_unique(extension);
-                }
+        static_assert(XR_VERSION_MAJOR(XR_CURRENT_API_VERSION) == 1, "This code does not handle a major version upgrade");
+        uint16_t minRuntimeMinorVersion = XR_VERSION_MINOR(options.minApiVersionValue);
+        for (uint16_t minor = 0; minor < versionDependentData.size(); minor++) {
+            VersionDependentData& versionData = versionDependentData[minor];
+            if (minor < minRuntimeMinorVersion) {
+                versionData.support = VersionSupportState::BelowMinVersion;
+                continue;
             }
+
+            XrVersion version = XR_MAKE_VERSION(1, minor, XR_VERSION_PATCH(XR_CURRENT_API_VERSION));
+            // also defaults options.environmentBlendMode if minor == minRuntimeMinorVersion
+            if (!versionData.Initialize(options, version, minor == minRuntimeMinorVersion)) {
+                return false;
+            }
+            assert(versionData.support == VersionSupportState::SupportedByRuntime ||
+                   versionData.support == VersionSupportState::UnsupportedByRuntime);
+            if (versionData.support == VersionSupportState::SupportedByRuntime) {
+                maxSupportedVersion = version;
+            }
+        }
+
+        // Create an initial instance for the purpose of identifying available blend modes.
+        AutoBasicInstance autoInstance(AutoBasicInstance::skipDebugMessenger);  // uses minApiVersion by default
+
+        isInitialized = true;
+        return true;
+    }
+
+    // returns true on success or XR_ERROR_API_VERSION_UNSUPPORTED
+    // if minVersion==true, fails on XR_ERROR_API_VERSION_UNSUPPORTED and sets options.environmentBlendMode if it's empty
+    bool VersionDependentData::Initialize(Options& options, XrVersion version, bool minVersion)
+    {
+        // Create an initial instance for this API version to populate its support state and other metadata.
+        InstanceScoped ownedInstance;
+        {
+            XrInstance instance;
+            XrResult instanceCreateResult = CreateBasicInstance(&instance, FeatureSet(version), false /*permitDebugMessenger*/);
+            if (instanceCreateResult == XR_ERROR_API_VERSION_UNSUPPORTED) {
+                if (minVersion) {
+                    ReportF("VersionDependentData::Initialize: Minimum API version \"%s\" (\"%s\") not supported by runtime",
+                            options.minApiVersion.c_str(), VersionToString(version).c_str());
+                    return false;
+                }
+                this->support = VersionSupportState::UnsupportedByRuntime;
+                return true;
+            }
+            else if (XR_FAILED(instanceCreateResult)) {
+                ReportF("VersionDependentData::Initialize: Instance creation API version \"%s\" failed with result: %s",
+                        VersionToString(version).c_str(), ResultToString(instanceCreateResult));
+                return false;
+            }
+            ownedInstance.adopt(instance);  // Make sure instance handle is destroyed.
+        }
+
+        XrResult result = xrGetInstanceProperties(ownedInstance.get(), &instanceProperties);
+        if (XR_FAILED(result)) {
+            ReportF("VersionDependentData::Initialize: GetInstanceProperties failed with result: %s", ResultToString(result));
+            return false;
         }
 
         // Find XrSystemId (for later use and to ensure device is connected/available for whatever that means in a given runtime)
@@ -303,18 +307,18 @@ namespace Conformance
         systemGetInfo.formFactor = options.formFactorValue;
 
         auto tryGetSystem = [&] {
-            XrResult result = xrGetSystem(autoInstance, &systemGetInfo, &systemId);
+            XrResult result = xrGetSystem(ownedInstance.get(), &systemGetInfo, &systemId);
             if (result != XR_SUCCESS && result != XR_ERROR_FORM_FACTOR_UNAVAILABLE) {
                 // Anything else is a real error
-                ReportF("GlobalData::Initialize: xrGetSystem failed with result: %s.", ResultToString(result));
+                ReportF("VersionDependentData::Initialize: xrGetSystem failed with result: %s.", ResultToString(result));
                 return false;
             }
             return true;
         };
 
-        if (options.pollGetSystem) {
+        if (minVersion && options.pollGetSystem) {
             ReportF(
-                "GlobalData::Initialize: xrGetSystem will be polled until success or timeout, as requested. This behavior may be less compatible with applications.");
+                "VersionDependentData::Initialize: xrGetSystem will be polled until success or timeout, as requested. This behavior may be less compatible with applications.");
 
             const auto timeout = std::chrono::steady_clock::now() + kGetSystemPollingTimeout;
             while (systemId == XR_NULL_SYSTEM_ID && std::chrono::steady_clock::now() < timeout) {
@@ -326,7 +330,7 @@ namespace Conformance
             }
 
             if (systemId == XR_NULL_SYSTEM_ID) {
-                ReportF("GlobalData::Initialize: xrGetSystem polling timed out without success after %f",
+                ReportF("VersionDependentData::Initialize: xrGetSystem polling timed out without success after %f",
                         std::chrono::duration_cast<std::chrono::duration<float>>(kGetSystemPollingTimeout).count());
                 return false;
             }
@@ -337,14 +341,17 @@ namespace Conformance
                 return false;
             }
             if (systemId == XR_NULL_SYSTEM_ID) {
-                ReportF("GlobalData::Initialize: xrGetSystem did not return a system ID on the first call, not proceeding with tests.");
+                ReportF(
+                    "VersionDependentData::Initialize: xrGetSystem did not return a system ID on the first call, not proceeding with tests.");
                 return false;
             }
         }
 
-        options.PopulateDefaultEnvironmentBlendMode(autoInstance, systemId);
+        if (minVersion) {
+            options.PopulateDefaultEnvironmentBlendMode(ownedInstance.get(), systemId);
+        }
 
-        isInitialized = true;
+        this->support = VersionSupportState::SupportedByRuntime;
         return true;
     }
 
@@ -393,9 +400,9 @@ namespace Conformance
         return nullFunctionInfo;
     }
 
-    const XrInstanceProperties& GlobalData::GetInstanceProperties() const
+    const VersionDependentDataArray& GlobalData::GetVersionDependentData() const
     {
-        return instanceProperties;
+        return versionDependentData;
     }
 
     const ConformanceReport& GlobalData::GetConformanceReport() const
@@ -492,21 +499,23 @@ namespace Conformance
         }
     }
 
-    void GlobalData::PopulateVersionAndAvailableExtensions(FeatureSet& out) const
+    void GlobalData::PopulateMaxSupportedVersionAndAvailableExtensions(FeatureSet& out) const
     {
-        out = FeatureSet(Options::Get().desiredApiVersionValue);
+
+        out = FeatureSet(maxSupportedVersion);
         for (const XrExtensionProperties& extProp : availableInstanceExtensions) {
             out.SetByExtensionNameString(extProp.extensionName);
         }
     }
 
-    void GlobalData::PopulateVersionAndEnabledExtensions(FeatureSet& out) const
+    void GlobalData::PopulateMinVersionAndEnabledExtensions(FeatureSet& out) const
     {
-        out = FeatureSet(Options::Get().desiredApiVersionValue);
+        out = FeatureSet(Options::Get().minApiVersionValue);
         for (const auto& ext : enabledInstanceExtensionNames) {
             out.SetByExtensionNameString(ext);
         }
     }
+
 }  // namespace Conformance
 
 std::string Catch::StringMaker<XrUuidEXT>::convert(XrUuidEXT const& value)

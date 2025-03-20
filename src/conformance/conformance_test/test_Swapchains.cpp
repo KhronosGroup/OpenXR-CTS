@@ -89,8 +89,12 @@ namespace Conformance
 
                 switch (renderRoutine) {
                 case RenderTestRoutine::ClearAndRender:
-                    GetGlobalData().graphicsPlugin->ClearImageSlice(image, 0);
-                    GetGlobalData().graphicsPlugin->RenderView(projectionView, image, {});
+                    for (uint32_t arrayIndex = 0; arrayIndex < colorCreateInfo.arraySize; ++arrayIndex) {
+                        projectionView.subImage.imageArrayIndex = arrayIndex;
+                        GetGlobalData().graphicsPlugin->ClearImageSlice(image, arrayIndex);
+                        GetGlobalData().graphicsPlugin->RenderView(projectionView, image, {});
+                        projectionView.subImage.imageArrayIndex = 0;
+                    }
                     break;
 
                 case RenderTestRoutine::ClearWithCompute:

@@ -17,6 +17,49 @@ particular, since it is primarily software, pull requests may be integrated as
 they are accepted even between periodic updates. However, versions that are not
 signed tags on the `approved` branch are not valid for conformance submission.
 
+## OpenXR CTS 1.1.46.0 (2025-03-20)
+
+Note that this release substantially changes how tests are run: a separate full
+test run is no longer needed for each of 1.0 and 1.1. See the usage document for
+more information.
+
+- Conformance Tests
+  - Fix: Fix glTF loading spinner using wrong pose, making the animation not
+    visible.
+    ([internal MR 3648](https://gitlab.khronos.org/openxr/openxr/merge_requests/3648),
+    [internal issue 2389](https://gitlab.khronos.org/openxr/openxr/issues/2389))
+  - Fix: D3D11 validation error about depth stencil view array size.
+    ([internal MR 3691](https://gitlab.khronos.org/openxr/openxr/merge_requests/3691),
+    [internal issue 2337](https://gitlab.khronos.org/openxr/openxr/issues/2337))
+  - Fix: Build error with Clang on some systems.
+    ([internal MR 3704](https://gitlab.khronos.org/openxr/openxr/merge_requests/3704))
+  - Fix: Mark the "MaxLayers" test as "[no_auto]".
+    ([internal MR 3718](https://gitlab.khronos.org/openxr/openxr/merge_requests/3718))
+  - Fix: Android Studio build of conformance APK
+    ([internal MR 3736](https://gitlab.khronos.org/openxr/openxr/merge_requests/3736))
+  - Fix: Add missed skips based on minApiVersion in tests that only run in 1.0.
+    ([internal MR 3738](https://gitlab.khronos.org/openxr/openxr/merge_requests/3738))
+  - Improvement: Refactored usage of Android logging to be more consistent.
+    ([internal MR 2909](https://gitlab.khronos.org/openxr/openxr/merge_requests/2909))
+  - Improvement: Split `XR_EXT_active_action_set_priority` tests from
+    `xrSyncActions` tests to have priorities tested enabled and disabled.
+    ([internal MR 3505](https://gitlab.khronos.org/openxr/openxr/merge_requests/3505))
+  - Improvement: Replace `--apiVersion` argument with `--minApiVersion`, and
+    automatically use higher versions when available if required or if behaviour
+    may differ.
+    ([internal MR 3576](https://gitlab.khronos.org/openxr/openxr/merge_requests/3576))
+  - Improvement: `WARN` when the runtime allows the application to create an
+    instance with `XR_EXT_dpad_binding` but without `XR_KHR_binding_modification`
+    ([internal MR 3676](https://gitlab.khronos.org/openxr/openxr/merge_requests/3676))
+  - Improvement: Clear and render all texture array indices in Swapchains test.
+    ([internal MR 3691](https://gitlab.khronos.org/openxr/openxr/merge_requests/3691),
+    [internal issue 2337](https://gitlab.khronos.org/openxr/openxr/issues/2337))
+  - Improvement: Recognize enabling `XR_MND_headless` in Android entry point and
+    skip appending graphics plugin.
+    ([internal MR 3739](https://gitlab.khronos.org/openxr/openxr/merge_requests/3739))
+  - Improvement: Change a runtime assert to a static assert.
+    ([internal MR 3740](https://gitlab.khronos.org/openxr/openxr/merge_requests/3740))
+
 ## OpenXR CTS 1.1.45.0 (2025-02-13)
 
 - Conformance Tests

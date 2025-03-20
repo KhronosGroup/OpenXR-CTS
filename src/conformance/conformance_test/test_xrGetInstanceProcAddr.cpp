@@ -17,6 +17,7 @@
 #include "conformance_framework.h"
 #include "conformance_utils.h"
 #include "matchers.h"
+#include "utilities/stringification.h"
 #include "utilities/utils.h"
 
 #include <catch2/catch_test_macros.hpp>
@@ -71,13 +72,14 @@ namespace Conformance
         // Get all functions with a valid instance:
         {
             AutoBasicInstance instance;
+            INFO("Instance version " << VersionToString(instance.GetVersion()));
 
             for (auto& functionInfo : functionInfoMap) {
                 XrResult expectedResult = XR_SUCCESS;
                 if (functionInfo.second.requiredVersion != XrVersion{}) {
                     // core function
 
-                    if (functionInfo.second.requiredVersion > Options::Get().desiredApiVersionValue) {
+                    if (functionInfo.second.requiredVersion > instance.GetVersion()) {
                         expectedResult = XR_ERROR_FUNCTION_UNSUPPORTED;
                     }
                 }
@@ -122,6 +124,7 @@ namespace Conformance
         // Try to get not existing functions:
         {
             AutoBasicInstance instance;
+            INFO("Instance version " << VersionToString(instance.GetVersion()));
 
             {
                 // "name must be a null-terminated UTF-8 string"
@@ -131,7 +134,7 @@ namespace Conformance
                 CHECK(result == XR_ERROR_VALIDATION_FAILURE);
             }
 
-            // test some illegale function names:
+            // test some illegal function names:
             std::vector<const char*> invalidFunctionNames{
                 "", "a", "xr", "not a function", "xr", "xr*", "xrGetSystemDoesNotEndLikeThis", "xrGetSystem string is not terminated yet"};
             for (auto& functionName : invalidFunctionNames) {

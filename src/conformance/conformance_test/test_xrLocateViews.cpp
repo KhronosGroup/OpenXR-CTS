@@ -17,6 +17,7 @@
 #include "conformance_utils.h"
 #include "conformance_framework.h"
 #include "matchers.h"
+#include "utilities/feature_availability.h"
 
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_vector.hpp>
@@ -121,6 +122,9 @@ namespace Conformance
             const XrInstance instance = session.GetInstance();
             const XrSystemId systemId = session.GetSystemId();
 
+            FeatureSet globalFeatures;
+            GetGlobalData().PopulateMinVersionAndEnabledExtensions(globalFeatures);
+
             // Get the list of supported view configurations
             uint32_t viewConfigCount = 0;
             REQUIRE(XR_SUCCESS == xrEnumerateViewConfigurations(instance, systemId, 0, &viewConfigCount, nullptr));
@@ -137,7 +141,7 @@ namespace Conformance
                     CAPTURE(viewTypeAndName.second);
 
                     // Is this enum valid, check against enabled extensions.
-                    bool valid = IsViewConfigurationTypeEnumValid(viewType);
+                    bool valid = IsViewConfigurationTypeEnumValid(globalFeatures, viewType);
 
                     const bool isSupportedType = Catch::Matchers::VectorContains(viewType).match(runtimeViewTypes);
                     CAPTURE(valid);

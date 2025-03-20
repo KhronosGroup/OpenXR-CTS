@@ -767,6 +767,30 @@ namespace Conformance
     TEST_CASE("XR_EXT_dpad_binding", "[XR_EXT_dpad_binding]")
     {
         GlobalData& globalData = GetGlobalData();
+
+        // If XR_EXT_dpad_binding is enabled, applications must enable XR_KHR_binding_modification.
+        if (globalData.IsInstanceExtensionSupported(XR_EXT_DPAD_BINDING_EXTENSION_NAME) &&
+            !globalData.IsInstanceExtensionEnabled(XR_KHR_BINDING_MODIFICATION_EXTENSION_NAME)) {
+            SECTION("Extension dependency not enabled")
+            {
+                XrInstance instance{};
+                XrResult result = CreateBasicInstance(&instance, true, {XR_EXT_DPAD_BINDING_EXTENSION_NAME});
+                if (XR_SUCCEEDED(result)) {
+                    REQUIRE_RESULT_UNQUALIFIED_SUCCESS(xrDestroyInstance(instance));
+                }
+
+                // Note that XR_ERROR_EXTENSION_DEPENDENCY_NOT_ENABLED requires 1.1 or maintenance1.
+                if (result != XR_ERROR_VALIDATION_FAILURE && result != XR_ERROR_EXTENSION_DEPENDENCY_NOT_ENABLED) {
+                    WARN("Unexpected result code "
+                         << ResultToString(result)
+                         << " when creating an instance with XR_EXT_dpad_binding and without XR_KHR_binding_modification,"
+                            " expected XR_ERROR_VALIDATION_FAILURE or XR_ERROR_EXTENSION_DEPENDENCY_NOT_ENABLED (on 1.1 or maintenance1)."
+                            " This is not a strict runtime requirement, but poses a portability concern as applications that do this"
+                            " are violating valid usage in the extension, so an error is encouraged.");
+                }
+            }
+        }
+
         if (!globalData.IsInstanceExtensionSupported(XR_EXT_DPAD_BINDING_EXTENSION_NAME) ||
             !globalData.IsInstanceExtensionSupported(XR_KHR_BINDING_MODIFICATION_EXTENSION_NAME)) {
             SKIP(XR_EXT_DPAD_BINDING_EXTENSION_NAME " or " XR_KHR_BINDING_MODIFICATION_EXTENSION_NAME " not supported");

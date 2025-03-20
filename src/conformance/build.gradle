@@ -93,3 +93,26 @@ android {
         }
     }
 }
+
+// Fix error about undeclared deps when building as release with
+// gradle 8+.
+afterEvaluate {
+    android.applicationVariants.all { def variant ->
+        def targetName = variant.name.capitalize()
+
+        // This one is needed by command line builds
+        def mergeAssetsTask = tasks.findByName("merge${targetName}Assets")
+        mergeAssetsTask.dependsOn(copyAssets)
+
+        // These only show up when building with Android Studio, hence the conditionals
+        def mergeTestAssetsTask = tasks.findByName("merge${targetName}AndroidTestAssets")
+        if (mergeTestAssetsTask) {
+            mergeAssetsTask.dependsOn(mergeTestAssetsTask)
+        }
+
+        def lintVitalAnalyzeTask = tasks.findByName("lintVitalAnalyze${targetName}")
+        if (lintVitalAnalyzeTask) {
+            lintVitalAnalyzeTask.dependsOn(mergeAssetsTask)
+        }
+    }
+}

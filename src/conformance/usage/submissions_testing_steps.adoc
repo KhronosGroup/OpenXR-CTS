@@ -17,78 +17,47 @@ The tests are marked with tags to accomplish several objectives.
 
 The following text lays out the steps to running conformance for submission.
 
-Note: If you do not supply the `--apiVersion` argument, it defaults to the
-latest OpenXR version as defined in the CTS's own OpenXR header.
-When running the CTS for a conformance submission, you should **always**
-supply an `--apiVersion` argument.
+Note: If you do not support OpenXR 1.0, you must supply the `--minApiVersion`
+argument to specify the lowest OpenXR API version you support, e.g.
+`--minApiVersion 1.1`. Some tests will automatically test behaviour on higher
+API versions if your runtime supports them, but most tests will run on
+`minApiVersion`, which defaults to `1.0`.
 
 Please be aware that depending on how you view these instructions, the (very
 long) sample command lines **may** be wrapped automatically.
 All the desktop command lines start with `conformance_cli`, while all the
 Android ones start with `adb shell am`.
 
-=== Automated tests: each supported graphics API and each OpenXR API version
+=== Automated tests on each supported graphics API
 
-One run and result file for each element of the Cartesian product of the
-following dimensions:
-
-* Each graphics API
-** While not all automated tests interact with the graphics API, many do,
-   and all these tests **must** be able to pass with every supported
-   graphics API.
-* Each OpenXR API version
-** For now, these **must** be run for both OpenXR 1.0 and 1.1 when
-   submitting results for 1.1.
-   Running as 1.0 on a 1.1 runtime selects assertions to verify that no 1.1
-   behavior is exposed to applications requesting 1.0.
-
+One run and result file for the each graphics API supported by your runtime.
 
 When using the following examples, omit any graphics API binding extensions
 your runtime does not support.
 
-.Example command lines for OpenXR 1.0
+.Example command lines
 [%collapsible]
 ====
 
 [source,sh]
 ----
-conformance_cli "exclude:[interactive]" -G d3d11 --apiVersion 1.0 --reporter ctsxml::out=automated_d3d11_1_0.xml
+conformance_cli "exclude:[interactive]" -G d3d11 --reporter ctsxml::out=automated_d3d11.xml
 
-conformance_cli "exclude:[interactive]" -G d3d12 --apiVersion 1.0 --reporter ctsxml::out=automated_d3d12_1_0.xml
+conformance_cli "exclude:[interactive]" -G d3d12 --reporter ctsxml::out=automated_d3d12.xml
 
-conformance_cli "exclude:[interactive]" -G vulkan --apiVersion 1.0 --reporter ctsxml::out=automated_vulkan_1_0.xml
+conformance_cli "exclude:[interactive]" -G vulkan --reporter ctsxml::out=automated_vulkan.xml
 
-conformance_cli "exclude:[interactive]" -G vulkan2 --apiVersion 1.0 --reporter ctsxml::out=automated_vulkan2_1_0.xml
+conformance_cli "exclude:[interactive]" -G vulkan2 --reporter ctsxml::out=automated_vulkan2.xml
 
-conformance_cli "exclude:[interactive]" -G opengl --apiVersion 1.0 --reporter ctsxml::out=automated_opengl_1_0.xml
+conformance_cli "exclude:[interactive]" -G opengl --reporter ctsxml::out=automated_opengl.xml
 
-conformance_cli "exclude:[interactive]" -G metal --apiVersion 1.0 --reporter ctsxml::out=automated_metal_1_0.xml
+conformance_cli "exclude:[interactive]" -G metal --reporter ctsxml::out=automated_metal.xml
 
 ----
 ====
 
-.Example command lines for OpenXR 1.1
-[%collapsible]
-====
 
-[source,sh]
-----
-conformance_cli "exclude:[interactive]" -G d3d11 --apiVersion 1.1 --reporter ctsxml::out=automated_d3d11_1_1.xml
-
-conformance_cli "exclude:[interactive]" -G d3d12 --apiVersion 1.1 --reporter ctsxml::out=automated_d3d12_1_1.xml
-
-conformance_cli "exclude:[interactive]" -G vulkan --apiVersion 1.1 --reporter ctsxml::out=automated_vulkan_1_1.xml
-
-conformance_cli "exclude:[interactive]" -G vulkan2 --apiVersion 1.1 --reporter ctsxml::out=automated_vulkan2_1_1.xml
-
-conformance_cli "exclude:[interactive]" -G opengl --apiVersion 1.1 --reporter ctsxml::out=automated_opengl_1_1.xml
-
-conformance_cli "exclude:[interactive]" -G metal --apiVersion 1.1 --reporter ctsxml::out=automated_metal_1_1.xml
-----
-====
-
-
-.Corresponding ADB commands to launch on Android for OpenXR 1.0
+.Corresponding ADB commands to launch on Android
 [%collapsible]
 ====
 Omit any graphics API binding extensions your runtime does not support.
@@ -97,56 +66,27 @@ different graphics API availability on Android.
 
 [source,sh]
 ----
-adb shell am start-activity -S -n org.khronos.openxr.cts/android.app.NativeActivity --esa args "exclude:[interactive]" -e graphicsPlugin vulkan -e apiVersion 1.0 -e xmlFilename automated_vulkan_1_0.xml
+adb shell am start-activity -S -n org.khronos.openxr.cts/android.app.NativeActivity --esa args "exclude:[interactive]" -e graphicsPlugin vulkan -e xmlFilename automated_vulkan.xml
 
 # Wait until tests complete, then retrieve results with
-adb pull /sdcard/Android/data/org.khronos.openxr.cts/files/automated_vulkan_1_0.xml
+adb pull /sdcard/Android/data/org.khronos.openxr.cts/files/automated_vulkan.xml
 
 
-adb shell am start-activity -S -n org.khronos.openxr.cts/android.app.NativeActivity --esa args "exclude:[interactive]" -e graphicsPlugin vulkan2 -e apiVersion 1.0 -e xmlFilename automated_vulkan2_1_0.xml
-
-# Wait until tests complete, then retrieve results with
-adb pull /sdcard/Android/data/org.khronos.openxr.cts/files/automated_vulkan2_1_0.xml
-
-
-adb shell am start-activity -S -n org.khronos.openxr.cts/android.app.NativeActivity --esa args "exclude:[interactive]" -e graphicsPlugin opengles -e apiVersion 1.0 -e xmlFilename automated_opengles_1_0.xml
+adb shell am start-activity -S -n org.khronos.openxr.cts/android.app.NativeActivity --esa args "exclude:[interactive]" -e graphicsPlugin vulkan2 -e xmlFilename automated_vulkan2.xml
 
 # Wait until tests complete, then retrieve results with
-adb pull /sdcard/Android/data/org.khronos.openxr.cts/files/automated_opengles_1_0.xml
+adb pull /sdcard/Android/data/org.khronos.openxr.cts/files/automated_vulkan2.xml
+
+
+adb shell am start-activity -S -n org.khronos.openxr.cts/android.app.NativeActivity --esa args "exclude:[interactive]" -e graphicsPlugin opengles -e xmlFilename automated_opengles.xml
+
+# Wait until tests complete, then retrieve results with
+adb pull /sdcard/Android/data/org.khronos.openxr.cts/files/automated_opengles.xml
 
 ----
 ====
 
-.Corresponding ADB commands to launch on Android for OpenXR 1.1
-[%collapsible]
-====
-Omit any graphics API binding extensions your runtime does not support.
-These commands do not match one-to-one with the desktop examples due to
-different graphics API availability on Android.
-
-[source,sh]
-----
-adb shell am start-activity -S -n org.khronos.openxr.cts/android.app.NativeActivity --esa args "exclude:[interactive]" -e graphicsPlugin vulkan -e apiVersion 1.1 -e xmlFilename automated_vulkan_1_1.xml
-
-# Wait until tests complete, then retrieve results with
-adb pull /sdcard/Android/data/org.khronos.openxr.cts/files/automated_vulkan_1_1.xml
-
-
-adb shell am start-activity -S -n org.khronos.openxr.cts/android.app.NativeActivity --esa args "exclude:[interactive]" -e graphicsPlugin vulkan2 -e apiVersion 1.1 -e xmlFilename automated_vulkan2_1_1.xml
-
-# Wait until tests complete, then retrieve results with
-adb pull /sdcard/Android/data/org.khronos.openxr.cts/files/automated_vulkan2_1_1.xml
-
-
-adb shell am start-activity -S -n org.khronos.openxr.cts/android.app.NativeActivity --esa args "exclude:[interactive]" -e graphicsPlugin opengles -e apiVersion 1.1 -e xmlFilename automated_opengles_1_1.xml
-
-# Wait until tests complete, then retrieve results with
-adb pull /sdcard/Android/data/org.khronos.openxr.cts/files/automated_opengles_1_1.xml
-
-----
-====
-
-=== Interactive composition tests on each supported graphics API and each OpenXR API version
+=== Interactive composition tests on each supported graphics API
 
 These are separate as a tester **must** evaluate the results and determine
 if each test is passed or failed.
@@ -154,63 +94,34 @@ if each test is passed or failed.
 These tests use the `khr/simple_controller` interaction profile to review
 instructions and sample output, as well as to indicate pass or fail.
 
-One run and result file for the each element of the Cartesian product of the
-following dimensions:
-
-* Each graphics API
-* Each OpenXR API version?
-** Composition behavior is unchanged in 1.1, but if there is a chance
-   behavior may differ between 1.0 and 1.1 applications, the tests should be
-   run under both versions.
+One run and result file for the each graphics API supported by your runtime.
 
 As previously, when using these examples, omit any graphics API binding
 extensions your runtime does not support.
 
-.Example command lines for OpenXR 1.0
+.Example command lines
 [%collapsible]
 ====
 
 [source,sh]
 ----
-conformance_cli "[composition][interactive]" -G d3d11 --apiVersion 1.0 --reporter ctsxml::out=interactive_composition_d3d11_1_0.xml
+conformance_cli "[composition][interactive]" -G d3d11 --reporter ctsxml::out=interactive_composition_d3d11.xml
 
-conformance_cli "[composition][interactive]" -G d3d12 --apiVersion 1.0 --reporter ctsxml::out=interactive_composition_d3d12_1_0.xml
+conformance_cli "[composition][interactive]" -G d3d12 --reporter ctsxml::out=interactive_composition_d3d12.xml
 
-conformance_cli "[composition][interactive]" -G vulkan --apiVersion 1.0 --reporter ctsxml::out=interactive_composition_vulkan_1_0.xml
+conformance_cli "[composition][interactive]" -G vulkan --reporter ctsxml::out=interactive_composition_vulkan.xml
 
-conformance_cli "[composition][interactive]" -G vulkan2 --apiVersion 1.0 --reporter ctsxml::out=interactive_composition_vulkan2_1_0.xml
+conformance_cli "[composition][interactive]" -G vulkan2 --reporter ctsxml::out=interactive_composition_vulkan2.xml
 
-conformance_cli "[composition][interactive]" -G opengl --apiVersion 1.0 --reporter ctsxml::out=interactive_composition_opengl_1_0.xml
+conformance_cli "[composition][interactive]" -G opengl --reporter ctsxml::out=interactive_composition_opengl.xml
 
-conformance_cli "[composition][interactive]" -G metal --apiVersion 1.0 --reporter ctsxml::out=interactive_composition_metal_1_0.xml
-
-----
-====
-
-.Example command lines for OpenXR 1.1
-[%collapsible]
-====
-Omit any graphics API binding extensions your runtime does not support.
-
-[source,sh]
-----
-conformance_cli "[composition][interactive]" -G d3d11 --apiVersion 1.1 --reporter ctsxml::out=interactive_composition_d3d11_1_1.xml
-
-conformance_cli "[composition][interactive]" -G d3d12 --apiVersion 1.1 --reporter ctsxml::out=interactive_composition_d3d12_1_1.xml
-
-conformance_cli "[composition][interactive]" -G vulkan --apiVersion 1.1 --reporter ctsxml::out=interactive_composition_vulkan_1_1.xml
-
-conformance_cli "[composition][interactive]" -G vulkan2 --apiVersion 1.1 --reporter ctsxml::out=interactive_composition_vulkan2_1_1.xml
-
-conformance_cli "[composition][interactive]" -G opengl --apiVersion 1.1 --reporter ctsxml::out=interactive_composition_opengl_1_1.xml
-
-conformance_cli "[composition][interactive]" -G metal --apiVersion 1.1 --reporter ctsxml::out=interactive_composition_metal_1_1.xml
+conformance_cli "[composition][interactive]" -G metal --reporter ctsxml::out=interactive_composition_metal.xml
 
 ----
 ====
 
 
-.Corresponding ADB commands to launch on Android for OpenXR 1.0
+.Corresponding ADB commands to launch on Android
 [%collapsible]
 ====
 Omit any graphics API binding extensions your runtime does not support.
@@ -219,51 +130,22 @@ different graphics API availability on Android.
 
 [source,sh]
 ----
-adb shell am start-activity -S -n org.khronos.openxr.cts/android.app.NativeActivity --esa args "[composition][interactive]" -e graphicsPlugin vulkan -e apiVersion 1.0 -e xmlFilename interactive_composition_vulkan_1_0.xml
+adb shell am start-activity -S -n org.khronos.openxr.cts/android.app.NativeActivity --esa args "[composition][interactive]" -e graphicsPlugin vulkan -e xmlFilename interactive_composition_vulkan.xml
 
 # Wait until tests complete, then retrieve results with
-adb pull /sdcard/Android/data/org.khronos.openxr.cts/files/interactive_composition_vulkan_1_0.xml
+adb pull /sdcard/Android/data/org.khronos.openxr.cts/files/interactive_composition_vulkan.xml
 
 
-adb shell am start-activity -S -n org.khronos.openxr.cts/android.app.NativeActivity --esa args "[composition][interactive]" -e graphicsPlugin vulkan2 -e apiVersion 1.0 -e xmlFilename interactive_composition_vulkan2_1_0.xml
-
-# Wait until tests complete, then retrieve results with
-adb pull /sdcard/Android/data/org.khronos.openxr.cts/files/interactive_composition_vulkan2_1_0.xml
-
-
-adb shell am start-activity -S -n org.khronos.openxr.cts/android.app.NativeActivity --esa args "[composition][interactive]" -e graphicsPlugin opengles -e apiVersion 1.0 -e xmlFilename interactive_composition_opengles_1_0.xml
+adb shell am start-activity -S -n org.khronos.openxr.cts/android.app.NativeActivity --esa args "[composition][interactive]" -e graphicsPlugin vulkan2 -e xmlFilename interactive_composition_vulkan2.xml
 
 # Wait until tests complete, then retrieve results with
-adb pull /sdcard/Android/data/org.khronos.openxr.cts/files/interactive_composition_opengles_1_0.xml
+adb pull /sdcard/Android/data/org.khronos.openxr.cts/files/interactive_composition_vulkan2.xml
 
-----
-====
 
-.Corresponding ADB commands to launch on Android for OpenXR 1.1
-[%collapsible]
-====
-Omit any graphics API binding extensions your runtime does not support.
-These commands do not match one-to-one with the desktop examples due to
-different graphics API availability on Android.
-
-[source,sh]
-----
-adb shell am start-activity -S -n org.khronos.openxr.cts/android.app.NativeActivity --esa args "[composition][interactive]" -e graphicsPlugin vulkan -e apiVersion 1.1 -e xmlFilename interactive_composition_vulkan_1_1.xml
+adb shell am start-activity -S -n org.khronos.openxr.cts/android.app.NativeActivity --esa args "[composition][interactive]" -e graphicsPlugin opengles -e xmlFilename interactive_composition_opengles.xml
 
 # Wait until tests complete, then retrieve results with
-adb pull /sdcard/Android/data/org.khronos.openxr.cts/files/interactive_composition_vulkan_1_1.xml
-
-
-adb shell am start-activity -S -n org.khronos.openxr.cts/android.app.NativeActivity --esa args "[composition][interactive]" -e graphicsPlugin vulkan2 -e apiVersion 1.1 -e xmlFilename interactive_composition_vulkan2_1_1.xml
-
-# Wait until tests complete, then retrieve results with
-adb pull /sdcard/Android/data/org.khronos.openxr.cts/files/interactive_composition_vulkan2_1_1.xml
-
-
-adb shell am start-activity -S -n org.khronos.openxr.cts/android.app.NativeActivity --esa args "[composition][interactive]" -e graphicsPlugin opengles -e apiVersion 1.1 -e xmlFilename interactive_composition_opengles_1_1.xml
-
-# Wait until tests complete, then retrieve results with
-adb pull /sdcard/Android/data/org.khronos.openxr.cts/files/interactive_composition_opengles_1_1.xml
+adb pull /sdcard/Android/data/org.khronos.openxr.cts/files/interactive_composition_opengles.xml
 
 ----
 ====
@@ -279,51 +161,28 @@ These tests use the `khr/simple_controller` interaction profile to perform
 actions and indicate pass or fail.
 
 * One graphics API
-* Each OpenXR API version?
 
 
-.Example command lines for OpenXR 1.0
+.Example command lines
 [%collapsible]
 ====
 [source,sh]
 ----
-conformance_cli "[scenario][interactive]" -G opengl --apiVersion 1.0 --reporter ctsxml::out=interactive_scenarios_1_0.xml
+conformance_cli "[scenario][interactive]" -G opengl --reporter ctsxml::out=interactive_scenarios.xml
 
 ----
 ====
 
-.Example command lines for OpenXR 1.1
+
+.Corresponding ADB commands to launch on Android
 [%collapsible]
 ====
 [source,sh]
 ----
-conformance_cli "[scenario][interactive]" -G opengl --apiVersion 1.1 --reporter ctsxml::out=interactive_scenarios_1_1.xml
-
-----
-====
-
-
-.Corresponding ADB commands to launch on Android for OpenXR 1.0
-[%collapsible]
-====
-[source,sh]
-----
-adb shell am start-activity -S -n org.khronos.openxr.cts/android.app.NativeActivity --esa args "[scenario][interactive]" -e apiVersion 1.0 -e xmlFilename interactive_scenarios_1_0.xml
+adb shell am start-activity -S -n org.khronos.openxr.cts/android.app.NativeActivity --esa args "[scenario][interactive]" -e xmlFilename interactive_scenarios.xml
 
 # Wait until tests complete, then retrieve results with
-adb pull /sdcard/Android/data/org.khronos.openxr.cts/files/interactive_scenarios_1_0.xml
-----
-====
-
-.Corresponding ADB commands to launch on Android for OpenXR 1.1
-[%collapsible]
-====
-[source,sh]
-----
-adb shell am start-activity -S -n org.khronos.openxr.cts/android.app.NativeActivity --esa args "[scenario][interactive]" -e apiVersion 1.1 -e xmlFilename interactive_scenarios_1_1.xml
-
-# Wait until tests complete, then retrieve results with
-adb pull /sdcard/Android/data/org.khronos.openxr.cts/files/interactive_scenarios_1_1.xml
+adb pull /sdcard/Android/data/org.khronos.openxr.cts/files/interactive_scenarios.xml
 ----
 ====
 
@@ -361,7 +220,7 @@ following interaction profiles, specify them as well.
 * `/interaction_profiles/ext/hand_interaction_ext`
 * `/interaction_profiles/ext/eye_gaze_interaction`
 
-.Example command lines for OpenXR 1.0
+.Example command lines
 [%collapsible]
 ====
 Select the interaction profiles to test based on the preceding description.
@@ -369,70 +228,36 @@ Select the interaction profiles to test based on the preceding description.
 [source,sh]
 ----
 ## Generic: Simple controller
-conformance_cli "[actions][interactive]" -G d3d11 -I "khr/simple_controller" --apiVersion 1.0 --reporter ctsxml::out=interactive_action_simple_controller_1_0.xml
+conformance_cli "[actions][interactive]" -G d3d11 -I "khr/simple_controller" --reporter ctsxml::out=interactive_action_simple_controller.xml
 
 ## Generic: Hand interaction (whether via hand tracking or controller)
-conformance_cli "[actions][interactive]" -G d3d11 -I "ext/hand_interaction_ext" --apiVersion 1.0 --reporter ctsxml::out=interactive_action_ext_hand_interaction_interaction_1_0.xml
+conformance_cli "[actions][interactive]" -G d3d11 -I "ext/hand_interaction_ext" --reporter ctsxml::out=interactive_action_ext_hand_interaction_interaction.xml
 
 ## Generic: Eye gaze
-conformance_cli "[actions][interactive]" -G d3d11 -I "ext/eye_gaze_interaction" --apiVersion 1.0 --reporter ctsxml::out=interactive_action_ext_eye_gaze_interaction_1_0.xml
+conformance_cli "[actions][interactive]" -G d3d11 -I "ext/eye_gaze_interaction" --reporter ctsxml::out=interactive_action_ext_eye_gaze_interaction.xml
 
 # Sample device-associated profiles
-conformance_cli "[actions][interactive]" -G d3d11 -I "microsoft/motion_controller" --apiVersion 1.0 --reporter ctsxml::out=interactive_action_microsoft_motion_controller_1_0.xml
+conformance_cli "[actions][interactive]" -G d3d11 -I "microsoft/motion_controller" --reporter ctsxml::out=interactive_action_microsoft_motion_controller.xml
 
-conformance_cli "[actions][interactive]" -G d3d11 -I "oculus/touch_controller" --apiVersion 1.0 --reporter ctsxml::out=interactive_action_oculus_touch_controller_1_0.xml
+conformance_cli "[actions][interactive]" -G d3d11 -I "oculus/touch_controller" --reporter ctsxml::out=interactive_action_oculus_touch_controller.xml
 
-conformance_cli "[actions][interactive]" -G d3d11 -I "htc/vive_controller" --apiVersion 1.0 --reporter ctsxml::out=interactive_action_htc_vive_controller_1_0.xml
-
-----
-====
-
-.Example command lines for OpenXR 1.1
-[%collapsible]
-====
-Select the interaction profiles to test based on the preceding description.
-[source,sh]
-----
-## Generic: Simple controller
-conformance_cli "[actions][interactive]" -G d3d11 -I "khr/simple_controller" --apiVersion 1.1 --reporter ctsxml::out=interactive_action_simple_controller_1_1.xml
-
-## Generic: Hand interaction (whether via hand tracking or controller)
-conformance_cli "[actions][interactive]" -G d3d11 -I "ext/hand_interaction_ext" --apiVersion 1.1 --reporter ctsxml::out=interactive_action_ext_hand_interaction_interaction_1_1.xml
-
-## Generic: Eye gaze
-conformance_cli "[actions][interactive]" -G d3d11 -I "ext/eye_gaze_interaction" --apiVersion 1.1 --reporter ctsxml::out=interactive_action_ext_eye_gaze_interaction_1_1.xml
-
-# Sample device-associated profiles
-conformance_cli "[actions][interactive]" -G d3d11 -I "microsoft/motion_controller" --apiVersion 1.1 --reporter ctsxml::out=interactive_action_microsoft_motion_controller_1_1.xml
-
-conformance_cli "[actions][interactive]" -G d3d11 -I "oculus/touch_controller" --apiVersion 1.1 --reporter ctsxml::out=interactive_action_oculus_touch_controller_1_1.xml
-
-conformance_cli "[actions][interactive]" -G d3d11 -I "htc/vive_controller" --apiVersion 1.1 --reporter ctsxml::out=interactive_action_htc_vive_controller_1_1.xml
+conformance_cli "[actions][interactive]" -G d3d11 -I "htc/vive_controller" --reporter ctsxml::out=interactive_action_htc_vive_controller.xml
 
 ----
 ====
 
 
-.Example command lines for a gamepad on OpenXR 1.0
+.Example command lines for a gamepad
 [%collapsible]
 ====
 [source,sh]
 ----
-conformance_cli "[gamepad]" -G d3d11 -I "microsoft/xbox_controller" --apiVersion 1.0 --reporter ctsxml::out=interactive_action_microsoft_xbox_controller_1_0.xml
-----
-====
-
-.Example command lines for a gamepad on OpenXR 1.1
-[%collapsible]
-====
-[source,sh]
-----
-conformance_cli "[gamepad]" -G d3d11 -I "microsoft/xbox_controller" --apiVersion 1.1 --reporter ctsxml::out=interactive_action_microsoft_xbox_controller_1_1.xml
+conformance_cli "[gamepad]" -G d3d11 -I "microsoft/xbox_controller" --reporter ctsxml::out=interactive_action_microsoft_xbox_controller.xml
 ----
 ====
 
 
-.Corresponding ADB commands to launch on Android for OpenXR 1.0
+.Corresponding ADB commands to launch on Android
 [%collapsible]
 ====
 Select the interaction profiles to test based on the preceding description.
@@ -440,80 +265,38 @@ Select the interaction profiles to test based on the preceding description.
 [source,sh]
 ----
 ## Generic: Simple controller
-adb shell am start-activity -S -n org.khronos.openxr.cts/android.app.NativeActivity --esa args "[actions][interactive],-I,khr/simple_controller" -e apiVersion 1.0 -e xmlFilename interactive_action_simple_controller_1_0.xml
+adb shell am start-activity -S -n org.khronos.openxr.cts/android.app.NativeActivity --esa args "[actions][interactive],-I,khr/simple_controller" -e xmlFilename interactive_action_simple_controller.xml
 
 # Wait until tests complete, then retrieve results with
-adb pull /sdcard/Android/data/org.khronos.openxr.cts/files/interactive_action_simple_controller_1_0.xml
+adb pull /sdcard/Android/data/org.khronos.openxr.cts/files/interactive_action_simple_controller.xml
 
 
 ## Generic: Hand interaction (whether via hand tracking or controller)
-adb shell am start-activity -S -n org.khronos.openxr.cts/android.app.NativeActivity --esa args "[actions][interactive],-I,ext/hand_interaction_ext" -e apiVersion 1.0 -e xmlFilename interactive_action_ext_hand_interaction_1_0.xml
+adb shell am start-activity -S -n org.khronos.openxr.cts/android.app.NativeActivity --esa args "[actions][interactive],-I,ext/hand_interaction_ext" -e xmlFilename interactive_action_ext_hand_interaction.xml
 
 # Wait until tests complete, then retrieve results with
-adb pull /sdcard/Android/data/org.khronos.openxr.cts/files/interactive_action_ext_hand_interaction_1_0.xml
+adb pull /sdcard/Android/data/org.khronos.openxr.cts/files/interactive_action_ext_hand_interaction.xml
 
 
 ## Generic: Eye gaze interaction
-adb shell am start-activity -S -n org.khronos.openxr.cts/android.app.NativeActivity --esa args "[actions][interactive],-I,ext/eye_gaze_interaction" -e apiVersion 1.0 -e xmlFilename interactive_action_ext_eye_gaze_interaction_1_0.xml
+adb shell am start-activity -S -n org.khronos.openxr.cts/android.app.NativeActivity --esa args "[actions][interactive],-I,ext/eye_gaze_interaction" -e xmlFilename interactive_action_ext_eye_gaze_interaction.xml
 
 # Wait until tests complete, then retrieve results with
-adb pull /sdcard/Android/data/org.khronos.openxr.cts/files/interactive_action_ext_eye_gaze_interaction_1_0.xml
+adb pull /sdcard/Android/data/org.khronos.openxr.cts/files/interactive_action_ext_eye_gaze_interaction.xml
 
 
 ## Sample device-associated profile
-adb shell am start-activity -S -n org.khronos.openxr.cts/android.app.NativeActivity --esa args "[actions][interactive],-I,oculus/touch_controller" -e apiVersion 1.0 -e xmlFilename interactive_action_oculus_touch_controller_1_0.xml
+adb shell am start-activity -S -n org.khronos.openxr.cts/android.app.NativeActivity --esa args "[actions][interactive],-I,oculus/touch_controller" -e xmlFilename interactive_action_oculus_touch_controller.xml
 
 # Wait until tests complete, then retrieve results with
-adb pull /sdcard/Android/data/org.khronos.openxr.cts/files/interactive_action_oculus_touch_controller_1_0.xml
+adb pull /sdcard/Android/data/org.khronos.openxr.cts/files/interactive_action_oculus_touch_controller.xml
 
 
 ## Sample gamepad profile
-adb shell am start-activity -S -n org.khronos.openxr.cts/android.app.NativeActivity --esa args "[gamepad],-I,microsoft/xbox_controller" -e apiVersion 1.0 -e xmlFilename interactive_action_microsoft_xbox_controller_1_0.xml
+adb shell am start-activity -S -n org.khronos.openxr.cts/android.app.NativeActivity --esa args "[gamepad],-I,microsoft/xbox_controller" -e xmlFilename interactive_action_microsoft_xbox_controller.xml
 
 # Wait until tests complete, then retrieve results with
-adb pull /sdcard/Android/data/org.khronos.openxr.cts/files/interactive_action_microsoft_xbox_controller_1_0.xml
-
-----
-====
-
-.Corresponding ADB commands to launch on Android for OpenXR 1.1
-[%collapsible]
-====
-[source,sh]
-----
-## Generic: Simple controller
-adb shell am start-activity -S -n org.khronos.openxr.cts/android.app.NativeActivity --esa args "[actions][interactive],-I,khr/simple_controller" -e apiVersion 1.1 -e xmlFilename interactive_action_simple_controller_1_1.xml
-
-# Wait until tests complete, then retrieve results with
-adb pull /sdcard/Android/data/org.khronos.openxr.cts/files/interactive_action_simple_controller_1_1.xml
-
-
-## Generic: Hand interaction (whether via hand tracking or controller)
-adb shell am start-activity -S -n org.khronos.openxr.cts/android.app.NativeActivity --esa args "[actions][interactive],-I,ext/hand_interaction_ext" -e apiVersion 1.1 -e xmlFilename interactive_action_ext_hand_interaction_1_1.xml
-
-# Wait until tests complete, then retrieve results with
-adb pull /sdcard/Android/data/org.khronos.openxr.cts/files/interactive_action_ext_hand_interaction_1_1.xml
-
-
-## Generic: Eye gaze interaction
-adb shell am start-activity -S -n org.khronos.openxr.cts/android.app.NativeActivity --esa args "[actions][interactive],-I,ext/eye_gaze_interaction" -e apiVersion 1.1 -e xmlFilename interactive_action_ext_eye_gaze_interaction_1_1.xml
-
-# Wait until tests complete, then retrieve results with
-adb pull /sdcard/Android/data/org.khronos.openxr.cts/files/interactive_action_ext_eye_gaze_interaction_1_1.xml
-
-
-## Sample device-associated profile
-adb shell am start-activity -S -n org.khronos.openxr.cts/android.app.NativeActivity --esa args "[actions][interactive],-I,oculus/touch_controller" -e apiVersion 1.1 -e xmlFilename interactive_action_oculus_touch_controller_1_1.xml
-
-# Wait until tests complete, then retrieve results with
-adb pull /sdcard/Android/data/org.khronos.openxr.cts/files/interactive_action_oculus_touch_controller_1_1.xml
-
-
-## Sample gamepad profile
-adb shell am start-activity -S -n org.khronos.openxr.cts/android.app.NativeActivity --esa args "[gamepad],-I,microsoft/xbox_controller" -e apiVersion 1.1 -e xmlFilename interactive_action_microsoft_xbox_controller_1_1.xml
-
-# Wait until tests complete, then retrieve results with
-adb pull /sdcard/Android/data/org.khronos.openxr.cts/files/interactive_action_microsoft_xbox_controller_1_1.xml
+adb pull /sdcard/Android/data/org.khronos.openxr.cts/files/interactive_action_microsoft_xbox_controller.xml
 
 ----
 ====

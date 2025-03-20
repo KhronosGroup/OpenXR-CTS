@@ -12,14 +12,6 @@ The submission package **must** include each of the following:
 . <<submissions-package-build-info>>
 . <<submissions-package-conformance-statement>>
 
-When you submit for OpenXR 1.1 conformance, you **must** also submit for
-each earlier OpenXR minor version that your runtime supports in the same
-submission if you want to claim conformance with each of those minor
-versions too.
-For runtimes which want to claim support for OpenXR 1.0 and OpenXR 1.1 this
-means executing each test run with both `--apiVersion 1.0` and `--apiVersion
-1.1` separately.
-
 
 [[submissions-package-xml]]
 === XML files produced from test runs
@@ -27,42 +19,29 @@ means executing each test run with both `--apiVersion 1.0` and `--apiVersion
 One or more automated test result XML files, 1 per graphics API supported,
 therefore one or more of the following generated output files:
 
-* `automated_d3d11_1_0.xml`
-* `automated_d3d12_1_0.xml`
-* `automated_opengl_1_0.xml`
-* `automated_gles_1_0.xml`
-* `automated_vulkan_1_0.xml`
-* `automated_vulkan2_1_0.xml`
-* `automated_d3d11_1_1.xml`
-* `automated_d3d12_1_1.xml`
-* `automated_opengl_1_1.xml`
-* `automated_gles_1_1.xml`
-* `automated_vulkan_1_1.xml`
-* `automated_vulkan2_1_1.xml`
+* `automated_d3d11.xml`
+* `automated_d3d12.xml`
+* `automated_opengl.xml`
+* `automated_gles.xml`
+* `automated_vulkan.xml`
+* `automated_vulkan2.xml`
 
 
 The output XML file(s) from running the interactive tests, 1 per supported
 graphics API, therefore one or more of the following generated output files:
 
-* `interactive_composition_d3d11_1_0.xml`
-* `interactive_composition_d3d12_1_0.xml`
-* `interactive_composition_opengl_1_0.xml`
-* `interactive_composition_gles_1_0.xml`
-* `interactive_composition_vulkan_1_0.xml`
-* `interactive_composition_vulkan2_1_0.xml`
-* `interactive_composition_d3d11_1_1.xml`
-* `interactive_composition_d3d12_1_1.xml`
-* `interactive_composition_opengl_1_1.xml`
-* `interactive_composition_gles_1_1.xml`
-* `interactive_composition_vulkan_1_1.xml`
-* `interactive_composition_vulkan2_1_1.xml`
+* `interactive_composition_d3d11.xml`
+* `interactive_composition_d3d12.xml`
+* `interactive_composition_opengl.xml`
+* `interactive_composition_gles.xml`
+* `interactive_composition_vulkan.xml`
+* `interactive_composition_vulkan2.xml`
 
 
 At least one output file from running the interactive scenario tests on a
 single graphics API (more is better):
 
-* `interactive_scenarios_1_0.xml`
-* `interactive_scenarios_1_1.xml`
+* `interactive_scenarios.xml`
 
 
 The output XML file(s) from running the interactive action tests, 1 per
@@ -72,18 +51,12 @@ This list below are example files, each platform **may** have their own
 controllers though `simple_controller` is expected to be supported at a
 minimum.
 
-* `interactive_action_simple_controller_1_0.xml`
-* `interactive_action_microsoft_xbox_controller_1_0.xml`
-* `interactive_action_microsoft_motion_controller_1_0.xml`
-* `interactive_action_oculus_touch_controller_1_0.xml`
-* `interactive_action_valve_index_controller_1_0.xml`
-* `interactive_action_htc_vive_controller_1_0.xml`
-* `interactive_action_simple_controller_1_1.xml`
-* `interactive_action_microsoft_xbox_controller_1_1.xml`
-* `interactive_action_microsoft_motion_controller_1_1.xml`
-* `interactive_action_oculus_touch_controller_1_1.xml`
-* `interactive_action_valve_index_controller_1_1.xml`
-* `interactive_action_htc_vive_controller_1_1.xml`
+* `interactive_action_simple_controller.xml`
+* `interactive_action_microsoft_xbox_controller.xml`
+* `interactive_action_microsoft_motion_controller.xml`
+* `interactive_action_oculus_touch_controller.xml`
+* `interactive_action_valve_index_controller.xml`
+* `interactive_action_htc_vive_controller.xml`
 
 === The console output produced by the CTS runs
 

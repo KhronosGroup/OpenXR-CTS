@@ -40,7 +40,7 @@ namespace Conformance
     void WriteAvailableInstanceExtensions(Catch::XmlWriter& xml, const span<XrExtensionProperties> availableInstanceExtensions);
 
     /// Write out instance properties as a `cts:runtimeInstanceProperties` element with two sub-elements
-    void WriteInstanceProperties(Catch::XmlWriter& xml, const XrInstanceProperties& instanceProperties);
+    void WriteInstanceProperties(Catch::XmlWriter& xml, XrVersion apiVersion, const XrInstanceProperties& instanceProperties);
 
     /// Write out test options as a `cts:testOptions` element with one sub-element for each option:
     /// Both the string/cli version and the parsed version of each option are output as attributes.
