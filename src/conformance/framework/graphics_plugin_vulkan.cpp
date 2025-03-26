@@ -1927,14 +1927,26 @@ namespace Conformance
         imgBarrier.subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, arraySlice, 1};
         vkCmdPipelineBarrier(m_cmdBuffer.buf, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0, nullptr, 1,
                              &imgBarrier);
-
-        // Blit staging -> swapchain
-        VkImageBlit blit = {{VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1},
-                            {{0, 0, 0}, {(int32_t)w, (int32_t)h, 1}},
-                            {VK_IMAGE_ASPECT_COLOR_BIT, 0, arraySlice, 1},
-                            {{0, 0, 0}, {(int32_t)w, (int32_t)h, 1}}};
-        vkCmdBlitImage(m_cmdBuffer.buf, stagingImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, swapchainImageVk->image,
-                       VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &blit, VK_FILTER_NEAREST);
+        
+        if (image.isSrgb) {
+            // copy staging -> swapchain
+            VkImageCopy copyRegion = {{VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1},
+                                      {0, 0, 0},
+                                      {VK_IMAGE_ASPECT_COLOR_BIT, 0, arraySlice, 1},
+                                      {0, 0, 0},
+                                      {(uint32_t)w, (uint32_t)h, 1}}; 
+            vkCmdCopyImage(m_cmdBuffer.buf, stagingImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, swapchainImageVk->image,
+                           VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copyRegion); 
+        }
+        else {
+            // Blit staging -> swapchain
+            VkImageBlit blit = {{VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1},
+                                {{0, 0, 0}, {(int32_t)w, (int32_t)h, 1}},
+                                {VK_IMAGE_ASPECT_COLOR_BIT, 0, arraySlice, 1},
+                                {{0, 0, 0}, {(int32_t)w, (int32_t)h, 1}}};
+            vkCmdBlitImage(m_cmdBuffer.buf, stagingImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, swapchainImageVk->image,
+                           VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &blit, VK_FILTER_NEAREST);
+        }
 
         // Switch the destination image from TRANSFER_DST_OPTIMAL -> COLOR_ATTACHMENT_OPTIMAL
         //
