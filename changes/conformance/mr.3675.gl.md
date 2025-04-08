@@ -1,0 +1,1 @@
+- Fix: Account for "depends" of extensions in generated dependencies for automated availability tests

@@ -58,6 +58,7 @@ android {
         applicationId "org.khronos.openxr.cts"
         // for Vulkan, need at least 24
         minSdkVersion 24
+        targetSdkVersion 34
 
         versionName = project.versionOpenXR.toString() + project.versionQualifier
         versionCode = project.versionOpenXR.getVersionCode()

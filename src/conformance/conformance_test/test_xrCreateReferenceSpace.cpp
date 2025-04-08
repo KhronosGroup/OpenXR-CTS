@@ -23,6 +23,7 @@
 #include <openxr/openxr.h>
 
 #include <algorithm>
+#include <cmath>
 #include <initializer_list>
 #include <vector>
 
@@ -56,10 +57,18 @@ namespace Conformance
             if (XR_SUCCEEDED(result))
                 CHECK(xrDestroySpace(localSpace) == XR_SUCCESS);
 
-            // Exercise XR_ERROR_POSE_INVALID.
-            reference_space_create_info.poseInReferenceSpace.orientation.w = 0;  // Make the quaternion invalid.
-            CHECK(xrCreateReferenceSpace(session, &reference_space_create_info, &localSpace) == XR_ERROR_POSE_INVALID);
-            reference_space_create_info.poseInReferenceSpace = Pose::Identity;  // Restore it.
+            {
+                INFO("Exercise XR_ERROR_POSE_INVALID");
+                {
+                    CAPTURE(reference_space_create_info.poseInReferenceSpace.orientation.w = 0);  // Make the quaternion invalid.
+                    CHECK(xrCreateReferenceSpace(session, &reference_space_create_info, &localSpace) == XR_ERROR_POSE_INVALID);
+                }
+                {
+                    CAPTURE(reference_space_create_info.poseInReferenceSpace.orientation.w = NAN);  // Make the quaternion invalid.
+                    CHECK(xrCreateReferenceSpace(session, &reference_space_create_info, &localSpace) == XR_ERROR_POSE_INVALID);
+                }
+                reference_space_create_info.poseInReferenceSpace = Pose::Identity;  // Restore it.
+            }
 
             // Exercise other invalid handles.
             OPTIONAL_INVALID_HANDLE_VALIDATION_SECTION
