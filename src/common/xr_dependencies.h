@@ -93,3 +93,7 @@
 #undef None
 #endif  // None
 #endif  // defined(XR_USE_PLATFORM_XLIB) || defined(XR_USE_PLATFORM_XCB)
+
+#ifdef XR_USE_TIMESPEC
+#include <time.h>
+#endif  // XR_USE_TIMESPEC
