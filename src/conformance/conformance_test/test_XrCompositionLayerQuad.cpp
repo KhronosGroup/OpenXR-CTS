@@ -174,6 +174,13 @@ namespace Conformance
             }
 
             {
+                INFO("Invalid pose with NaN in elements");
+                XrCompositionLayerQuad quad = makeSimpleQuad();
+                quad.pose.orientation = {NAN, 0, 0, 0};  // (NAN in elements)
+                CHECK(XR_ERROR_POSE_INVALID == submitFrame({&quad}));
+            }
+
+            {
                 INFO("Invalid imageRect with negative offset");
                 XrCompositionLayerQuad quad = makeSimpleQuad();
                 quad.subImage.imageRect.offset = {-1, -1};

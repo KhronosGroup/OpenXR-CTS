@@ -240,6 +240,15 @@ namespace Conformance
                 }
 
                 {
+                    INFO("Invalid pose with NaN in elements");
+                    XrFrameState frameState = waitAndBeginFrame();
+                    std::vector<XrView> views = locateViews(frameState);
+                    ProjectionLayerWithViews projectionLayerWithViews(views, session.spaceVector.front(), createColorSwapchainSubImage);
+                    projectionLayerWithViews.ProjectionViews[view].pose.orientation = {NAN, 0.1f, 0.1f, 0.1f};
+                    CHECK(XR_ERROR_POSE_INVALID == endFrame(frameState, {&projectionLayerWithViews.Layer}));
+                }
+
+                {
                     INFO("Invalid imageRect with negative offset");
                     XrFrameState frameState = waitAndBeginFrame();
                     std::vector<XrView> views = locateViews(frameState);

@@ -79,8 +79,10 @@ class ConformanceGenerator(AutomaticSourceOutputGenerator):
         temp = AvailabilitySymbols()
         for profile in self.interaction_profiles.interaction_profiles.values():
             temp.add(profile.availability)
-            for _, component in profile.yield_user_path_and_component_pairs():
-                avail = profile.compute_component_availability(component)
+            for u_p_avail in profile.valid_user_paths.values():
+                temp.add(u_p_avail)
+            for user_path, component in profile.yield_user_path_and_component_pairs():
+                avail = profile.compute_component_availability(user_path, component)
                 temp.add(avail)
         return temp.make_frozen()
 

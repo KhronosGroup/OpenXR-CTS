@@ -163,3 +163,14 @@ void ValidateXrVector3f(ConformanceHooksBase* conformanceHook, const XrVector3f&
                                             "%s is not a valid XrVector3f value: (%f, %f, %f)", valueName, v.x, v.y, v.z);
     }
 }
+
+void ValidateXrFovf(ConformanceHooksBase* conformanceHook, const XrFovf& fov, const char* valueName, const char* xrFunctionName)
+{
+    const float pi_2 = std::acos(0.0f);
+    auto isValidFov = [pi_2](float v) { return std::isfinite(v) && (-pi_2 < v && v < pi_2); };
+    if (!isValidFov(fov.angleLeft) || !isValidFov(fov.angleRight) || !isValidFov(fov.angleUp) || !isValidFov(fov.angleDown)) {
+        conformanceHook->ConformanceFailure(XR_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT, xrFunctionName,
+                                            "%s is not a valid XrFovf value: (%f, %f, %f, %f)", valueName, fov.angleLeft, fov.angleRight,
+                                            fov.angleUp, fov.angleDown);
+    }
+}

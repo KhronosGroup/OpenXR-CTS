@@ -270,7 +270,20 @@ XrResult ConformanceHooks::xrLocateViews(XrSession session, const XrViewLocateIn
                     VALIDATE_VECTOR3F(currentView.pose.position);
                 }
 
-                // TODO: Validate FOV.
+                VALIDATE_FOVF(currentView.fov);
+
+                if (currentView.fov.angleLeft == currentView.fov.angleRight) {
+                    POSSIBLE_NONCONFORMANT(
+                        "fov.angleLeft (%f) and fov.angleRight (%f) were equal."
+                        " This is legal, but applications without special handling for this may have trouble.",
+                        currentView.fov.angleLeft, currentView.fov.angleRight);
+                }
+                if (currentView.fov.angleUp == currentView.fov.angleDown) {
+                    POSSIBLE_NONCONFORMANT(
+                        "fov.angleUp (%f) and fov.angleDown (%f) were equal."
+                        " This is legal, but applications without special handling for this may have trouble.",
+                        currentView.fov.angleUp, currentView.fov.angleDown);
+                }
             }
         }
     }

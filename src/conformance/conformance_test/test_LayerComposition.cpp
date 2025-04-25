@@ -548,8 +548,8 @@ namespace Conformance
         XrSystemProperties systemProperties{XR_TYPE_SYSTEM_PROPERTIES};
         XRC_CHECK_THROW_XRCMD(xrGetSystemProperties(instance, systemId, &systemProperties));
 
-        // For systems that support effectively unlimited layers, cap the test at 32.
-        const uint32_t maxLayerCount = std::min((uint32_t)32, systemProperties.graphicsProperties.maxLayerCount);
+        // In the noninteractive test, we do not clamp, we actually test full amount of layers. But we do not create a swapchain for every layer.
+        const uint32_t maxLayerCount = systemProperties.graphicsProperties.maxLayerCount;
         const uint32_t maxLayerCountPlus1 = maxLayerCount + 1;
 
         // Create and initialize max projection layers, swapchains before hand.
@@ -557,17 +557,16 @@ namespace Conformance
         std::vector<XrCompositionLayerProjection*> projLayers;
         std::vector<XrSwapchain> swapchains;
 
-        // Some runtimes support exactly as many swapchains as layers. Therefore, use a quarter swapchain per layer.
-        // + 1 extra swapchain compared to the interactive test for testing exceeding the maxLayerCount.
-        const uint32_t numSwapchains = (maxLayerCount + 3) / 4 + 1;
-        swapchains.reserve(numSwapchains);
-        for (size_t i = 0; i < numSwapchains; ++i) {
+        // In the noninteractive test, reuse swapchains for layers, but use 4 layers so there is at least some variability.
+        const uint32_t swapchainCount = 4;
+        swapchains.reserve(swapchainCount);
+        for (size_t i = 0; i < swapchainCount; ++i) {
             swapchains.push_back(
                 compositionHelper.CreateSwapchain(compositionHelper.DefaultColorSwapchainCreateInfo(totalWidth, maxHeight)));
         }
         for (size_t i = 0; i < maxLayerCount; ++i) {
             projLayers.push_back(compositionHelper.CreateProjectionLayer(localSpace));
-            XrSwapchain& swapchain = swapchains[i / 4];
+            XrSwapchain& swapchain = swapchains[i % 4];
             for (uint32_t j = 0; j < projLayers[i]->viewCount; j++) {
                 // in the noninteractive test we don't render, no need to define subimage rects
                 const_cast<XrSwapchainSubImage&>(projLayers[i]->views[j].subImage) = compositionHelper.MakeDefaultSubImage(swapchain, 0);
@@ -583,20 +582,18 @@ namespace Conformance
             projLayers.push_back(compositionHelper.CreateProjectionLayer(localSpace));
 
             // reuse swapchains from projection layer, in a noninteractive test it doesn't matter what they show
-            XrSwapchain& swapchain = swapchains[i / 4];
+            XrSwapchain& swapchain = swapchains[i % 4];
             quadLayers.push_back(compositionHelper.CreateQuadLayer(swapchain, localSpace, (float)totalWidth));
         }
 
         for (uint32_t i = 0; i < maxLayerCountPlus1; i++) {
-            int x = 0;
             for (uint32_t j = 0; j < projLayers[i]->viewCount; j++) {
-                XrSwapchain& swapchain = swapchains[i / 4];
+                XrSwapchain& swapchain = swapchains[i % 4];
                 XrSwapchainSubImage subImage = compositionHelper.MakeDefaultSubImage(swapchain, 0);
-                subImage.imageRect.offset = {x, 0};
+                subImage.imageRect.offset = {0, 0};
                 subImage.imageRect.extent = {(int32_t)viewProperties[j].recommendedImageRectWidth,
                                              (int32_t)viewProperties[j].recommendedImageRectHeight};
                 const_cast<XrSwapchainSubImage&>(projLayers[i]->views[j].subImage) = subImage;
-                x += subImage.imageRect.extent.width;  // Each view is to the left of the previous view.
                 projLayers[i]->layerFlags = XR_COMPOSITION_LAYER_BLEND_TEXTURE_SOURCE_ALPHA_BIT;
             }
         }
@@ -622,7 +619,14 @@ namespace Conformance
                 CAPTURE(frameEndInfo.displayTime = frameState.predictedDisplayTime);
                 CAPTURE(frameEndInfo.layerCount = (uint32_t)layers.size());
                 frameEndInfo.layers = layers.data();
-                REQUIRE(XR_SUCCESS == xrEndFrame(session, &frameEndInfo));
+                XrResult endFrameResult = xrEndFrame(session, &frameEndInfo);
+                if (endFrameResult != XR_SUCCESS) {
+                    // This tries submitting "maxLayerCount" projection layers, which is not technically required by the spec,
+                    // if maxLayerCount is greater than XR_MIN_COMPOSITION_LAYERS_SUPPORTED.
+                    // But, it may be a surprise to app developers, hence the warning.
+                    WARN("xrEndFrame returned " << ResultToString(endFrameResult) << ", expected XR_SUCCESS. Tried submitting "
+                                                << maxLayerCount << " layers.");
+                }
 
                 return true;
             };
@@ -726,14 +730,14 @@ namespace Conformance
         }
     }
 
-    TEST_CASE("MaxLayers", "[composition][interactive][no_auto]")
+    TEST_CASE("MinLayers", "[composition][interactive][no_auto]")
     {
         GlobalData& globalData = GetGlobalData();
         if (!globalData.IsUsingGraphicsPlugin()) {
             SKIP("Cannot test without a graphics plugin");
         }
 
-        CompositionHelper compositionHelper("Max Layers");
+        CompositionHelper compositionHelper("Min Layers");
         InteractionManager& interactionManager = compositionHelper.GetInteractionManager();
         interactionManager.AddDefaultActions(compositionHelper.GetInstance());
         interactionManager.AttachActionSets();
@@ -757,8 +761,14 @@ namespace Conformance
         XrSystemProperties systemProperties{XR_TYPE_SYSTEM_PROPERTIES};
         XRC_CHECK_THROW_XRCMD(xrGetSystemProperties(instance, systemId, &systemProperties));
 
-        // For systems that support effectively unlimited layers, cap the test at 32.
-        const uint32_t maxLayerCount = std::min((uint32_t)32, systemProperties.graphicsProperties.maxLayerCount);
+        // Minimum Visible Layer test:
+        // 5.3 System Properties:
+        // The runtime must support at least XR_MIN_COMPOSITION_LAYERS_SUPPORTED layers.
+        // 10.4 Frame Submission:
+        // XR_ERROR_LAYER_LIMIT_EXCEEDED must be returned if XrFrameEndInfo::layerCount exceeds XrSystemGraphicsProperties::maxLayerCount
+        // or if the runtime is unable to composite the specified layers due to resource constraints.
+        // This means at best we can test for XR_MIN_COMPOSITION_LAYERS_SUPPORTED visible layers.
+        const uint32_t minLayerCount = XR_MIN_COMPOSITION_LAYERS_SUPPORTED;
 
         // Create and initialize max projection layers, and associated swapchains.
         // Remember CompositionHelper creates a swapchain too.
@@ -769,14 +779,14 @@ namespace Conformance
         // Therefore, use a quarter swapchain per projection layer to fit layersPerSC projection layers on one swapchain.
         // This value cannot easily be changed without code modifications for projection layer imageRect and layer*Offset
         constexpr uint32_t layersPerSC = 4;
-        const uint32_t numSwapchains = (maxLayerCount + (layersPerSC - 1)) / layersPerSC;
-        swapchains.reserve(numSwapchains);
-        for (size_t i = 0; i < numSwapchains; ++i) {
+        const uint32_t swapchainCount = (minLayerCount + (layersPerSC - 1)) / layersPerSC;
+        swapchains.reserve(swapchainCount);
+        for (size_t i = 0; i < swapchainCount; ++i) {
             swapchains.push_back(
                 compositionHelper.CreateSwapchain(compositionHelper.DefaultColorSwapchainCreateInfo(totalWidth, maxHeight)));
         }
 
-        for (size_t i = 0; i < maxLayerCount; ++i) {
+        for (size_t i = 0; i < minLayerCount; ++i) {
             projLayers.push_back(compositionHelper.CreateProjectionLayer(localSpace));
             XrSwapchain& swapchain = swapchains[i / layersPerSC];
             for (uint32_t j = 0; j < projLayers[i]->viewCount; j++) {
@@ -812,7 +822,7 @@ namespace Conformance
             float xOffset = -(itemsPerRow * step) / 2.0f;
             uint32_t row = 0;
             uint32_t col = 0;
-            for (uint32_t i = 0; i < maxLayerCount; i++) {
+            for (uint32_t i = 0; i < minLayerCount; i++) {
                 gridPoses.push_back(XrPosef{
                     Quat::Identity,
                     XrVector3f{xOffset + col * step,
@@ -832,7 +842,7 @@ namespace Conformance
         {
             // Minimize swapchain use for quad layers by using only one large swapchain.
             // Use a similar method to render the grid as the "Subimage" test case.
-            int ImageColCount = maxLayerCount;
+            int ImageColCount = minLayerCount;
             int ImageWidth = 2048;
             int ImageHeight = ImageWidth / ImageColCount;
             int CellWidth = (ImageWidth / ImageColCount);
@@ -882,8 +892,8 @@ namespace Conformance
 
             {
                 std::ostringstream oss;
-                oss << "In the next scene, <" << maxLayerCount
-                    << "> projection layers will be rendered with one cube each. Please verify that <" << maxLayerCount
+                oss << "In the next scene, <" << minLayerCount
+                    << "> projection layers will be rendered with one cube each. Please verify that <" << minLayerCount
                     << "> cubes are visible. In that next scene, press SELECT to pass the test or MENU to fail this test.\nPress SELECT now to dismiss the instructions and proceed to the next scene.";
 
                 XrCompositionLayerQuad* const instructionsQuad = compositionHelper.CreateQuadLayer(
@@ -915,7 +925,7 @@ namespace Conformance
 
                 if (viewState.viewStateFlags & XR_VIEW_STATE_POSITION_VALID_BIT &&
                     viewState.viewStateFlags & XR_VIEW_STATE_ORIENTATION_VALID_BIT) {
-                    for (uint32_t i = 0; i < maxLayerCount; i++) {
+                    for (uint32_t i = 0; i < minLayerCount; i++) {
                         const auto& views = std::get<std::vector<XrView>>(viewData);
                         uint32_t swapchainIndex = i / 4;
 
@@ -941,7 +951,7 @@ namespace Conformance
 
                         // after layer 3, 7, etc. has been rendered, the swapchain image can be released.
                         // if maxSupportedProjectionLayers is not divisible by 4, we still need to release on the last one.
-                        if (i % layersPerSC == layersPerSC - 1 || i == maxLayerCount - 1) {
+                        if (i % layersPerSC == layersPerSC - 1 || i == minLayerCount - 1) {
                             compositionHelper.ReleaseImage(swapchains[swapchainIndex]);
                         }
 
@@ -969,7 +979,7 @@ namespace Conformance
 
             {
                 std::ostringstream oss;
-                oss << "In the next scene, <" << maxLayerCount << "> quad layers will be rendered. Please verify that <" << maxLayerCount
+                oss << "In the next scene, <" << minLayerCount << "> quad layers will be rendered. Please verify that <" << minLayerCount
                     << "> quads are visible. In that next scene, press SELECT to pass the test or MENU to fail this test.\nPress SELECT now to dismiss the instructions and proceed to the next scene.";
 
                 XrCompositionLayerQuad* const instructionsQuad = compositionHelper.CreateQuadLayer(
@@ -993,7 +1003,7 @@ namespace Conformance
             auto updateLayers = [&](const XrFrameState& frameState) {
                 std::vector<XrCompositionLayerBaseHeader*> layers;
 
-                for (uint32_t i = 0; i < maxLayerCount; i++) {
+                for (uint32_t i = 0; i < minLayerCount; i++) {
                     layers.push_back(reinterpret_cast<XrCompositionLayerBaseHeader*>(quadLayers[i]));
                 }
 
@@ -1015,9 +1025,9 @@ namespace Conformance
         SECTION("RenderMaxProjAndQuadLayers")
         {
             // We require at least XR_MIN_COMPOSITION_LAYERS_SUPPORTED projection layers to be supported, so this is always > 0.
-            uint32_t projLayerCount = maxLayerCount / 2;
+            uint32_t projLayerCount = minLayerCount / 2;
 
-            uint32_t quadLayersToAdd = maxLayerCount - projLayerCount;
+            uint32_t quadLayersToAdd = minLayerCount - projLayerCount;
 
             {
                 std::ostringstream oss;

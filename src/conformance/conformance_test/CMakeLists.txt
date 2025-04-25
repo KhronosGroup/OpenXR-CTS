@@ -27,18 +27,6 @@ file(
     CONFIGURE_DEPENDS
     "*.cpp"
 )
-file(
-    GLOB
-    ASSETS
-    "composition_assets/*.png"
-    "composition_examples/*.jpg"
-    "composition_examples/*.png"
-    "SourceCodePro-Regular.otf"
-    "gltf_examples/*.glb"
-    "gltf_examples/*.png"
-    "pbr_assets/*.png"
-    "d3d_shaders/*.hlsl"
-)
 file(GLOB VULKAN_SHADERS "vulkan_shaders/*.glsl")
 
 configure_file(
@@ -202,35 +190,14 @@ else()
 endif()
 
 if(BUILD_CONFORMANCE_CLI)
-    # Copy conformance_test assets files to the conformance_cli binary folder
-    foreach(ASSET ${ASSETS})
-        add_custom_command(
-            TARGET conformance_test
-            PRE_BUILD
-            COMMAND
-                ${CMAKE_COMMAND} -E copy ${ASSET}
-                $<TARGET_PROPERTY:conformance_cli,BINARY_DIR>
-        )
-        install(FILES ${ASSET} DESTINATION conformance)
-    endforeach()
-
-    # Copy conformance test binary to conformance_cli binary folder
+    # Copy the test layer manifest to its target directory
     add_custom_command(
         TARGET conformance_test
         POST_BUILD
         COMMAND
-            ${CMAKE_COMMAND} -E copy $<TARGET_FILE:conformance_test>
-            $<TARGET_PROPERTY:conformance_cli,BINARY_DIR>
-    )
-
-    # Copy test layer files to conformance_cli binary folder
-    add_custom_command(
-        TARGET conformance_test
-        POST_BUILD
-        COMMAND
-            ${CMAKE_COMMAND} -E copy
-            ${CMAKE_CURRENT_BINARY_DIR}/XrApiLayer_conformance_test_layer.json
-            $<TARGET_PROPERTY:conformance_cli,BINARY_DIR>
+            "${CMAKE_COMMAND}" -E copy
+            "${CMAKE_CURRENT_BINARY_DIR}/XrApiLayer_conformance_test_layer.json"
+            "$<TARGET_FILE_DIR:conformance_test>"
     )
 endif()
 

@@ -3219,8 +3219,15 @@ namespace Conformance
         const bool leftHandUnderTest = globalData.leftHandUnderTest;
         const bool rightHandUnderTest = globalData.rightHandUnderTest;
         // `required` now contains all extensions needed for all listed interaction profiles.
+        // (But not any extra top level /user paths.)
         for (const InteractionProfileAvailMetadata* ipMetadata : enabledProfiles) {
-            for (const char* const topLevelUserPathString : ipMetadata->TopLevelPaths) {
+            for (const auto& topLevelUserPathInfo : ipMetadata->TopLevelPaths) {
+                const char* const topLevelUserPathString = topLevelUserPathInfo.first;
+                if (!GetInteractionProfileAvailability(topLevelUserPathInfo.second).IsSatisfiedBy(required)) {
+                    ReportF("Skipping %s on %s - top level /user path not available", ipMetadata->InteractionProfileShortname,
+                            topLevelUserPathString);
+                    continue;
+                }
                 if ((topLevelUserPathString == leftHandString && !leftHandUnderTest) ||
                     (topLevelUserPathString == rightHandString && !rightHandUnderTest)) {
                     continue;

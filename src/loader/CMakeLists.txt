@@ -329,8 +329,8 @@ if(DYNAMIC_LOADER AND BUILD_CONFORMANCE_CLI)
         TARGET openxr_loader
         POST_BUILD
         COMMAND
-            ${CMAKE_COMMAND} -E copy $<TARGET_FILE:openxr_loader>
-            $<TARGET_PROPERTY:conformance_cli,BINARY_DIR>
+            ${CMAKE_COMMAND} -E copy "$<TARGET_FILE:openxr_loader>"
+            "$<TARGET_PROPERTY:conformance_cli,BINARY_DIR>"
     )
 endif()
 

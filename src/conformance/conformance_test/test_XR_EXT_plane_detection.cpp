@@ -20,6 +20,7 @@
 #include "mesh_projection_layer.h"
 
 #include <catch2/catch_test_macros.hpp>
+#include <catch2/generators/catch_generators.hpp>
 #include <earcut.hpp>
 #include <openxr/openxr.h>
 
@@ -573,9 +574,12 @@ namespace Conformance
         }
         SECTION("invalid-pose")
         {
-
-            pose.orientation = XrQuaternionf{0.0f, 0.0f, 0.0f, 0.0f};
-
+            // Any place we can return XR_ERROR_POSE_INVALID, make sure to test both wrong-norm and NAN-component
+            pose.orientation = GENERATE(Catch::Generators::values({
+                XrQuaternionf{0.0f, 0.0f, 0.0f, 0.0f},
+                XrQuaternionf{NAN, 0.0f, 0.0f, 0.0f},
+            }));
+            CAPTURE(pose.orientation);
             makeInstructionsQuad("Testing invalid pose");
 
             RenderLoop(session, [&](const XrFrameState& frameState) {

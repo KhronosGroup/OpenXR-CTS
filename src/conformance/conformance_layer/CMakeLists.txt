@@ -140,18 +140,14 @@ else()
 endif()
 
 if(BUILD_CONFORMANCE_CLI)
-    # Copy conformance layer files to conformance_cli binary folder
+    # Copy the conformance layer configuration to its target directory
     add_custom_command(
         TARGET XrApiLayer_runtime_conformance
         POST_BUILD
         COMMAND
-            ${CMAKE_COMMAND} -E copy
-            $<TARGET_FILE:XrApiLayer_runtime_conformance>
-            $<TARGET_PROPERTY:conformance_cli,BINARY_DIR>
-        COMMAND
-            ${CMAKE_COMMAND} -E copy
-            ${CMAKE_CURRENT_BINARY_DIR}/XrApiLayer_runtime_conformance.json
-            $<TARGET_PROPERTY:conformance_cli,BINARY_DIR>
+            "${CMAKE_COMMAND}" -E copy
+            "${CMAKE_CURRENT_BINARY_DIR}/XrApiLayer_runtime_conformance.json"
+            "$<TARGET_FILE_DIR:XrApiLayer_runtime_conformance>"
     )
 endif()
 
