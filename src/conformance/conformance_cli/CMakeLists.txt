@@ -83,6 +83,94 @@ set_target_properties(
 
 install(TARGETS conformance_cli RUNTIME DESTINATION conformance)
 
+# Copy conformance_test assets files to the conformance_cli binary folder
+foreach(ASSET ${CONFORMANCE_ASSETS})
+    get_filename_component(ASSET_FN "${ASSET}" NAME)
+    add_custom_command(
+        TARGET conformance_cli
+        PRE_BUILD
+        COMMAND
+            "${CMAKE_COMMAND}" -E make_directory
+            "$<TARGET_FILE_DIR:conformance_cli>"
+        COMMAND
+            "${CMAKE_COMMAND}" -E copy "${ASSET}"
+            "$<TARGET_FILE_DIR:conformance_cli>"
+        VERBATIM
+        COMMENT "Copying conformance test asset ${ASSET_FN}"
+    )
+endforeach()
+
+# install(FILES ${CONFORMANCE_ASSETS} DESTINATION conformance)
+
+# Copy conformance test binary to conformance_cli binary folder
+add_custom_command(
+    TARGET conformance_cli
+    PRE_BUILD
+    COMMAND
+        "${CMAKE_COMMAND}" -E make_directory
+        "$<TARGET_FILE_DIR:conformance_cli>"
+    COMMAND
+        "${CMAKE_COMMAND}" -E copy "$<TARGET_FILE:conformance_test>"
+        "$<TARGET_FILE_DIR:conformance_cli>"
+    VERBATIM
+    COMMENT
+        "Copying conformance test library binary $<TARGET_FILE_NAME:conformance_test>"
+)
+
+# Copy conformance layer files to conformance_cli binary folder
+add_custom_command(
+    TARGET conformance_cli
+    PRE_BUILD
+    COMMAND
+        "${CMAKE_COMMAND}" -E make_directory
+        "$<TARGET_FILE_DIR:conformance_cli>"
+    COMMAND
+        "${CMAKE_COMMAND}" -E copy
+        "$<TARGET_FILE:XrApiLayer_runtime_conformance>"
+        "$<TARGET_FILE_DIR:conformance_cli>"
+    COMMAND
+        "${CMAKE_COMMAND}" -E copy
+        "$<TARGET_FILE_DIR:XrApiLayer_runtime_conformance>/XrApiLayer_runtime_conformance.json"
+        "$<TARGET_FILE_DIR:conformance_cli>"
+    VERBATIM
+    COMMENT
+        "Copying conformance test layer binary $<TARGET_FILE_NAME:conformance_test>"
+)
+
+# Copy test layer files to conformance_cli binary folder
+add_custom_command(
+    TARGET conformance_cli
+    PRE_BUILD
+    COMMAND
+        "${CMAKE_COMMAND}" -E make_directory
+        "$<TARGET_FILE_DIR:conformance_cli>"
+    # the code for this is embedded in the main test shared object
+    COMMAND
+        "${CMAKE_COMMAND}" -E copy
+        "$<TARGET_FILE_DIR:conformance_test>/XrApiLayer_conformance_test_layer.json"
+        "$<TARGET_FILE_DIR:conformance_cli>"
+    VERBATIM
+    COMMENT
+        "Copying conformance test layer manifest XrApiLayer_conformance_test_layer.json"
+)
+
+if(DYNAMIC_LOADER)
+    add_custom_command(
+        TARGET conformance_cli
+        PRE_BUILD
+    COMMAND
+        "${CMAKE_COMMAND}" -E make_directory
+        "$<TARGET_FILE_DIR:conformance_cli>"
+    COMMAND
+        "${CMAKE_COMMAND}" -E copy
+        "$<TARGET_FILE:openxr_loader>"
+        "$<TARGET_FILE_DIR:conformance_cli>"
+    VERBATIM
+    COMMENT
+        "Copying loader binary $<TARGET_FILE_NAME:openxr_loader>"
+    )
+endif()
+
 if(MSVC)
     install(
         FILES $<TARGET_PDB_FILE:conformance_cli>

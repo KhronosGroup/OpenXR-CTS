@@ -1,4 +1,0 @@
----
-- issue.2435.gl
----
-- Fix: Do not clamp max layers in MaxLayers-noninteractive test as we test submitting max+1 expecting failure. Use a fixed 4 swapchains to limit resource usage instead.

@@ -17,6 +17,61 @@ particular, since it is primarily software, pull requests may be integrated as
 they are accepted even between periodic updates. However, versions that are not
 signed tags on the `approved` branch are not valid for conformance submission.
 
+## OpenXR CTS 1.1.47.0 (2024-04-24)
+
+- Conformance Tests
+  - Fix: Better handle multi-config CMake generators in CTS build system for
+    running from build tree.
+    ([internal MR 2794](https://gitlab.khronos.org/openxr/openxr/merge_requests/2794),
+    [internal issue 2431](https://gitlab.khronos.org/openxr/openxr/issues/2431),
+    [OpenXR-CTS PR 102](https://github.com/KhronosGroup/OpenXR-CTS/pull/102))
+  - Fix: Account for "depends" of extensions in generated dependencies for
+    automated availability tests
+    ([internal MR 3675](https://gitlab.khronos.org/openxr/openxr/merge_requests/3675))
+  - Fix: Do not clamp max layers in "MaxLayers-noninteractive" test as we test
+    submitting max+1 expecting failure. Always use exactly 4 swapchains to limit
+    resource usage instead.
+    ([internal MR 3683](https://gitlab.khronos.org/openxr/openxr/merge_requests/3683),
+    [internal issue 2435](https://gitlab.khronos.org/openxr/openxr/issues/2435))
+  - Fix: Changed interactive "MaxLayer" test to "MinLayer" test to more accurately
+    reflect specification constraints.
+    ([internal MR 3726](https://gitlab.khronos.org/openxr/openxr/merge_requests/3726))
+  - Fix: Changed the "MaxLayer-noninteractive" test to emit a warning when failing
+    to submit `maxLayer` layers, instead of an error.
+    ([internal MR 3726](https://gitlab.khronos.org/openxr/openxr/merge_requests/3726))
+  - Fix: Correctly honor availability of top-level /user paths in
+    "StateQueryFunctionsInteractive", given schema updates in spec 1.1.47 adding
+    such paths to existing profiles.
+    ([internal MR 3783](https://gitlab.khronos.org/openxr/openxr/merge_requests/3783),
+    [internal issue 2498](https://gitlab.khronos.org/openxr/openxr/issues/2498))
+  - Fix: Prevent recursive copying of assets by Gradle, avoiding ballooning APK
+    sizes between clean builds.
+    ([internal MR 3786](https://gitlab.khronos.org/openxr/openxr/merge_requests/3786),
+    [internal MR 3795](https://gitlab.khronos.org/openxr/openxr/merge_requests/3795),
+    [internal issue 2440](https://gitlab.khronos.org/openxr/openxr/issues/2440))
+  - Fix: Update `vert.spv` to correctly match `vert.glsl`.
+    ([internal MR 3787](https://gitlab.khronos.org/openxr/openxr/merge_requests/3787),
+    [internal issue 2509](https://gitlab.khronos.org/openxr/openxr/issues/2509))
+  - Fix: Do not validate
+    `XrEventDataReferenceSpaceChangePending::poseInPreviousSpace.orientation` if
+    `XrEventDataReferenceSpaceChangePending::poseValid` is false.
+    ([internal MR 3793](https://gitlab.khronos.org/openxr/openxr/merge_requests/3793))
+  - Fix: Handling of `xrCreateSwapchainAndroidSurfaceKHR` in generated layer code.
+    ([OpenXR-CTS PR 99](https://github.com/KhronosGroup/OpenXR-CTS/pull/99))
+  - Improvement: Update Android target SDK version to 34 to eliminate Play Protect
+    warning on install, and verify runtime can handle applications built with
+    updated target SDK. (Minimum SDK remains 24.)
+    ([internal MR 3719](https://gitlab.khronos.org/openxr/openxr/merge_requests/3719))
+  - New test: Add test cases for `XrPose` containing NaN.
+    ([internal MR 3705](https://gitlab.khronos.org/openxr/openxr/merge_requests/3705),
+    [internal MR 3714](https://gitlab.khronos.org/openxr/openxr/merge_requests/3714))
+  - New test: Validate that the `XrFovf` values returned from `xrLocateViews` are
+    valid, plus warn if left == right or up == down are equal (0 FOV in either
+    direction) as that is permitted but likely to lead to undefined behavior when
+    applications compute their projection matrix.
+    ([internal MR 3708](https://gitlab.khronos.org/openxr/openxr/merge_requests/3708),
+    [internal issue 2384](https://gitlab.khronos.org/openxr/openxr/issues/2384))
+
 ## OpenXR CTS 1.1.46.0 (2025-03-20)
 
 Note that this release substantially changes how tests are run: a separate full

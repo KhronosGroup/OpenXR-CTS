@@ -1,2 +1,0 @@
-- Fix: Changed interactive MaxLayer test to MinLayer test to more accurately reflect specification constraints.
-- Fix: Changed the MaxLayer-noninteractive test to emit a warning when failing to submit `maxLayer` layers, instead of an error.

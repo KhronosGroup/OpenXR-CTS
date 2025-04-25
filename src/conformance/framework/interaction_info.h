@@ -25,8 +25,8 @@ namespace Conformance
         /// The path string with `/interaction_profile/` prefix removed, for use as a Catch2 parameter
         const char* InteractionProfileShortname;
 
-        /// Top level user paths
-        std::vector<const char*> TopLevelPaths;
+        /// Top level user paths and their availability
+        std::vector<std::pair<const char*, InteractionProfileAvailability>> TopLevelPaths;
 
         /// Index into @ref kInteractionAvailabilities
         InteractionProfileAvailability Availability;

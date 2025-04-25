@@ -96,7 +96,22 @@ endif()
 add_subdirectory(conformance_layer)
 add_subdirectory(utilities)
 add_subdirectory(framework)
+
+file(
+    GLOB
+    CONFORMANCE_ASSETS
+    "${CMAKE_CURRENT_SOURCE_DIR}/conformance_test/composition_assets/*.png"
+    "${CMAKE_CURRENT_SOURCE_DIR}/conformance_test/composition_examples/*.jpg"
+    "${CMAKE_CURRENT_SOURCE_DIR}/conformance_test/composition_examples/*.png"
+    "${CMAKE_CURRENT_SOURCE_DIR}/conformance_test/SourceCodePro-Regular.otf"
+    "${CMAKE_CURRENT_SOURCE_DIR}/conformance_test/gltf_examples/*.glb"
+    "${CMAKE_CURRENT_SOURCE_DIR}/conformance_test/gltf_examples/*.png"
+    "${CMAKE_CURRENT_SOURCE_DIR}/conformance_test/pbr_assets/*.png"
+    "${CMAKE_CURRENT_SOURCE_DIR}/conformance_test/d3d_shaders/*.hlsl"
+)
+
 add_subdirectory(conformance_test)
-if(NOT ANDROID)
+
+if(BUILD_CONFORMANCE_CLI)
     add_subdirectory(conformance_cli)
 endif()

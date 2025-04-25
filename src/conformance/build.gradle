@@ -14,7 +14,7 @@ plugins {
 project.ext.repoRoot = file('../../')
 apply from: file('../version.gradle')
 
-def assetDest = layout.buildDir.dir('intermediates/assets')
+def assetDest = layout.buildDir.dir('intermediates/assetsCopy')
 
 tasks.register('copyAssets', Copy) {
     // fonts

@@ -213,7 +213,9 @@ void ConformanceHooks::checkEventPayload(const XrEventDataSessionStateChanged* d
 void ConformanceHooks::checkEventPayload(const XrEventDataReferenceSpaceChangePending* data)
 {
     VALIDATE_EVENT_XRTIME(data->changeTime);
-    VALIDATE_EVENT_QUATERNION(data->poseInPreviousSpace.orientation);
+    if (data->poseValid) {
+        VALIDATE_EVENT_QUATERNION(data->poseInPreviousSpace.orientation);
+    }
     VALIDATE_EVENT_XRBOOL32(data->poseValid);
     VALIDATE_EVENT_XRENUM(data->referenceSpaceType);
     (void)session::GetSessionState(data->session);  // Check handle is alive/valid.
