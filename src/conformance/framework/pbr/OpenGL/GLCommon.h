@@ -8,11 +8,7 @@
 // SPDX-License-Identifier: MIT AND Apache-2.0
 #pragma once
 
-#include "common/gfxwrapper_opengl.h"
-
-#if defined(APIENTRY) && !defined(GL_APIENTRY)
-#define GL_APIENTRY APIENTRY
-#endif
+#include <glad/gl.h>
 
 #include <type_traits>
 #include <utility>
@@ -21,80 +17,23 @@ namespace Pbr
 {
     static constexpr GLuint GLnull = 0;
 
-    /// A stateless destroyer for OpenGL handles that have a destroy function we can refer to statically.
-    ///
-    /// @tparam DestroyFunction The function used to destroy the handle.
-    ///
-    /// @see ScopedGLWithDefaultDestroy
-    /// @see ScopedGL
-    /// @see GLDestroyerWithFuncPointer
-    ///
-    /// @ingroup cts_handle_helpers
-    template <void(GL_APIENTRY* DestroyFunction)(GLuint)>
-    class GLDefaultDestroyer
-    {
-    public:
-        void operator()(GLuint handle) const noexcept
-        {
-            DestroyFunction(handle);
-        }
-    };
-
-    /// A destroyer for OpenGL handles that holds state at runtime to contain a function pointer.
-    ///
-    /// This is mainly for things from extensions.
-    ///
-    /// @see ScopedGLWithPfn
-    /// @see GLDefaultDestroyer
-    /// @see ScopedGL
-    ///
-    /// @ingroup cts_handle_helpers
-    class GLDestroyerWithFuncPointer
-    {
-    public:
-        using DestroyFunction = void(GL_APIENTRY*)(GLuint);
-
-        GLDestroyerWithFuncPointer(DestroyFunction pfn) : pfn_(pfn)
-        {
-        }
-
-        void operator()(GLuint handle) const noexcept
-        {
-            pfn_(handle);
-        }
-
-    private:
-        DestroyFunction pfn_;
-    };
-
     /// A unique-ownership RAII helper for OpenGL handles.
     ///
-    /// @tparam TagType A tag type to have a little bit of type safety
-    /// @tparam Destroyer a functor type that destroys the handle - may be stateless or have state
-    ///
-    /// @see GLDefaultDestroyer
-    /// @see GLDestroyerWithFuncPointer
+    /// @tparam TagType A tag type to have a little bit of type safety, as a treat
+    /// @tparam Destroyer a stateless functor type that destroys the handle
     ///
     /// @ingroup cts_handle_helpers
     template <typename TagType, typename Destroyer>
     class ScopedGL
     {
+        static_assert(std::is_default_constructible<Destroyer>::value, "Destroyer must be default constructible");
+
     public:
         /// Default (empty) constructor
-        ScopedGL() = default;
+        ScopedGL() noexcept = default;
 
-        /// Empty constructor when we need a destroyer instance.
-        explicit ScopedGL(Destroyer d) : d_(d)
-        {
-        }
-
-        /// Explicit constructor from handle, if we don't need a destroyer instance.
-        explicit ScopedGL(GLuint h, std::enable_if<std::is_default_constructible<Destroyer>::value>* = nullptr) : h_(h)
-        {
-        }
-
-        /// Constructor from handle when we need a destroyer instance.
-        ScopedGL(GLuint h, Destroyer d) : h_(h), d_(d)
+        /// Explicit constructor from handle
+        explicit ScopedGL(GLuint h) noexcept : h_(h)
         {
         }
 
@@ -111,9 +50,9 @@ namespace Pbr
         ScopedGL& operator=(ScopedGL const&) = delete;
 
         /// Move-constructible
-        ScopedGL(ScopedGL&& other) noexcept : h_(std::move(other.h_)), d_(std::move(other.d_))
+        ScopedGL(ScopedGL&& other) noexcept : ScopedGL()
         {
-            other.clear();
+            swap(other);
         }
 
         /// Move-assignable
@@ -142,7 +81,6 @@ namespace Pbr
         void swap(ScopedGL& other) noexcept
         {
             std::swap(h_, other.h_);
-            std::swap(d_, other.d_);
         }
 
         /// Destroy the owned handle, if any.
@@ -161,13 +99,6 @@ namespace Pbr
             h_ = h;
         }
 
-        /// Assign a new handle into this object's control, including new destroyer, destroying the old one if applicable.
-        void adopt(GLuint h, Destroyer&& d)
-        {
-            adopt(h);
-            d_ = std::move(d);
-        }
-
         /// Access the raw handle without affecting ownership or lifetime.
         GLuint get() const noexcept
         {
@@ -175,9 +106,9 @@ namespace Pbr
         }
 
         /// Access the destroyer functor
-        const Destroyer& get_destroyer() const noexcept
+        Destroyer get_destroyer() const noexcept
         {
-            return d_;
+            return Destroyer{};
         }
 
         /// Release the handle from this object's control.
@@ -203,7 +134,6 @@ namespace Pbr
             h_ = GLnull;
         }
         GLuint h_ = GLnull;
-        Destroyer d_;
     };
 
     /// Swap function for scoped handles, found using ADL.
@@ -246,66 +176,34 @@ namespace Pbr
         return handle.valid();
     }
 
-    /// Alias to ease use of ScopedGL with handle types whose destroy function is statically available.
-    ///
-    /// @tparam TagType A tag type to have a little bit of type safety
-    /// @tparam DestroyFunction The function used to destroy the handle.
-    ///
-    /// @see GLDestroyerWithFuncPointer
-    ///
-    /// @ingroup cts_handle_helpers
-    /// @relates ScopedGL
-    template <typename TagType, void(GL_APIENTRY* DestroyFunction)(GLuint)>
-    using ScopedGLWithDefaultDestroy = ScopedGL<TagType, GLDefaultDestroyer<DestroyFunction>>;
-
-    /// Alias to ease use of ScopedGL with handle types whose destroy function is a run-time function pointer (such as from an extension)
-    ///
-    /// @tparam TagType A tag type to have a little bit of type safety
-    ///
-    /// @see GLDefaultDestroyer
-    ///
-    /// @ingroup cts_handle_helpers
-    /// @relates ScopedGL
-    template <typename TagType>
-    using ScopedGLWithPfn = ScopedGL<TagType, GLDestroyerWithFuncPointer>;
-
-    /// Function template to wrap a statically-known deleter function that takes a count (1) and a pointer/array of names.
-    ///
-    /// @tparam F The address of the actual delete function
-    ///
-    /// @see ScopedGLWithDefaultDestroy
-    ///
-    /// @ingroup cts_handle_helpers
-    /// @relates ScopedGL
-    template <void(GL_APIENTRY* F)(GLsizei, const GLuint*)>
-    void GL_APIENTRY destroyOne(GLuint handle)
-    {
-        F(1, &handle);
-    }
+    /// Function pointer type for any GL function that just deletes one handle (name)
+    using PFN_glDeleteName = void(GLAD_API_PTR*)(GLuint);
 
     /// Functor wrapping a delete function that wants just the name to delete as a parameter.
     ///
     /// You don't have to know the function pointer at compile time (OK for dynamically loaded OpenGL),
     /// you just need to say where you will put the function pointer when you look it up upon load.
     ///
-    /// @tparam PFN Function pointer type
     /// @tparam FunctionExtern statically known address of function pointer for the deleter.
     ///
     /// @see GLDeleterOne if the function actually wants a count and an array/pointer
     /// @see ScopedGL
     ///
     /// @ingroup cts_handle_helpers
-    template <typename PFN, const PFN FunctionExtern>
+    template <const PFN_glDeleteName* FunctionExtern>
     class GLDeleter
     {
     public:
-        GLDeleter() = default;
+        GLDeleter() noexcept = default;
 
-        void operator()(GLuint handle) const
+        void operator()(GLuint handle) const noexcept
         {
             (*FunctionExtern)(handle);
         }
     };
+
+    /// Function pointer type for any GL function that deletes an array of handles (names) taking array size first
+    using PFN_glDeleteNameArray = void(GLAD_API_PTR*)(GLsizei n, const GLuint*);
 
     /// Functor wrapping a delete function that wants a "1" as the first parameter and the address of the name as the second.
     ///
@@ -314,75 +212,46 @@ namespace Pbr
     /// You don't have to know the function pointer at compile time (OK for dynamically loaded OpenGL),
     /// you just need to say where you will put the function pointer when you look it up upon load.
     ///
-    /// @tparam PFN Function pointer type
     /// @tparam FunctionExtern statically known address of function pointer for the deleter.
     ///
     /// @see GLDeleter if the only parameter is the name to delete.
     /// @see ScopedGL
     ///
     /// @ingroup cts_handle_helpers
-    template <typename PFN, const PFN FunctionExtern>
+    template <PFN_glDeleteNameArray* FunctionExtern>
     class GLDeleterOne
     {
     public:
-        GLDeleterOne() = default;
+        GLDeleterOne() noexcept = default;
 
-        void operator()(GLuint handle) const
+        void operator()(GLuint handle) const noexcept
         {
             (*FunctionExtern)(1, &handle);
         }
     };
 
-    // TODO remove awkward hack: we load OpenGL at runtime into function pointers,
-    // but link directly against a library with symbols for OpenGL ES
-#if defined(XR_USE_GRAPHICS_API_OPENGL)
-#define XRC_GL_PFN(p) p*
-#elif defined(XR_USE_GRAPHICS_API_OPENGL_ES)
-#define XRC_GL_PFN(p) p
-#endif
-
     /// GLuint wrapper for use with an OpenGL Shader Program: somewhat type-safe, RAII deletes by calling glDeleteProgram
     /// @ingroup cts_handle_helpers
-#if defined(OS_APPLE_MACOS)
-    using ScopedGLProgram = ScopedGL<struct GlProgramTag, GLDeleter<decltype(glDeleteProgram), &glDeleteProgram>>;
-#else
-    using ScopedGLProgram = ScopedGL<struct GlProgramTag, GLDeleter<XRC_GL_PFN(PFNGLDELETEPROGRAMPROC), &glDeleteProgram>>;
-#endif
+    using ScopedGLProgram = ScopedGL<struct GlProgramTag, GLDeleter<&glDeleteProgram>>;
 
     /// GLuint wrapper for use with an OpenGL Shader: somewhat type-safe, RAII deletes by calling glDeleteShader
     /// @ingroup cts_handle_helpers
-#if defined(OS_APPLE_MACOS)
-    using ScopedGLShader = ScopedGL<struct GlShaderTag, GLDeleter<decltype(glDeleteShader), &glDeleteShader>>;
-#else
-    using ScopedGLShader = ScopedGL<struct GlShaderTag, GLDeleter<XRC_GL_PFN(PFNGLDELETESHADERPROC), &glDeleteShader>>;
-#endif
+    using ScopedGLShader = ScopedGL<struct GlShaderTag, GLDeleter<&glDeleteShader>>;
 
     /// GLuint wrapper for use with an OpenGL Texture: somewhat type-safe, RAII deletes by calling glDeleteTextures
     /// @ingroup cts_handle_helpers
-    using ScopedGLTexture = ScopedGLWithDefaultDestroy<struct GlTextureTag, &destroyOne<&glDeleteTextures>>;
+    using ScopedGLTexture = ScopedGL<struct GlTextureTag, GLDeleterOne<&glDeleteTextures>>;
 
     /// GLuint wrapper for use with an OpenGL Sampler: somewhat type-safe, RAII deletes by calling glDeleteSamplers
     /// @ingroup cts_handle_helpers
-#if defined(OS_APPLE_MACOS)
-    using ScopedGLSampler = ScopedGL<struct GlSamplerTag, GLDeleterOne<decltype(glDeleteSamplers), &glDeleteSamplers>>;
-#else
-    using ScopedGLSampler = ScopedGL<struct GlSamplerTag, GLDeleterOne<XRC_GL_PFN(PFNGLDELETESAMPLERSPROC), &glDeleteSamplers>>;
-#endif
+    using ScopedGLSampler = ScopedGL<struct GlSamplerTag, GLDeleterOne<&glDeleteSamplers>>;
+
     /// GLuint wrapper for use with an OpenGL Buffer: somewhat type-safe, RAII deletes by calling glDeleteBuffers
     /// @ingroup cts_handle_helpers
-#if defined(OS_APPLE_MACOS)
-    using ScopedGLBuffer = ScopedGL<struct GlBufferTag, GLDeleterOne<decltype(glDeleteBuffers), &glDeleteBuffers>>;
-#else
-    using ScopedGLBuffer = ScopedGL<struct GlBufferTag, GLDeleterOne<XRC_GL_PFN(PFNGLDELETEBUFFERSPROC), &glDeleteBuffers>>;
-#endif
+    using ScopedGLBuffer = ScopedGL<struct GlBufferTag, GLDeleterOne<&glDeleteBuffers>>;
 
     /// GLuint wrapper for use with an OpenGL Vertex Array: somewhat type-safe, RAII deletes by calling glDeleteVertexArrays
     /// @ingroup cts_handle_helpers
-#if defined(OS_APPLE_MACOS)
-    using ScopedGLVertexArray = ScopedGL<struct GlVertexArrayTag, GLDeleterOne<decltype(glDeleteVertexArrays), &glDeleteVertexArrays>>;
-#else
-    using ScopedGLVertexArray =
-        ScopedGL<struct GlVertexArrayTag, GLDeleterOne<XRC_GL_PFN(PFNGLDELETEVERTEXARRAYSPROC), &glDeleteVertexArrays>>;
-#endif
+    using ScopedGLVertexArray = ScopedGL<struct GlVertexArrayTag, GLDeleterOne<&glDeleteVertexArrays>>;
 
 }  // namespace Pbr

@@ -5,7 +5,8 @@
 
 #if defined(XR_USE_GRAPHICS_API_OPENGL) || defined(XR_USE_GRAPHICS_API_OPENGL_ES)
 
-#include "common/gfxwrapper_opengl.h"  // IWYU pragma: keep
+#include <glad/gl.h>
+
 #include "utilities/stringification.h"
 #include "utilities/throw_helpers.h"
 

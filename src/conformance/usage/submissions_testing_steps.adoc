@@ -17,11 +17,12 @@ The tests are marked with tags to accomplish several objectives.
 
 The following text lays out the steps to running conformance for submission.
 
-Note: If you do not support OpenXR 1.0, you must supply the `--minApiVersion`
-argument to specify the lowest OpenXR API version you support, e.g.
-`--minApiVersion 1.1`. Some tests will automatically test behaviour on higher
-API versions if your runtime supports them, but most tests will run on
-`minApiVersion`, which defaults to `1.0`.
+Note: If you do not support OpenXR 1.0, you must supply the
+`--minApiVersion` argument to specify the lowest OpenXR API version you
+support, e.g. `--minApiVersion 1.1`.
+Some tests will automatically test behavior on higher API versions if your
+runtime supports them, but most tests will run on `minApiVersion`, which
+defaults to `1.0`.
 
 Please be aware that depending on how you view these instructions, the (very
 long) sample command lines **may** be wrapped automatically.
@@ -41,17 +42,17 @@ your runtime does not support.
 
 [source,sh]
 ----
-conformance_cli "exclude:[interactive]" -G d3d11 --reporter ctsxml::out=automated_d3d11.xml
+conformance_cli "exclude:[interactive]" -G d3d11 --reporter ctsxml::out=automated_d3d11.xml --reporter console
 
-conformance_cli "exclude:[interactive]" -G d3d12 --reporter ctsxml::out=automated_d3d12.xml
+conformance_cli "exclude:[interactive]" -G d3d12 --reporter ctsxml::out=automated_d3d12.xml --reporter console
 
-conformance_cli "exclude:[interactive]" -G vulkan --reporter ctsxml::out=automated_vulkan.xml
+conformance_cli "exclude:[interactive]" -G vulkan --reporter ctsxml::out=automated_vulkan.xml --reporter console
 
-conformance_cli "exclude:[interactive]" -G vulkan2 --reporter ctsxml::out=automated_vulkan2.xml
+conformance_cli "exclude:[interactive]" -G vulkan2 --reporter ctsxml::out=automated_vulkan2.xml --reporter console
 
-conformance_cli "exclude:[interactive]" -G opengl --reporter ctsxml::out=automated_opengl.xml
+conformance_cli "exclude:[interactive]" -G opengl --reporter ctsxml::out=automated_opengl.xml --reporter console
 
-conformance_cli "exclude:[interactive]" -G metal --reporter ctsxml::out=automated_metal.xml
+conformance_cli "exclude:[interactive]" -G metal --reporter ctsxml::out=automated_metal.xml --reporter console
 
 ----
 ====
@@ -105,17 +106,17 @@ extensions your runtime does not support.
 
 [source,sh]
 ----
-conformance_cli "[composition][interactive]" -G d3d11 --reporter ctsxml::out=interactive_composition_d3d11.xml
+conformance_cli "[composition][interactive]" -G d3d11 --reporter ctsxml::out=interactive_composition_d3d11.xml --reporter console
 
-conformance_cli "[composition][interactive]" -G d3d12 --reporter ctsxml::out=interactive_composition_d3d12.xml
+conformance_cli "[composition][interactive]" -G d3d12 --reporter ctsxml::out=interactive_composition_d3d12.xml --reporter console
 
-conformance_cli "[composition][interactive]" -G vulkan --reporter ctsxml::out=interactive_composition_vulkan.xml
+conformance_cli "[composition][interactive]" -G vulkan --reporter ctsxml::out=interactive_composition_vulkan.xml --reporter console
 
-conformance_cli "[composition][interactive]" -G vulkan2 --reporter ctsxml::out=interactive_composition_vulkan2.xml
+conformance_cli "[composition][interactive]" -G vulkan2 --reporter ctsxml::out=interactive_composition_vulkan2.xml --reporter console
 
-conformance_cli "[composition][interactive]" -G opengl --reporter ctsxml::out=interactive_composition_opengl.xml
+conformance_cli "[composition][interactive]" -G opengl --reporter ctsxml::out=interactive_composition_opengl.xml --reporter console
 
-conformance_cli "[composition][interactive]" -G metal --reporter ctsxml::out=interactive_composition_metal.xml
+conformance_cli "[composition][interactive]" -G metal --reporter ctsxml::out=interactive_composition_metal.xml --reporter console
 
 ----
 ====
@@ -168,7 +169,7 @@ actions and indicate pass or fail.
 ====
 [source,sh]
 ----
-conformance_cli "[scenario][interactive]" -G opengl --reporter ctsxml::out=interactive_scenarios.xml
+conformance_cli "[scenario][interactive]" -G opengl --reporter ctsxml::out=interactive_scenarios.xml --reporter console
 
 ----
 ====
@@ -193,10 +194,6 @@ Pass the interaction profile to test, without the leading
 `/interaction_profile/`, with the option `-I`
 
 * One graphics API
-* Each OpenXR API version
-** If extensions are required for a specified interaction profile to be
-   available, the CTS will automatically enable them for the entire test
-   run.
 * Each interaction profile that is either:
 ** A generic interaction profile (such as `khr/simple_controller`) for which
    all inputs can be activated.
@@ -205,6 +202,10 @@ Pass the interaction profile to test, without the leading
 *** If more than one interaction profile is closely associated with the
     device/method, e.g in the case of evolutionary upgrades to controllers,
     it is recommended to run specifying each of those interaction profiles.
+
+Note that if any extension or extensions are required for a specified
+interaction profile to be available, the CTS will automatically enable them
+for the appropriate tests.
 
 One of these tests requires being able to activate all inputs specified (and
 not marked as "system") for an interaction profile.
@@ -228,20 +229,20 @@ Select the interaction profiles to test based on the preceding description.
 [source,sh]
 ----
 ## Generic: Simple controller
-conformance_cli "[actions][interactive]" -G d3d11 -I "khr/simple_controller" --reporter ctsxml::out=interactive_action_simple_controller.xml
+conformance_cli "[actions][interactive]" -G d3d11 -I "khr/simple_controller" --reporter ctsxml::out=interactive_action_simple_controller.xml --reporter console
 
 ## Generic: Hand interaction (whether via hand tracking or controller)
-conformance_cli "[actions][interactive]" -G d3d11 -I "ext/hand_interaction_ext" --reporter ctsxml::out=interactive_action_ext_hand_interaction_interaction.xml
+conformance_cli "[actions][interactive]" -G d3d11 -I "ext/hand_interaction_ext" --reporter ctsxml::out=interactive_action_ext_hand_interaction_interaction.xml --reporter console
 
 ## Generic: Eye gaze
-conformance_cli "[actions][interactive]" -G d3d11 -I "ext/eye_gaze_interaction" --reporter ctsxml::out=interactive_action_ext_eye_gaze_interaction.xml
+conformance_cli "[actions][interactive]" -G d3d11 -I "ext/eye_gaze_interaction" --reporter ctsxml::out=interactive_action_ext_eye_gaze_interaction.xml --reporter console
 
 # Sample device-associated profiles
-conformance_cli "[actions][interactive]" -G d3d11 -I "microsoft/motion_controller" --reporter ctsxml::out=interactive_action_microsoft_motion_controller.xml
+conformance_cli "[actions][interactive]" -G d3d11 -I "microsoft/motion_controller" --reporter ctsxml::out=interactive_action_microsoft_motion_controller.xml --reporter console
 
-conformance_cli "[actions][interactive]" -G d3d11 -I "oculus/touch_controller" --reporter ctsxml::out=interactive_action_oculus_touch_controller.xml
+conformance_cli "[actions][interactive]" -G d3d11 -I "oculus/touch_controller" --reporter ctsxml::out=interactive_action_oculus_touch_controller.xml --reporter console
 
-conformance_cli "[actions][interactive]" -G d3d11 -I "htc/vive_controller" --reporter ctsxml::out=interactive_action_htc_vive_controller.xml
+conformance_cli "[actions][interactive]" -G d3d11 -I "htc/vive_controller" --reporter ctsxml::out=interactive_action_htc_vive_controller.xml --reporter console
 
 ----
 ====
@@ -252,7 +253,7 @@ conformance_cli "[actions][interactive]" -G d3d11 -I "htc/vive_controller" --rep
 ====
 [source,sh]
 ----
-conformance_cli "[gamepad]" -G d3d11 -I "microsoft/xbox_controller" --reporter ctsxml::out=interactive_action_microsoft_xbox_controller.xml
+conformance_cli "[gamepad]" -G d3d11 -I "microsoft/xbox_controller" --reporter ctsxml::out=interactive_action_microsoft_xbox_controller.xml --reporter console
 ----
 ====
 

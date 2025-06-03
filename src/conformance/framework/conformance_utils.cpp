@@ -866,8 +866,9 @@ namespace Conformance
         if (XR_FAILED(result))
             return RunResult::Error;
 
-        if (result == XR_TIMEOUT_EXPIRED)
-            return RunResult::Timeout;
+        // CycleToNextSwapchainImage does not make guarantees outside of XR_SUCCESS
+        if (result != XR_SUCCESS)
+            return RunResult::UnsuccessfulWait;
 
         return RunResult::Success;
     }
@@ -1334,43 +1335,37 @@ namespace Conformance
 
     XrResult CycleToNextSwapchainImage(XrSwapchain* swapchainArray, size_t count, XrDuration timeoutNs)
     {
-        XrResult result = XR_SUCCESS;
-        bool timeoutOccurred = false;
-
-        for (size_t i = 0; (i < count) && !timeoutOccurred; ++i) {
+        for (size_t i = 0; i < count; ++i) {
             XrSwapchain swapchain = swapchainArray[i];
             uint32_t index;
 
             XrSwapchainImageAcquireInfo acquireInfo{XR_TYPE_SWAPCHAIN_IMAGE_ACQUIRE_INFO};
-            result = xrAcquireSwapchainImage(swapchain, &acquireInfo, &index);
-            if (XR_FAILED(result))
+            XrResult result = xrAcquireSwapchainImage(swapchain, &acquireInfo, &index);
+            if (XR_FAILED(result)) {
                 return result;
+            }
 
             XrSwapchainImageWaitInfo waitInfo{XR_TYPE_SWAPCHAIN_IMAGE_WAIT_INFO};
             waitInfo.timeout = timeoutNs;
             result = xrWaitSwapchainImage(swapchain, &waitInfo);
-            if (XR_FAILED(result))
+            if (XR_FAILED(result)) {
                 return result;
-
-            if (result == XR_TIMEOUT_EXPIRED) {
-                // In this case we call xrReleaseSwapchainImage so as
-                // not to leave the texture in an acquired state.
-                // But if we get a failure in the release call below then that takes precedence.
-                timeoutOccurred = true;
             }
 
-            XrSwapchainImageReleaseInfo releaseInfo{XR_TYPE_SWAPCHAIN_IMAGE_RELEASE_INFO};
-            result = xrReleaseSwapchainImage(swapchain, &releaseInfo);
-            if (XR_FAILED(result))
+            // If xrWaitSwapchainImage fails, we will leave the texture in an acquired state
+            // without any way for that swapchain image to get unacquired. So we have to error
+            // in this case.
+            if (result == XR_SUCCESS) {
+                XrSwapchainImageReleaseInfo releaseInfo{XR_TYPE_SWAPCHAIN_IMAGE_RELEASE_INFO};
+                result = xrReleaseSwapchainImage(swapchain, &releaseInfo);
+            }
+
+            if (result != XR_SUCCESS) {
                 return result;
+            }
         }
 
-        if (timeoutOccurred) {
-            assert(XR_SUCCEEDED(result));  // Should be impossible for this to fail.
-            result = XR_TIMEOUT_EXPIRED;
-        }
-
-        return result;
+        return XR_SUCCESS;
     }
 
     // Encapsulates xrCreateActionSet/xrCreateAction

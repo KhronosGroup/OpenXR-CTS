@@ -659,6 +659,7 @@ namespace Conformance
     {
         void TestBindingsAvailabilityUnderFeatureSet(const InteractionProfileAvailMetadata& ipMetadata, const FeatureSet& features)
         {
+            INFO("Creating instance with these features:");
             CAPTURE(features);
             AutoBasicInstance instance(features, AutoBasicInstance::createSystemId);
             REQUIRE_MSG(
@@ -736,14 +737,17 @@ namespace Conformance
                 bindings.countSuggestedBindings = 1;
 
                 const Availability& bindingPathDataAvailability = GetInteractionProfileAvailability(bindingPathData.Availability);
+                INFO("Testing binding path that requires the following availability to be satisfied:");
                 CAPTURE(bindingPathDataAvailability);
                 // note: for debugging, it may be useful to put a dynamic section here and sections in the caller
                 // and to use -c to specify a series of sections. Note that this extends the test run duration a lot because
                 // it means the test is re-run from the start for every path, but it makes breakpoints more useful.
                 if (bindingPathDataAvailability.IsSatisfiedBy(features)) {
+                    INFO("Instance features satisfy availability, expect success in suggesting binding.");
                     CHECK(xrSuggestInteractionProfileBindings(instance, &bindings) == XR_SUCCESS);
                 }
                 else {
+                    INFO("Instance features do not satisfy availability, expect failure in suggesting binding.");
                     CHECK(xrSuggestInteractionProfileBindings(instance, &bindings) == XR_ERROR_PATH_UNSUPPORTED);
                 }
             }
@@ -752,8 +756,6 @@ namespace Conformance
 
     static inline void TestXrSuggestInteractionProfileBindings_avail(const FeatureSet& features)
     {
-        CAPTURE(features);
-
         GlobalData& globalData = GetGlobalData();
         FeatureSet globalFeatures;
         globalData.PopulateMinVersionAndEnabledExtensions(globalFeatures);
@@ -831,7 +833,7 @@ namespace Conformance
 
     TEST_CASE("xrSuggestInteractionProfileBindings_interactive", "[actions][interactive]")
     {
-        CompositionHelper compositionHelper("xrSuggestInteractionProfileBindings");
+        CompositionHelper compositionHelper("Suggest Bindings Interactive");
         XrInstance instance = compositionHelper.GetInstance();
         XrSession session = compositionHelper.GetSession();
         compositionHelper.BeginSession();
@@ -1182,7 +1184,7 @@ namespace Conformance
 
         auto suggestBindingsAndGetCurrentInteractionProfile = [features, globalFeatures](bool reverse, bool nullPathExpected,
                                                                                          const std::string& topLevelPathString) {
-            CompositionHelper compositionHelper("xrSuggestInteractionProfileBindings_order", features);
+            CompositionHelper compositionHelper("Suggest Bindings Order", features);
             XrInstance instance = compositionHelper.GetInstance();
             XrSession session = compositionHelper.GetSession();
             compositionHelper.BeginSession();
@@ -1868,8 +1870,6 @@ namespace Conformance
 
         XrActionStateBoolean actionStateBoolean{XR_TYPE_ACTION_STATE_BOOLEAN};
         PoisonStructContents(actionStateBoolean);
-        XrActionStateGetInfo getInfo{XR_TYPE_ACTION_STATE_GET_INFO};
-        getInfo.action = action;
 
         compositionHelper.BeginSession();
 
@@ -3392,23 +3392,29 @@ namespace Conformance
                 }
                 SECTION("Invalid subaction path")
                 {
+                    // This XrPath is potentially invalid and potentially unsupported.
                     getInfo.subactionPath = (XrPath)0x1234;
                     getInfo.action = booleanAction;
-                    REQUIRE_RESULT(xrGetActionStateBoolean(session, &getInfo, &booleanState), XR_ERROR_PATH_INVALID);
+                    XrResult result = xrGetActionStateBoolean(session, &getInfo, &booleanState);
+                    REQUIRE_THAT(result, In<XrResult>({XR_ERROR_PATH_INVALID, XR_ERROR_PATH_UNSUPPORTED}));
 
                     getInfo.action = floatAction;
-                    REQUIRE_RESULT(xrGetActionStateFloat(session, &getInfo, &floatState), XR_ERROR_PATH_INVALID);
+                    result = xrGetActionStateFloat(session, &getInfo, &floatState);
+                    REQUIRE_THAT(result, In<XrResult>({XR_ERROR_PATH_INVALID, XR_ERROR_PATH_UNSUPPORTED}));
 
                     getInfo.action = vectorAction;
-                    REQUIRE_RESULT(xrGetActionStateVector2f(session, &getInfo, &vectorState), XR_ERROR_PATH_INVALID);
+                    result = xrGetActionStateVector2f(session, &getInfo, &vectorState);
+                    REQUIRE_THAT(result, In<XrResult>({XR_ERROR_PATH_INVALID, XR_ERROR_PATH_UNSUPPORTED}));
 
                     getInfo.action = poseAction;
-                    REQUIRE_RESULT(xrGetActionStatePose(session, &getInfo, &poseState), XR_ERROR_PATH_INVALID);
+                    result = xrGetActionStatePose(session, &getInfo, &poseState);
+                    REQUIRE_THAT(result, In<XrResult>({XR_ERROR_PATH_INVALID, XR_ERROR_PATH_UNSUPPORTED}));
 
                     hapticActionInfo.subactionPath = getInfo.subactionPath;
-                    REQUIRE_RESULT(xrApplyHapticFeedback(session, &hapticActionInfo, reinterpret_cast<XrHapticBaseHeader*>(&hapticPacket)),
-                                   XR_ERROR_PATH_INVALID);
-                    REQUIRE_RESULT(xrStopHapticFeedback(session, &hapticActionInfo), XR_ERROR_PATH_INVALID);
+                    result = xrApplyHapticFeedback(session, &hapticActionInfo, reinterpret_cast<XrHapticBaseHeader*>(&hapticPacket));
+                    REQUIRE_THAT(result, In<XrResult>({XR_ERROR_PATH_INVALID, XR_ERROR_PATH_UNSUPPORTED}));
+                    result = xrStopHapticFeedback(session, &hapticActionInfo);
+                    REQUIRE_THAT(result, In<XrResult>({XR_ERROR_PATH_INVALID, XR_ERROR_PATH_UNSUPPORTED}));
                 }
                 SECTION("Unspecified subaction path")
                 {
@@ -3538,7 +3544,7 @@ namespace Conformance
         // - one is created before xrSuggestInteractionProfileBindings and
         // - the other is created after.
         // These two action spaces should both return (the same) valid data.
-        CompositionHelper compositionHelper("action_space_creation_pre_suggest");
+        CompositionHelper compositionHelper("action_space_create presuggest");
         XrInstance instance = compositionHelper.GetInstance();
         XrSession session = compositionHelper.GetSession();
         compositionHelper.BeginSession();

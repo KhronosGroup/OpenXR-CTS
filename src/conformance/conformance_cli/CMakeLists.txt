@@ -65,9 +65,8 @@ target_include_directories(
 )
 
 target_include_directories(
-    conformance_cli
-    PRIVATE ${PROJECT_SOURCE_DIR}/src ${PROJECT_SOURCE_DIR}/src/common
-            ${PROJECT_SOURCE_DIR}/external/include
+    conformance_cli PRIVATE ${PROJECT_SOURCE_DIR}/src
+                            ${PROJECT_SOURCE_DIR}/src/common
 )
 
 if(XR_USE_GRAPHICS_API_VULKAN)
@@ -98,9 +97,8 @@ foreach(ASSET ${CONFORMANCE_ASSETS})
         VERBATIM
         COMMENT "Copying conformance test asset ${ASSET_FN}"
     )
+    install(FILES "${ASSET}" DESTINATION conformance)
 endforeach()
-
-# install(FILES ${CONFORMANCE_ASSETS} DESTINATION conformance)
 
 # Copy conformance test binary to conformance_cli binary folder
 add_custom_command(
@@ -136,6 +134,11 @@ add_custom_command(
     COMMENT
         "Copying conformance test layer binary $<TARGET_FILE_NAME:conformance_test>"
 )
+install(
+    FILES
+        "$<TARGET_FILE_DIR:XrApiLayer_runtime_conformance>/XrApiLayer_runtime_conformance.json"
+    DESTINATION conformance
+)
 
 # Copy test layer files to conformance_cli binary folder
 add_custom_command(
@@ -153,21 +156,24 @@ add_custom_command(
     COMMENT
         "Copying conformance test layer manifest XrApiLayer_conformance_test_layer.json"
 )
+install(
+    FILES
+        "$<TARGET_FILE_DIR:conformance_test>/XrApiLayer_conformance_test_layer.json"
+    DESTINATION conformance
+)
 
 if(DYNAMIC_LOADER)
     add_custom_command(
         TARGET conformance_cli
         PRE_BUILD
-    COMMAND
-        "${CMAKE_COMMAND}" -E make_directory
-        "$<TARGET_FILE_DIR:conformance_cli>"
-    COMMAND
-        "${CMAKE_COMMAND}" -E copy
-        "$<TARGET_FILE:openxr_loader>"
-        "$<TARGET_FILE_DIR:conformance_cli>"
-    VERBATIM
-    COMMENT
-        "Copying loader binary $<TARGET_FILE_NAME:openxr_loader>"
+        COMMAND
+            "${CMAKE_COMMAND}" -E make_directory
+            "$<TARGET_FILE_DIR:conformance_cli>"
+        COMMAND
+            "${CMAKE_COMMAND}" -E copy "$<TARGET_FILE:openxr_loader>"
+            "$<TARGET_FILE_DIR:conformance_cli>"
+        VERBATIM
+        COMMENT "Copying loader binary $<TARGET_FILE_NAME:openxr_loader>"
     )
 endif()
 

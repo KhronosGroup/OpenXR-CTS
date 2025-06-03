@@ -1,0 +1,6 @@
+---
+- mr.3830.gl
+---
+- Fix: CTS usage doc typo of the `[no_auto]` test case tag.
+- Fix: CTS usage leftover mention of testing over the product of API versions and other factors.
+- Improvement: CTS usage doc now includes `--reporter console` in all non-Android sample command lines to provide standard terminal progress output in addition to the official submission XML.
