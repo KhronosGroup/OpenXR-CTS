@@ -74,6 +74,7 @@ add_library(
     conformance_utils.cpp
     controller_animation_handler.cpp
     environment.cpp
+    ext_render_model.cpp
     gltf_helpers.cpp
     graphics_plugin_d3d11.cpp
     graphics_plugin_d3d11_gltf.cpp
@@ -94,6 +95,8 @@ add_library(
     platform_plugin_win32.cpp
     report.cpp
     RGBAImage.cpp
+    spatial_conformance_utils.cpp
+    spatial_test_runner.cpp
     swapchain_image_data.cpp
     xml_test_environment.cpp
     xr_math_approx.cpp

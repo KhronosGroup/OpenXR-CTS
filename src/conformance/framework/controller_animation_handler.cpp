@@ -19,6 +19,7 @@
 
 #include <algorithm>
 #include <assert.h>
+#include <utility>
 #include <stddef.h>
 #include <utility>
 
@@ -72,6 +73,47 @@ namespace Conformance
                 XrVector3f unitScale = {1, 1, 1};
                 XrMatrix4x4f nodeTransform = Matrix::FromTranslationRotationScale(m_nodeStates[i].nodePose.position,
                                                                                   m_nodeStates[i].nodePose.orientation, unitScale);
+                pbrModelInstance.SetNodeTransform(nodeIndex, nodeTransform);
+            }
+        }
+    }
+
+    RenderModelAnimationHandler::RenderModelAnimationHandler(std::shared_ptr<Pbr::Model> model,
+                                                             std::vector<XrRenderModelAssetNodePropertiesEXT> nodeProperties)
+        : m_pbrModel(std::move(model)), m_nodeProperties(std::move(nodeProperties))
+
+    {
+        // Compute the index of each node reported by runtime to be animated.
+        // The order of m_nodeIndices exactly matches the order of the nodes properties and states.
+        m_nodeIndices.resize(m_nodeProperties.size(), Pbr::NodeIndex_npos);
+        for (size_t i = 0; i < m_nodeProperties.size(); ++i) {
+            const auto& nodeProperty = m_nodeProperties[i];
+            Pbr::NodeIndex_t targetNodeIndex;
+            if (m_pbrModel->FindFirstNode(&targetNodeIndex, nodeProperty.uniqueName)) {
+                m_nodeIndices[i] = targetNodeIndex;
+            }
+        }
+    }
+
+    // Update transforms of nodes for the animatable parts in the render model
+    void RenderModelAnimationHandler::UpdateNodes(std::vector<XrRenderModelNodeStateEXT>&& nodeStates, Pbr::ModelInstance& pbrModelInstance)
+    {
+        m_nodeStates = std::move(nodeStates);
+
+        if (m_nodeStates.size() != m_nodeIndices.size()) {
+            XRC_THROW("Node states count does not match the node indices count");
+        }
+        const size_t end = std::min(m_nodeStates.size(), m_nodeIndices.size());
+        for (size_t i = 0; i < end; i++) {
+            const Pbr::NodeIndex_t nodeIndex = m_nodeIndices[i];
+            if (nodeIndex != Pbr::NodeIndex_npos) {
+                Pbr::NodeVisibility visibility = m_nodeStates[i].isVisible ? Pbr::NodeVisibility::Visible : Pbr::NodeVisibility::Invisible;
+                pbrModelInstance.SetNodeVisibility(nodeIndex, visibility);
+
+                XrMatrix4x4f nodeTransform;
+                XrVector3f unitScale = {1, 1, 1};
+                XrMatrix4x4f_CreateTranslationRotationScale(&nodeTransform, &m_nodeStates[i].nodePose.position,
+                                                            &m_nodeStates[i].nodePose.orientation, &unitScale);
                 pbrModelInstance.SetNodeTransform(nodeIndex, nodeTransform);
             }
         }

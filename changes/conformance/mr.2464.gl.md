@@ -1,0 +1,5 @@
+---
+- mr.3314.gl
+---
+- Improvement: Support writing tests for extensions based on `XR_EXT_render_model`
+- New test: Initial tests for `XR_EXT_render_model`
