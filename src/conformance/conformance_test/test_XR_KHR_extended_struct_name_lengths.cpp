@@ -17,6 +17,7 @@
 #include "conformance_framework.h"
 #include "conformance_utils.h"
 #include "matchers.h"
+#include "utilities/throw_helpers.h"
 #include "utilities/types_and_constants.h"
 #include "utilities/utils.h"
 
@@ -69,13 +70,18 @@ namespace Conformance
                         allowGeneratedName = true;
                     }
                 }
+
+                // Note: unlike test_xrStructureTypeToString.cpp we expect the extended string here.
+                std::string expectedString(value.second);
+                XRC_CHECK_THROW(expectedString.size() < XR_MAX_STRUCTURE_NAME_SIZE_EXTENDED_KHR);
+
                 std::string returnedString(buffer);
                 if (allowGeneratedName) {
                     CHECK_THAT(returnedString,
-                               In<std::string>({std::string(value.second), "XR_UNKNOWN_STRUCTURE_TYPE_" + std::to_string(value.first)}));
+                               In<std::string>({expectedString, "XR_UNKNOWN_STRUCTURE_TYPE_" + std::to_string(value.first)}));
                 }
                 else {
-                    CHECK(returnedString == value.second);
+                    CHECK(returnedString == expectedString);
                 }
             }
         }

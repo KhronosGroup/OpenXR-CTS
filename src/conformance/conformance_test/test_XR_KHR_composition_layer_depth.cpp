@@ -97,7 +97,7 @@ namespace Conformance
             for (const DepthVaryingInfo& varyingInfo : varyingInfoTestArray) {
                 REQUIRE(FrameIterator::RunResult::Success == frameIterator.PrepareSubmitFrame());
 
-                REQUIRE_RESULT_SUCCEEDED(CycleToNextSwapchainImage(depthSwapchains.data(), 2, 3_xrSeconds));
+                REQUIRE(CycleToNextSwapchainImage(depthSwapchains.data(), 2, 3_xrSeconds) == XR_SUCCESS);
 
                 // Set up our XrCompositionLayerDepthInfoKHR
                 XrCompositionLayerDepthInfoKHR depthInfoLayer{XR_TYPE_COMPOSITION_LAYER_DEPTH_INFO_KHR};

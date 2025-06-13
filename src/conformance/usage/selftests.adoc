@@ -27,11 +27,11 @@ Omit any graphics API binding extensions your runtime does not support.
 
 [source,sh]
 ----
-conformance_cli "[self_test][interactive]" -G d3d11 --reporter ctsxml::out=interactive_self_test_d3d11.xml
-conformance_cli "[self_test][interactive]" -G d3d12 --reporter ctsxml::out=interactive_self_test_d3d12.xml
-conformance_cli "[self_test][interactive]" -G vulkan --reporter ctsxml::out=interactive_self_test_vulkan.xml
-conformance_cli "[self_test][interactive]" -G vulkan2 --reporter ctsxml::out=interactive_self_test_vulkan2.xml
-conformance_cli "[self_test][interactive]" -G opengl --reporter ctsxml::out=interactive_self_test_opengl.xml
+conformance_cli "[self_test][interactive]" -G d3d11 --reporter ctsxml::out=interactive_self_test_d3d11.xml --reporter console
+conformance_cli "[self_test][interactive]" -G d3d12 --reporter ctsxml::out=interactive_self_test_d3d12.xml --reporter console
+conformance_cli "[self_test][interactive]" -G vulkan --reporter ctsxml::out=interactive_self_test_vulkan.xml --reporter console
+conformance_cli "[self_test][interactive]" -G vulkan2 --reporter ctsxml::out=interactive_self_test_vulkan2.xml --reporter console
+conformance_cli "[self_test][interactive]" -G opengl --reporter ctsxml::out=interactive_self_test_opengl.xml --reporter console
 ----
 ====
 

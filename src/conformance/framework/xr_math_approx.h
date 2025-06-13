@@ -147,5 +147,7 @@ namespace openxr
                 float m_angularTolerance{DegToRad(0.5f)};
             };
         }  // namespace Pose
-    }      // namespace math_operators
+
+    }  // namespace math_operators
+
 }  // namespace openxr

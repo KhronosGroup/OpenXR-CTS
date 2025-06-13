@@ -188,6 +188,7 @@ namespace Conformance
     ///
     /// The contents of the swapchain images have no predictable content as a result of this.
     /// Returns any XrResult that xrAcquireSwapchainImage, xrWaitSwapchainImage, or xrReleaseSwapchainImage may return.
+    /// Only on `XR_SUCCESS` is the swapchain left in a usable state.
     XrResult CycleToNextSwapchainImage(XrSwapchain* swapchainArray, size_t count, XrDuration timeoutNs);
 
     /// Creates an action set and some actions, suitable for certain kinds of basic testing.
@@ -834,7 +835,7 @@ namespace Conformance
         enum class RunResult
         {
             Success,
-            Timeout,
+            UnsuccessfulWait,
             Error
         };
 

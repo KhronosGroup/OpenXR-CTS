@@ -23,7 +23,7 @@ The key parts to the command line here are:
   This mainly affects the interactive composition tests.
   This is primarily to exercise runtime behavior incidentally triggered by
   these tests.
-* `exclude:[noauto]` - the `[noauto]` tag is applied to test cases that
+* `exclude:[no_auto]` - the `[no_auto]` tag is applied to test cases that
   support neither conformance automation nor the auto-skip timeout.
 
 
@@ -33,17 +33,17 @@ The key parts to the command line here are:
 
 [source,sh]
 ----
-conformance_cli "exclude:[noauto]" -E XR_EXT_conformance_automation --autoSkipTimeout 3000 -G d3d11 --reporter ctsxml::out=conformance_automation_d3d11.xml --reporter console
+conformance_cli "exclude:[no_auto]" -E XR_EXT_conformance_automation --autoSkipTimeout 3000 -G d3d11 --reporter ctsxml::out=conformance_automation_d3d11.xml --reporter console
 
-conformance_cli "exclude:[noauto]" -E XR_EXT_conformance_automation --autoSkipTimeout 3000 -G d3d12 --reporter ctsxml::out=conformance_automation_d3d12.xml  --reporter console
+conformance_cli "exclude:[no_auto]" -E XR_EXT_conformance_automation --autoSkipTimeout 3000 -G d3d12 --reporter ctsxml::out=conformance_automation_d3d12.xml --reporter console
 
-conformance_cli "exclude:[noauto]" -E XR_EXT_conformance_automation --autoSkipTimeout 3000 -G vulkan --reporter ctsxml::out=conformance_automation_vulkan.xml  --reporter console
+conformance_cli "exclude:[no_auto]" -E XR_EXT_conformance_automation --autoSkipTimeout 3000 -G vulkan --reporter ctsxml::out=conformance_automation_vulkan.xml --reporter console
 
-conformance_cli "exclude:[noauto]" -E XR_EXT_conformance_automation --autoSkipTimeout 3000 -G vulkan2 --reporter ctsxml::out=conformance_automation_vulkan2.xml  --reporter console
+conformance_cli "exclude:[no_auto]" -E XR_EXT_conformance_automation --autoSkipTimeout 3000 -G vulkan2 --reporter ctsxml::out=conformance_automation_vulkan2.xml --reporter console
 
-conformance_cli "exclude:[noauto]" -E XR_EXT_conformance_automation --autoSkipTimeout 3000 -G opengl --reporter ctsxml::out=conformance_automation_opengl.xml  --reporter console
+conformance_cli "exclude:[no_auto]" -E XR_EXT_conformance_automation --autoSkipTimeout 3000 -G opengl --reporter ctsxml::out=conformance_automation_opengl.xml --reporter console
 
-conformance_cli "exclude:[noauto]" -E XR_EXT_conformance_automation --autoSkipTimeout 3000 -G metal --reporter ctsxml::out=conformance_automation_metal.xml  --reporter console
+conformance_cli "exclude:[no_auto]" -E XR_EXT_conformance_automation --autoSkipTimeout 3000 -G metal --reporter ctsxml::out=conformance_automation_metal.xml --reporter console
 
 ----
 ====
@@ -58,19 +58,19 @@ different graphics API availability on Android.
 
 [source,sh]
 ----
-adb shell am start-activity -S -n org.khronos.openxr.cts/android.app.NativeActivity --esa args "exclude:[noauto],-E,XR_EXT_conformance_automation,--autoSkipTimeout,3000" -e graphicsPlugin vulkan -e xmlFilename conformance_automation_vulkan.xml
+adb shell am start-activity -S -n org.khronos.openxr.cts/android.app.NativeActivity --esa args "exclude:[no_auto],-E,XR_EXT_conformance_automation,--autoSkipTimeout,3000" -e graphicsPlugin vulkan -e xmlFilename conformance_automation_vulkan.xml
 
 # Wait until tests complete, then retrieve results with
 adb pull /sdcard/Android/data/org.khronos.openxr.cts/files/conformance_automation_vulkan.xml
 
 
-adb shell am start-activity -S -n org.khronos.openxr.cts/android.app.NativeActivity --esa args "exclude:[noauto],-E,XR_EXT_conformance_automation,--autoSkipTimeout,3000" -e graphicsPlugin vulkan2 -e xmlFilename conformance_automation_vulkan2.xml
+adb shell am start-activity -S -n org.khronos.openxr.cts/android.app.NativeActivity --esa args "exclude:[no_auto],-E,XR_EXT_conformance_automation,--autoSkipTimeout,3000" -e graphicsPlugin vulkan2 -e xmlFilename conformance_automation_vulkan2.xml
 
 # Wait until tests complete, then retrieve results with
 adb pull /sdcard/Android/data/org.khronos.openxr.cts/files/conformance_automation_vulkan2.xml
 
 
-adb shell am start-activity -S -n org.khronos.openxr.cts/android.app.NativeActivity --esa args "exclude:[noauto],-E,XR_EXT_conformance_automation,--autoSkipTimeout,3000" -e graphicsPlugin opengles -e xmlFilename conformance_automation_opengles.xml
+adb shell am start-activity -S -n org.khronos.openxr.cts/android.app.NativeActivity --esa args "exclude:[no_auto],-E,XR_EXT_conformance_automation,--autoSkipTimeout,3000" -e graphicsPlugin opengles -e xmlFilename conformance_automation_opengles.xml
 
 # Wait until tests complete, then retrieve results with
 adb pull /sdcard/Android/data/org.khronos.openxr.cts/files/conformance_automation_opengles.xml
@@ -104,17 +104,17 @@ The key parts to the command line here are:
 
 [source,sh]
 ----
-conformance_cli "[composition][interactive]"  --autoSkipTimeout 3000 -G d3d11 --reporter ctsxml::out=interactive_composition_autoskip_d3d11.xml  --reporter console
+conformance_cli "[composition][interactive]" --autoSkipTimeout 3000 -G d3d11 --reporter ctsxml::out=interactive_composition_autoskip_d3d11.xml --reporter console
 
-conformance_cli "[composition][interactive]"  --autoSkipTimeout 3000 -G d3d12 --reporter ctsxml::out=interactive_composition_autoskip_d3d12.xml  --reporter console
+conformance_cli "[composition][interactive]" --autoSkipTimeout 3000 -G d3d12 --reporter ctsxml::out=interactive_composition_autoskip_d3d12.xml --reporter console
 
-conformance_cli "[composition][interactive]"  --autoSkipTimeout 3000 -G vulkan --reporter ctsxml::out=interactive_composition_autoskip_vulkan.xml  --reporter console
+conformance_cli "[composition][interactive]" --autoSkipTimeout 3000 -G vulkan --reporter ctsxml::out=interactive_composition_autoskip_vulkan.xml --reporter console
 
-conformance_cli "[composition][interactive]"  --autoSkipTimeout 3000 -G vulkan2 --reporter ctsxml::out=interactive_composition_autoskip_vulkan2.xml  --reporter console
+conformance_cli "[composition][interactive]" --autoSkipTimeout 3000 -G vulkan2 --reporter ctsxml::out=interactive_composition_autoskip_vulkan2.xml --reporter console
 
-conformance_cli "[composition][interactive]"  --autoSkipTimeout 3000 -G opengl --reporter ctsxml::out=interactive_composition_autoskip_opengl.xml  --reporter console
+conformance_cli "[composition][interactive]" --autoSkipTimeout 3000 -G opengl --reporter ctsxml::out=interactive_composition_autoskip_opengl.xml --reporter console
 
-conformance_cli "[composition][interactive]"  --autoSkipTimeout 3000 -G metal --reporter ctsxml::out=interactive_composition_autoskip_metal.xml  --reporter console
+conformance_cli "[composition][interactive]" --autoSkipTimeout 3000 -G metal --reporter ctsxml::out=interactive_composition_autoskip_metal.xml --reporter console
 
 ----
 ====

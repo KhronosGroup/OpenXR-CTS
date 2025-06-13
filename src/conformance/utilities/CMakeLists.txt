@@ -78,8 +78,6 @@ target_include_directories(
         ..
         # Backport of std::span functionality to pre-C++17
         ${PROJECT_SOURCE_DIR}/src/external/span-lite/include
-        # for GL:
-        ${PROJECT_SOURCE_DIR}/external/include
         # for metal-cpp
         ${PROJECT_SOURCE_DIR}/src/external/metal-cpp
         # for common/

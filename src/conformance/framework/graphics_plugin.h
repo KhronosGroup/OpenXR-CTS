@@ -53,20 +53,7 @@
 #include <windows.h>
 #endif  // defined(_WIN32)
 
-#if defined(__APPLE__)
-#include <OpenGL/gl.h>
-#else
-#include "common/gfxwrapper_opengl.h"
-#endif  // defined(__APPLE__)
-
 #endif  // defined(XR_USE_GRAPHICS_API_OPENGL)
-
-#if defined(XR_USE_GRAPHICS_API_OPENGL_ES)
-#include <EGL/egl.h>
-#include <EGL/eglext.h>
-#include <GLES3/gl3.h>
-#include <GLES3/gl3ext.h>
-#endif
 
 #ifdef XR_USE_GRAPHICS_API_D3D11
 #include <d3d11_4.h>

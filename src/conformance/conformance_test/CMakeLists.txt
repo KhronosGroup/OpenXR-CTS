@@ -78,8 +78,6 @@ target_include_directories(
 target_include_directories(
     conformance_test SYSTEM
     PRIVATE
-        # for helper headers
-        ${PROJECT_SOURCE_DIR}/external/include
         ${PROJECT_SOURCE_DIR}/src/external
         # Earcut algorithm for simple polygon triangulation
         ${PROJECT_SOURCE_DIR}/src/external/earcut/include

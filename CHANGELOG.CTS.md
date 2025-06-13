@@ -17,6 +17,47 @@ particular, since it is primarily software, pull requests may be integrated as
 they are accepted even between periodic updates. However, versions that are not
 signed tags on the `approved` branch are not valid for conformance submission.
 
+## OpenXR CTS 1.1.48.0 (2025-06-12)
+
+- Conformance Tests
+  - Fix: Incorrect use of `xrReleaseSwapchainImage` in `conformance_utils`
+    ([internal MR 3753](https://gitlab.khronos.org/openxr/openxr/merge_requests/3753),
+    [internal issue 2439](https://gitlab.khronos.org/openxr/openxr/issues/2439))
+  - Fix: Copy conformance assets to install destination (regression).
+    ([internal MR 3818](https://gitlab.khronos.org/openxr/openxr/merge_requests/3818))
+  - Fix: Reduce display test title length to avoid developer warnings.
+    ([internal MR 3824](https://gitlab.khronos.org/openxr/openxr/merge_requests/3824))
+  - Fix: CTS usage doc typo of the `[no_auto]` test case tag.
+    ([internal MR 3830](https://gitlab.khronos.org/openxr/openxr/merge_requests/3830))
+  - Fix: CTS usage leftover mention of testing over the product of API versions and
+    other factors.
+    ([internal MR 3830](https://gitlab.khronos.org/openxr/openxr/merge_requests/3830))
+  - Fix: Update `test_xrStructureTypeToString.cpp` to support longer struct names.
+    ([internal MR 3863](https://gitlab.khronos.org/openxr/openxr/merge_requests/3863))
+  - Fix: Avoid using `glCheckNamedFramebufferStatus` in OpenGL plugin for
+    compatibility.
+    ([internal MR 3878](https://gitlab.khronos.org/openxr/openxr/merge_requests/3878))
+  - Fix: Revise how OpenGL compatibility is detected in the build system on
+    Windows.
+    ([internal MR 3883](https://gitlab.khronos.org/openxr/openxr/merge_requests/3883))
+  - Improvement: Adjust how CMake enables support for
+    `XR_KHR_convert_timespec_time`, enabling the corresponding tests on Android by
+    default.
+    ([internal MR 3810](https://gitlab.khronos.org/openxr/openxr/merge_requests/3810))
+  - Improvement: CTS usage doc now includes `--reporter console` in all non-Android
+    sample command lines to provide standard terminal progress output in addition
+    to the official submission XML.
+    ([internal MR 3830](https://gitlab.khronos.org/openxr/openxr/merge_requests/3830))
+  - Improvement: Minor code cleanup.
+    ([internal MR 3835](https://gitlab.khronos.org/openxr/openxr/merge_requests/3835))
+  - Improvement: Allow for unsupported and invalid return for test_actions invalid
+    paths.
+    ([internal MR 3842](https://gitlab.khronos.org/openxr/openxr/merge_requests/3842))
+  - Improvement: Fix multiple clang-format formatting issues.
+    ([internal MR 3845](https://gitlab.khronos.org/openxr/openxr/merge_requests/3845))
+  - New test: Add test for `XR_KHR_android_surface_swapchain`.
+    ([internal MR 3798](https://gitlab.khronos.org/openxr/openxr/merge_requests/3798))
+
 ## OpenXR CTS 1.1.47.0 (2024-04-24)
 
 - Conformance Tests

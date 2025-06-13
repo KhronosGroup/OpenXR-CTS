@@ -730,7 +730,7 @@ namespace Conformance
         }
     }
 
-    TEST_CASE("MinLayers", "[composition][interactive][no_auto]")
+    TEST_CASE("MinLayers", "[composition][interactive]")
     {
         GlobalData& globalData = GetGlobalData();
         if (!globalData.IsUsingGraphicsPlugin()) {

@@ -66,6 +66,7 @@ run_xr_xml_generate(
 add_library(
     conformance_framework STATIC
     action_utils.cpp
+    autoskip.cpp
     catch_reporter_cts.cpp
     composition_utils.cpp
     conformance_framework.cpp
