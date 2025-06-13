@@ -1,4 +1,0 @@
----
-- mr.3824.gl
----
-- Fix: Reduce display test title length to avoid developer warnings.

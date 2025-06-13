@@ -1,4 +1,0 @@
----
-- mr.3835.gl
----
-- Improvement: Minor code cleanup.

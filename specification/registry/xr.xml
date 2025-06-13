@@ -791,6 +791,8 @@ maintained in the default branch of the Khronos OpenXR GitHub project.
         <type name="XrSpatialMeshLodBD" category="enum"/>
         <type name="XrSpatialMeshConfigFlagBitsBD" category="enum"/>
 
+        <!-- enums for XR_BD_spatial_plane -->
+        <type name="XrPlaneOrientationBD" category="enum"/>
 
         <!-- Struct types -->
         <type category="struct" name="XrVector2f">
@@ -4623,6 +4625,26 @@ typedef XrResult (XRAPI_PTR *<name>PFN_xrCreateApiLayerInstance</name>)(
             <member>const <type>void</type>* <name>next</name></member>
         </type>
 
+        <!-- XR_BD_spatial_plane -->
+        <type category="struct" name="XrSystemSpatialPlanePropertiesBD" returnedonly="true" structextends="XrSystemProperties">
+            <member values="XR_TYPE_SYSTEM_SPATIAL_PLANE_PROPERTIES_BD"><type>XrStructureType</type> <name>type</name></member>
+            <member><type>void</type>*    <name>next</name></member>
+            <member><type>XrBool32</type> <name>supportsSpatialPlane</name></member>
+        </type>
+
+        <type category="struct" name="XrSpatialEntityComponentDataPlaneOrientationBD" structextends="XrSpatialEntityComponentDataBaseHeaderBD">
+            <member values="XR_TYPE_SPATIAL_ENTITY_COMPONENT_DATA_PLANE_ORIENTATION_BD"><type>XrStructureType</type> <name>type</name></member>
+            <member><type>void</type>*                <name>next</name></member>
+            <member><type>XrPlaneOrientationBD</type> <name>orientation</name></member>
+        </type>
+
+        <type category="struct" name="XrSenseDataFilterPlaneOrientationBD" structextends="XrSenseDataQueryInfoBD">
+            <member values="XR_TYPE_SENSE_DATA_FILTER_PLANE_ORIENTATION_BD"><type>XrStructureType</type> <name>type</name></member>
+            <member>const <type>void</type>*                                  <name>next</name></member>
+            <member><type>uint32_t</type>                                     <name>orientationCount</name></member>
+            <member len="orientationCount"><type>XrPlaneOrientationBD</type>* <name>orientations</name></member>
+        </type>
+
         <!-- XR_META_simultaneous_hands_and_controllers -->
         <type category="struct" name="XrSystemSimultaneousHandsAndControllersPropertiesMETA" structextends="XrSystemProperties" returnedonly="true">
             <member values="XR_TYPE_SYSTEM_SIMULTANEOUS_HANDS_AND_CONTROLLERS_PROPERTIES_META"><type>XrStructureType</type> <name>type</name></member>
@@ -6219,6 +6241,14 @@ typedef XrResult (XRAPI_PTR *<name>PFN_xrCreateApiLayerInstance</name>)(
     <enums name="XrSpatialMeshConfigFlagBitsBD" type="bitmask">
         <enum bitpos="0" name="XR_SPATIAL_MESH_CONFIG_SEMANTIC_BIT_BD"                   comment="Detect and include semantic label component data in the spatial entity."/>
         <enum bitpos="1" name="XR_SPATIAL_MESH_CONFIG_ALIGN_SEMANTIC_WITH_VERTEX_BIT_BD" comment="Semantic labels are associated with each vertex, otherwise, semantic labels are associated with each triangle face by default. It only takes effect if ename:XR_SPATIAL_MESH_CONFIG_SEMANTIC_BIT_BD is set"/>
+    </enums>
+
+    <!-- enums for XR_BD_spatial_plane -->
+    <enums name="XrPlaneOrientationBD" type="enum">
+        <enum value="0"   name="XR_PLANE_ORIENTATION_HORIZONTAL_UPWARD_BD"   comment="The detected plane is horizontal and faces upward (e.g. floor)."/>
+        <enum value="1"   name="XR_PLANE_ORIENTATION_HORIZONTAL_DOWNWARD_BD" comment="The detected plane is horizontal and faces downward (e.g. ceiling)."/>
+        <enum value="2"   name="XR_PLANE_ORIENTATION_VERTICAL_BD"            comment="The detected plane is vertical (e.g. wall)."/>
+        <enum value="3"   name="XR_PLANE_ORIENTATION_ARBITRARY_BD"           comment="The detected plane has an arbitrary, non-vertical and non-horizontal orientation."/>
     </enums>
 
     <!-- SECTION: OpenXR loader command definitions -->
@@ -14816,10 +14846,21 @@ typedef XrResult (XRAPI_PTR *<name>PFN_xrCreateApiLayerInstance</name>)(
         </require>
     </extension>
 
-    <extension name="XR_BD_extension_397" number="397" type="instance" supported="disabled">
+    <extension name="XR_BD_spatial_plane" number="397" depends="XR_BD_spatial_sensing" type="instance" supported="openxr">
         <require>
-            <enum value="1"                               name="XR_BD_extension_397_SPEC_VERSION"/>
-            <enum value="&quot;XR_BD_extension_397&quot;" name="XR_BD_extension_397_EXTENSION_NAME"/>
+            <enum value="1"                                           name="XR_BD_spatial_plane_SPEC_VERSION"/>
+            <enum value="&quot;XR_BD_spatial_plane&quot;"             name="XR_BD_SPATIAL_PLANE_EXTENSION_NAME"/>
+
+            <enum offset="0" extends="XrStructureType"                name="XR_TYPE_SYSTEM_SPATIAL_PLANE_PROPERTIES_BD"                 comment="XrSystemSpatialPlanePropertiesBD"/>
+            <enum offset="1" extends="XrStructureType"                name="XR_TYPE_SPATIAL_ENTITY_COMPONENT_DATA_PLANE_ORIENTATION_BD" comment="XrSpatialEntityComponentDataPlaneOrientationBD"/>
+            <enum offset="2" extends="XrStructureType"                name="XR_TYPE_SENSE_DATA_FILTER_PLANE_ORIENTATION_BD"             comment="XrSenseDataFilterPlaneOrientationBD"/>
+
+            <enum offset="0" extends="XrSenseDataProviderTypeBD"      name="XR_SENSE_DATA_PROVIDER_TYPE_PLANE_BD"                       comment="Capture spatial plane data."/>
+            <enum offset="0" extends="XrSpatialEntityComponentTypeBD" name="XR_SPATIAL_ENTITY_COMPONENT_TYPE_PLANE_ORIENTATION_BD"      comment="The plane orientation. Corresponds to component data structure slink:XrSpatialEntityComponentDataPlaneOrientationBD."/>
+
+            <type name="XrSystemSpatialPlanePropertiesBD"/>
+            <type name="XrSpatialEntityComponentDataPlaneOrientationBD"/>
+            <type name="XrSenseDataFilterPlaneOrientationBD"/>
         </require>
     </extension>
 

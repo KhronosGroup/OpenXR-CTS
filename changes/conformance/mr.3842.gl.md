@@ -1,4 +1,0 @@
----
-- mr.3842.gl
----
-- Improvement: Allow for unsupported and invalid return for test_actions invalid paths.

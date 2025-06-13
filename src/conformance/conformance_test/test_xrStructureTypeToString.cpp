@@ -61,13 +61,21 @@ namespace Conformance
                         allowGeneratedName = true;
                     }
                 }
+
+                // See test_XR_KHR_extended_struct_name_length for strings which are
+                // longer than XR_MAX_STRUCTURE_NAME_SIZE.
+                std::string expectedString(value.second);
+                if (expectedString.size() >= XR_MAX_STRUCTURE_NAME_SIZE - 1) {
+                    expectedString.resize(XR_MAX_STRUCTURE_NAME_SIZE - 1);
+                }
+
                 std::string returnedString(buffer);
                 if (allowGeneratedName) {
                     CHECK_THAT(returnedString,
-                               In<std::string>({std::string(value.second), "XR_UNKNOWN_STRUCTURE_TYPE_" + std::to_string(value.first)}));
+                               In<std::string>({expectedString, "XR_UNKNOWN_STRUCTURE_TYPE_" + std::to_string(value.first)}));
                 }
                 else {
-                    CHECK(returnedString == value.second);
+                    CHECK(returnedString == expectedString);
                 }
             }
         }

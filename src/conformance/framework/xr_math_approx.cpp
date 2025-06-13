@@ -41,5 +41,7 @@ namespace openxr
                 return oss.str();
             }
         }  // namespace Pose
-    }      // namespace math_operators
+
+    }  // namespace math_operators
+
 }  // namespace openxr
