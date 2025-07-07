@@ -9,17 +9,13 @@
 #include "controller_animation_handler.h"
 #include "ext_render_model.h"
 #include "graphics_plugin.h"
-#include "input_testinputdevice.h"
 #include "report.h"
 #include "two_call.h"
-#include "two_call_struct_metadata.h"
 #include "two_call_struct_tests.h"
 
-#include "common/hex_and_handles.h"
 #include "utilities/event_reader.h"
 #include "utilities/throw_helpers.h"
 #include "utilities/types_and_constants.h"
-#include "utilities/utils.h"
 
 #include <catch2/catch_message.hpp>
 #include <catch2/catch_test_macros.hpp>
@@ -36,7 +32,6 @@
 #include <map>
 #include <set>
 #include <memory>
-#include <stdint.h>
 #include <string>
 #include <tuple>
 #include <utility>
@@ -62,8 +57,8 @@ namespace Conformance
         {
             std::vector<XrPath> subactionPaths;
 
-            XrActionSet actionSet;
-            XrAction gripPoseAction;
+            XrActionSet actionSet{};
+            XrAction gripPoseAction{};
             ActionSetup(XrInstance instance, InteractionManager& interactionManager)
                 : subactionPaths{StringToPath(instance, "/user/hand/left"), StringToPath(instance, "/user/hand/right")}
             {
@@ -149,7 +144,8 @@ namespace Conformance
                     INFO("Did not begin the session yet");
                     CHECK(false == HasInteractionRenderModelsChangedEvent(eventReaderForIRMChanged));
                     uint32_t countOutput = 0;
-                    REQUIRE(XR_SUCCESS == ext.xrEnumerateInteractionRenderModelIdsEXT_(session, nullptr, 0, &countOutput, nullptr));
+                    REQUIRE(XR_ERROR_SESSION_NOT_RUNNING ==
+                            ext.xrEnumerateInteractionRenderModelIdsEXT_(session, nullptr, 0, &countOutput, nullptr));
                     REQUIRE(countOutput == 0);
                 }
                 session.BeginSession();
@@ -242,7 +238,8 @@ namespace Conformance
         {
         }
     };
-    TEST_CASE("XR_EXT_interaction_render_model-interactive", "[XR_EXT_interaction_render_model][XR_EXT_render_model][interactive][no_auto]")
+    TEST_CASE("XR_EXT_interaction_render_model-interactive",
+              "[XR_EXT_interaction_render_model][XR_EXT_render_model][interactive][scenario][no_auto]")
     {
         GlobalData& globalData = GetGlobalData();
 
@@ -404,7 +401,7 @@ namespace Conformance
         RenderLoop(session, updateLayers).Loop();
     }
 
-    TEST_CASE("XR_EXT_interaction_render_model-objective", "[XR_EXT_interaction_render_model][interactive]")
+    TEST_CASE("XR_EXT_interaction_render_model-objective", "[XR_EXT_interaction_render_model][interactive][scenario][no_auto]")
     {
 
         GlobalData& globalData = GetGlobalData();

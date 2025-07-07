@@ -32,10 +32,10 @@
 #include "spatial_test_runner.h"
 #include "utilities/colors.h"
 #include "utilities/throw_helpers.h"
-#include "utilities/utils.h"
-#include "utilities/xr_math_operators.h"
 
+#if !defined(_USE_MATH_DEFINES)
 #define _USE_MATH_DEFINES
+#endif  // !defined(_USE_MATH_DEFINES)
 #include <cmath>
 
 using namespace Conformance;
@@ -60,29 +60,18 @@ namespace Conformance
 
         struct SpatialPlaneTrackingTestRunner : public SpatialTestRunner
         {
-            SpatialPlaneTrackingTestRunner(const std::vector<XrSpatialComponentTypeEXT>& enabledComponents)
+            explicit SpatialPlaneTrackingTestRunner(const std::vector<XrSpatialComponentTypeEXT>& enabledComponents)
                 : mEnabledComponents(enabledComponents)
             {
-                mPlaneConfig = {
-                    XR_TYPE_SPATIAL_CAPABILITY_CONFIGURATION_PLANE_TRACKING_EXT,
-                    nullptr,
-                    XR_SPATIAL_CAPABILITY_PLANE_TRACKING_EXT,
-                    static_cast<uint32_t>(mEnabledComponents.size()),
-                    mEnabledComponents.data(),
-                };
+                mPlaneConfig = {XR_TYPE_SPATIAL_CAPABILITY_CONFIGURATION_PLANE_TRACKING_EXT};
+                mPlaneConfig.capability = XR_SPATIAL_CAPABILITY_PLANE_TRACKING_EXT;
+                mPlaneConfig.enabledComponentCount = static_cast<uint32_t>(mEnabledComponents.size());
+                mPlaneConfig.enabledComponents = mEnabledComponents.data();
 
-                bounded2dList = {
-                    XR_TYPE_SPATIAL_COMPONENT_BOUNDED_2D_LIST_EXT,
-                };
-                planeAlignmentList = {
-                    XR_TYPE_SPATIAL_COMPONENT_PLANE_ALIGNMENT_LIST_EXT,
-                };
-                semanticLabelList = {
-                    XR_TYPE_SPATIAL_COMPONENT_PLANE_SEMANTIC_LABEL_LIST_EXT,
-                };
-                polygon2dList = {
-                    XR_TYPE_SPATIAL_COMPONENT_POLYGON_2D_LIST_EXT,
-                };
+                bounded2dList = {XR_TYPE_SPATIAL_COMPONENT_BOUNDED_2D_LIST_EXT};
+                planeAlignmentList = {XR_TYPE_SPATIAL_COMPONENT_PLANE_ALIGNMENT_LIST_EXT};
+                semanticLabelList = {XR_TYPE_SPATIAL_COMPONENT_PLANE_SEMANTIC_LABEL_LIST_EXT};
+                polygon2dList = {XR_TYPE_SPATIAL_COMPONENT_POLYGON_2D_LIST_EXT};
             }
 
             std::vector<const char*> getRequiredExtensions() override
@@ -157,7 +146,7 @@ namespace Conformance
                 }
             }
 
-            XrColor4f getColor(XrSpatialPlaneAlignmentEXT planeAlignment)
+            static XrColor4f getColor(XrSpatialPlaneAlignmentEXT planeAlignment)
             {
                 switch (planeAlignment) {
                 case XR_SPATIAL_PLANE_ALIGNMENT_HORIZONTAL_UPWARD_EXT:
@@ -173,7 +162,7 @@ namespace Conformance
                 }
             }
 
-            XrColor4f getColor(XrSpatialPlaneSemanticLabelEXT semanticLabel)
+            static XrColor4f getColor(XrSpatialPlaneSemanticLabelEXT semanticLabel)
             {
                 switch (semanticLabel) {
                 case XR_SPATIAL_PLANE_SEMANTIC_LABEL_FLOOR_EXT:
@@ -190,13 +179,13 @@ namespace Conformance
                 }
             }
 
-            XrSpatialCapabilityConfigurationPlaneTrackingEXT mPlaneConfig;
+            XrSpatialCapabilityConfigurationPlaneTrackingEXT mPlaneConfig{};
             const std::vector<XrSpatialComponentTypeEXT> mEnabledComponents;
 
-            XrSpatialComponentBounded2DListEXT bounded2dList;
-            XrSpatialComponentPlaneAlignmentListEXT planeAlignmentList;
-            XrSpatialComponentPlaneSemanticLabelListEXT semanticLabelList;
-            XrSpatialComponentPolygon2DListEXT polygon2dList;
+            XrSpatialComponentBounded2DListEXT bounded2dList{};
+            XrSpatialComponentPlaneAlignmentListEXT planeAlignmentList{};
+            XrSpatialComponentPlaneSemanticLabelListEXT semanticLabelList{};
+            XrSpatialComponentPolygon2DListEXT polygon2dList{};
 
             std::vector<XrSpatialBounded2DDataEXT> bounded2Ds;
             std::vector<XrSpatialPlaneAlignmentEXT> planeAlignments;
@@ -240,12 +229,12 @@ namespace Conformance
         {
             static constexpr size_t kMaxEntityHandles = 5;
 
-            SpatialPlaneTrackingUpdateSnapshotTestRunner(const std::vector<XrSpatialComponentTypeEXT>& enabledComponents)
+            explicit SpatialPlaneTrackingUpdateSnapshotTestRunner(const std::vector<XrSpatialComponentTypeEXT>& enabledComponents)
                 : SpatialPlaneTrackingTestRunner(enabledComponents)
             {
             }
 
-            void postCreateSpatialContextCompletion(const XrFrameState&) override
+            void postCreateSpatialContextCompletion(const XrFrameState& /*unused*/) override
             {
                 xrCreateSpatialEntityFromIdEXT =
                     GetInstanceExtensionFunction<PFN_xrCreateSpatialEntityFromIdEXT>(instance, "xrCreateSpatialEntityFromIdEXT");
@@ -265,11 +254,9 @@ namespace Conformance
                 if (entityHandles.size() < kMaxEntityHandles) {
                     for (uint32_t i = 0; i < static_cast<uint32_t>(entityIds.size()) && entityHandles.size() < kMaxEntityHandles; ++i) {
                         if (idsForEntityHandles.find(entityIds[i]) == idsForEntityHandles.end()) {
-                            XrSpatialEntityFromIdCreateInfoEXT entityCreateInfo{
-                                XR_TYPE_SPATIAL_ENTITY_FROM_ID_CREATE_INFO_EXT,
-                                nullptr,
-                                entityIds[i],
-                            };
+                            XrSpatialEntityFromIdCreateInfoEXT entityCreateInfo{XR_TYPE_SPATIAL_ENTITY_FROM_ID_CREATE_INFO_EXT};
+                            entityCreateInfo.entityId = entityIds[i];
+
                             XrSpatialEntityEXT spatialEntity = XR_NULL_HANDLE;
                             XRC_CHECK_THROW_XRCMD(xrCreateSpatialEntityFromIdEXT(spatialContext, &entityCreateInfo, &spatialEntity));
                             entityHandles.push_back(spatialEntity);
@@ -290,18 +277,15 @@ namespace Conformance
 
             void onUpdate(const XrFrameState& frameState) override
             {
-                if (entityHandles.size() > 0) {
+                if (!entityHandles.empty()) {
                     XrSpatialSnapshotEXT updateSnapshot;
-                    XrSpatialUpdateSnapshotCreateInfoEXT updateSnapshotCreateInfo{
-                        XR_TYPE_SPATIAL_UPDATE_SNAPSHOT_CREATE_INFO_EXT,
-                        nullptr,
-                        static_cast<uint32_t>(entityHandles.size()),
-                        entityHandles.data(),
-                        0,
-                        nullptr,
-                        localSpace,
-                        frameState.predictedDisplayTime,
-                    };
+                    XrSpatialUpdateSnapshotCreateInfoEXT updateSnapshotCreateInfo{XR_TYPE_SPATIAL_UPDATE_SNAPSHOT_CREATE_INFO_EXT};
+                    updateSnapshotCreateInfo.entityCount = static_cast<uint32_t>(entityHandles.size());
+                    updateSnapshotCreateInfo.entities = entityHandles.data();
+                    updateSnapshotCreateInfo.componentTypeCount = 0;
+                    updateSnapshotCreateInfo.componentTypes = nullptr;
+                    updateSnapshotCreateInfo.baseSpace = localSpace;
+                    updateSnapshotCreateInfo.time = frameState.predictedDisplayTime;
 
                     XRC_CHECK_THROW_XRCMD(xrCreateSpatialUpdateSnapshotEXT(spatialContext, &updateSnapshotCreateInfo, &updateSnapshot));
 
@@ -314,9 +298,9 @@ namespace Conformance
             std::vector<XrSpatialEntityEXT> entityHandles;
             std::unordered_set<XrSpatialEntityIdEXT> idsForEntityHandles;
 
-            PFN_xrCreateSpatialEntityFromIdEXT xrCreateSpatialEntityFromIdEXT;
-            PFN_xrCreateSpatialUpdateSnapshotEXT xrCreateSpatialUpdateSnapshotEXT;
-            PFN_xrDestroySpatialSnapshotEXT xrDestroySpatialSnapshotEXT;
+            PFN_xrCreateSpatialEntityFromIdEXT xrCreateSpatialEntityFromIdEXT{};
+            PFN_xrCreateSpatialUpdateSnapshotEXT xrCreateSpatialUpdateSnapshotEXT{};
+            PFN_xrDestroySpatialSnapshotEXT xrDestroySpatialSnapshotEXT{};
         };
 
         TEST_CASE("XR_EXT_spatial_plane_tracking-update-snapshot",

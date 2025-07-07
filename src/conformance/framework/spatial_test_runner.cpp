@@ -80,7 +80,7 @@ namespace Conformance
         std::vector<const XrSpatialCapabilityConfigurationBaseHeaderEXT*> capabilityConfigs;
         onCreateSpatialContext(capabilityConfigs);
 
-        for (const auto capabilityConfig : capabilityConfigs) {
+        for (const auto* const capabilityConfig : capabilityConfigs) {
             if (!IsSpatialCapabilitySupported(instance, systemId, capabilityConfig->capability)) {
                 SKIP(XrEnumStr(capabilityConfig->capability) << " not enumerated as "
                                                                 "supported.");

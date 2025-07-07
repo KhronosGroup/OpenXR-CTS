@@ -41,9 +41,10 @@ add_subdirectory(gltf)
 
 # Main conformance framework
 
-set(VULKAN_SHADERS "${CMAKE_CURRENT_SOURCE_DIR}/vulkan_shaders/frag.glsl"
-                   "${CMAKE_CURRENT_SOURCE_DIR}/vulkan_shaders/vert.glsl"
-                   "${CMAKE_CURRENT_SOURCE_DIR}/vulkan_shaders/comp.glsl"
+set(VULKAN_SHADERS
+    "${CMAKE_CURRENT_SOURCE_DIR}/vulkan_shaders/frag.glsl"
+    "${CMAKE_CURRENT_SOURCE_DIR}/vulkan_shaders/vert.glsl"
+    "${CMAKE_CURRENT_SOURCE_DIR}/vulkan_shaders/comp.glsl"
 )
 
 run_xr_xml_generate(

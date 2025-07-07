@@ -19,14 +19,9 @@
 
 #include <openxr/openxr.h>
 
-#include <array>
-#include <catch2/catch_message.hpp>
-#include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_vector.hpp>
-#include <chrono>
 
 #include "conformance_framework.h"
-#include "conformance_utils.h"
 #include "utilities/throw_helpers.h"
 
 using Catch::Matchers::VectorContains;

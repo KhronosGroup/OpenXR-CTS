@@ -19,6 +19,11 @@ add_library(
     ${PROJECT_SOURCE_DIR}/src/external/mikktspace/mikktspace.c
 )
 
+set_source_files_properties(
+    ${PROJECT_SOURCE_DIR}/src/external/mikktspace/mikktspace.c
+    PROPERTIES SKIP_LINTING ON
+)
+
 target_include_directories(
     conformance_framework_mikktspace
     PUBLIC ${PROJECT_SOURCE_DIR}/src/external/mikktspace
@@ -28,11 +33,19 @@ set_target_properties(
                                                 ${CONFORMANCE_TESTS_FOLDER}
 )
 
-add_library(
-    conformance_framework_basisu STATIC
+set(basisu_sources
     ${PROJECT_SOURCE_DIR}/src/external/basis_universal/transcoder/basisu_transcoder.cpp
     ${PROJECT_SOURCE_DIR}/src/external/basis_universal/zstd/zstd.c
 )
+
+# cmake-format: off
+set_source_files_properties(
+    ${basisu_sources}
+    PROPERTIES SKIP_LINTING ON
+)
+# cmake-format: on
+
+add_library(conformance_framework_basisu STATIC ${basisu_sources})
 
 target_include_directories(
     conformance_framework_basisu
@@ -49,7 +62,6 @@ if(CMAKE_CXX_COMPILER_ID STREQUAL GNU OR (CMAKE_CXX_COMPILER_ID MATCHES "Clang"
         conformance_framework_basisu PRIVATE -fno-strict-aliasing
     )
 endif()
-
 
 # basis_universal needs a lot of warnings disabled to build cleanly, unfortunately.
 # Some are event contagious, but we deal with that where we include, to avoid turning off

@@ -83,12 +83,17 @@ if(MSVC)
 endif()
 
 # Flag generated files
+# cmake-format: off
 set_source_files_properties(
     ${PROJECT_BINARY_DIR}/src/xr_generated_dispatch_table.c
     # ${PROJECT_BINARY_DIR}/src/conformance/conformance_layer/gen_dispatch.cpp
     # ${PROJECT_BINARY_DIR}/src/conformance/conformance_layer/gen_dispatch.h
-    PROPERTIES GENERATED TRUE
+    PROPERTIES
+        GENERATED TRUE
+        SKIP_LINTING ON
 )
+# cmake-format: on
+
 if(XR_USE_GRAPHICS_API_VULKAN)
     target_include_directories(
         XrApiLayer_runtime_conformance PRIVATE ${Vulkan_INCLUDE_DIRS}

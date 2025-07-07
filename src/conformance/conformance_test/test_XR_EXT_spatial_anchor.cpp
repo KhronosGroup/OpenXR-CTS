@@ -33,10 +33,10 @@
 #include "spatial_test_runner.h"
 #include "utilities/colors.h"
 #include "utilities/throw_helpers.h"
-#include "utilities/utils.h"
-#include "utilities/xr_math_operators.h"
 
+#if !defined(_USE_MATH_DEFINES)
 #define _USE_MATH_DEFINES
+#endif  // !defined(_USE_MATH_DEFINES)
 #include <cmath>
 
 using namespace Conformance;
@@ -47,8 +47,8 @@ namespace Conformance
     namespace
     {
 
-        static const std::chrono::nanoseconds kWaitTimeout = 5s;
-        static const std::chrono::nanoseconds kWaitInterval = 16ms;
+        const std::chrono::nanoseconds kWaitTimeout = 5s;
+        const std::chrono::nanoseconds kWaitInterval = 16ms;
 
 #define CORE_FUNCTION_POINTERS(_)                  \
     _(xrCreateSpatialContextAsyncEXT)              \
@@ -83,33 +83,27 @@ namespace Conformance
             std::array<XrSpatialComponentTypeEXT, 1> enabledComponents = {
                 XR_SPATIAL_COMPONENT_TYPE_ANCHOR_EXT,
             };
-            XrSpatialCapabilityConfigurationAnchorEXT anchorConfig{
-                XR_TYPE_SPATIAL_CAPABILITY_CONFIGURATION_ANCHOR_EXT,
-                nullptr,
-                XR_SPATIAL_CAPABILITY_ANCHOR_EXT,
-                static_cast<uint32_t>(enabledComponents.size()),
-                enabledComponents.data(),
-            };
+            XrSpatialCapabilityConfigurationAnchorEXT anchorConfig{XR_TYPE_SPATIAL_CAPABILITY_CONFIGURATION_ANCHOR_EXT};
+            anchorConfig.capability = XR_SPATIAL_CAPABILITY_ANCHOR_EXT;
+            anchorConfig.enabledComponentCount = static_cast<uint32_t>(enabledComponents.size());
+            anchorConfig.enabledComponents = enabledComponents.data();
 
             std::array<XrSpatialCapabilityConfigurationBaseHeaderEXT*, 1> capabilityConfigs = {
                 reinterpret_cast<XrSpatialCapabilityConfigurationBaseHeaderEXT*>(&anchorConfig),
             };
 
-            XrSpatialContextCreateInfoEXT contextCreateInfo{XR_TYPE_SPATIAL_CONTEXT_CREATE_INFO_EXT, nullptr,
-                                                            static_cast<uint32_t>(capabilityConfigs.size()), capabilityConfigs.data()};
+            XrSpatialContextCreateInfoEXT contextCreateInfo{XR_TYPE_SPATIAL_CONTEXT_CREATE_INFO_EXT};
+            contextCreateInfo.capabilityConfigCount = static_cast<uint32_t>(capabilityConfigs.size());
+            contextCreateInfo.capabilityConfigs = capabilityConfigs.data();
 
-            XrFutureEXT future;
+            XrFutureEXT future{};
             XRC_CHECK_THROW_XRCMD(xrCreateSpatialContextAsyncEXT(session, &contextCreateInfo, &future));
             REQUIRE(WaitUntilPredicateWithTimeout(
                 [&]() {
-                    XrFuturePollInfoEXT pollInfo{
-                        XR_TYPE_FUTURE_POLL_INFO_EXT,
-                        nullptr,
-                        future,
-                    };
-                    XrFuturePollResultEXT pollResult{
-                        XR_TYPE_FUTURE_POLL_RESULT_EXT,
-                    };
+                    XrFuturePollInfoEXT pollInfo{XR_TYPE_FUTURE_POLL_INFO_EXT};
+                    pollInfo.future = future;
+                    XrFuturePollResultEXT pollResult{XR_TYPE_FUTURE_POLL_RESULT_EXT};
+
                     XrResult result = xrPollFutureEXT(instance, &pollInfo, &pollResult);
                     return (result == XR_SUCCESS) && pollResult.state == XR_FUTURE_STATE_READY_EXT;
                 },
@@ -122,7 +116,7 @@ namespace Conformance
             return completion.spatialContext;
         }
 
-        static void RequireAnchorEntityIdInSnapshot(XrInstance instance, XrSpatialSnapshotEXT snapshot, XrSpatialEntityIdEXT lookupEntityId)
+        void RequireAnchorEntityIdInSnapshot(XrInstance instance, XrSpatialSnapshotEXT snapshot, XrSpatialEntityIdEXT lookupEntityId)
         {
             auto xrQuerySpatialComponentDataEXT =
                 GetInstanceExtensionFunction<PFN_xrQuerySpatialComponentDataEXT>(instance, "xrQuerySpatialComponentDataEXT");
@@ -131,16 +125,11 @@ namespace Conformance
                 XR_SPATIAL_COMPONENT_TYPE_ANCHOR_EXT,
             };
 
-            XrSpatialComponentDataQueryConditionEXT queryCond{
-                XR_TYPE_SPATIAL_COMPONENT_DATA_QUERY_CONDITION_EXT,
-                nullptr,
-                static_cast<uint32_t>(enabledComponents.size()),
-                enabledComponents.data(),
-            };
+            XrSpatialComponentDataQueryConditionEXT queryCond{XR_TYPE_SPATIAL_COMPONENT_DATA_QUERY_CONDITION_EXT};
+            queryCond.componentTypeCount = static_cast<uint32_t>(enabledComponents.size());
+            queryCond.componentTypes = enabledComponents.data();
 
-            XrSpatialComponentDataQueryResultEXT queryResult{
-                XR_TYPE_SPATIAL_COMPONENT_DATA_QUERY_RESULT_EXT,
-            };
+            XrSpatialComponentDataQueryResultEXT queryResult{XR_TYPE_SPATIAL_COMPONENT_DATA_QUERY_RESULT_EXT};
 
             REQUIRE(XR_SUCCESS == xrQuerySpatialComponentDataEXT(snapshot, &queryCond, &queryResult));
             REQUIRE(queryResult.entityIdCountOutput > 0);
@@ -161,11 +150,8 @@ namespace Conformance
 
         TEST_CASE("XR_EXT_spatial_anchor", "[XR_EXT_spatial_anchor][XR_EXT_spatial_entity]")
         {
-            XrSpatialCapabilityConfigurationAnchorEXT anchorConfig{
-                XR_TYPE_SPATIAL_CAPABILITY_CONFIGURATION_ANCHOR_EXT,
-                nullptr,
-                XR_SPATIAL_CAPABILITY_ANCHOR_EXT,
-            };
+            XrSpatialCapabilityConfigurationAnchorEXT anchorConfig{XR_TYPE_SPATIAL_CAPABILITY_CONFIGURATION_ANCHOR_EXT};
+            anchorConfig.capability = XR_SPATIAL_CAPABILITY_ANCHOR_EXT;
 
             TestSpatialConformance(XR_EXT_SPATIAL_ANCHOR_EXTENSION_NAME, XR_SPATIAL_CAPABILITY_ANCHOR_EXT,
                                    {XR_SPATIAL_COMPONENT_TYPE_ANCHOR_EXT}, anchorConfig, XR_SPATIAL_COMPONENT_TYPE_BOUNDED_3D_EXT);
@@ -197,15 +183,13 @@ namespace Conformance
                 frameIterator.RunToSessionState(XR_SESSION_STATE_VISIBLE);
 
                 XrSpatialContextEXT spatialContext = createSpatialContextForAnchor(instance, session);
-                XrSpatialEntityIdEXT anchorId;
-                XrSpatialEntityEXT anchor;
+                XrSpatialEntityIdEXT anchorId{};
+                XrSpatialEntityEXT anchor{};
 
                 const auto isRefSpaceLocatable = [&]() {
                     frameIterator.SubmitFrame();
 
-                    XrSpaceLocation refSpaceLocation = {
-                        XR_TYPE_SPACE_LOCATION,
-                    };
+                    XrSpaceLocation refSpaceLocation = {XR_TYPE_SPACE_LOCATION};
                     const XrResult result = xrLocateSpace(session.spaceVector[0], session.spaceVector[1],
                                                           frameIterator.frameState.predictedDisplayTime, &refSpaceLocation);
                     return result == XR_SUCCESS && ((refSpaceLocation.locationFlags & XR_SPACE_LOCATION_ORIENTATION_TRACKED_BIT) != 0) &&
@@ -214,19 +198,22 @@ namespace Conformance
 
                 if (WaitUntilPredicateWithTimeout(isRefSpaceLocatable, kWaitTimeout, kWaitInterval)) {
                     const XrPosef anchorCreatePose = {{0, 0, 0, 1}, {0, 0, -0.5f}};
-                    XrSpatialAnchorCreateInfoEXT createInfo = {
-                        XR_TYPE_SPATIAL_ANCHOR_CREATE_INFO_EXT,        nullptr,          session.spaceVector[0],
-                        frameIterator.frameState.predictedDisplayTime, anchorCreatePose,
-                    };
+                    XrSpatialAnchorCreateInfoEXT createInfo = {XR_TYPE_SPATIAL_ANCHOR_CREATE_INFO_EXT};
+                    createInfo.baseSpace = session.spaceVector[0];
+                    createInfo.time = frameIterator.frameState.predictedDisplayTime;
+                    createInfo.pose = anchorCreatePose;
 
                     REQUIRE(XR_SUCCESS == xrCreateSpatialAnchorEXT(spatialContext, &createInfo, &anchorId, &anchor));
 
                     SECTION("Anchor must be in update snapshot")
                     {
-                        XrSpatialUpdateSnapshotCreateInfoEXT updateSnapshotCreateInfo{
-                            XR_TYPE_SPATIAL_UPDATE_SNAPSHOT_CREATE_INFO_EXT, nullptr, 1, &anchor, 0, nullptr, session.spaceVector[0],
-                            frameIterator.frameState.predictedDisplayTime,
-                        };
+                        XrSpatialUpdateSnapshotCreateInfoEXT updateSnapshotCreateInfo{XR_TYPE_SPATIAL_UPDATE_SNAPSHOT_CREATE_INFO_EXT};
+                        updateSnapshotCreateInfo.entityCount = 1;
+                        updateSnapshotCreateInfo.entities = &anchor;
+                        updateSnapshotCreateInfo.componentTypeCount = 0;
+                        updateSnapshotCreateInfo.componentTypes = nullptr;
+                        updateSnapshotCreateInfo.baseSpace = session.spaceVector[0];
+                        updateSnapshotCreateInfo.time = frameIterator.frameState.predictedDisplayTime;
 
                         XrSpatialSnapshotEXT snapshot;
                         XRC_CHECK_THROW_XRCMD(xrCreateSpatialUpdateSnapshotEXT(spatialContext, &updateSnapshotCreateInfo, &snapshot));
@@ -239,8 +226,7 @@ namespace Conformance
                     SECTION("Anchor must be in discovery snapshot")
                     {
                         XrSpatialDiscoverySnapshotCreateInfoEXT discoverySnapshotCreateInfo{
-                            XR_TYPE_SPATIAL_DISCOVERY_SNAPSHOT_CREATE_INFO_EXT,
-                        };
+                            XR_TYPE_SPATIAL_DISCOVERY_SNAPSHOT_CREATE_INFO_EXT};
 
                         XrFutureEXT future;
                         REQUIRE(XR_SUCCESS ==
@@ -249,26 +235,21 @@ namespace Conformance
                             [&]() {
                                 frameIterator.SubmitFrame();
 
-                                XrFuturePollInfoEXT pollInfo{
-                                    XR_TYPE_FUTURE_POLL_INFO_EXT,
-                                    nullptr,
-                                    future,
-                                };
-                                XrFuturePollResultEXT pollResult{
-                                    XR_TYPE_FUTURE_POLL_RESULT_EXT,
-                                };
+                                XrFuturePollInfoEXT pollInfo{XR_TYPE_FUTURE_POLL_INFO_EXT};
+                                pollInfo.future = future;
+
+                                XrFuturePollResultEXT pollResult{XR_TYPE_FUTURE_POLL_RESULT_EXT};
                                 XrResult result = xrPollFutureEXT(instance, &pollInfo, &pollResult);
                                 return (result == XR_SUCCESS) && pollResult.state == XR_FUTURE_STATE_READY_EXT;
                             },
                             kWaitTimeout, kWaitInterval));
 
                         XrCreateSpatialDiscoverySnapshotCompletionInfoEXT createSnapshotCompletionInfo{
-                            XR_TYPE_CREATE_SPATIAL_DISCOVERY_SNAPSHOT_COMPLETION_INFO_EXT,
-                            nullptr,
-                            session.spaceVector[0],
-                            frameIterator.frameState.predictedDisplayTime,
-                            future,
-                        };
+                            XR_TYPE_CREATE_SPATIAL_DISCOVERY_SNAPSHOT_COMPLETION_INFO_EXT};
+                        createSnapshotCompletionInfo.baseSpace = session.spaceVector[0];
+                        createSnapshotCompletionInfo.time = frameIterator.frameState.predictedDisplayTime;
+                        createSnapshotCompletionInfo.future = future;
+
                         XrCreateSpatialDiscoverySnapshotCompletionEXT completion{XR_TYPE_CREATE_SPATIAL_DISCOVERY_SNAPSHOT_COMPLETION_EXT};
                         REQUIRE(XR_SUCCESS ==
                                 xrCreateSpatialDiscoverySnapshotCompleteEXT(spatialContext, &createSnapshotCompletionInfo, &completion));
@@ -293,20 +274,15 @@ namespace Conformance
 
         struct SpatialAnchorTestRunner : public SpatialTestRunner
         {
-            SpatialAnchorTestRunner(const std::vector<XrSpatialComponentTypeEXT>& enabledComponents)
+            explicit SpatialAnchorTestRunner(const std::vector<XrSpatialComponentTypeEXT>& enabledComponents)
                 : mEnabledComponents(enabledComponents), mAnchorLocations(1, anchorCreatePose)
             {
-                mAnchorConfig = {
-                    XR_TYPE_SPATIAL_CAPABILITY_CONFIGURATION_ANCHOR_EXT,
-                    nullptr,
-                    XR_SPATIAL_CAPABILITY_ANCHOR_EXT,
-                    static_cast<uint32_t>(mEnabledComponents.size()),
-                    mEnabledComponents.data(),
-                };
+                mAnchorConfig = {XR_TYPE_SPATIAL_CAPABILITY_CONFIGURATION_ANCHOR_EXT};
+                mAnchorConfig.capability = XR_SPATIAL_CAPABILITY_ANCHOR_EXT;
+                mAnchorConfig.enabledComponentCount = static_cast<uint32_t>(mEnabledComponents.size());
+                mAnchorConfig.enabledComponents = mEnabledComponents.data();
 
-                mAnchorList = {
-                    XR_TYPE_SPATIAL_COMPONENT_ANCHOR_LIST_EXT,
-                };
+                mAnchorList = {XR_TYPE_SPATIAL_COMPONENT_ANCHOR_LIST_EXT};
             }
 
             std::vector<const char*> getRequiredExtensions() override
@@ -331,9 +307,10 @@ namespace Conformance
                 xrDestroySpatialSnapshotEXT =
                     GetInstanceExtensionFunction<PFN_xrDestroySpatialSnapshotEXT>(instance, "xrDestroySpatialSnapshotEXT");
 
-                XrSpatialAnchorCreateInfoEXT anchorCreateInfo = {
-                    XR_TYPE_SPATIAL_ANCHOR_CREATE_INFO_EXT, nullptr, localSpace, frameState.predictedDisplayTime, anchorCreatePose,
-                };
+                XrSpatialAnchorCreateInfoEXT anchorCreateInfo = {XR_TYPE_SPATIAL_ANCHOR_CREATE_INFO_EXT};
+                anchorCreateInfo.baseSpace = localSpace;
+                anchorCreateInfo.time = frameState.predictedDisplayTime;
+                anchorCreateInfo.pose = anchorCreatePose;
 
                 XRC_CHECK_THROW_XRCMD(xrCreateSpatialAnchorEXT(spatialContext, &anchorCreateInfo, &mAnchorId, &mAnchor));
 
@@ -377,16 +354,13 @@ namespace Conformance
             {
                 if (mAnchor != XR_NULL_HANDLE) {
                     XrSpatialSnapshotEXT updateSnapshot;
-                    XrSpatialUpdateSnapshotCreateInfoEXT updateSnapshotCreateInfo{
-                        XR_TYPE_SPATIAL_UPDATE_SNAPSHOT_CREATE_INFO_EXT,
-                        nullptr,
-                        1,
-                        &mAnchor,
-                        0,
-                        nullptr,
-                        localSpace,
-                        frameState.predictedDisplayTime,
-                    };
+                    XrSpatialUpdateSnapshotCreateInfoEXT updateSnapshotCreateInfo{XR_TYPE_SPATIAL_UPDATE_SNAPSHOT_CREATE_INFO_EXT};
+                    updateSnapshotCreateInfo.entityCount = 1;
+                    updateSnapshotCreateInfo.entities = &mAnchor;
+                    updateSnapshotCreateInfo.componentTypeCount = 0;
+                    updateSnapshotCreateInfo.componentTypes = nullptr;
+                    updateSnapshotCreateInfo.baseSpace = localSpace;
+                    updateSnapshotCreateInfo.time = frameState.predictedDisplayTime;
 
                     XRC_CHECK_THROW_XRCMD(xrCreateSpatialUpdateSnapshotEXT(spatialContext, &updateSnapshotCreateInfo, &updateSnapshot));
 
@@ -396,7 +370,7 @@ namespace Conformance
                 }
             }
 
-            XrColor4f getColor(XrSpatialEntityTrackingStateEXT trackingState)
+            static XrColor4f getColor(XrSpatialEntityTrackingStateEXT trackingState)
             {
                 switch (trackingState) {
                 case XR_SPATIAL_ENTITY_TRACKING_STATE_TRACKING_EXT:
@@ -412,27 +386,25 @@ namespace Conformance
 
             const XrPosef anchorCreatePose = {{0, 0, 0, 1}, {0, 0, -0.5f}};
 
-            XrSpatialCapabilityConfigurationAnchorEXT mAnchorConfig;
+            XrSpatialCapabilityConfigurationAnchorEXT mAnchorConfig{};
             const std::vector<XrSpatialComponentTypeEXT> mEnabledComponents;
 
-            XrSpatialComponentAnchorListEXT mAnchorList;
+            XrSpatialComponentAnchorListEXT mAnchorList{};
             std::vector<XrPosef> mAnchorLocations;
 
             XrSpatialEntityIdEXT mAnchorId = XR_NULL_SPATIAL_ENTITY_ID_EXT;
             XrSpatialEntityEXT mAnchor = XR_NULL_HANDLE;
 
-            PFN_xrCreateSpatialAnchorEXT xrCreateSpatialAnchorEXT;
-            PFN_xrCreateSpatialUpdateSnapshotEXT xrCreateSpatialUpdateSnapshotEXT;
-            PFN_xrDestroySpatialSnapshotEXT xrDestroySpatialSnapshotEXT;
+            PFN_xrCreateSpatialAnchorEXT xrCreateSpatialAnchorEXT{};
+            PFN_xrCreateSpatialUpdateSnapshotEXT xrCreateSpatialUpdateSnapshotEXT{};
+            PFN_xrDestroySpatialSnapshotEXT xrDestroySpatialSnapshotEXT{};
         };
 
         TEST_CASE("XR_EXT_spatial_anchor-interactive",
                   "[XR_EXT_spatial_anchor][XR_EXT_spatial_entity][scenario]["
                   "interactive][no_auto]")
         {
-            SpatialAnchorTestRunner({
-                                        XR_SPATIAL_COMPONENT_TYPE_ANCHOR_EXT,
-                                    })
+            SpatialAnchorTestRunner({XR_SPATIAL_COMPONENT_TYPE_ANCHOR_EXT})
                 .RunTest(XR_EXT_SPATIAL_ANCHOR_EXTENSION_NAME,
                          "A spatial anchor is created in front of the user & a cube is "
                          "rendered "

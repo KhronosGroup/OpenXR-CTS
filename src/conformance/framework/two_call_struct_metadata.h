@@ -50,7 +50,7 @@ namespace Conformance
     }
 
     /// Get the two-call-struct metadata for XrRenderModelAssetDataEXT
-    static inline auto getTwoCallStructData(const XrRenderModelAssetDataEXT&)
+    static inline auto getTwoCallStructData(const XrRenderModelAssetDataEXT& /*unused*/)
     {
         static const XrRenderModelAssetDataEXT assetData{XR_TYPE_RENDER_MODEL_ASSET_DATA_EXT};
         static const auto data =

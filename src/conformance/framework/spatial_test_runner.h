@@ -38,20 +38,22 @@ namespace Conformance
             return {};
         }
         virtual void onCreateSpatialContext(std::vector<const XrSpatialCapabilityConfigurationBaseHeaderEXT*>& capabilityConfigs) = 0;
-        virtual void postCreateSpatialContextCompletion(const XrFrameState&)
+        virtual void postCreateSpatialContextCompletion(const XrFrameState& /*unused*/)
         {
         }
         virtual void postCreateDiscoverySnapshotCompletion(XrSpatialSnapshotEXT snapshot);
         virtual void querySnapshot(XrSpatialSnapshotEXT snapshot);
         virtual std::vector<XrSpatialComponentTypeEXT> getQueryComponents() = 0;
-        virtual std::vector<XrBaseOutStructure*> getComponentDataListStructPtrs(uint32_t)
+        virtual std::vector<XrBaseOutStructure*> getComponentDataListStructPtrs(uint32_t /*unused*/)
         {
             return {};
         }
-        virtual void onUpdate(const XrFrameState&)
+        virtual void onUpdate(const XrFrameState& /*unused*/)
         {
         }
-        virtual void render(){};
+        virtual void render()
+        {
+        }
         void renderBounded2D(const XrSpatialBounded2DDataEXT& bounded2D, XrColor4f color = {0, 0, 0, 0});
         void renderGnomon(const XrPosef& pose);
 

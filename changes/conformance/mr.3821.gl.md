@@ -1,5 +1,0 @@
----
-- mr.3821.gl
-- pr.109.gh.OpenXR-CTS
----
-- Improvement: Clean up frame iterator helper to improve ease of troubleshooting conformance failures.

@@ -95,5 +95,5 @@ namespace Conformance
     };
 
     RenderModelData testRenderModel(const DispatchTable_EXT_render_model& ext, XrSession session, XrRenderModelIdEXT rmid,
-                                    bool testNoExtensions, const span<const char*> extensions);
+                                    bool testNoExtensions, span<const char*> extensions);
 }  // namespace Conformance

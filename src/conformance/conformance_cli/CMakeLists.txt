@@ -48,6 +48,7 @@ file(
 )
 
 add_executable(conformance_cli ${LOCAL_SOURCE} ${LOCAL_HEADERS})
+add_sanitizers(conformance_cli)
 
 source_group("Headers" FILES ${LOCAL_HEADERS})
 

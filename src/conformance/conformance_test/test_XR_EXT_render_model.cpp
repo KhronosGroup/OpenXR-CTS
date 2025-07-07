@@ -3,39 +3,25 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include "action_utils.h"
-#include "composition_utils.h"
 #include "conformance_framework.h"
 #include "conformance_utils.h"
 #include "controller_animation_handler.h"
 #include "ext_render_model.h"
-#include "graphics_plugin.h"
-#include "input_testinputdevice.h"
 #include "report.h"
 #include "two_call.h"
-#include "two_call_struct_metadata.h"
 #include "two_call_struct_tests.h"
 
-#include "common/hex_and_handles.h"
-#include "utilities/throw_helpers.h"
 #include "utilities/types_and_constants.h"
-#include "utilities/utils.h"
 
 #include <catch2/catch_message.hpp>
 #include <catch2/catch_test_macros.hpp>
 #include <openxr/openxr.h>
 
 #include <algorithm>
-#include <array>
-#include <chrono>
 #include <cstddef>
-#include <cstring>
 #include <initializer_list>
-#include <map>
 #include <memory>
-#include <stdint.h>
 #include <string>
-#include <tuple>
-#include <utility>
 #include <vector>
 
 namespace Conformance

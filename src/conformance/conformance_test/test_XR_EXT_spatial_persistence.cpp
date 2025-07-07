@@ -17,7 +17,6 @@
 #include <openxr/openxr.h>
 
 #include <algorithm>
-#include <array>
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers.hpp>
 #include <catch2/matchers/catch_matchers_vector.hpp>
@@ -32,7 +31,6 @@
 #include "spatial_conformance_utils.h"
 #include "utilities/stringification.h"
 #include "utilities/throw_helpers.h"
-#include "utilities/utils.h"
 
 using namespace Conformance;
 using Catch::Matchers::VectorContains;
@@ -43,8 +41,8 @@ namespace Conformance
     {
 
         using namespace std::literals::chrono_literals;
-        static const std::chrono::nanoseconds kTimeout = 5s;
-        static const std::chrono::nanoseconds kInterval = 16ms;
+        const std::chrono::nanoseconds kTimeout = 5s;
+        const std::chrono::nanoseconds kInterval = 16ms;
 
 #define PERSISTENCE_FUNCTION_POINTERS(_)            \
     _(xrEnumerateSpatialPersistenceScopesEXT)       \
@@ -57,7 +55,7 @@ namespace Conformance
 #define VALIDATE_FUNCTION_NOT_SUPPORTED(name) ValidateInstanceExtensionFunctionNotSupported(instance, #name);
 #define LOAD_FUNCTION_POINTER(name) PFN_##name name = GetInstanceExtensionFunction<PFN_##name>(instance, #name);
 
-        TEST_CASE("XR_EXT_spatial_persistence", "[XR_EXT_spatial_persistence][XR_EXT_spatial_entity][no_mobly]")
+        TEST_CASE("XR_EXT_spatial_persistence", "[XR_EXT_spatial_persistence][XR_EXT_spatial_entity]")
         {
             GlobalData& globalData = GetGlobalData();
             if (!globalData.IsInstanceExtensionSupported(XR_EXT_SPATIAL_PERSISTENCE_EXTENSION_NAME)) {
@@ -109,21 +107,17 @@ namespace Conformance
                                                  AutoBasicSession::createSwapchains | AutoBasicSession::OptionFlags::createSpaces,
                                              instance);
 
-                    XrSpatialPersistenceContextCreateInfoEXT createInfo{XR_TYPE_SPATIAL_PERSISTENCE_CONTEXT_CREATE_INFO_EXT, nullptr,
-                                                                        XR_SPATIAL_PERSISTENCE_SCOPE_SYSTEM_MANAGED_EXT};
+                    XrSpatialPersistenceContextCreateInfoEXT createInfo{XR_TYPE_SPATIAL_PERSISTENCE_CONTEXT_CREATE_INFO_EXT};
+                    createInfo.scope = XR_SPATIAL_PERSISTENCE_SCOPE_SYSTEM_MANAGED_EXT;
 
                     XrFutureEXT future;
                     REQUIRE(XR_SUCCESS == xrCreateSpatialPersistenceContextAsyncEXT(session, &createInfo, &future));
                     REQUIRE(WaitUntilPredicateWithTimeout(
                         [&]() {
-                            XrFuturePollInfoEXT pollInfo{
-                                XR_TYPE_FUTURE_POLL_INFO_EXT,
-                                nullptr,
-                                future,
-                            };
-                            XrFuturePollResultEXT pollResult{
-                                XR_TYPE_FUTURE_POLL_RESULT_EXT,
-                            };
+                            XrFuturePollInfoEXT pollInfo{XR_TYPE_FUTURE_POLL_INFO_EXT};
+                            pollInfo.future = future;
+
+                            XrFuturePollResultEXT pollResult{XR_TYPE_FUTURE_POLL_RESULT_EXT};
                             XrResult result = xrPollFutureEXT(instance, &pollInfo, &pollResult);
                             return (result == XR_SUCCESS) && pollResult.state == XR_FUTURE_STATE_READY_EXT;
                         },

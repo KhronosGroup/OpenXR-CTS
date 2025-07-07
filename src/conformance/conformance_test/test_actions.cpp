@@ -2947,25 +2947,33 @@ namespace Conformance
             {
                 INFO("Pose state query");
 
+                XrActionStateGetInfo getInfo{XR_TYPE_ACTION_STATE_GET_INFO};
+
+                actionLayerManager.SyncActionsUntilFocusWithMessage(syncInfo);
+
                 for (const auto& poseActionData : poseActions) {
                     CAPTURE(poseActionData.Data.Path);
-
-                    XrActionStateGetInfo getInfo{XR_TYPE_ACTION_STATE_GET_INFO};
                     getInfo.action = poseActionData.Action;
-
-                    actionLayerManager.SyncActionsUntilFocusWithMessage(syncInfo);
                     REQUIRE_RESULT(xrGetActionStatePose(session, &getInfo, &poseState), XR_SUCCESS);
                     REQUIRE(poseState.isActive);
+                }
 
-                    inputDevice->SetDeviceActive(false);
+                inputDevice->SetDeviceActive(false);
+                actionLayerManager.SyncActionsUntilFocusWithMessage(syncInfo);
 
-                    actionLayerManager.SyncActionsUntilFocusWithMessage(syncInfo);
+                for (const auto& poseActionData : poseActions) {
+                    CAPTURE(poseActionData.Data.Path);
+                    getInfo.action = poseActionData.Action;
                     REQUIRE_RESULT(xrGetActionStatePose(session, &getInfo, &poseState), XR_SUCCESS);
                     REQUIRE_FALSE(poseState.isActive);
+                }
 
-                    inputDevice->SetDeviceActive(true);
+                inputDevice->SetDeviceActive(true);
+                actionLayerManager.SyncActionsUntilFocusWithMessage(syncInfo);
 
-                    actionLayerManager.SyncActionsUntilFocusWithMessage(syncInfo);
+                for (const auto& poseActionData : poseActions) {
+                    CAPTURE(poseActionData.Data.Path);
+                    getInfo.action = poseActionData.Action;
                     REQUIRE_RESULT(xrGetActionStatePose(session, &getInfo, &poseState), XR_SUCCESS);
                     REQUIRE(poseState.isActive);
                 }

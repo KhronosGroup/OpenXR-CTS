@@ -6,7 +6,8 @@ add_library(conformance_framework_gltf STATIC GltfHelper.cpp)
 
 target_link_libraries(
     conformance_framework_gltf
-    PUBLIC conformance_framework_tinygltf conformance_framework_pbr conformance_utilities
+    PUBLIC conformance_framework_tinygltf conformance_framework_pbr
+           conformance_utilities
     PRIVATE conformance_framework_mikktspace
 )
 

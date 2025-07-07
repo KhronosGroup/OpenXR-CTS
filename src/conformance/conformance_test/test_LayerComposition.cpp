@@ -44,6 +44,11 @@ namespace Conformance
     // 2. Quads which are facing away are not visible.
     TEST_CASE("QuadOcclusion", "[composition][interactive]")
     {
+        GlobalData& globalData = GetGlobalData();
+        if (!globalData.IsUsingGraphicsPlugin()) {
+            SKIP("Cannot test QuadOcclusion without a graphics plugin");
+        }
+
         CompositionHelper compositionHelper("Quad Occlusion");
         InteractiveLayerManager interactiveLayerManager(
             compositionHelper, "quad_occlusion.png",
@@ -79,6 +84,11 @@ namespace Conformance
     // If the poses are applied in an incorrect order, the quads will not render in the correct place or orientation.
     TEST_CASE("QuadPoses", "[composition][interactive]")
     {
+        GlobalData& globalData = GetGlobalData();
+        if (!globalData.IsUsingGraphicsPlugin()) {
+            SKIP("Cannot test QuadPoses without a graphics plugin");
+        }
+
         CompositionHelper compositionHelper("Quad Poses");
         InteractiveLayerManager interactiveLayerManager(
             compositionHelper, "quad_poses.png",
@@ -123,6 +133,11 @@ namespace Conformance
     // Purpose: Validates alpha blending (both premultiplied and unpremultiplied).
     TEST_CASE("SourceAlphaBlending", "[composition][interactive]")
     {
+        GlobalData& globalData = GetGlobalData();
+        if (!globalData.IsUsingGraphicsPlugin()) {
+            SKIP("Cannot test SourceAlphaBlending without a graphics plugin");
+        }
+
         CompositionHelper compositionHelper("Source Alpha Blending");
         InteractiveLayerManager interactiveLayerManager(compositionHelper, "source_alpha_blending.png",
                                                         "All three squares should have an identical blue-green gradient.");
@@ -210,6 +225,11 @@ namespace Conformance
     // Purpose: Validate eye visibility flags.
     TEST_CASE("EyeVisibility", "[composition][interactive]")
     {
+        GlobalData& globalData = GetGlobalData();
+        if (!globalData.IsUsingGraphicsPlugin()) {
+            SKIP("Cannot test eyevisibility without a graphics plugin");
+        }
+
         CompositionHelper compositionHelper("Eye Visibility");
         InteractiveLayerManager interactiveLayerManager(compositionHelper, "eye_visibility.png",
                                                         "A green quad is shown in the left eye and a blue quad is shown in the right eye.");
@@ -348,6 +368,11 @@ namespace Conformance
 
     TEST_CASE("ProjectionArraySwapchain", "[composition][interactive]")
     {
+        GlobalData& globalData = GetGlobalData();
+        if (!globalData.IsUsingGraphicsPlugin()) {
+            SKIP("Cannot test ProjectionArraySwapchain without a graphics plugin");
+        }
+
         CompositionHelper compositionHelper("Projection Array Swapchain");
         InteractiveLayerManager interactiveLayerManager(
             compositionHelper, "projection_array.png",
@@ -421,6 +446,11 @@ namespace Conformance
 
     TEST_CASE("ProjectionWideSwapchain", "[composition][interactive]")
     {
+        GlobalData& globalData = GetGlobalData();
+        if (!globalData.IsUsingGraphicsPlugin()) {
+            SKIP("Cannot test ProjectionWideSwapchain without a graphics plugin");
+        }
+
         CompositionHelper compositionHelper("Projection Wide Swapchain");
         InteractiveLayerManager interactiveLayerManager(compositionHelper, "projection_wide.png",
                                                         "Uses a single wide texture for a projection layer.");
@@ -489,6 +519,11 @@ namespace Conformance
 
     TEST_CASE("ProjectionSeparateSwapchains", "[composition][interactive]")
     {
+        GlobalData& globalData = GetGlobalData();
+        if (!globalData.IsUsingGraphicsPlugin()) {
+            SKIP("Cannot test ProjectionSeparateSwapchains without a graphics plugin");
+        }
+
         CompositionHelper compositionHelper("Projection Separate Swapchains");
         InteractiveLayerManager interactiveLayerManager(compositionHelper, "projection_separate.png",
                                                         "Uses separate textures for each projection layer view.");
@@ -1121,6 +1156,9 @@ namespace Conformance
     TEST_CASE("QuadHands", "[composition][interactive]")
     {
         GlobalData& globalData = GetGlobalData();
+        if (!globalData.IsUsingGraphicsPlugin()) {
+            SKIP("Cannot test without a graphics plugin");
+        }
 
         CompositionHelper compositionHelper("Quad Hands");
         XrInstance instance = compositionHelper.GetInstance();

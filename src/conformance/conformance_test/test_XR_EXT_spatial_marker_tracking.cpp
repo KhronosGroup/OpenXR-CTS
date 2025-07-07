@@ -31,11 +31,10 @@
 #include "spatial_conformance_utils.h"
 #include "spatial_test_runner.h"
 #include "utilities/colors.h"
-#include "utilities/throw_helpers.h"
-#include "utilities/utils.h"
-#include "utilities/xr_math_operators.h"
 
+#if !defined(_USE_MATH_DEFINES)
 #define _USE_MATH_DEFINES
+#endif  // !defined(_USE_MATH_DEFINES)
 #include <cmath>
 
 using namespace Conformance;
@@ -69,12 +68,11 @@ namespace Conformance
 
         TEST_CASE("XR_EXT_spatial_marker_tracking-aruco", "[XR_EXT_spatial_marker_tracking][XR_EXT_spatial_entity]")
         {
-            XrSpatialCapabilityConfigurationArucoMarkerEXT arucoConfig{XR_TYPE_SPATIAL_CAPABILITY_CONFIGURATION_ARUCO_MARKER_EXT,
-                                                                       nullptr,
-                                                                       XR_SPATIAL_CAPABILITY_MARKER_TRACKING_ARUCO_MARKER_EXT,
-                                                                       0,
-                                                                       nullptr,
-                                                                       XR_SPATIAL_MARKER_ARUCO_DICT_4X4_50_EXT};
+            XrSpatialCapabilityConfigurationArucoMarkerEXT arucoConfig{XR_TYPE_SPATIAL_CAPABILITY_CONFIGURATION_ARUCO_MARKER_EXT};
+            arucoConfig.capability = XR_SPATIAL_CAPABILITY_MARKER_TRACKING_ARUCO_MARKER_EXT;
+            arucoConfig.enabledComponentCount = 0;
+            arucoConfig.enabledComponents = nullptr;
+            arucoConfig.arUcoDict = XR_SPATIAL_MARKER_ARUCO_DICT_4X4_50_EXT;
 
             TestSpatialConformance(XR_EXT_SPATIAL_MARKER_TRACKING_EXTENSION_NAME, XR_SPATIAL_CAPABILITY_MARKER_TRACKING_ARUCO_MARKER_EXT,
                                    {XR_SPATIAL_COMPONENT_TYPE_BOUNDED_2D_EXT, XR_SPATIAL_COMPONENT_TYPE_MARKER_EXT}, arucoConfig,
@@ -83,32 +81,27 @@ namespace Conformance
 
         TEST_CASE("XR_EXT_spatial_marker_tracking-april", "[XR_EXT_spatial_marker_tracking][XR_EXT_spatial_entity]")
         {
-            XrSpatialCapabilityConfigurationAprilTagEXT aprilTagCongig{XR_TYPE_SPATIAL_CAPABILITY_CONFIGURATION_APRIL_TAG_EXT,
-                                                                       nullptr,
-                                                                       XR_SPATIAL_CAPABILITY_MARKER_TRACKING_APRIL_TAG_EXT,
-                                                                       0,
-                                                                       nullptr,
-                                                                       XR_SPATIAL_MARKER_APRIL_TAG_DICT_16H5_EXT};
+            XrSpatialCapabilityConfigurationAprilTagEXT aprilTagConfig{XR_TYPE_SPATIAL_CAPABILITY_CONFIGURATION_APRIL_TAG_EXT};
+            aprilTagConfig.capability = XR_SPATIAL_CAPABILITY_MARKER_TRACKING_APRIL_TAG_EXT;
+            aprilTagConfig.enabledComponentCount = 0;
+            aprilTagConfig.enabledComponents = nullptr;
+            aprilTagConfig.aprilDict = XR_SPATIAL_MARKER_APRIL_TAG_DICT_16H5_EXT;
 
             TestSpatialConformance(XR_EXT_SPATIAL_MARKER_TRACKING_EXTENSION_NAME, XR_SPATIAL_CAPABILITY_MARKER_TRACKING_APRIL_TAG_EXT,
-                                   {XR_SPATIAL_COMPONENT_TYPE_BOUNDED_2D_EXT, XR_SPATIAL_COMPONENT_TYPE_MARKER_EXT}, aprilTagCongig,
+                                   {XR_SPATIAL_COMPONENT_TYPE_BOUNDED_2D_EXT, XR_SPATIAL_COMPONENT_TYPE_MARKER_EXT}, aprilTagConfig,
                                    XR_SPATIAL_COMPONENT_TYPE_BOUNDED_3D_EXT);
         }
 
         struct SpatialMarkerTrackingTestRunner : public SpatialTestRunner
         {
-            SpatialMarkerTrackingTestRunner(const XrSpatialCapabilityConfigurationBaseHeaderEXT& capabilityConfig)
+            explicit SpatialMarkerTrackingTestRunner(const XrSpatialCapabilityConfigurationBaseHeaderEXT& capabilityConfig)
                 : mCapabilityConfig(capabilityConfig)
                 , mEnabledComponents(capabilityConfig.enabledComponents,
                                      capabilityConfig.enabledComponents + capabilityConfig.enabledComponentCount)
             {
 
-                bounded2dList = {
-                    XR_TYPE_SPATIAL_COMPONENT_BOUNDED_2D_LIST_EXT,
-                };
-                markerList = {
-                    XR_TYPE_SPATIAL_COMPONENT_MARKER_LIST_EXT,
-                };
+                bounded2dList = {XR_TYPE_SPATIAL_COMPONENT_BOUNDED_2D_LIST_EXT};
+                markerList = {XR_TYPE_SPATIAL_COMPONENT_MARKER_LIST_EXT};
             }
 
             std::vector<const char*> getRequiredExtensions() override
@@ -178,8 +171,8 @@ namespace Conformance
             const XrSpatialCapabilityConfigurationBaseHeaderEXT& mCapabilityConfig;
             const std::vector<XrSpatialComponentTypeEXT> mEnabledComponents;
 
-            XrSpatialComponentBounded2DListEXT bounded2dList;
-            XrSpatialComponentMarkerListEXT markerList;
+            XrSpatialComponentBounded2DListEXT bounded2dList{};
+            XrSpatialComponentMarkerListEXT markerList{};
 
             std::vector<XrSpatialBounded2DDataEXT> bounded2Ds;
             std::vector<XrSpatialMarkerDataEXT> markers;
@@ -193,13 +186,11 @@ namespace Conformance
                 XR_SPATIAL_COMPONENT_TYPE_BOUNDED_2D_EXT,
                 XR_SPATIAL_COMPONENT_TYPE_MARKER_EXT,
             };
-            XrSpatialCapabilityConfigurationQrCodeEXT qrCodeConfig{
-                XR_TYPE_SPATIAL_CAPABILITY_CONFIGURATION_QR_CODE_EXT,
-                nullptr,
-                XR_SPATIAL_CAPABILITY_MARKER_TRACKING_QR_CODE_EXT,
-                static_cast<uint32_t>(enabledComponents.size()),
-                enabledComponents.data(),
-            };
+
+            XrSpatialCapabilityConfigurationQrCodeEXT qrCodeConfig{XR_TYPE_SPATIAL_CAPABILITY_CONFIGURATION_QR_CODE_EXT};
+            qrCodeConfig.capability = XR_SPATIAL_CAPABILITY_MARKER_TRACKING_QR_CODE_EXT;
+            qrCodeConfig.enabledComponentCount = static_cast<uint32_t>(enabledComponents.size());
+            qrCodeConfig.enabledComponents = enabledComponents.data();
 
             SpatialMarkerTrackingTestRunner(*reinterpret_cast<const XrSpatialCapabilityConfigurationBaseHeaderEXT*>(&qrCodeConfig))
                 .RunTest(XR_EXT_SPATIAL_MARKER_TRACKING_EXTENSION_NAME,
@@ -218,13 +209,10 @@ namespace Conformance
                 XR_SPATIAL_COMPONENT_TYPE_BOUNDED_2D_EXT,
                 XR_SPATIAL_COMPONENT_TYPE_MARKER_EXT,
             };
-            XrSpatialCapabilityConfigurationMicroQrCodeEXT microQrCodeConfig{
-                XR_TYPE_SPATIAL_CAPABILITY_CONFIGURATION_MICRO_QR_CODE_EXT,
-                nullptr,
-                XR_SPATIAL_CAPABILITY_MARKER_TRACKING_MICRO_QR_CODE_EXT,
-                static_cast<uint32_t>(enabledComponents.size()),
-                enabledComponents.data(),
-            };
+            XrSpatialCapabilityConfigurationMicroQrCodeEXT microQrCodeConfig{XR_TYPE_SPATIAL_CAPABILITY_CONFIGURATION_MICRO_QR_CODE_EXT};
+            microQrCodeConfig.capability = XR_SPATIAL_CAPABILITY_MARKER_TRACKING_MICRO_QR_CODE_EXT;
+            microQrCodeConfig.enabledComponentCount = static_cast<uint32_t>(enabledComponents.size());
+            microQrCodeConfig.enabledComponents = enabledComponents.data();
 
             SpatialMarkerTrackingTestRunner(*reinterpret_cast<const XrSpatialCapabilityConfigurationBaseHeaderEXT*>(&microQrCodeConfig))
                 .RunTest(XR_EXT_SPATIAL_MARKER_TRACKING_EXTENSION_NAME,
@@ -243,14 +231,12 @@ namespace Conformance
                 XR_SPATIAL_COMPONENT_TYPE_BOUNDED_2D_EXT,
                 XR_SPATIAL_COMPONENT_TYPE_MARKER_EXT,
             };
-            XrSpatialCapabilityConfigurationArucoMarkerEXT arucoConfig{
-                XR_TYPE_SPATIAL_CAPABILITY_CONFIGURATION_ARUCO_MARKER_EXT,
-                nullptr,
-                XR_SPATIAL_CAPABILITY_MARKER_TRACKING_ARUCO_MARKER_EXT,
-                static_cast<uint32_t>(enabledComponents.size()),
-                enabledComponents.data(),
-                XR_SPATIAL_MARKER_ARUCO_DICT_5X5_50_EXT,
-            };
+
+            XrSpatialCapabilityConfigurationArucoMarkerEXT arucoConfig{XR_TYPE_SPATIAL_CAPABILITY_CONFIGURATION_ARUCO_MARKER_EXT};
+            arucoConfig.capability = XR_SPATIAL_CAPABILITY_MARKER_TRACKING_ARUCO_MARKER_EXT;
+            arucoConfig.enabledComponentCount = static_cast<uint32_t>(enabledComponents.size());
+            arucoConfig.enabledComponents = enabledComponents.data();
+            arucoConfig.arUcoDict = XR_SPATIAL_MARKER_ARUCO_DICT_5X5_50_EXT;
 
             SpatialMarkerTrackingTestRunner(*reinterpret_cast<const XrSpatialCapabilityConfigurationBaseHeaderEXT*>(&arucoConfig))
                 .RunTest(XR_EXT_SPATIAL_MARKER_TRACKING_EXTENSION_NAME,
@@ -268,14 +254,11 @@ namespace Conformance
                 XR_SPATIAL_COMPONENT_TYPE_BOUNDED_2D_EXT,
                 XR_SPATIAL_COMPONENT_TYPE_MARKER_EXT,
             };
-            XrSpatialCapabilityConfigurationAprilTagEXT aprilTagConfig{
-                XR_TYPE_SPATIAL_CAPABILITY_CONFIGURATION_APRIL_TAG_EXT,
-                nullptr,
-                XR_SPATIAL_CAPABILITY_MARKER_TRACKING_APRIL_TAG_EXT,
-                static_cast<uint32_t>(enabledComponents.size()),
-                enabledComponents.data(),
-                XR_SPATIAL_MARKER_APRIL_TAG_DICT_36H11_EXT,
-            };
+            XrSpatialCapabilityConfigurationAprilTagEXT aprilTagConfig{XR_TYPE_SPATIAL_CAPABILITY_CONFIGURATION_APRIL_TAG_EXT};
+            aprilTagConfig.capability = XR_SPATIAL_CAPABILITY_MARKER_TRACKING_APRIL_TAG_EXT;
+            aprilTagConfig.enabledComponentCount = static_cast<uint32_t>(enabledComponents.size());
+            aprilTagConfig.enabledComponents = enabledComponents.data();
+            aprilTagConfig.aprilDict = XR_SPATIAL_MARKER_APRIL_TAG_DICT_36H11_EXT;
 
             SpatialMarkerTrackingTestRunner(*reinterpret_cast<const XrSpatialCapabilityConfigurationBaseHeaderEXT*>(&aprilTagConfig))
                 .RunTest(XR_EXT_SPATIAL_MARKER_TRACKING_EXTENSION_NAME,

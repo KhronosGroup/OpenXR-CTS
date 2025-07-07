@@ -2918,7 +2918,7 @@ typedef XrResult (XRAPI_PTR *<name>PFN_xrCreateApiLayerInstance</name>)(
             <member optional="true"><type>uint32_t</type>                           <name>requestByteCount</name></member>
             <member optional="true" len="requestByteCount">const <type>char</type>* <name>request</name></member>
         </type>
-        <type category="struct" name="XrEventDataSceneCaptureCompleteFB">
+        <type category="struct" name="XrEventDataSceneCaptureCompleteFB" parentstruct="XrEventDataBaseHeader" returnedonly="true">
             <member values="XR_TYPE_EVENT_DATA_SCENE_CAPTURE_COMPLETE_FB"><type>XrStructureType</type> <name>type</name></member>
             <member>const <type>void</type>*        <name>next</name></member>
             <member><type>XrAsyncRequestIdFB</type> <name>requestId</name></member>
@@ -2972,32 +2972,32 @@ typedef XrResult (XRAPI_PTR *<name>PFN_xrCreateApiLayerInstance</name>)(
             <member values="XR_TYPE_COLOCATION_DISCOVERY_STOP_INFO_META"><type>XrStructureType</type> <name>type</name></member>
             <member>const <type>void</type>* <name>next</name></member>
         </type>
-        <type category="struct" name="XrEventDataStartColocationAdvertisementCompleteMETA">
+        <type category="struct" name="XrEventDataStartColocationAdvertisementCompleteMETA" parentstruct="XrEventDataBaseHeader" returnedonly="true">
             <member values="XR_TYPE_EVENT_DATA_START_COLOCATION_ADVERTISEMENT_COMPLETE_META"><type>XrStructureType</type> <name>type</name></member>
             <member>const <type>void</type>*        <name>next</name></member>
             <member><type>XrAsyncRequestIdFB</type> <name>advertisementRequestId</name></member>
             <member><type>XrResult</type>           <name>result</name></member>
             <member><type>XrUuid</type>             <name>advertisementUuid</name></member>
         </type>
-        <type category="struct" name="XrEventDataColocationAdvertisementCompleteMETA">
+        <type category="struct" name="XrEventDataColocationAdvertisementCompleteMETA" parentstruct="XrEventDataBaseHeader" returnedonly="true">
             <member values="XR_TYPE_EVENT_DATA_COLOCATION_ADVERTISEMENT_COMPLETE_META"><type>XrStructureType</type> <name>type</name></member>
             <member>const <type>void</type>*        <name>next</name></member>
             <member><type>XrAsyncRequestIdFB</type> <name>advertisementRequestId</name></member>
             <member><type>XrResult</type>           <name>result</name></member>
         </type>
-        <type category="struct" name="XrEventDataStopColocationAdvertisementCompleteMETA">
+        <type category="struct" name="XrEventDataStopColocationAdvertisementCompleteMETA" parentstruct="XrEventDataBaseHeader" returnedonly="true">
             <member values="XR_TYPE_EVENT_DATA_STOP_COLOCATION_ADVERTISEMENT_COMPLETE_META"><type>XrStructureType</type> <name>type</name></member>
             <member>const <type>void</type>*        <name>next</name></member>
             <member><type>XrAsyncRequestIdFB</type> <name>requestId</name></member>
             <member><type>XrResult</type>           <name>result</name></member>
         </type>
-        <type category="struct" name="XrEventDataStartColocationDiscoveryCompleteMETA">
+        <type category="struct" name="XrEventDataStartColocationDiscoveryCompleteMETA" parentstruct="XrEventDataBaseHeader" returnedonly="true">
             <member values="XR_TYPE_EVENT_DATA_START_COLOCATION_DISCOVERY_COMPLETE_META"><type>XrStructureType</type> <name>type</name></member>
             <member>const <type>void</type>*        <name>next</name></member>
             <member><type>XrAsyncRequestIdFB</type> <name>discoveryRequestId</name></member>
             <member><type>XrResult</type>           <name>result</name></member>
         </type>
-        <type category="struct" name="XrEventDataColocationDiscoveryResultMETA">
+        <type category="struct" name="XrEventDataColocationDiscoveryResultMETA" parentstruct="XrEventDataBaseHeader" returnedonly="true">
             <member values="XR_TYPE_EVENT_DATA_COLOCATION_DISCOVERY_RESULT_META"><type>XrStructureType</type> <name>type</name></member>
             <member>const <type>void</type>*              <name>next</name></member>
             <member><type>XrAsyncRequestIdFB</type>       <name>discoveryRequestId</name></member>
@@ -3005,13 +3005,13 @@ typedef XrResult (XRAPI_PTR *<name>PFN_xrCreateApiLayerInstance</name>)(
             <member><type>uint32_t</type>                 <name>bufferSize</name></member>
             <member len="bufferSize"><type>uint8_t</type> <name>buffer</name>[<enum>XR_MAX_COLOCATION_DISCOVERY_BUFFER_SIZE_META</enum>]</member>
         </type>
-        <type category="struct" name="XrEventDataColocationDiscoveryCompleteMETA">
+        <type category="struct" name="XrEventDataColocationDiscoveryCompleteMETA" parentstruct="XrEventDataBaseHeader" returnedonly="true">
             <member values="XR_TYPE_EVENT_DATA_COLOCATION_DISCOVERY_COMPLETE_META"><type>XrStructureType</type> <name>type</name></member>
             <member>const <type>void</type>*        <name>next</name></member>
             <member><type>XrAsyncRequestIdFB</type> <name>discoveryRequestId</name></member>
             <member><type>XrResult</type>           <name>result</name></member>
         </type>
-        <type category="struct" name="XrEventDataStopColocationDiscoveryCompleteMETA">
+        <type category="struct" name="XrEventDataStopColocationDiscoveryCompleteMETA" parentstruct="XrEventDataBaseHeader" returnedonly="true">
             <member values="XR_TYPE_EVENT_DATA_STOP_COLOCATION_DISCOVERY_COMPLETE_META"><type>XrStructureType</type> <name>type</name></member>
             <member>const <type>void</type>*        <name>next</name></member>
             <member><type>XrAsyncRequestIdFB</type> <name>requestId</name></member>
@@ -3035,7 +3035,7 @@ typedef XrResult (XRAPI_PTR *<name>PFN_xrCreateApiLayerInstance</name>)(
             <member len="spaceCount"><type>XrSpace</type>*                   <name>spaces</name></member>
             <member>const <type>XrShareSpacesRecipientBaseHeaderMETA</type>* <name>recipientInfo</name></member>
         </type>
-        <type category="struct" name="XrEventDataShareSpacesCompleteMETA">
+        <type category="struct" name="XrEventDataShareSpacesCompleteMETA" parentstruct="XrEventDataBaseHeader" returnedonly="true">
             <member values="XR_TYPE_EVENT_DATA_SHARE_SPACES_COMPLETE_META"><type>XrStructureType</type> <name>type</name></member>
             <member>const <type>void</type>*        <name>next</name></member>
             <member><type>XrAsyncRequestIdFB</type> <name>requestId</name></member>
@@ -3184,7 +3184,7 @@ typedef XrResult (XRAPI_PTR *<name>PFN_xrCreateApiLayerInstance</name>)(
             <member><type>float</type>       <name>contrast</name></member>
             <member><type>float</type>       <name>saturation</name></member>
         </type>
-        <type category="struct" name="XrEventDataPassthroughStateChangedFB">
+        <type category="struct" name="XrEventDataPassthroughStateChangedFB" parentstruct="XrEventDataBaseHeader" returnedonly="true">
             <member values="XR_TYPE_EVENT_DATA_PASSTHROUGH_STATE_CHANGED_FB"><type>XrStructureType</type> <name>type</name></member>
             <member>const <type>void</type>*                      <name>next</name></member>
             <member><type>XrPassthroughStateChangedFlagsFB</type> <name>flags</name></member>
@@ -3338,7 +3338,7 @@ typedef XrResult (XRAPI_PTR *<name>PFN_xrCreateApiLayerInstance</name>)(
             <member><type>XrPath</type>                 <name>persistentPath</name></member>
             <member optional="true"><type>XrPath</type> <name>rolePath</name></member>
         </type>
-        <type category="struct" name="XrEventDataViveTrackerConnectedHTCX" returnedonly="true" parentstruct="XrEventDataBaseHeader">
+        <type category="struct" name="XrEventDataViveTrackerConnectedHTCX" parentstruct="XrEventDataBaseHeader" returnedonly="true">
             <member values="XR_TYPE_EVENT_DATA_VIVE_TRACKER_CONNECTED_HTCX"><type>XrStructureType</type> <name>type</name></member>
             <member>const <type>void</type>*                   <name>next</name></member>
             <member><type>XrViveTrackerPathsHTCX</type>*       <name>paths</name></member>
@@ -3412,7 +3412,7 @@ typedef XrResult (XRAPI_PTR *<name>PFN_xrCreateApiLayerInstance</name>)(
             <member><type>XrBool32</type>                  <name>supportsMarkerTracking</name></member>
         </type>
 
-        <type category="struct" name="XrEventDataMarkerTrackingUpdateVARJO" returnedonly="true" parentstruct="XrEventDataBaseHeader">
+        <type category="struct" name="XrEventDataMarkerTrackingUpdateVARJO" parentstruct="XrEventDataBaseHeader" returnedonly="true">
             <member values="XR_TYPE_EVENT_DATA_MARKER_TRACKING_UPDATE_VARJO"><type>XrStructureType</type> <name>type</name></member>
             <member>const <type>void</type>* <name>next</name></member>
             <member><type>uint64_t</type>    <name>markerId</name></member>
@@ -3807,32 +3807,32 @@ typedef XrResult (XRAPI_PTR *<name>PFN_xrCreateApiLayerInstance</name>)(
             <member len="null-terminated">const <type>char</type>* <name>textContext</name></member>
         </type>
 
-        <type category="struct" name="XrEventDataVirtualKeyboardCommitTextMETA">
+        <type category="struct" name="XrEventDataVirtualKeyboardCommitTextMETA" parentstruct="XrEventDataBaseHeader" returnedonly="true">
             <member values="XR_TYPE_EVENT_DATA_VIRTUAL_KEYBOARD_COMMIT_TEXT_META"><type>XrStructureType</type> <name>type</name></member>
             <member>const <type>void</type>*           <name>next</name></member>
             <member><type>XrVirtualKeyboardMETA</type> <name>keyboard</name></member>
             <member><type>char</type>                  <name>text</name>[<enum>XR_MAX_VIRTUAL_KEYBOARD_COMMIT_TEXT_SIZE_META</enum>]</member>
         </type>
 
-        <type category="struct" name="XrEventDataVirtualKeyboardBackspaceMETA">
+        <type category="struct" name="XrEventDataVirtualKeyboardBackspaceMETA" parentstruct="XrEventDataBaseHeader" returnedonly="true">
             <member values="XR_TYPE_EVENT_DATA_VIRTUAL_KEYBOARD_BACKSPACE_META"><type>XrStructureType</type> <name>type</name></member>
             <member>const <type>void</type>*           <name>next</name></member>
             <member><type>XrVirtualKeyboardMETA</type> <name>keyboard</name></member>
         </type>
 
-        <type category="struct" name="XrEventDataVirtualKeyboardEnterMETA">
+        <type category="struct" name="XrEventDataVirtualKeyboardEnterMETA" parentstruct="XrEventDataBaseHeader" returnedonly="true">
             <member values="XR_TYPE_EVENT_DATA_VIRTUAL_KEYBOARD_ENTER_META"><type>XrStructureType</type> <name>type</name></member>
             <member>const <type>void</type>*           <name>next</name></member>
             <member><type>XrVirtualKeyboardMETA</type> <name>keyboard</name></member>
         </type>
 
-        <type category="struct" name="XrEventDataVirtualKeyboardShownMETA">
+        <type category="struct" name="XrEventDataVirtualKeyboardShownMETA" parentstruct="XrEventDataBaseHeader" returnedonly="true">
             <member values="XR_TYPE_EVENT_DATA_VIRTUAL_KEYBOARD_SHOWN_META"><type>XrStructureType</type> <name>type</name></member>
             <member>const <type>void</type>*           <name>next</name></member>
             <member><type>XrVirtualKeyboardMETA</type> <name>keyboard</name></member>
         </type>
 
-        <type category="struct" name="XrEventDataVirtualKeyboardHiddenMETA">
+        <type category="struct" name="XrEventDataVirtualKeyboardHiddenMETA" parentstruct="XrEventDataBaseHeader" returnedonly="true">
             <member values="XR_TYPE_EVENT_DATA_VIRTUAL_KEYBOARD_HIDDEN_META"><type>XrStructureType</type> <name>type</name></member>
             <member>const <type>void</type>*           <name>next</name></member>
             <member><type>XrVirtualKeyboardMETA</type> <name>keyboard</name></member>
@@ -4055,7 +4055,7 @@ typedef XrResult (XRAPI_PTR *<name>PFN_xrCreateApiLayerInstance</name>)(
             <member><type>XrBool32</type> <name>supportsUserPresence</name></member>
         </type>
 
-        <type category="struct" name="XrEventDataUserPresenceChangedEXT">
+        <type category="struct" name="XrEventDataUserPresenceChangedEXT" parentstruct="XrEventDataBaseHeader" returnedonly="true">
             <member values="XR_TYPE_EVENT_DATA_USER_PRESENCE_CHANGED_EXT"><type>XrStructureType</type> <name>type</name></member>
             <member>const <type>void</type>* <name>next</name></member>
             <member><type>XrSession</type>   <name>session</name></member>
@@ -4805,7 +4805,7 @@ typedef XrResult (XRAPI_PTR *<name>PFN_xrCreateApiLayerInstance</name>)(
             <member><type>uint32_t</type>                                  <name>topLevelUserPathCount</name></member>
             <member len="topLevelUserPathCount">const <type>XrPath</type>* <name>topLevelUserPaths</name></member>
         </type>
-        <type category="struct" name="XrEventDataInteractionRenderModelsChangedEXT">
+        <type category="struct" name="XrEventDataInteractionRenderModelsChangedEXT" parentstruct="XrEventDataBaseHeader" returnedonly="true">
             <member values="XR_TYPE_EVENT_DATA_INTERACTION_RENDER_MODELS_CHANGED_EXT"><type>XrStructureType</type> <name>type</name></member>
             <member>const <type>void</type>* <name>next</name></member>
         </type>
@@ -4985,8 +4985,8 @@ typedef XrResult (XRAPI_PTR *<name>PFN_xrCreateApiLayerInstance</name>)(
             <member values="XR_TYPE_SPATIAL_ANCHOR_CREATE_COMPLETION_BD"><type>XrStructureType</type> <name>type</name></member>
             <member><type>void</type>*      <name>next</name></member>
             <member><type>XrResult</type>   <name>futureResult</name></member>
-            <member><type>XrAnchorBD</type> <name>anchor</name></member>
             <member><type>XrUuidEXT</type>  <name>uuid</name></member>
+            <member><type>XrAnchorBD</type> <name>anchor</name></member>
         </type>
 
         <type category="struct" name="XrSpatialAnchorPersistInfoBD">
@@ -8458,7 +8458,7 @@ typedef XrResult (XRAPI_PTR *<name>PFN_xrCreateApiLayerInstance</name>)(
         <command successcodes="XR_SUCCESS,XR_SESSION_LOSS_PENDING" errorcodes="XR_ERROR_FUNCTION_UNSUPPORTED,XR_ERROR_VALIDATION_FAILURE,XR_ERROR_RUNTIME_FAILURE,XR_ERROR_HANDLE_INVALID,XR_ERROR_INSTANCE_LOST,XR_ERROR_SESSION_LOST,XR_ERROR_OUT_OF_MEMORY,XR_ERROR_LIMIT_REACHED,XR_ERROR_PLANE_DETECTION_PERMISSION_DENIED_EXT,XR_ERROR_FEATURE_UNSUPPORTED">
             <proto><type>XrResult</type> <name>xrCreatePlaneDetectorEXT</name></proto>
             <param><type>XrSession</type> <name>session</name></param>
-            <param>const <type>XrPlaneDetectorCreateInfoEXT</type>*  <name>createInfo</name></param>
+            <param>const <type>XrPlaneDetectorCreateInfoEXT</type>* <name>createInfo</name></param>
             <param><type>XrPlaneDetectorEXT</type>* <name>planeDetector</name></param>
         </command>
 
@@ -9215,7 +9215,7 @@ typedef XrResult (XRAPI_PTR *<name>PFN_xrCreateApiLayerInstance</name>)(
         </command>
 
         <!-- XR_EXT_interaction_render_model -->
-        <command successcodes="XR_SUCCESS,XR_SESSION_LOSS_PENDING" errorcodes="XR_ERROR_FUNCTION_UNSUPPORTED,XR_ERROR_VALIDATION_FAILURE,XR_ERROR_HANDLE_INVALID,XR_ERROR_INSTANCE_LOST,XR_ERROR_SESSION_LOST,XR_ERROR_OUT_OF_MEMORY">
+        <command successcodes="XR_SUCCESS,XR_SESSION_LOSS_PENDING" errorcodes="XR_ERROR_FUNCTION_UNSUPPORTED,XR_ERROR_VALIDATION_FAILURE,XR_ERROR_HANDLE_INVALID,XR_ERROR_INSTANCE_LOST,XR_ERROR_SESSION_LOST,XR_ERROR_OUT_OF_MEMORY,XR_ERROR_SESSION_NOT_RUNNING">
             <proto><type>XrResult</type> <name>xrEnumerateInteractionRenderModelIdsEXT</name></proto>
             <param><type>XrSession</type> <name>session</name></param>
             <param>const <type>XrInteractionRenderModelIdsEnumerateInfoEXT</type>* <name>getInfo</name></param>
@@ -9417,7 +9417,7 @@ typedef XrResult (XRAPI_PTR *<name>PFN_xrCreateApiLayerInstance</name>)(
             <proto><type>XrResult</type> <name>xrDownloadSharedSpatialAnchorCompleteBD</name></proto>
             <param><type>XrSenseDataProviderBD</type> <name>provider</name></param>
             <param><type>XrFutureEXT</type> <name>future</name></param>
-            <param><type>XrFutureCompletionEXT</type>*  <name>completion</name></param>
+            <param><type>XrFutureCompletionEXT</type>* <name>completion</name></param>
         </command>
 
         <!-- commands for XR_BD_spatial_scene -->
@@ -15668,7 +15668,7 @@ typedef XrResult (XRAPI_PTR *<name>PFN_xrCreateApiLayerInstance</name>)(
 
     <extension name="XR_BD_spatial_anchor" number="391" depends="XR_BD_spatial_sensing" type="instance" supported="openxr">
         <require>
-            <enum value="1"                                              name="XR_BD_spatial_anchor_SPEC_VERSION"/>
+            <enum value="2"                                              name="XR_BD_spatial_anchor_SPEC_VERSION"/>
             <enum value="&quot;XR_BD_spatial_anchor&quot;"               name="XR_BD_SPATIAL_ANCHOR_EXTENSION_NAME"/>
 
             <enum offset="0" dir="-" extends="XrResult"                  name="XR_ERROR_SPATIAL_ANCHOR_NOT_FOUND_BD"/>
