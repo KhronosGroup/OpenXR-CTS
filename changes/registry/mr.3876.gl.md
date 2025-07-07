@@ -1,0 +1,4 @@
+---
+- mr.3876.gl
+---
+- Change: Update the `XrSpatialAnchorCreateCompletionBD` structure, and increment the revision of `XR_BD_spatial_anchor`.

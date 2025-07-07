@@ -174,7 +174,7 @@ namespace Conformance
 
         SECTION("EndFrameInfo")
         {
-            AutoBasicSession session(AutoBasicSession::beginSession | AutoBasicSession::createSpaces);
+            AutoBasicSession session(AutoBasicSession::beginSession | AutoBasicSession::createSpaces | AutoBasicSession::createSwapchains);
 
             XrFrameState frameState{XR_TYPE_FRAME_STATE};
 
@@ -182,7 +182,27 @@ namespace Conformance
             defaultFrameEndInfo.environmentBlendMode = Options::Get().environmentBlendModeValue;
 
             {
-                INFO("No layers");
+                INFO("No layers in unknown session state");
+
+                // First frame
+                REQUIRE_RESULT_SUCCEEDED(xrWaitFrame(session, nullptr, &frameState));
+                REQUIRE_RESULT_SUCCEEDED(xrBeginFrame(session, nullptr));  // May return XR_FRAME_DISCARDED
+                XrFrameEndInfo frameEndInfo = defaultFrameEndInfo;
+                frameEndInfo.displayTime = frameState.predictedDisplayTime;
+                CHECK(XR_SUCCESS == xrEndFrame(session, &frameEndInfo));
+
+                // Second frame. Should get XR_SUCCESS on xrBeginFrame rather than XR_FRAME_DISCARDED.
+                REQUIRE_RESULT_SUCCEEDED(xrWaitFrame(session, nullptr, &frameState));
+                REQUIRE(XR_SUCCESS == xrBeginFrame(session, nullptr));
+                frameEndInfo.displayTime = frameState.predictedDisplayTime;
+                CHECK(XR_SUCCESS == xrEndFrame(session, &frameEndInfo));
+            }
+
+            {
+                INFO("No layers in session state visible");
+
+                FrameIterator frameIterator(&session);
+                frameIterator.RunToSessionState(XR_SESSION_STATE_VISIBLE);
 
                 // First frame
                 REQUIRE_RESULT_SUCCEEDED(xrWaitFrame(session, nullptr, &frameState));

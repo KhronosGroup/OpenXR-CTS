@@ -763,8 +763,12 @@ namespace Conformance
 
     void OpenGLGraphicsPlugin::CheckFramebuffer(GLuint fb) const
     {
-#if !defined(OS_APPLE_MACOS)
-        GLenum st = glCheckNamedFramebufferStatus(fb, GL_FRAMEBUFFER);
+        GLint prevFB = 0;
+        glGetIntegerv(GL_FRAMEBUFFER_BINDING, &prevFB);
+        glBindFramebuffer(GL_FRAMEBUFFER, fb);
+        GLenum st = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+        glBindFramebuffer(GL_FRAMEBUFFER, prevFB);
+
         if (st == GL_FRAMEBUFFER_COMPLETE)
             return;
         std::string status;
@@ -801,9 +805,6 @@ namespace Conformance
             break;
         }
         XRC_THROW("CheckFramebuffer " + std::to_string(fb) + " is " + status);
-#else
-        (void)fb;
-#endif  // !defined(OS_APPLE_MACOS)
     }
 
     void OpenGLGraphicsPlugin::ClearSwapchainCache()

@@ -55,6 +55,9 @@ namespace Conformance
 /// Identifies the default invalid `XrPath` value which isn't `XR_NULL_PATH`.
 #define XRC_INVALID_PATH_VALUE UINT64_C(0xbaaaaaaaaaaaaaad)
 
+/// Identifies the default invalid `XrRenderModelIdEXT` value which isn't `XR_NULL_RENDER_MODEL_ID_EXT`.
+#define XRC_INVALID_RENDER_MODEL_ID_EXT_VALUE UINT64_C(0xbaaaaaaaaaaaaaad)
+
 /// Identifies an invalid image format.
 ///
 /// This is graphics API-specific, but there are no graphics APIs which define
@@ -130,6 +133,8 @@ namespace Conformance
         MAKE_CONVERSION_FUNCTION(XrEyeTrackerFB)
         MAKE_CONVERSION_FUNCTION(XrVirtualKeyboardMETA)
         MAKE_CONVERSION_FUNCTION(XrPassthroughColorLutMETA)
+        MAKE_CONVERSION_FUNCTION(XrRenderModelEXT)
+        MAKE_CONVERSION_FUNCTION(XrRenderModelAssetEXT)
         MAKE_CONVERSION_FUNCTION(XrPassthroughHTC)
         MAKE_CONVERSION_FUNCTION(XrPlaneDetectorEXT)
 #else

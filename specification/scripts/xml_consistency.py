@@ -97,7 +97,7 @@ ENUM_NAMING_EXCEPTIONS = set((
 
 SPECIFICATION_DIR = Path(__file__).parent.parent
 
-EXT_DECOMPOSE_RE = re.compile(r'XR_(?P<tag>[A-Z]+)_(?P<name>[\w_]+)')
+EXT_DECOMPOSE_RE = re.compile(r'XR_(?P<tag>[A-Z]+(X[1-9])?)_(?P<name>[\w_]+)')
 REVISION_RE = re.compile(r' *[*] Revision (?P<num>[1-9][0-9]*),.*')
 
 
@@ -222,6 +222,12 @@ class Checker(XMLChecker):
             # This is warning about compatibility aliases, we already fixed this.
             "XR_FB_hand_tracking_capsules": ("Extension-defined name XR_FB_HAND_TRACKING_CAPSULE_POINT_COUNT has wrong or missing vendor tag: expected to end with FB",
                                              "Extension-defined name XR_FB_HAND_TRACKING_CAPSULE_COUNT has wrong or missing vendor tag: expected to end with FB",),
+            "XrSpatialCapabilityEXT": (
+                "Got an enum whose name does not match the pattern: the type is XrSpatialCapabilityEXT which would cause values to start with XR_SPATIAL_CAPABILITY_ but got a different longest common prefix XR_SPATIAL_CAPABILITY_MARKER_TRACKING_",
+            ),
+            "XrSpatialCapabilityFeatureEXT": (
+                "Got an enum whose name does not match the pattern: the type is XrSpatialCapabilityFeatureEXT which would cause values to start with XR_SPATIAL_CAPABILITY_FEATURE_ but got a different longest common prefix XR_SPATIAL_CAPABILITY_FEATURE_MARKER_TRACKING_",
+            )
         }
 
         conventions = APIConventions()

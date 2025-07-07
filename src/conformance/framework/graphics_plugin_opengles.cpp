@@ -646,8 +646,8 @@ namespace Conformance
             XRC_SWAPCHAIN_FORMAT(GL_RG8I).WORKAROUND.rg().Int(s8).ToPair(),       // 2-component, 8-bit signed integer
             XRC_SWAPCHAIN_FORMAT(GL_RGB8I).WORKAROUND.rgb().Int(s8).ToPair(),     // 3-component, 8-bit signed integer
             XRC_SWAPCHAIN_FORMAT(GL_RGBA8I).WORKAROUND.rgba().Int(s8).ToPair(),   // 4-component, 8-bit signed integer
-            XRC_SWAPCHAIN_FORMAT(GL_SR8).WORKAROUND.r().ToPair(),                 // 1-component, 8-bit sRGB
-            XRC_SWAPCHAIN_FORMAT(GL_SRG8).WORKAROUND.rg().ToPair(),               // 2-component, 8-bit sRGB
+            XRC_SWAPCHAIN_FORMAT(GL_SR8_EXT).WORKAROUND.r().ToPair(),             // 1-component, 8-bit sRGB
+            XRC_SWAPCHAIN_FORMAT(GL_SRG8_EXT).WORKAROUND.rg().ToPair(),           // 2-component, 8-bit sRGB
             XRC_SWAPCHAIN_FORMAT(GL_SRGB8).WORKAROUND.rgb().ToPair(),             // 3-component, 8-bit sRGB
             XRC_SWAPCHAIN_FORMAT(GL_SRGB8_ALPHA8).WORKAROUND.rgba().ToPair(),     // 4-component, 8-bit sRGB
 

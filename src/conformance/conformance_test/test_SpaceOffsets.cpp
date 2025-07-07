@@ -114,7 +114,16 @@ namespace Conformance
         CompositionHelper compositionHelper("Space Offsets");
 
         XrInstance instance = compositionHelper.GetInstance();
+        XrSystemId systemId = compositionHelper.GetSystemId();
         XrSession session = compositionHelper.GetSession();
+
+        XrSystemProperties systemProperties{XR_TYPE_SYSTEM_PROPERTIES};
+        XRC_CHECK_THROW_XRCMD(xrGetSystemProperties(instance, systemId, &systemProperties));
+
+        if (systemProperties.trackingProperties.orientationTracking == XR_FALSE &&
+            systemProperties.trackingProperties.positionTracking == XR_FALSE) {
+            SKIP("System does not support orientation or position tracking");
+        }
 
         const XrSpace localSpace = compositionHelper.CreateReferenceSpace(XR_REFERENCE_SPACE_TYPE_LOCAL);
 

@@ -41,9 +41,10 @@ add_subdirectory(gltf)
 
 # Main conformance framework
 
-set(VULKAN_SHADERS "${CMAKE_CURRENT_SOURCE_DIR}/vulkan_shaders/frag.glsl"
-                   "${CMAKE_CURRENT_SOURCE_DIR}/vulkan_shaders/vert.glsl"
-                   "${CMAKE_CURRENT_SOURCE_DIR}/vulkan_shaders/comp.glsl"
+set(VULKAN_SHADERS
+    "${CMAKE_CURRENT_SOURCE_DIR}/vulkan_shaders/frag.glsl"
+    "${CMAKE_CURRENT_SOURCE_DIR}/vulkan_shaders/vert.glsl"
+    "${CMAKE_CURRENT_SOURCE_DIR}/vulkan_shaders/comp.glsl"
 )
 
 run_xr_xml_generate(
@@ -66,6 +67,7 @@ run_xr_xml_generate(
 add_library(
     conformance_framework STATIC
     action_utils.cpp
+    autoskip.cpp
     catch_reporter_cts.cpp
     composition_utils.cpp
     conformance_framework.cpp
@@ -73,6 +75,7 @@ add_library(
     conformance_utils.cpp
     controller_animation_handler.cpp
     environment.cpp
+    ext_render_model.cpp
     gltf_helpers.cpp
     graphics_plugin_d3d11.cpp
     graphics_plugin_d3d11_gltf.cpp
@@ -93,6 +96,8 @@ add_library(
     platform_plugin_win32.cpp
     report.cpp
     RGBAImage.cpp
+    spatial_conformance_utils.cpp
+    spatial_test_runner.cpp
     swapchain_image_data.cpp
     xml_test_environment.cpp
     xr_math_approx.cpp

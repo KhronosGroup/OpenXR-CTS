@@ -188,6 +188,7 @@ namespace Conformance
     ///
     /// The contents of the swapchain images have no predictable content as a result of this.
     /// Returns any XrResult that xrAcquireSwapchainImage, xrWaitSwapchainImage, or xrReleaseSwapchainImage may return.
+    /// Only on `XR_SUCCESS` is the swapchain left in a usable state.
     XrResult CycleToNextSwapchainImage(XrSwapchain* swapchainArray, size_t count, XrDuration timeoutNs);
 
     /// Creates an action set and some actions, suitable for certain kinds of basic testing.
@@ -834,15 +835,16 @@ namespace Conformance
         enum class RunResult
         {
             Success,
-            Timeout,
+            UnsuccessfulWait,
             Error
         };
 
+    private:
         /// Calls xrWaitFrame, xrLocateViews, xrBeginFrame. In doing so it sets up viewVector.
-        /// This is a building block function used by PrepareSubmitFrame or possibly an external
-        /// user wanting more custom control.
-        RunResult WaitAndBeginFrame();
+        /// This is a building block function used by PrepareSubmitFrame.
+        void WaitAndBeginFrame();
 
+    public:
         /// Calls xrAcquireSwapchainImage, xrWaitSwapchainImage, xrReleaseSwapchainImage on each
         /// of the swapchains, in preparation for a call to EndFrame with the swapchains. Does not
         /// draw anything to the images.
@@ -850,14 +852,15 @@ namespace Conformance
         /// user wanting more custom control.
         RunResult CycleToNextSwapchainImage();
 
+    private:
         /// Sets up XrFrameEndInfo and XrCompositionLayerProjection, in preparation for a call to
         /// xrEndFrame. However, this leaves the frameEndInfo.layerCount and frameEndInfo.layers
         /// variables zeroed, with the expectation that the caller will set them appropriately and
         /// then call xrEndFrame.
-        /// This is a building block function used by PrepareSubmitFrame or possibly an external
-        /// user wanting more custom control.
-        RunResult PrepareFrameEndInfo();
+        /// This is a building block function used by PrepareSubmitFrame.
+        void PrepareFrameEndInfo();
 
+    public:
         /// This function calls WaitAndBeginFrame(), DrawSwapchains(), PrepareFrameEndInfo() and
         /// any error checking along the way. No need to call these three functions if you are
         /// calling this function. This itself is a higher level building block function for
@@ -889,6 +892,8 @@ namespace Conformance
         XrFrameEndInfo frameEndInfo;                                         //< PrepareFrameEndInfo sets this up.
         std::vector<XrCompositionLayerProjectionView> projectionViewVector;  //< PrepareFrameEndInfo sets this up.
         XrCompositionLayerProjection compositionLayerProjection;             //< PrepareFrameEndInfo sets this up.
+        std::string m_lastErrorSource{};                                     //< Populated on failure
+        XrResult m_lastError{};                                              //< Populated on failure
     };
 
     /// Overwrites all members of an OpenXR tagged/chainable struct with "bad" data.

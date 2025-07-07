@@ -43,7 +43,7 @@ namespace Conformance
     static constexpr XrVector3f kVectorUp{0, 1, 0};
     static constexpr XrVector3f kVectorForward{0, 0, -1};
 
-    static constexpr std::chrono::seconds kGazeLostTimeout = 10s;
+    static constexpr std::chrono::nanoseconds kGazeLostTimeout = 10s;
 
     static const auto SystemSupportsEyeGazeInteraction =
         MakeSystemPropertiesBoolChecker(XrSystemEyeGazeInteractionPropertiesEXT{XR_TYPE_SYSTEM_EYE_GAZE_INTERACTION_PROPERTIES_EXT},
@@ -480,8 +480,7 @@ namespace Conformance
                 // Check if user has requested to complete or fail the test.
                 {
                     // Check if the user closed eyes (or otherwise lost gaze tracking) for ten seconds
-                    if (sinceTrackedGazeDuration.IsStarted() &&
-                        std::chrono::duration_cast<std::chrono::seconds>(sinceTrackedGazeDuration.Elapsed()) >= kGazeLostTimeout) {
+                    if (sinceTrackedGazeDuration.IsStarted() && sinceTrackedGazeDuration.Elapsed() >= kGazeLostTimeout) {
                         FAIL("Test failed by user request - gaze lost for longer than timeout");
                     }
 

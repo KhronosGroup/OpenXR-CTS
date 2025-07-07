@@ -17,6 +17,7 @@
 #include "composition_utils.h"
 
 #include "RGBAImage.h"
+#include "autoskip.h"
 #include "conformance_framework.h"
 #include "conformance_options.h"
 #include "conformance_utils.h"
@@ -75,10 +76,16 @@ namespace Conformance
         return m_endFrame(frameState);
     }
 
-    void RenderLoop::Loop()
+    void RenderLoop::Loop(bool autoSkip)
     {
+        AutoSkipTimeoutHandler autoSkipTimeout(Options::Get().autoSkipTimeout);
+
         CHECK_NOTHROW([&]() {
             while (IterateFrame()) {
+
+                if (autoSkip && autoSkipTimeout.ProcessInsideLoopAndWarn()) {
+                    break;
+                }
             }
         }());
     }

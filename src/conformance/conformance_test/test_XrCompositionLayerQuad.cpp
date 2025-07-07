@@ -56,7 +56,7 @@ namespace Conformance
         // unreleasedColorSwapchain in an unused state.
         {
             XrSwapchain swapchains[] = {colorSwapchain};
-            XRC_CHECK_THROW_XRCMD(CycleToNextSwapchainImage(swapchains, 1, 3_xrSeconds));
+            REQUIRE(CycleToNextSwapchainImage(swapchains, 1, 3_xrSeconds) == XR_SUCCESS);
         }
 
         auto makeSimpleQuad = [&] {

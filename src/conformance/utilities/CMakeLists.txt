@@ -78,14 +78,16 @@ target_include_directories(
         ..
         # Backport of std::span functionality to pre-C++17
         ${PROJECT_SOURCE_DIR}/src/external/span-lite/include
-        # for GL:
-        ${PROJECT_SOURCE_DIR}/external/include
         # for metal-cpp
         ${PROJECT_SOURCE_DIR}/src/external/metal-cpp
         # for common/
         ${PROJECT_SOURCE_DIR}/src
 )
-target_link_libraries(conformance_utilities PUBLIC OpenXR::headers PRIVATE conformance_framework_basisu)
+target_link_libraries(
+    conformance_utilities
+    PUBLIC OpenXR::headers
+    PRIVATE conformance_framework_basisu
+)
 
 if(TARGET openxr-gfxwrapper)
     target_link_libraries(conformance_utilities PRIVATE openxr-gfxwrapper)

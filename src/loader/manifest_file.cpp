@@ -724,7 +724,7 @@ void ApiLayerManifestFile::AddManifestFilesAndroid(const std::string &openxr_com
         return;
     }
 
-    AAssetManager *assetManager = (AAssetManager *)Android_Get_Asset_Manager();
+    AAssetManager *assetManager = (AAssetManager *)GetAndroidAssetManager();
     std::vector<std::string> filenames;
     {
         std::string search_path = "";

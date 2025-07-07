@@ -107,13 +107,15 @@ else()
         target_compile_definitions(openxr_loader PRIVATE JSON_USE_EXCEPTION=0)
     endif()
 
-    target_sources(
-        openxr_loader
-        PRIVATE
-            "${PROJECT_SOURCE_DIR}/src/external/jsoncpp/src/lib_json/json_reader.cpp"
-            "${PROJECT_SOURCE_DIR}/src/external/jsoncpp/src/lib_json/json_value.cpp"
-            "${PROJECT_SOURCE_DIR}/src/external/jsoncpp/src/lib_json/json_writer.cpp"
+    set(jsoncpp_sources
+        "${PROJECT_SOURCE_DIR}/src/external/jsoncpp/src/lib_json/json_reader.cpp"
+        "${PROJECT_SOURCE_DIR}/src/external/jsoncpp/src/lib_json/json_value.cpp"
+        "${PROJECT_SOURCE_DIR}/src/external/jsoncpp/src/lib_json/json_writer.cpp"
     )
+
+    set_source_files_properties(${jsoncpp_sources} PROPERTIES SKIP_LINTING ON)
+
+    target_sources(openxr_loader PRIVATE ${jsoncpp_sources})
     target_include_directories(
         openxr_loader
         PRIVATE "${PROJECT_SOURCE_DIR}/src/external/jsoncpp/include"
@@ -125,9 +127,13 @@ else()
 endif()
 
 if(LOADER_EXTERNAL_GEN_DEPENDS)
-    set_source_files_properties(
-        ${LOADER_EXTERNAL_GEN_DEPENDS} PROPERTIES GENERATED TRUE
+    # cmake-format: off
+    set_source_files_properties(${LOADER_EXTERNAL_GEN_DEPENDS}
+        PROPERTIES
+            GENERATED TRUE
+            SKIP_LINTING ON
     )
+    # cmake-format: on
 endif()
 
 if(NOT BUILD_LOADER_WITH_EXCEPTION_HANDLING)
@@ -151,6 +157,8 @@ if(ANDROID)
     target_link_libraries(
         openxr_loader PRIVATE ${ANDROID_LOG_LIBRARY} ${ANDROID_LIBRARY}
     )
+    # Force 16KB page sizes for Android 15+ compatibility.
+    target_link_options(openxr_loader PRIVATE "-Wl,-z,max-page-size=16384")
 
 elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     set(FALLBACK_CONFIG_DIRS

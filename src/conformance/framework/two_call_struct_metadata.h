@@ -4,6 +4,7 @@
 
 #include "two_call_struct.h"
 #include <openxr/openxr.h>
+#include <cstdint>
 
 namespace Conformance
 {
@@ -45,6 +46,17 @@ namespace Conformance
             modelState, CapacityInputCountOutput(NAME_AND_MEMPTR(XrControllerModelStateMSFT::nodeCapacityInput),
                                                  NAME_AND_MEMPTR(XrControllerModelStateMSFT::nodeCountOutput))
                             .Array(NAME_AND_MEMPTR(XrControllerModelStateMSFT::nodeStates), {XR_TYPE_CONTROLLER_MODEL_NODE_STATE_MSFT}));
+        return data;
+    }
+
+    /// Get the two-call-struct metadata for XrRenderModelAssetDataEXT
+    static inline auto getTwoCallStructData(const XrRenderModelAssetDataEXT& /*unused*/)
+    {
+        static const XrRenderModelAssetDataEXT assetData{XR_TYPE_RENDER_MODEL_ASSET_DATA_EXT};
+        static const auto data =
+            TwoCallStruct(assetData, CapacityInputCountOutput(NAME_AND_MEMPTR(XrRenderModelAssetDataEXT::bufferCapacityInput),
+                                                              NAME_AND_MEMPTR(XrRenderModelAssetDataEXT::bufferCountOutput))
+                                         .Array(NAME_AND_MEMPTR(XrRenderModelAssetDataEXT::buffer), (uint8_t)(0)));
         return data;
     }
 

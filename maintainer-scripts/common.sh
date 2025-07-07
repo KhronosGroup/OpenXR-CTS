@@ -135,6 +135,7 @@ getDocsFilenames() {
         | grep -v "CMakeLists.txt" \
         | grep -v "ubmitted" \
         | grep -v "experimental" \
+        | grep -v "xml\.reservations" \
         | grep -v "compare" \
         | grep -v "JP\.jpg"
 }
@@ -209,10 +210,12 @@ getSDKSourceFilenames() {
         src/common_config.h.in \
         src/external/CMakeLists.txt \
         src/external/android-jni-wrappers \
+        src/external/glad2 \
         src/external/jnipp \
         src/external/jsoncpp \
         src/external/catch2 \
         src/external/metal-cpp \
+        src/external/sanitizers-cmake \
         src/loader \
         src/scripts \
         src/tests \

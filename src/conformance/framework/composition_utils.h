@@ -17,6 +17,7 @@
 #pragma once
 
 #include "RGBAImage.h"
+#include "autoskip.h"
 #include "common/xr_linear.h"
 #include "utilities/xr_math_operators.h"
 #include "conformance_framework.h"
@@ -71,8 +72,10 @@ namespace Conformance
         bool IterateFrame();
 
         /// Call @ref IterateFrame repeatedly until your @ref EndFrame returns false,
-        /// checking that no exceptions are thrown
-        void Loop();
+        /// checking that no exceptions are thrown.
+        ///
+        /// Obeys the autoSkipTimeout (unless you pass `false`), by WARN and exit cleanly.
+        void Loop(bool autoSkip = true);
 
         XrTime GetLastPredictedDisplayTime() const;
 
@@ -458,10 +461,13 @@ namespace Conformance
     }  // namespace Math
 
     /// Appends composition layers for interacting with interactive composition tests.
+    ///
+    /// Handles the @ref Options::autoSkipTimeout by exiting normally after the call to the helper
+    /// (which records a warning)
     struct InteractiveLayerManager
     {
         InteractiveLayerManager(CompositionHelper& compositionHelper, const char* exampleImage, const char* descriptionText)
-            : m_compositionHelper(compositionHelper), m_autoSkipTimeout(Options::Get().autoSkipTimeout), m_testStopwatch(true)
+            : m_compositionHelper(compositionHelper)
         {
             using namespace openxr::math_operators;
 
@@ -545,6 +551,9 @@ namespace Conformance
             m_backgroundLayers.push_back(reinterpret_cast<XrCompositionLayerBaseHeader*>(layer));
         }
 
+        /// Calls xrSyncActions, polls events, and calls xrEndFrame.
+        ///
+        /// @return true if the frame loop should keep running
         bool EndFrame(const XrFrameState& frameState, std::vector<XrCompositionLayerBaseHeader*> layers = {})
         {
             bool keepRunning = AppendLayers(layers, frameState.predictedDisplayTime);
@@ -554,6 +563,7 @@ namespace Conformance
         }
 
     private:
+        /// Calls xrSyncActions, in addition to pushing layers
         bool AppendLayers(std::vector<XrCompositionLayerBaseHeader*>& layers, XrTime predictedDisplayTime)
         {
             LayerMode layerMode = GetLayerMode();
@@ -611,6 +621,10 @@ namespace Conformance
             return true;
         }
 
+        /// Calls xrSyncActions to figure out what mode we are in.
+        ///
+        /// This is also where the auto-skip timeout is handled, for real.
+        /// (It just reports that the frame loop is complete, after warning, when the timeout is hit)
         LayerMode GetLayerMode()
         {
             m_compositionHelper.GetInteractionManager().SyncActions(XR_NULL_PATH);
@@ -638,13 +652,6 @@ namespace Conformance
                 mode = LayerMode::Complete;
             }
 
-            if (m_autoSkipTimeout != std::chrono::milliseconds(0)) {
-                if (m_testStopwatch.Elapsed() > m_autoSkipTimeout) {
-                    WARN("Automatically skipping test due to timeout");
-                    mode = LayerMode::Complete;
-                }
-            }
-
             return mode;
         }
 
@@ -662,8 +669,5 @@ namespace Conformance
         XrSpace m_exampleQuadSpace;
         std::vector<XrCompositionLayerBaseHeader*> m_sceneLayers;
         std::vector<XrCompositionLayerBaseHeader*> m_backgroundLayers;
-
-        std::chrono::milliseconds m_autoSkipTimeout{0};
-        Stopwatch m_testStopwatch;
     };
 }  // namespace Conformance

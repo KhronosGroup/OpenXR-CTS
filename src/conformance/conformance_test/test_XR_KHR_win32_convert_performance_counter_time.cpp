@@ -140,5 +140,5 @@ namespace Conformance
         }
     }
 }  // namespace Conformance
-   //
+
 #endif  // XR_USE_PLATFORM_WIN32
