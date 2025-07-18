@@ -39,6 +39,8 @@ namespace Conformance
         }
 
         AutoBasicSession session(AutoBasicSession::createSession | AutoBasicSession::skipGraphics);
+        FrameIterator frameIterator(&session);
+        frameIterator.RunToSessionState(XR_SESSION_STATE_READY);
 
         SECTION("xrEnumerateSwapchainFormats should return XR_SUCCESS but zero formats.")
         {
@@ -62,6 +64,7 @@ namespace Conformance
 
         // To do: call input and tracking functions here.
         REQUIRE_RESULT_UNQUALIFIED_SUCCESS(xrRequestExitSession(session));
+        frameIterator.RunToSessionState(XR_SESSION_STATE_STOPPING);
         REQUIRE_RESULT_UNQUALIFIED_SUCCESS(xrEndSession(session));
     }
 }  // namespace Conformance

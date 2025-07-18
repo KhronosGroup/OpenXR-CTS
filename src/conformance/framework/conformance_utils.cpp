@@ -1025,7 +1025,14 @@ namespace Conformance
             case XR_SESSION_STATE_FOCUSED: {
                 // In these states we need to submit frames. Otherwise the runtime won't
                 // necessarily move us from synchronized to visible or focused.
-                REQUIRE(SubmitFrame() == RunResult::Success);
+                // XR_MND_headless:
+                // In a headless session, the session state proceeds to XR_SESSION_STATE_SYNCHRONIZED,
+                // then XR_SESSION_STATE_VISIBLE and XR_SESSION_STATE_FOCUSED, after the call to
+                // xrBeginSession. The application does not need to call xrWaitFrame, xrBeginFrame, or
+                // xrEndFrame, unlike with non-headless sessions.
+                if (!autoBasicSession->IsSkippingGraphics()) {
+                    REQUIRE(SubmitFrame() == RunResult::Success);
+                }
 
                 // Just keep going. We haven't reached the target state yet.
                 break;

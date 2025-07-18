@@ -686,6 +686,11 @@ namespace Conformance
             return session != XR_NULL_HANDLE;
         }
 
+        bool IsSkippingGraphics() const
+        {
+            return (optionFlags & skipGraphics) != 0;
+        }
+
     private:
         int optionFlags{0};  //< Enum OptionFlags
 
