@@ -31,10 +31,16 @@ namespace Conformance
                                                    XrSwapchainImageBaseHeader* images) const = 0;
         virtual void ValidateUsageFlags(ConformanceHooksBase* conformanceHooks, uint64_t usageFlags, uint32_t count,
                                         XrSwapchainImageBaseHeader* images) const = 0;
+
+        // Vulkan specific function, allows or disallows the access to the VkQueue used in the graphics binding
+        virtual void AllowVkQueueAccess(bool /*allowed*/){};
+
+        // Checks if the internal state of the validator respects what is expected
+        virtual bool CheckState() const = 0;
     };
 
     // Create a graphics plugin for the graphics API specified in the options.
     // Throws std::invalid_argument if the graphics API is empty, unknown, or unsupported.
-    std::shared_ptr<IGraphicsValidator> CreateGraphicsValidator(XrStructureType swapchainImageType) noexcept(false);
+    std::shared_ptr<IGraphicsValidator> CreateGraphicsValidator(const XrBaseInStructure* graphicsBinding);
 
 }  // namespace Conformance

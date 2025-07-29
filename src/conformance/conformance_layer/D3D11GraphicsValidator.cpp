@@ -217,6 +217,12 @@ namespace Conformance
                 }
             }
         }
+
+        bool CheckState() const override
+        {
+            // Not implemented for D3D11
+            return true;
+        }
     };
 
     std::shared_ptr<IGraphicsValidator> CreateGraphicsValidator_D3D11()

@@ -587,11 +587,10 @@ namespace Conformance
             XRC_CHECK_THROW(1 == m_swapchainImages.erase(swapchain));
     }
 
-    XrSwapchain CompositionHelper::CreateStaticSwapchainSolidColor(const XrColor4f& color)
+    XrSwapchain CompositionHelper::CreateStaticSwapchainSolidColor(const XrColor4f& color, XrExtent2Di size /*= {256, 256} */)
     {
-        // Avoid using a 1x1 image here since runtimes may do special processing near texture edges.
-        RGBAImage image(256, 256);
-        image.DrawRect(0, 0, 256, 256, color);
+        RGBAImage image(size.width, size.height);
+        image.DrawRect(0, 0, size.width, size.height, color);
 
         return CreateStaticSwapchainImage(image);
     }

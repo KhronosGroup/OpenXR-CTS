@@ -24,6 +24,7 @@
 #include "graphics_plugin_vulkan_gltf.h"
 #include "report.h"
 #include "swapchain_image_data.h"
+#include "environment.h"
 
 #include "common/hex_and_handles.h"
 #include "common/vulkan_debug_object_namer.hpp"
@@ -67,6 +68,9 @@
 #include <tuple>
 #include <utility>
 #include <vector>
+
+#define XR_LAYER_RUNTIME_CONFORMANCE "XR_APILAYER_KHRONOS_runtime_conformance"
+#define VK_LAYER_RUNTIME_CONFORMANCE "VK_LAYER_KHRONOS_xr_runtime_conformance"
 
 namespace tinygltf
 {
@@ -973,10 +977,49 @@ namespace Conformance
                 extensions.push_back(createInfo->vulkanCreateInfo->ppEnabledExtensionNames[i]);
             }
 
+#if !defined(XR_USE_PLATFORM_ANDROID)
+            // Add the local path to the Vulkan loader for layer discovery
+            SetEnv("VK_LAYER_PATH", "./", false);
+#endif
+
+            uint32_t layerCount = 0;
+            vkEnumerateInstanceLayerProperties(&layerCount, nullptr);
+            std::vector<VkLayerProperties> availableLayers(layerCount);
+            vkEnumerateInstanceLayerProperties(&layerCount, availableLayers.data());
+
+            ReportConsoleOnlyF("Available Vulkan layers: %zu", availableLayers.size());
+            for (const auto& it : availableLayers) {
+                ReportF("\t%s", it.layerName);
+            }
+
+            std::vector<const char*> layers;
+
+            const GlobalData& globalData = GetGlobalData();
+            if (globalData.enabledAPILayerNames.contains(XR_LAYER_RUNTIME_CONFORMANCE)) {
+                const auto it = std::find_if(availableLayers.begin(), availableLayers.end(), [](const auto& layerProps) {
+                    return strcmp(VK_LAYER_RUNTIME_CONFORMANCE, layerProps.layerName) == 0;
+                });
+
+                if (it != availableLayers.end()) {
+                    layers.push_back(VK_LAYER_RUNTIME_CONFORMANCE);
+                }
+                else {
+                    ReportF("Vulkan XR conformance layer not found");
+                    return XR_ERROR_API_LAYER_NOT_PRESENT;
+                }
+            }
+
+            ReportConsoleOnlyF("Enabled Vulkan layers %zu", layers.size());
+            for (size_t i = 0; i < layers.size(); ++i) {
+                ReportF("\t%s", layers[i]);
+            }
+
             VkInstanceCreateInfo instInfo{VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO};
             memcpy(&instInfo, createInfo->vulkanCreateInfo, sizeof(instInfo));
             instInfo.enabledExtensionCount = (uint32_t)extensions.size();
             instInfo.ppEnabledExtensionNames = extensions.empty() ? nullptr : extensions.data();
+            instInfo.enabledLayerCount = (uint32_t)layers.size();
+            instInfo.ppEnabledLayerNames = layers.empty() ? nullptr : layers.data();
 
             auto pfnCreateInstance = (PFN_vkCreateInstance)createInfo->pfnGetInstanceProcAddr(nullptr, "vkCreateInstance");
             *vulkanResult = pfnCreateInstance(&instInfo, createInfo->vulkanAllocator, vulkanInstance);
@@ -1172,6 +1215,7 @@ namespace Conformance
             }
         }
 
+        bool useDebugUtils = false;
         VkDebugUtilsMessengerCreateInfoEXT debugInfo{VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT};
         debugInfo.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT;
         debugInfo.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
@@ -1203,18 +1247,29 @@ namespace Conformance
                 // Debug utils is optional and not always available
                 if (isExtSupported(VK_EXT_DEBUG_UTILS_EXTENSION_NAME)) {
                     extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+                    useDebugUtils = true;
                 }
                 // TODO add back VK_EXT_debug_report code for compatibility with older systems? (Android)
             }
 
+#if !defined(XR_USE_PLATFORM_ANDROID)
+            // Add the local path to the Vulkan loader for layer discovery
+            SetEnv("VK_LAYER_PATH", "./", false);
+#endif
+
+            uint32_t layerCount;
+            vkEnumerateInstanceLayerProperties(&layerCount, nullptr);
+            std::vector<VkLayerProperties> availableLayers(layerCount);
+            vkEnumerateInstanceLayerProperties(&layerCount, availableLayers.data());
+
+            ReportConsoleOnlyF("Available Vulkan layers: %zu", availableLayers.size());
+            for (const auto& it : availableLayers) {
+                ReportF("\t%s", it.layerName);
+            }
+
             std::vector<const char*> layers;
 #if !defined(NDEBUG)
-            auto GetValidationLayerName = []() -> const char* {
-                uint32_t layerCount;
-                vkEnumerateInstanceLayerProperties(&layerCount, nullptr);
-                std::vector<VkLayerProperties> availableLayers(layerCount);
-                vkEnumerateInstanceLayerProperties(&layerCount, availableLayers.data());
-
+            auto GetValidationLayerName = [&availableLayers]() -> const char* {
                 // Enable only one validation layer, prefer KHRONOS.
                 for (auto validationLayerName : {"VK_LAYER_KHRONOS_validation", "VK_LAYER_LUNARG_standard_validation"}) {
                     for (const auto& layerProperties : availableLayers) {
@@ -1229,12 +1284,33 @@ namespace Conformance
             const char* validationLayerName = GetValidationLayerName();
             if (validationLayerName)
                 layers.push_back(validationLayerName);
-            else
-                ReportF("No Vulkan validation layers found, running without them");
+
 #endif
 #if defined(USE_CHECKPOINTS)
             layers.push_back("VK_NV_device_diagnostic_checkpoints");
 #endif
+
+            const GlobalData& globalData = GetGlobalData();
+            if (globalData.enabledAPILayerNames.contains(XR_LAYER_RUNTIME_CONFORMANCE)) {
+                const auto it = std::find_if(availableLayers.begin(), availableLayers.end(), [](const auto& layerProps) {
+                    return strcmp(VK_LAYER_RUNTIME_CONFORMANCE, layerProps.layerName) == 0;
+                });
+
+                if (it != availableLayers.end()) {
+                    layers.push_back(VK_LAYER_RUNTIME_CONFORMANCE);
+                }
+                else {
+                    ReportF("Vulkan XR conformance layer not found");
+#if !defined(XR_USE_PLATFORM_ANDROID)
+                    return false;
+#endif
+                }
+            }
+
+            ReportConsoleOnlyF("Enabled Vulkan layers %zu", layers.size());
+            for (size_t i = 0; i < layers.size(); ++i) {
+                ReportF("\t%s", layers[i]);
+            }
 
             VkApplicationInfo appInfo{VK_STRUCTURE_TYPE_APPLICATION_INFO};
             appInfo.pApplicationName = "conformance_test";
@@ -1244,7 +1320,7 @@ namespace Conformance
             appInfo.apiVersion = VK_API_VERSION_1_0;
 
             VkInstanceCreateInfo instInfo{VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO};
-            instInfo.pNext = &debugInfo;
+            instInfo.pNext = useDebugUtils ? &debugInfo : nullptr;
             instInfo.pApplicationInfo = &appInfo;
             instInfo.enabledLayerCount = (uint32_t)layers.size();
             instInfo.ppEnabledLayerNames = layers.empty() ? nullptr : layers.data();
@@ -2142,7 +2218,7 @@ namespace Conformance
         // Note all matrixes (including OpenXR's) are column-major, right-handed.
         const auto& pose = layerView.pose;
         XrMatrix4x4f proj;
-        XrMatrix4x4f_CreateProjectionFov(&proj, GRAPHICS_VULKAN, layerView.fov, 0.05f, 100.0f);
+        XrMatrix4x4f_CreateProjectionFov(&proj, GRAPHICS_VULKAN, layerView.fov, kNearClip, kFarClip);
         XrMatrix4x4f toView = Matrix::FromPose(pose);
         XrMatrix4x4f view = Matrix::InvertRigidBody(toView);
         XrMatrix4x4f vp = proj * view;

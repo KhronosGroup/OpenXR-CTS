@@ -1297,7 +1297,7 @@ namespace Conformance
 
         const auto& pose = layerView.pose;
         XrMatrix4x4f proj;
-        XrMatrix4x4f_CreateProjectionFov(&proj, GRAPHICS_OPENGL_ES, layerView.fov, 0.05f, 100.0f);
+        XrMatrix4x4f_CreateProjectionFov(&proj, GRAPHICS_OPENGL_ES, layerView.fov, kNearClip, kFarClip);
         XrMatrix4x4f toView = Matrix::FromPose(pose);
         XrMatrix4x4f view = Matrix::InvertRigidBody(toView);
         XrMatrix4x4f vp = proj * view;

@@ -1,0 +1,1 @@
+- Improvement: add `.clang-tidy` file.

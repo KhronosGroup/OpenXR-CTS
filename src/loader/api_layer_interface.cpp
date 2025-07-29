@@ -11,6 +11,7 @@
 
 #include "loader_init_data.hpp"
 #include "loader_logger.hpp"
+#include "loader_properties.hpp"
 #include "loader_platform.hpp"
 #include "manifest_file.hpp"
 #include "platform_utils.hpp"
@@ -19,6 +20,7 @@
 #include <openxr/openxr_loader_negotiation.h>
 
 #include <cstring>
+#include <iterator>
 #include <memory>
 #include <sstream>
 #include <string>
@@ -29,7 +31,7 @@
 
 // Add any layers defined in the loader layer environment variable.
 static void AddEnvironmentApiLayers(std::vector<std::string>& enabled_layers) {
-    std::string layers = PlatformUtilsGetEnv(OPENXR_ENABLE_LAYERS_ENV_VAR);
+    std::string layers = LoaderProperty::Get(OPENXR_ENABLE_LAYERS_ENV_VAR);
 
     std::size_t last_found = 0;
     std::size_t found = layers.find_first_of(PATH_SEPARATOR);

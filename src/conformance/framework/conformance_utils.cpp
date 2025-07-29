@@ -825,9 +825,9 @@ namespace Conformance
                 sessionState = sessionStateChanged.state;
                 return TickResult::SessionStateChanged;
             }
+            default:
+                return TickResult::SessionStateUnchanged;
             }
-
-            return TickResult::SessionStateUnchanged;
         }
 
         case XR_EVENT_UNAVAILABLE: {

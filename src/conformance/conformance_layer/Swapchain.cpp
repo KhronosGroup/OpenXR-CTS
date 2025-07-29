@@ -16,7 +16,6 @@
 
 #include "ConformanceHooks.h"
 #include "CustomHandleState.h"
-#include "IGraphicsValidator.h"
 #include "RuntimeFailure.h"
 
 using namespace swapchain;
@@ -63,9 +62,25 @@ XrResult ConformanceHooks::xrCreateSwapchain(XrSession session, const XrSwapchai
     const XrResult result = ConformanceHooksBase::xrCreateSwapchain(session, createInfo, swapchain);
     if (XR_SUCCEEDED(result)) {
         // Tag on the custom swapchain state to the generated handle state.
-        session::CustomSessionState* const customSessionState = session::GetCustomSessionState(session);
-        GetSwapchainState(*swapchain)
-            ->SetCustomState(std::make_unique<CustomSwapchainState>(createInfo, customSessionState->graphicsBinding));
+        session::CustomSessionState* customSessionState = session::GetCustomSessionState(session);
+        GetSwapchainState(*swapchain)->SetCustomState(std::make_unique<CustomSwapchainState>(createInfo, customSessionState));
+    }
+    return result;
+}
+
+XrResult ConformanceHooks::xrDestroySwapchain(XrSwapchain swapchain)
+{
+    CustomSwapchainState* const swapchainData = GetCustomSwapchainState(swapchain);
+    auto validator = swapchainData->sessionState->graphicsValidator;
+
+    if (validator) {
+        validator->AllowVkQueueAccess(false);
+    }
+
+    const XrResult result = ConformanceHooksBase::xrDestroySwapchain(swapchain);
+
+    if (validator) {
+        NONCONFORMANT_IF(!validator->CheckState(), "Invalid graphics state");
     }
     return result;
 }
@@ -73,10 +88,21 @@ XrResult ConformanceHooks::xrCreateSwapchain(XrSession session, const XrSwapchai
 XrResult ConformanceHooks::xrEnumerateSwapchainImages(XrSwapchain swapchain, uint32_t imageCapacityInput, uint32_t* imageCountOutput,
                                                       XrSwapchainImageBaseHeader* images)
 {
+    CustomSwapchainState* const customSwapchainState = GetCustomSwapchainState(swapchain);
+    auto validator = customSwapchainState->sessionState->graphicsValidator;
+
+    if (validator) {
+        validator->AllowVkQueueAccess(false);
+    }
+
     const XrResult result = ConformanceHooksBase::xrEnumerateSwapchainImages(swapchain, imageCapacityInput, imageCountOutput, images);
+
+    if (validator) {
+        NONCONFORMANT_IF(!validator->CheckState(), "Invalid graphics state");
+    }
+
     if (XR_SUCCEEDED(result)) {
         if (imageCountOutput != nullptr) {
-            CustomSwapchainState* const customSwapchainState = GetCustomSwapchainState(swapchain);
             std::unique_lock<std::recursive_mutex> lock(customSwapchainState->mutex);
 
             NONCONFORMANT_IF(*imageCountOutput == 0, "Invalid empty image count.");
@@ -94,7 +120,6 @@ XrResult ConformanceHooks::xrEnumerateSwapchainImages(XrSwapchain swapchain, uin
                              (uint32_t)customSwapchainState->imageStates.size());
 
             if (images != nullptr) {
-                auto validator = Conformance::CreateGraphicsValidator(customSwapchainState->graphicsBinding);
                 if (validator) {
                     validator->ValidateSwapchainImageStructs(this, customSwapchainState->createInfo.format, *imageCountOutput, images);
                     validator->ValidateUsageFlags(this, customSwapchainState->createInfo.usageFlags, *imageCountOutput, images);
@@ -107,9 +132,20 @@ XrResult ConformanceHooks::xrEnumerateSwapchainImages(XrSwapchain swapchain, uin
 
 XrResult ConformanceHooks::xrAcquireSwapchainImage(XrSwapchain swapchain, const XrSwapchainImageAcquireInfo* acquireInfo, uint32_t* index)
 {
+    CustomSwapchainState* const swapchainData = GetCustomSwapchainState(swapchain);
+    auto validator = swapchainData->sessionState->graphicsValidator;
+
+    if (validator) {
+        validator->AllowVkQueueAccess(true);
+    }
+
     const XrResult result = ConformanceHooksBase::xrAcquireSwapchainImage(swapchain, acquireInfo, index);
+
+    if (validator) {
+        NONCONFORMANT_IF(!validator->CheckState(), "Invalid graphics state");
+    }
+
     if (XR_SUCCEEDED(result)) {
-        CustomSwapchainState* const swapchainData = GetCustomSwapchainState(swapchain);
         std::unique_lock<std::recursive_mutex> lock(swapchainData->mutex);
 
         if (swapchainData->imageStates.empty()) {
@@ -139,7 +175,17 @@ XrResult ConformanceHooks::xrWaitSwapchainImage(XrSwapchain swapchain, const XrS
 {
     auto waitStart = std::chrono::high_resolution_clock::now();
 
+    CustomSwapchainState* const swapchainData = GetCustomSwapchainState(swapchain);
+    auto validator = swapchainData->sessionState->graphicsValidator;
+
+    if (validator) {
+        validator->AllowVkQueueAccess(false);
+    }
+
     const XrResult result = ConformanceHooksBase::xrWaitSwapchainImage(swapchain, waitInfo);
+    if (validator) {
+        NONCONFORMANT_IF(!validator->CheckState(), "Invalid graphics state");
+    }
 
     if (result == XR_TIMEOUT_EXPIRED) {
         XrDuration waitDuration =
@@ -147,7 +193,6 @@ XrResult ConformanceHooks::xrWaitSwapchainImage(XrSwapchain swapchain, const XrS
         NONCONFORMANT_IF(waitDuration < waitInfo->timeout, "Wait returned before timeout.");
     }
     else if (result == XR_SUCCESS) {
-        CustomSwapchainState* const swapchainData = GetCustomSwapchainState(swapchain);
         std::unique_lock<std::recursive_mutex> lock(swapchainData->mutex);
 
         if (!swapchainData->acquiredSwapchains.empty()) {
@@ -169,9 +214,20 @@ XrResult ConformanceHooks::xrWaitSwapchainImage(XrSwapchain swapchain, const XrS
 
 XrResult ConformanceHooks::xrReleaseSwapchainImage(XrSwapchain swapchain, const XrSwapchainImageReleaseInfo* releaseInfo)
 {
+    CustomSwapchainState* const swapchainData = GetCustomSwapchainState(swapchain);
+    auto validator = swapchainData->sessionState->graphicsValidator;
+
+    if (validator) {
+        validator->AllowVkQueueAccess(true);
+    }
+
     const XrResult result = ConformanceHooksBase::xrReleaseSwapchainImage(swapchain, releaseInfo);
+
+    if (validator) {
+        NONCONFORMANT_IF(!validator->CheckState(), "Invalid graphics state");
+    }
+
     if (XR_SUCCEEDED(result)) {
-        CustomSwapchainState* const swapchainData = GetCustomSwapchainState(swapchain);
         std::unique_lock<std::recursive_mutex> lock(swapchainData->mutex);
 
         if (!swapchainData->acquiredSwapchains.empty()) {

@@ -283,7 +283,8 @@ namespace Conformance
         /// Color is interpreted in a *linear* color space (and thus converted before upload), not SRGB/gamma.
         ///
         /// @note Do not destroy this directly using OpenXR functions: use @ref DestroySwapchain instead.
-        XrSwapchain CreateStaticSwapchainSolidColor(const XrColor4f& color);
+        // Size is 256 to avoid using a 1x1 image here since runtimes may do special processing near texture edges.
+        XrSwapchain CreateStaticSwapchainSolidColor(const XrColor4f& color, XrExtent2Di size = {256, 256});
 
         /// Create and return a static swapchain that has had an RGBAImage copied to it: specialization of @ref CreateSwapchain
         ///

@@ -323,11 +323,13 @@ namespace Conformance
 
     void RGBAImage::ConvertToSRGB()
     {
+        assert(!isSrgb);
         for (RGBA8Color& pixel : pixels) {
             pixel.Channels.R = (uint8_t)(ColorUtils::ToSRGB((double)pixel.Channels.R / 255.0) * 255.0);
             pixel.Channels.G = (uint8_t)(ColorUtils::ToSRGB((double)pixel.Channels.G / 255.0) * 255.0);
             pixel.Channels.B = (uint8_t)(ColorUtils::ToSRGB((double)pixel.Channels.B / 255.0) * 255.0);
         }
+        isSrgb = true;
     }
 
     void RGBAImage::CopyWithStride(uint8_t* data, uint32_t rowPitch, uint32_t offset) const

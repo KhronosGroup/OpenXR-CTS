@@ -1,0 +1,7 @@
+---
+- mr.3760.gl
+- mr.3829.gl
+- mr.3912.gl
+---
+- Improvement: Add Vulkan API layer interface and `VulkanGraphicsValidator` to `XrApiLayer_runtime_conformance`, to allow correlating OpenXR and Vulkan API state.
+- New test: Verify the runtime implementation `VkQueue` access against the specification in `XrApiLayer_runtime_conformance` through the `VulkanGraphicsValidator`.

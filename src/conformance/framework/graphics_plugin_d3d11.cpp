@@ -772,7 +772,7 @@ namespace Conformance
 
         const XMMATRIX spaceToView = XMMatrixInverse(nullptr, LoadXrPose(layerView.pose));
         XrMatrix4x4f projectionMatrix;
-        XrMatrix4x4f_CreateProjectionFov(&projectionMatrix, GRAPHICS_D3D, layerView.fov, 0.05f, 100.0f);
+        XrMatrix4x4f_CreateProjectionFov(&projectionMatrix, GRAPHICS_D3D, layerView.fov, kNearClip, kFarClip);
 
         // Set shaders and constant buffers.
         ViewProjectionConstantBuffer viewProjection;
