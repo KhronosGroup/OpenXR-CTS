@@ -367,6 +367,142 @@ namespace Conformance
         RenderLoop(session, [&](const XrFrameState& frameState) { return interactiveLayerManager.EndFrame(frameState); }).Loop();
     }
 
+    TEST_CASE("MultipleMutableProjections", "[composition][interactive][aaaa]")
+    {
+        GlobalData& globalData = GetGlobalData();
+        if (!globalData.IsUsingGraphicsPlugin()) {
+            SKIP("Cannot test without a graphics plugin");
+        }
+
+        CompositionHelper compositionHelper("Multiple projection mutable Field-Of-View");
+        XrSession session = compositionHelper.GetSession();
+        InteractionManager& interactionManager = compositionHelper.GetInteractionManager();
+        InteractiveLayerManager interactiveLayerManager(compositionHelper, "projection_mutable_projections.png",
+                                                        "Uses mutable field-of-views for each projection layer view.");
+        interactionManager.AttachActionSets();
+        compositionHelper.BeginSession();
+
+        const XrSpace viewSpace = compositionHelper.CreateReferenceSpace(XR_REFERENCE_SPACE_TYPE_VIEW);
+
+        if (!compositionHelper.GetViewConfigurationProperties().fovMutable) {
+            SKIP("View configuration does not support mutable FoV");
+        }
+
+        const std::vector<XrViewConfigurationView> viewProperties = compositionHelper.EnumerateConfigurationViews();
+
+        const auto maxRecommendedWidth = std::max_element(viewProperties.begin(), viewProperties.end(),
+                                                          [](const XrViewConfigurationView& l, const XrViewConfigurationView& r) {
+                                                              return l.recommendedImageRectWidth < r.recommendedImageRectWidth;
+                                                          })
+                                             ->recommendedImageRectWidth;
+        const auto maxRecommendedHeight = std::max_element(viewProperties.begin(), viewProperties.end(),
+                                                           [](const XrViewConfigurationView& l, const XrViewConfigurationView& r) {
+                                                               return l.recommendedImageRectHeight < r.recommendedImageRectHeight;
+                                                           })
+                                              ->recommendedImageRectHeight;
+
+        struct LayerInfo
+        {
+            //In screen space
+            XrOffset2Df centerPosition;
+            float scale;
+            XrColor4f color;
+        };
+
+        std::vector<LayerInfo> layerInfos = {{
+            {{.50f, .50f}, 1.f, Colors::Gray},  //base
+            {{.75f, .25f}, .25f, Colors::Magenta},
+            {{.25f, .25f}, .25f, Colors::Blue},
+            {{.25f, .75f}, .25f, Colors::Yellow},
+            {{.75f, .75f}, .25f, Colors::Green},
+        }};
+
+        struct LayerData
+        {
+            LayerInfo info;
+
+            XrSwapchain swapchain;
+            XrExtent2Di swapchainExtent;
+
+            XrCompositionLayerProjection* projLayer;
+        };
+        std::vector<LayerData> layerDatas = {};
+
+        for (const auto& layerInfo : layerInfos) {
+            layerDatas.push_back({layerInfo});
+            LayerData& layerData = layerDatas.back();
+
+            layerData.swapchainExtent = {
+                static_cast<int32_t>(maxRecommendedWidth),
+                static_cast<int32_t>(maxRecommendedHeight),
+            };
+            layerData.swapchain = compositionHelper.CreateStaticSwapchainSolidColor(layerInfo.color, layerData.swapchainExtent);
+
+            layerData.projLayer = compositionHelper.CreateProjectionLayer(viewSpace);
+            for (uint32_t j = 0; j < layerData.projLayer->viewCount; j++) {
+                // views field is pointer to const, but views haven't been populated yet
+                auto& view = const_cast<XrCompositionLayerProjectionView&>(layerData.projLayer->views[j]);
+                view.subImage = compositionHelper.MakeDefaultSubImage(layerData.swapchain, 0);
+            }
+        }
+
+        auto updateLayers = [&](const XrFrameState& frameState) {
+            auto viewData = compositionHelper.LocateViews(viewSpace, frameState.predictedDisplayTime);
+            const auto& viewState = std::get<XrViewState>(viewData);
+
+            std::vector<XrCompositionLayerBaseHeader*> layers;
+            if (viewState.viewStateFlags & XR_VIEW_STATE_POSITION_VALID_BIT &&
+                viewState.viewStateFlags & XR_VIEW_STATE_ORIENTATION_VALID_BIT) {
+                const auto& views = std::get<std::vector<XrView>>(viewData);
+
+                for (const auto& layerData : layerDatas) {
+                    XrCompositionLayerProjection* projLayer = layerData.projLayer;
+                    for (size_t viewIndex = 0; viewIndex < views.size(); viewIndex++) {
+                        auto& projView = const_cast<XrCompositionLayerProjectionView&>(projLayer->views[viewIndex]);
+                        projView.pose = views[viewIndex].pose;
+
+                        const XrFovf& baseFov = views[viewIndex].fov;
+
+                        const float pxPanelWidth = static_cast<float>(layerData.swapchainExtent.width);
+                        const float pxPanelHeight = static_cast<float>(layerData.swapchainExtent.height);
+
+                        const float pxLayerWidth = pxPanelWidth * layerData.info.scale;
+                        const float pxLayerHeight = pxPanelHeight * layerData.info.scale;
+
+                        const float pxLayerCenterX = layerData.info.centerPosition.x * pxPanelWidth;
+                        const float pxLayerCenterY = layerData.info.centerPosition.y * pxPanelHeight;
+
+                        const float pxLayerOffsetTop = pxLayerCenterY - (pxLayerHeight / 2);
+                        const float pxLayerOffsetLeft = pxLayerCenterX - (pxLayerWidth / 2);
+
+                        float tanLeft = tanf(baseFov.angleLeft);
+                        float tanRight = tanf(baseFov.angleRight);
+                        float tanDown = tanf(baseFov.angleDown);
+                        float tanUp = tanf(baseFov.angleUp);
+
+                        float tanWidth = tanRight - tanLeft;
+                        float tanHeight = tanUp - tanDown;
+
+                        float offsetTanX = ((pxLayerOffsetLeft + pxLayerWidth / 2) / pxPanelWidth - 0.5f) * tanWidth;
+                        float offsetTanY = ((pxLayerOffsetTop + pxLayerHeight / 2) / pxPanelHeight - 0.5f) * tanHeight;
+
+                        float scaledTanWidth = tanWidth * layerData.info.scale;
+                        float scaledTanHeight = tanHeight * layerData.info.scale;
+
+                        projView.fov.angleLeft = atanf(offsetTanX - scaledTanWidth / 2);
+                        projView.fov.angleRight = atanf(offsetTanX + scaledTanWidth / 2);
+                        projView.fov.angleDown = atanf(offsetTanY - scaledTanHeight / 2);
+                        projView.fov.angleUp = atanf(offsetTanY + scaledTanHeight / 2);
+                    }
+                    layers.push_back(reinterpret_cast<XrCompositionLayerBaseHeader*>(projLayer));
+                }
+            }
+            return interactiveLayerManager.EndFrame(frameState, layers);
+        };
+
+        RenderLoop(session, updateLayers).Loop();
+    }
+
     // Purpose: Validates alpha blending (both premultiplied and unpremultiplied).
     TEST_CASE("SourceAlphaBlending", "[composition][interactive]")
     {
