@@ -209,7 +209,7 @@ if(BUILD_CONFORMANCE_CLI)
                 $<TARGET_PROPERTY:conformance_cli,BINARY_DIR>
         )
         install(
-           FILES $<TARGET_PROPERTY:conformance_cli,BINARY_DIR>/VkLayer_KHRONOS_xr_runtime_conformance.json
+           FILES $<TARGET_PROPERTY:conformance_cli,BINARY_DIR>/VkLayer_OPENXR_xr_runtime_conformance.json
            DESTINATION conformance
         )
     endif()
