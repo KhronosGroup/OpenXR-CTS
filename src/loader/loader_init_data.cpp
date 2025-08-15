@@ -7,7 +7,11 @@
 // Initial Author: Mark Young <marky@lunarg.com>
 //
 
+#include "loader_logger.hpp"
+#include "runtime_interface.hpp"
+#include "loader_instance.hpp"
 #include "loader_init_data.hpp"
+#include "loader_properties.hpp"
 
 XrResult LoaderInitData::initialize(const XrLoaderInitInfoBaseHeaderKHR* info) {
     // We iterate the chain per struct type, so we only pick the first of each type in the chain.
@@ -29,18 +33,35 @@ XrResult LoaderInitData::initialize(const XrLoaderInitInfoBaseHeaderKHR* info) {
 }
 
 XrResult LoaderInitData::initializeProperties(const XrLoaderInitInfoBaseHeaderKHR* info) {
-    (void)info;
-#if 0
     while (info != nullptr) {
-        if (info->type == XR_TYPE_UKNOWN) {
-            // TODO
+        if (info->type == XR_TYPE_LOADER_INIT_INFO_PROPERTIES_EXT) {
+            const auto* propertyInfo = reinterpret_cast<XrLoaderInitInfoPropertiesEXT const*>(info);
 
+            // Validate the inputs first.
+            for (uint32_t i = 0; i < propertyInfo->propertyValueCount; i++) {
+                if (propertyInfo->propertyValues[i].name == nullptr) {
+                    return XR_ERROR_VALIDATION_FAILURE;
+                }
+                if (propertyInfo->propertyValues[i].value == nullptr) {
+                    return XR_ERROR_VALIDATION_FAILURE;
+                }
+                std::string view{propertyInfo->propertyValues[i].name};
+                if (view.size() == 0) {
+                    return XR_ERROR_VALIDATION_FAILURE;
+                }
+            }
+
+            // Inject provided properties into the loader property store.
+            LoaderProperty::ClearOverrides();
+            for (uint32_t i = 0; i < propertyInfo->propertyValueCount; i++) {
+                LoaderProperty::SetOverride(propertyInfo->propertyValues[i].name, propertyInfo->propertyValues[i].value);
+            }
             // Take only the first such struct.
             return XR_SUCCESS;
         }
         info = reinterpret_cast<const XrLoaderInitInfoBaseHeaderKHR*>(info->next);
     }
-#endif
+
     // fine if we don't find this.
     return XR_SUCCESS;
 }
@@ -93,6 +114,15 @@ XrResult LoaderInitData::initializePlatform(const XrLoaderInitInfoBaseHeaderKHR*
 #endif
 
 XrResult InitializeLoaderInitData(const XrLoaderInitInfoBaseHeaderKHR* loaderInitInfo) {
+    if (!ActiveLoaderInstance::IsAvailable()) {
+        LoaderLogger::LogVerboseMessage("InitializeLoaderInitData", "Unloading any previously loaded runtime");
+        // This will not shutdown the runtime, only unload the library.
+        RuntimeInterface::UnloadRuntime("InitializeLoaderInitData");
+    } else {
+        LoaderLogger::LogErrorMessage("InitializeLoaderInitData",
+                                      "An active instance currently exists while trying to reinitialize the loader");
+        return XR_ERROR_INITIALIZATION_FAILED;
+    }
     return LoaderInitData::instance().initialize(loaderInitInfo);
 }
 

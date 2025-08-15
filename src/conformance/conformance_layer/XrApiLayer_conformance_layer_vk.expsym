@@ -1,0 +1,12 @@
+# Copyright (c) 2025 The Khronos Group Inc.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+_xrNegotiateLoaderApiLayerInterface
+_vkEnumerateDeviceExtensionProperties
+_vkEnumerateDeviceLayerProperties
+_vkEnumerateInstanceExtensionProperties
+_vkEnumerateInstanceLayerProperties
+_vkGetDeviceProcAddr
+_vkGetInstanceProcAddr
+_vkNegotiateLoaderLayerInterfaceVersion

@@ -17,6 +17,7 @@
 #pragma once
 
 #include "HandleState.h"
+#include "IGraphicsValidator.h"
 
 #include <openxr/openxr.h>
 
@@ -64,7 +65,7 @@ namespace session
         uint32_t frameCount{0};
         std::vector<XrReferenceSpaceType> referenceSpaces;
         std::vector<int64_t> swapchainFormats;
-        std::vector<XrStructureType> creationExtensionTypes;
+        std::shared_ptr<Conformance::IGraphicsValidator> graphicsValidator;
     };
 
     HandleState* GetSessionState(XrSession handle);
@@ -101,18 +102,18 @@ namespace swapchain
 
     struct CustomSwapchainState : ICustomHandleState
     {
-        CustomSwapchainState(const XrSwapchainCreateInfo* createInfo, const XrStructureType graphicsBinding)
-            : isStatic((createInfo->createFlags & XR_SWAPCHAIN_CREATE_STATIC_IMAGE_BIT) != 0)
-            , graphicsBinding(graphicsBinding)
+        CustomSwapchainState(const XrSwapchainCreateInfo* createInfo, session::CustomSessionState* sessionState)
+            : sessionState(sessionState)
+            , isStatic((createInfo->createFlags & XR_SWAPCHAIN_CREATE_STATIC_IMAGE_BIT) != 0)
             , createInfo(*createInfo)
         {
         }
 
+        session::CustomSessionState* sessionState;
         std::recursive_mutex mutex;
         bool isStatic;
         std::vector<ImageState> imageStates;
         std::queue<int> acquiredSwapchains;
-        XrStructureType graphicsBinding;
         XrSwapchainCreateInfo createInfo;
     };
 

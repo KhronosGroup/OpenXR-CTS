@@ -16,6 +16,7 @@
 
 #include <assert.h>
 #include <inttypes.h>
+#include <array>
 #include "Common.h"
 #include "ConformanceHooks.h"
 #include "CustomHandleState.h"
@@ -164,34 +165,35 @@ XrResult ConformanceHooks::xrCreateSession(XrInstance instance, const XrSessionC
         auto customSessionState = std::make_unique<CustomSessionState>();
         customSessionState->systemId = createInfo->systemId;
 
-        ForEachExtension(createInfo->next,
-                         [&](const XrBaseInStructure* ext) { customSessionState->creationExtensionTypes.push_back(ext->type); });
-
         static_assert(XR_TYPE_GRAPHICS_BINDING_VULKAN_KHR == XR_TYPE_GRAPHICS_BINDING_VULKAN2_KHR, "vulkan binding mismatch");
-        std::initializer_list<XrStructureType> graphicsBindingStructures{
-            XR_TYPE_GRAPHICS_BINDING_OPENGL_WIN32_KHR,
-            XR_TYPE_GRAPHICS_BINDING_OPENGL_XLIB_KHR,
-            XR_TYPE_GRAPHICS_BINDING_OPENGL_XCB_KHR,
-            XR_TYPE_GRAPHICS_BINDING_OPENGL_WAYLAND_KHR,
-            XR_TYPE_GRAPHICS_BINDING_OPENGL_ES_ANDROID_KHR,
-            XR_TYPE_GRAPHICS_BINDING_VULKAN_KHR,
-            XR_TYPE_GRAPHICS_BINDING_D3D11_KHR,
-            XR_TYPE_GRAPHICS_BINDING_D3D12_KHR,
-            XR_TYPE_GRAPHICS_BINDING_METAL_KHR,
-        };
-        auto it = std::find_first_of(customSessionState->creationExtensionTypes.begin(), customSessionState->creationExtensionTypes.end(),
-                                     graphicsBindingStructures.begin(), graphicsBindingStructures.end());
 
-        if (this->enabledExtensions.mnd_headless) {
-            if (it == customSessionState->creationExtensionTypes.end()) {
-                customSessionState->headless = true;
+        const XrBaseInStructure* graphicsBinding = NULL;
+        ForEachExtension(createInfo, [&](const XrBaseInStructure* next) {
+            constexpr std::array<XrStructureType, 9> graphicsBindings{{
+                XR_TYPE_GRAPHICS_BINDING_OPENGL_WIN32_KHR,
+                XR_TYPE_GRAPHICS_BINDING_OPENGL_XLIB_KHR,
+                XR_TYPE_GRAPHICS_BINDING_OPENGL_XCB_KHR,
+                XR_TYPE_GRAPHICS_BINDING_OPENGL_WAYLAND_KHR,
+                XR_TYPE_GRAPHICS_BINDING_OPENGL_ES_ANDROID_KHR,
+                XR_TYPE_GRAPHICS_BINDING_VULKAN_KHR,
+                XR_TYPE_GRAPHICS_BINDING_D3D11_KHR,
+                XR_TYPE_GRAPHICS_BINDING_D3D12_KHR,
+                XR_TYPE_GRAPHICS_BINDING_METAL_KHR,
+            }};
+
+            const auto it = std::find_if(graphicsBindings.begin(), graphicsBindings.end(),
+                                         [&](const XrStructureType type) { return next->type == type; });
+
+            if (it != graphicsBindings.end() && graphicsBinding == NULL) {
+                graphicsBinding = next;
             }
+        });
+
+        if (graphicsBinding != NULL) {
+            customSessionState->graphicsValidator = Conformance::CreateGraphicsValidator(graphicsBinding);
         }
-        else {
-            NONCONFORMANT_IF(it == customSessionState->creationExtensionTypes.end(), "Graphics Binding not found");
-            if (it != customSessionState->creationExtensionTypes.end()) {
-                customSessionState->graphicsBinding = *it;
-            }
+        else if (this->enabledExtensions.mnd_headless) {
+            customSessionState->headless = true;
         }
 
         // Tag on the custom session state to the generated handle state.

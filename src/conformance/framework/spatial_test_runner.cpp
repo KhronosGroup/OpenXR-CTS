@@ -28,6 +28,7 @@
 
 #include "composition_utils.h"
 #include "conformance_framework.h"
+#include "conformance_options.h"
 #include "spatial_conformance_utils.h"
 #include "utilities/event_reader.h"
 #include "utilities/stringification.h"
@@ -109,6 +110,9 @@ namespace Conformance
         // view).
         std::vector<XrSwapchain> swapchains;
         XrCompositionLayerProjection* const projLayer = compositionHelper.CreateProjectionLayer(localSpace);
+        projLayer->layerFlags |= (Options::Get().environmentBlendModeValue == XR_ENVIRONMENT_BLEND_MODE_ALPHA_BLEND)
+                                     ? XR_COMPOSITION_LAYER_BLEND_TEXTURE_SOURCE_ALPHA_BIT
+                                     : 0;
         {
             const std::vector<XrViewConfigurationView> viewProperties = compositionHelper.EnumerateConfigurationViews();
             for (uint32_t j = 0; j < projLayer->viewCount; j++) {

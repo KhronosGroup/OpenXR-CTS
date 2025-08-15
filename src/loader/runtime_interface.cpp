@@ -16,6 +16,7 @@
 #include "loader_init_data.hpp"
 #include "loader_logger.hpp"
 #include "loader_platform.hpp"
+#include "loader_properties.hpp"
 #include "xr_generated_dispatch_table_core.h"
 
 #include <cstring>

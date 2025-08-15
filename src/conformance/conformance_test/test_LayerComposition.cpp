@@ -25,7 +25,9 @@
 #include "utilities/xrduration_literals.h"
 
 #include <catch2/catch_test_macros.hpp>
+#include <catch2/generators/catch_generators.hpp>
 #include <openxr/openxr.h>
+#include <nonstd/span.hpp>
 
 #include <algorithm>
 #include <array>
@@ -37,6 +39,26 @@ using namespace Conformance;
 
 namespace Conformance
 {
+    namespace
+    {
+        /// Inserts depthInfo into the next chain at nextptr with the standard values we use.
+        /// @param depthInfo and @param nextPtr cannot be null, and thus could be references,
+        /// but avoid pass-by-reference so the use of pointers is obvious at the call-site.
+        void InsertDefaultDepthInfo(XrCompositionLayerDepthInfoKHR* depthInfo, const void** nextPtr, XrSwapchainSubImage subImage)
+        {
+            assert(depthInfo != nullptr);
+            assert(nextPtr != nullptr);  // pointee may be nullptr
+            depthInfo->type = XR_TYPE_COMPOSITION_LAYER_DEPTH_INFO_KHR;
+            depthInfo->next = *nextPtr;
+            depthInfo->minDepth = 0.0f;
+            depthInfo->maxDepth = 1.0f;
+            depthInfo->nearZ = kNearClip;
+            depthInfo->farZ = kFarClip;
+            depthInfo->subImage = subImage;
+            *nextPtr = depthInfo;
+        }
+    }  // namespace
+
     using namespace openxr::math_operators;
 
     // Purpose: Verify behavior of quad visibility and occlusion with the expectation that:
@@ -76,6 +98,223 @@ namespace Conformance
         interactiveLayerManager.AddLayer(compositionHelper.CreateQuadLayer(redSwapchain, viewSpace, 1.0f, XrPosef{redRot, {0, 0, -1}}));
 
         RenderLoop(session, [&](const XrFrameState& frameState) { return interactiveLayerManager.EndFrame(frameState); }).Loop();
+    }
+
+    namespace SimpleTestLayers
+    {
+        class TestLayer
+        {
+        public:
+            virtual XrCompositionLayerBaseHeader* Update(nonstd::span<const XrView> views) = 0;
+            virtual ~TestLayer()
+            {
+            }
+        };
+        class QuadLayer : public TestLayer
+        {
+        public:
+            QuadLayer(CompositionHelper* compositionHelper, XrColor4f color, XrSpace space, XrPosef pose, XrExtent2Df extent)
+                : m_compositionHelper(compositionHelper)
+            {
+                float geoMean = std::sqrt(extent.width * extent.height);  // stick to 256^2 pixels
+                XrExtent2Di size = {(int32_t)(extent.width / geoMean * 256), (int32_t)(extent.height / geoMean * 256)};
+
+                m_swapchain = m_compositionHelper->CreateStaticSwapchainSolidColor(color, size);
+                m_layer = m_compositionHelper->CreateQuadLayer(m_swapchain, space, extent.width, pose);
+            }
+            XrCompositionLayerBaseHeader* Update(nonstd::span<const XrView> /* views */) override
+            {
+                return reinterpret_cast<XrCompositionLayerBaseHeader*>(m_layer);
+            }
+            ~QuadLayer() override
+            {
+                m_compositionHelper->DestroySwapchain(m_swapchain);
+            }
+
+        private:
+            CompositionHelper* m_compositionHelper;
+            XrSwapchain m_swapchain;
+            XrCompositionLayerQuad* m_layer;
+        };
+        class ProjectionLayer : public TestLayer
+        {
+        public:
+            ProjectionLayer(CompositionHelper* compositionHelper, XrSpace space, bool opaque) : m_compositionHelper(compositionHelper)
+            {
+                // Set up composition projection layer and swapchains (one swapchain per view).
+                std::vector<XrSwapchain> swapchains;
+                m_layer = m_compositionHelper->CreateProjectionLayer(space);
+                if (!opaque) {
+                    m_layer->layerFlags |= XR_COMPOSITION_LAYER_BLEND_TEXTURE_SOURCE_ALPHA_BIT;
+                }
+                const std::vector<XrViewConfigurationView> viewProperties = m_compositionHelper->EnumerateConfigurationViews();
+                for (uint32_t j = 0; j < m_layer->viewCount; j++) {
+                    const XrSwapchain swapchain = m_compositionHelper->CreateSwapchain(m_compositionHelper->DefaultColorSwapchainCreateInfo(
+                        viewProperties[j].recommendedImageRectWidth, viewProperties[j].recommendedImageRectHeight, 0,
+                        opaque ? -1 : GetGlobalData().graphicsPlugin->GetSRGBA8Format()));
+                    const_cast<XrSwapchainSubImage&>(m_layer->views[j].subImage) = m_compositionHelper->MakeDefaultSubImage(swapchain, 0);
+                    m_swapchains.push_back(swapchain);
+                }
+            }
+            XrCompositionLayerBaseHeader* Update(nonstd::span<const XrView> views) override
+            {
+                // Render into each of the separate swapchains using the projection layer view fov and pose.
+                for (size_t view = 0; view < views.size(); view++) {
+                    m_compositionHelper->AcquireWaitReleaseImage(m_swapchains[view], [&](const XrSwapchainImageBaseHeader* swapchainImage) {
+                        GetGlobalData().graphicsPlugin->ClearImageSlice(swapchainImage, 0, Colors::Transparent);
+                        const_cast<XrFovf&>(m_layer->views[view].fov) = views[view].fov;
+                        const_cast<XrPosef&>(m_layer->views[view].pose) = views[view].pose;
+                        GetGlobalData().graphicsPlugin->RenderView(m_layer->views[view], swapchainImage, RenderParams().Draw(m_drawables));
+                    });
+                }
+                return reinterpret_cast<XrCompositionLayerBaseHeader*>(m_layer);
+            }
+            ~ProjectionLayer() override
+            {
+                for (XrSwapchain swapchain : m_swapchains) {
+                    m_compositionHelper->DestroySwapchain(swapchain);
+                }
+            }
+
+        protected:
+            std::vector<MeshDrawable> m_drawables;
+
+        private:
+            CompositionHelper* m_compositionHelper;
+            std::vector<XrSwapchain> m_swapchains;
+            XrCompositionLayerProjection* m_layer;
+        };
+        class ProjectionQuadLayer : public ProjectionLayer
+        {
+        public:
+            ProjectionQuadLayer(CompositionHelper* compositionHelper, XrColor4f color, XrSpace space, XrPosef pose, XrExtent2Df extent,
+                                bool opaque)
+                : ProjectionLayer(compositionHelper, space, opaque)
+            {
+                // 0-2
+                // |/|
+                // 1-3
+                const Geometry::Vertex quadVertices[] = {{{-0.5, 0.5, 0}}, {{-0.5, -0.5, 0}}, {{0.5, 0.5, 0}}, {{0.5, -0.5, 0}}};
+                const uint16_t quadIndices[] = {1, 0, 2, 2, 3, 1};
+                auto quadMesh = GetGlobalData().graphicsPlugin->MakeSimpleMesh(quadIndices, quadVertices);
+
+                m_drawables = {MeshDrawable{quadMesh, pose, {extent.width, extent.height, 1.0}, color}};
+            }
+        };
+    }  // namespace SimpleTestLayers
+
+    // Purpose: Verify that a pair of quad layers with a projection layer between them
+    // is rendered according to painter's algorithm.
+    TEST_CASE("QuadProjectionQuad", "[composition][interactive]")
+    {
+        const GlobalData& globalData = GetGlobalData();
+        if (!globalData.IsUsingGraphicsPlugin()) {
+            SKIP("Cannot test without a graphics plugin");
+        }
+
+        CompositionHelper compositionHelper("QuadProjectionQuad");
+        InteractiveLayerManager interactiveLayerManager(
+            compositionHelper, "quad_projection_sandwich.png",
+            "There should appear to be three visible squares - blue, green, yellow - "
+            "though each actually continues hidden under the subsequent ones. "
+            "The green rectangle is drawn via a transparent projection layer, "
+            "and may have some jitter relative to the others, which are drawn using quad layers.");
+        XrSession session = compositionHelper.GetSession();
+        InteractionManager& interactionManager = compositionHelper.GetInteractionManager();
+        interactionManager.AttachActionSets();
+        compositionHelper.BeginSession();
+
+        // Overall plan:
+        //   quad   projection  quad
+        //     |        v    +--------+
+        //     v    +--------| yellow |
+        // +--------| green  +--------+
+        // |  blue  +-----------------+
+        // +--------------------------+
+        // (vertical offsets for illustration purposes only)
+
+        const XrSpace viewSpace = compositionHelper.CreateReferenceSpace(XR_REFERENCE_SPACE_TYPE_VIEW);
+        constexpr float quadZ = -3;  // How far away quads are placed.
+
+        std::vector<std::unique_ptr<SimpleTestLayers::TestLayer>> testLayers = {};
+        testLayers.push_back(std::make_unique<SimpleTestLayers::QuadLayer>(
+            &compositionHelper, Colors::Blue, viewSpace, XrPosef{Quat::Identity, {0.0, 0.0, quadZ}}, XrExtent2Df{3.0, 1.0}));
+        testLayers.push_back(std::make_unique<SimpleTestLayers::ProjectionQuadLayer>(
+            &compositionHelper, Colors::Green, viewSpace, XrPosef{Quat::Identity, {0.5, 0.0, quadZ}}, XrExtent2Df{2.0, 1.0}, false));
+        testLayers.push_back(std::make_unique<SimpleTestLayers::QuadLayer>(
+            &compositionHelper, Colors::Yellow, viewSpace, XrPosef{Quat::Identity, {1.0, 0.0, quadZ}}, XrExtent2Df{1.0, 1.0}));
+
+        RenderLoop(session, [&](const XrFrameState& frameState) {
+            auto viewData = compositionHelper.LocateViews(viewSpace, frameState.predictedDisplayTime);
+            const auto& viewState = std::get<XrViewState>(viewData);
+
+            std::vector<XrCompositionLayerBaseHeader*> layers;
+            if (viewState.viewStateFlags & XR_VIEW_STATE_POSITION_VALID_BIT &&
+                viewState.viewStateFlags & XR_VIEW_STATE_ORIENTATION_VALID_BIT) {
+                const auto& views = std::get<std::vector<XrView>>(viewData);
+                for (auto& testLayer : testLayers) {
+                    layers.push_back(testLayer->Update(views));
+                }
+            }
+            return interactiveLayerManager.EndFrame(frameState, layers);
+        }).Loop();
+    }
+
+    // Purpose: Verify that a pair of projection layers with a quad layer between them
+    // is rendered according to painter's algorithm.
+    TEST_CASE("ProjectionQuadProjection", "[composition][interactive]")
+    {
+        const GlobalData& globalData = GetGlobalData();
+        if (!globalData.IsUsingGraphicsPlugin()) {
+            SKIP("Cannot test without a graphics plugin");
+        }
+
+        CompositionHelper compositionHelper("ProjectionQuadProjection");
+        InteractiveLayerManager interactiveLayerManager(  //
+            compositionHelper, "quad_projection_sandwich.png",
+            "There should appear to be three visible squares - blue, green, yellow - "
+            "though each actually continues hidden under the subsequent ones. "
+            "The blue and yellow rectangles are drawn using projection layers, "
+            "and may have some jitter relative to the green rectangle, which is a quad layer.");
+        XrSession session = compositionHelper.GetSession();
+        InteractionManager& interactionManager = compositionHelper.GetInteractionManager();
+        interactionManager.AttachActionSets();
+        compositionHelper.BeginSession();
+
+        // Overall plan:
+        // projection  quad  projection
+        //     |        v    +--------+
+        //     v    +--------| yellow |
+        // +--------| green  +--------+
+        // |  blue  +-----------------+
+        // +--------------------------+
+        // (vertical offsets for illustration purposes only)
+
+        const XrSpace viewSpace = compositionHelper.CreateReferenceSpace(XR_REFERENCE_SPACE_TYPE_VIEW);
+        constexpr float quadZ = -3;  // How far away quads are placed.
+
+        std::vector<std::unique_ptr<SimpleTestLayers::TestLayer>> testLayers = {};
+        testLayers.push_back(std::make_unique<SimpleTestLayers::ProjectionQuadLayer>(
+            &compositionHelper, Colors::Blue, viewSpace, XrPosef{Quat::Identity, {0.0, 0.0, quadZ}}, XrExtent2Df{3.0, 1.0}, false));
+        testLayers.push_back(std::make_unique<SimpleTestLayers::QuadLayer>(
+            &compositionHelper, Colors::Green, viewSpace, XrPosef{Quat::Identity, {0.5, 0.0, quadZ}}, XrExtent2Df{2.0, 1.0}));
+        testLayers.push_back(std::make_unique<SimpleTestLayers::ProjectionQuadLayer>(
+            &compositionHelper, Colors::Yellow, viewSpace, XrPosef{Quat::Identity, {1.0, 0.0, quadZ}}, XrExtent2Df{1.0, 1.0}, false));
+
+        RenderLoop(session, [&](const XrFrameState& frameState) {
+            auto viewData = compositionHelper.LocateViews(viewSpace, frameState.predictedDisplayTime);
+            const auto& viewState = std::get<XrViewState>(viewData);
+
+            std::vector<XrCompositionLayerBaseHeader*> layers;
+            if (viewState.viewStateFlags & XR_VIEW_STATE_POSITION_VALID_BIT &&
+                viewState.viewStateFlags & XR_VIEW_STATE_ORIENTATION_VALID_BIT) {
+                const auto& views = std::get<std::vector<XrView>>(viewData);
+                for (auto& testLayer : testLayers) {
+                    layers.push_back(testLayer->Update(views));
+                }
+            }
+            return interactiveLayerManager.EndFrame(frameState, layers);
+        }).Loop();
     }
 
     // Purpose: Verify order of transforms by exercising the two ways poses can be specified:
@@ -373,75 +612,113 @@ namespace Conformance
             SKIP("Cannot test ProjectionArraySwapchain without a graphics plugin");
         }
 
-        CompositionHelper compositionHelper("Projection Array Swapchain");
-        InteractiveLayerManager interactiveLayerManager(
-            compositionHelper, "projection_array.png",
-            "Uses a single texture array for a projection layer (each view is a different slice and each slice has a unique color).");
-        XrSession session = compositionHelper.GetSession();
-        InteractionManager& interactionManager = compositionHelper.GetInteractionManager();
-        interactionManager.AttachActionSets();
-        compositionHelper.BeginSession();
-
-        const XrSpace localSpace = compositionHelper.CreateReferenceSpace(XR_REFERENCE_SPACE_TYPE_LOCAL);
-
-        const std::vector<XrViewConfigurationView> viewProperties = compositionHelper.EnumerateConfigurationViews();
-
-        // Because a single swapchain is being used for all views (each view is a slice of the texture array), the maximum dimensions must be used
-        // since the dimensions of all slices are the same.
-        const auto maxWidth = std::max_element(viewProperties.begin(), viewProperties.end(),
-                                               [](const XrViewConfigurationView& l, const XrViewConfigurationView& r) {
-                                                   return l.recommendedImageRectWidth < r.recommendedImageRectWidth;
-                                               })
-                                  ->recommendedImageRectWidth;
-        const auto maxHeight = std::max_element(viewProperties.begin(), viewProperties.end(),
-                                                [](const XrViewConfigurationView& l, const XrViewConfigurationView& r) {
-                                                    return l.recommendedImageRectHeight < r.recommendedImageRectHeight;
-                                                })
-                                   ->recommendedImageRectHeight;
-
-        // Create swapchain with array type.
-        auto swapchainCreateInfo = compositionHelper.DefaultColorSwapchainCreateInfo(maxWidth, maxHeight);
-        swapchainCreateInfo.arraySize = (uint32_t)viewProperties.size() * 3;
-        const XrSwapchain swapchain = compositionHelper.CreateSwapchain(swapchainCreateInfo);
-
-        // Set up the projection layer
-        XrCompositionLayerProjection* const projLayer = compositionHelper.CreateProjectionLayer(localSpace);
-        for (uint32_t j = 0; j < projLayer->viewCount; j++) {
-            // Use non-contiguous array indices to ferret out any assumptions that implementations are making
-            // about array indices. In particular 0 != left and 1 != right, but this should test for other
-            // assumptions too.
-            uint32_t arrayIndex = swapchainCreateInfo.arraySize - (j * 2 + 1);
-            const_cast<XrSwapchainSubImage&>(projLayer->views[j].subImage) = compositionHelper.MakeDefaultSubImage(swapchain, arrayIndex);
-        }
-
-        const std::vector<Cube> cubes = {Cube::Make({-1, 0, -2}), Cube::Make({1, 0, -2}), Cube::Make({0, -1, -2}), Cube::Make({0, 1, -2})};
-
-        auto updateLayers = [&](const XrFrameState& frameState) {
-            auto viewData = compositionHelper.LocateViews(localSpace, frameState.predictedDisplayTime);
-            const auto& viewState = std::get<XrViewState>(viewData);
-
-            std::vector<XrCompositionLayerBaseHeader*> layers;
-            if (viewState.viewStateFlags & XR_VIEW_STATE_POSITION_VALID_BIT &&
-                viewState.viewStateFlags & XR_VIEW_STATE_ORIENTATION_VALID_BIT) {
-                const auto& views = std::get<std::vector<XrView>>(viewData);
-
-                // Render into each slice of the array swapchain using the projection layer view fov and pose.
-                compositionHelper.AcquireWaitReleaseImage(swapchain, [&](const XrSwapchainImageBaseHeader* swapchainImage) {
-                    for (uint32_t slice = 0; slice < (uint32_t)views.size(); slice++) {
-                        GetGlobalData().graphicsPlugin->ClearImageSlice(swapchainImage, projLayer->views[slice].subImage.imageArrayIndex);
-
-                        const_cast<XrFovf&>(projLayer->views[slice].fov) = views[slice].fov;
-                        const_cast<XrPosef&>(projLayer->views[slice].pose) = views[slice].pose;
-                        GetGlobalData().graphicsPlugin->RenderView(projLayer->views[slice], swapchainImage, RenderParams().Draw(cubes));
+        for (bool submitDepthSwapchain : {false, true}) {
+            DYNAMIC_SECTION((submitDepthSwapchain ? "With" : "Without") << " depth submission")
+            {
+                std::vector<const char*> extensions;
+                if (submitDepthSwapchain) {
+                    if (!GetGlobalData().IsInstanceExtensionSupported(XR_KHR_COMPOSITION_LAYER_DEPTH_EXTENSION_NAME)) {
+                        continue;
                     }
-                });
+                    extensions.push_back(XR_KHR_COMPOSITION_LAYER_DEPTH_EXTENSION_NAME);
+                }
 
-                layers.push_back(reinterpret_cast<XrCompositionLayerBaseHeader*>(projLayer));
+                CompositionHelper compositionHelper("Projection Array Swapchain", extensions);
+                InteractiveLayerManager interactiveLayerManager(
+                    compositionHelper, "projection_array.png",
+                    "Uses a single texture array for a projection layer (each view is a different slice and each slice has a unique color).");
+                XrSession session = compositionHelper.GetSession();
+                InteractionManager& interactionManager = compositionHelper.GetInteractionManager();
+                interactionManager.AttachActionSets();
+                compositionHelper.BeginSession();
+
+                const XrSpace localSpace = compositionHelper.CreateReferenceSpace(XR_REFERENCE_SPACE_TYPE_LOCAL);
+
+                const std::vector<XrViewConfigurationView> viewProperties = compositionHelper.EnumerateConfigurationViews();
+
+                // Because a single swapchain is being used for all views (each view is a slice of the texture array), the maximum dimensions must be used
+                // since the dimensions of all slices are the same.
+                const auto maxWidth = std::max_element(viewProperties.begin(), viewProperties.end(),
+                                                       [](const XrViewConfigurationView& l, const XrViewConfigurationView& r) {
+                                                           return l.recommendedImageRectWidth < r.recommendedImageRectWidth;
+                                                       })
+                                          ->recommendedImageRectWidth;
+                const auto maxHeight = std::max_element(viewProperties.begin(), viewProperties.end(),
+                                                        [](const XrViewConfigurationView& l, const XrViewConfigurationView& r) {
+                                                            return l.recommendedImageRectHeight < r.recommendedImageRectHeight;
+                                                        })
+                                           ->recommendedImageRectHeight;
+
+                // Create swapchain with array type.
+                XrSwapchainCreateInfo swapchainCreateInfo = compositionHelper.DefaultColorSwapchainCreateInfo(maxWidth, maxHeight);
+                XrSwapchainCreateInfo depthSwapchainCreateInfo = compositionHelper.DefaultDepthSwapchainCreateInfo(maxWidth, maxHeight);
+                if (submitDepthSwapchain && depthSwapchainCreateInfo.format == -1) {
+                    // no depth format available for testing
+                    continue;
+                }
+                swapchainCreateInfo.arraySize = (uint32_t)viewProperties.size() * 3;
+                depthSwapchainCreateInfo.arraySize = (uint32_t)viewProperties.size() * 3;
+                XrSwapchain swapchain{XR_NULL_HANDLE};
+                XrSwapchain depthSwapchain{XR_NULL_HANDLE};
+                if (submitDepthSwapchain) {
+                    std::tie(swapchain, depthSwapchain) =
+                        compositionHelper.CreateSwapchainWithDepth(swapchainCreateInfo, depthSwapchainCreateInfo);
+                }
+                else {
+                    swapchain = compositionHelper.CreateSwapchain(swapchainCreateInfo);
+                }
+
+                // Set up the projection layer
+                XrCompositionLayerProjection* const projLayer = compositionHelper.CreateProjectionLayer(localSpace);
+                std::vector<XrCompositionLayerDepthInfoKHR> depthInfo(projLayer->viewCount);
+                for (uint32_t j = 0; j < projLayer->viewCount; j++) {
+                    // views field is pointer to const, but views haven't been populated yet
+                    auto& view = const_cast<XrCompositionLayerProjectionView&>(projLayer->views[j]);
+                    // Use non-contiguous array indices to ferret out any assumptions that implementations are making
+                    // about array indices. In particular 0 != left and 1 != right, but this should test for other
+                    // assumptions too.
+                    uint32_t arrayIndex = swapchainCreateInfo.arraySize - (j * 2 + 1);
+                    view.subImage = compositionHelper.MakeDefaultSubImage(swapchain, arrayIndex);
+
+                    if (submitDepthSwapchain) {
+                        XrSwapchainSubImage subImage = compositionHelper.MakeDefaultSubImage(depthSwapchain, arrayIndex);
+                        InsertDefaultDepthInfo(&depthInfo[j], &view.next, subImage);
+                    }
+                }
+
+                const std::vector<Cube> cubes = {Cube::Make({-1, 0, -2}), Cube::Make({1, 0, -2}), Cube::Make({0, -1, -2}),
+                                                 Cube::Make({0, 1, -2})};
+
+                auto updateLayers = [&](const XrFrameState& frameState) {
+                    auto viewData = compositionHelper.LocateViews(localSpace, frameState.predictedDisplayTime);
+                    const auto& viewState = std::get<XrViewState>(viewData);
+
+                    std::vector<XrCompositionLayerBaseHeader*> layers;
+                    if (viewState.viewStateFlags & XR_VIEW_STATE_POSITION_VALID_BIT &&
+                        viewState.viewStateFlags & XR_VIEW_STATE_ORIENTATION_VALID_BIT) {
+                        const auto& views = std::get<std::vector<XrView>>(viewData);
+
+                        // Render into each slice of the array swapchain using the projection layer view fov and pose.
+                        compositionHelper.AcquireWaitReleaseImage(swapchain, [&](const XrSwapchainImageBaseHeader* swapchainImage) {
+                            for (uint32_t slice = 0; slice < (uint32_t)views.size(); slice++) {
+                                GetGlobalData().graphicsPlugin->ClearImageSlice(swapchainImage,
+                                                                                projLayer->views[slice].subImage.imageArrayIndex);
+
+                                const_cast<XrFovf&>(projLayer->views[slice].fov) = views[slice].fov;
+                                const_cast<XrPosef&>(projLayer->views[slice].pose) = views[slice].pose;
+                                GetGlobalData().graphicsPlugin->RenderView(projLayer->views[slice], swapchainImage,
+                                                                           RenderParams().Draw(cubes));
+                            }
+                        });
+
+                        layers.push_back(reinterpret_cast<XrCompositionLayerBaseHeader*>(projLayer));
+                    }
+                    return interactiveLayerManager.EndFrame(frameState, layers);
+                };
+
+                RenderLoop(session, updateLayers).Loop();
             }
-            return interactiveLayerManager.EndFrame(frameState, layers);
-        };
-
-        RenderLoop(session, updateLayers).Loop();
+        }
     }
 
     TEST_CASE("ProjectionWideSwapchain", "[composition][interactive]")
@@ -451,70 +728,108 @@ namespace Conformance
             SKIP("Cannot test ProjectionWideSwapchain without a graphics plugin");
         }
 
-        CompositionHelper compositionHelper("Projection Wide Swapchain");
-        InteractiveLayerManager interactiveLayerManager(compositionHelper, "projection_wide.png",
-                                                        "Uses a single wide texture for a projection layer.");
-        XrSession session = compositionHelper.GetSession();
-        InteractionManager& interactionManager = compositionHelper.GetInteractionManager();
-        interactionManager.AttachActionSets();
-        compositionHelper.BeginSession();
-
-        const XrSpace localSpace = compositionHelper.CreateReferenceSpace(XR_REFERENCE_SPACE_TYPE_LOCAL);
-
-        const std::vector<XrViewConfigurationView> viewProperties = compositionHelper.EnumerateConfigurationViews();
-
-        const auto totalWidth =
-            std::accumulate(viewProperties.begin(), viewProperties.end(), 0,
-                            [](uint32_t l, const XrViewConfigurationView& r) { return l + r.recommendedImageRectWidth; });
-        // Because a single swapchain is being used for all views the maximum height must be used.
-        const auto maxHeight = std::max_element(viewProperties.begin(), viewProperties.end(),
-                                                [](const XrViewConfigurationView& l, const XrViewConfigurationView& r) {
-                                                    return l.recommendedImageRectHeight < r.recommendedImageRectHeight;
-                                                })
-                                   ->recommendedImageRectHeight;
-
-        // Create wide swapchain.
-        const XrSwapchain swapchain =
-            compositionHelper.CreateSwapchain(compositionHelper.DefaultColorSwapchainCreateInfo(totalWidth, maxHeight));
-
-        XrCompositionLayerProjection* const projLayer = compositionHelper.CreateProjectionLayer(localSpace);
-        int x = 0;
-        for (uint32_t j = 0; j < projLayer->viewCount; j++) {
-            XrSwapchainSubImage subImage = compositionHelper.MakeDefaultSubImage(swapchain, 0);
-            subImage.imageRect.offset = {x, 0};
-            subImage.imageRect.extent = {(int32_t)viewProperties[j].recommendedImageRectWidth,
-                                         (int32_t)viewProperties[j].recommendedImageRectHeight};
-            const_cast<XrSwapchainSubImage&>(projLayer->views[j].subImage) = subImage;
-            x += subImage.imageRect.extent.width;  // Each view is to the left of the previous view.
-        }
-
-        const std::vector<Cube> cubes = {Cube::Make({-1, 0, -2}), Cube::Make({1, 0, -2}), Cube::Make({0, -1, -2}), Cube::Make({0, 1, -2})};
-
-        auto updateLayers = [&](const XrFrameState& frameState) {
-            auto viewData = compositionHelper.LocateViews(localSpace, frameState.predictedDisplayTime);
-            const auto& viewState = std::get<XrViewState>(viewData);
-
-            std::vector<XrCompositionLayerBaseHeader*> layers;
-            if (viewState.viewStateFlags & XR_VIEW_STATE_POSITION_VALID_BIT &&
-                viewState.viewStateFlags & XR_VIEW_STATE_ORIENTATION_VALID_BIT) {
-                const auto& views = std::get<std::vector<XrView>>(viewData);
-
-                // Render into each view port of the wide swapchain using the projection layer view fov and pose.
-                compositionHelper.AcquireWaitReleaseImage(swapchain, [&](const XrSwapchainImageBaseHeader* swapchainImage) {
-                    GetGlobalData().graphicsPlugin->ClearImageSlice(swapchainImage);
-                    for (size_t view = 0; view < views.size(); view++) {
-                        const_cast<XrFovf&>(projLayer->views[view].fov) = views[view].fov;
-                        const_cast<XrPosef&>(projLayer->views[view].pose) = views[view].pose;
-                        GetGlobalData().graphicsPlugin->RenderView(projLayer->views[view], swapchainImage, RenderParams().Draw(cubes));
+        for (bool submitDepthSwapchain : {false, true}) {
+            DYNAMIC_SECTION((submitDepthSwapchain ? "With" : "Without") << " depth submission")
+            {
+                std::vector<const char*> extensions;
+                if (submitDepthSwapchain) {
+                    if (!GetGlobalData().IsInstanceExtensionSupported(XR_KHR_COMPOSITION_LAYER_DEPTH_EXTENSION_NAME)) {
+                        continue;
                     }
-                });
+                    extensions.push_back(XR_KHR_COMPOSITION_LAYER_DEPTH_EXTENSION_NAME);
+                }
+                CompositionHelper compositionHelper("Projection Wide Swapchain", extensions);
+                InteractiveLayerManager interactiveLayerManager(compositionHelper, "projection_wide.png",
+                                                                "Uses a single wide texture for a projection layer.");
+                XrSession session = compositionHelper.GetSession();
+                InteractionManager& interactionManager = compositionHelper.GetInteractionManager();
+                interactionManager.AttachActionSets();
+                compositionHelper.BeginSession();
 
-                layers.push_back(reinterpret_cast<XrCompositionLayerBaseHeader*>(projLayer));
+                const XrSpace localSpace = compositionHelper.CreateReferenceSpace(XR_REFERENCE_SPACE_TYPE_LOCAL);
+
+                const std::vector<XrViewConfigurationView> viewProperties = compositionHelper.EnumerateConfigurationViews();
+
+                const auto totalWidth =
+                    std::accumulate(viewProperties.begin(), viewProperties.end(), 0,
+                                    [](uint32_t l, const XrViewConfigurationView& r) { return l + r.recommendedImageRectWidth; });
+                // Because a single swapchain is being used for all views the maximum height must be used.
+                const auto maxHeight = std::max_element(viewProperties.begin(), viewProperties.end(),
+                                                        [](const XrViewConfigurationView& l, const XrViewConfigurationView& r) {
+                                                            return l.recommendedImageRectHeight < r.recommendedImageRectHeight;
+                                                        })
+                                           ->recommendedImageRectHeight;
+
+                // Create wide swapchain.
+                XrSwapchainCreateInfo swapchainCreateInfo = compositionHelper.DefaultColorSwapchainCreateInfo(totalWidth, maxHeight);
+                XrSwapchainCreateInfo depthSwapchainCreateInfo = compositionHelper.DefaultDepthSwapchainCreateInfo(totalWidth, maxHeight);
+                if (submitDepthSwapchain && depthSwapchainCreateInfo.format == -1) {
+                    // no depth format available for testing
+                    continue;
+                }
+
+                XrSwapchain swapchain{XR_NULL_HANDLE};
+                XrSwapchain depthSwapchain{XR_NULL_HANDLE};
+                if (submitDepthSwapchain) {
+                    std::tie(swapchain, depthSwapchain) =
+                        compositionHelper.CreateSwapchainWithDepth(swapchainCreateInfo, depthSwapchainCreateInfo);
+                }
+                else {
+                    swapchain = compositionHelper.CreateSwapchain(swapchainCreateInfo);
+                }
+
+                XrCompositionLayerProjection* const projLayer = compositionHelper.CreateProjectionLayer(localSpace);
+                std::vector<XrCompositionLayerDepthInfoKHR> depthInfo(projLayer->viewCount);
+                int x = 0;
+                for (uint32_t j = 0; j < projLayer->viewCount; j++) {
+                    // views field is pointer to const, but views haven't been populated yet
+                    auto& view = const_cast<XrCompositionLayerProjectionView&>(projLayer->views[j]);
+                    XrSwapchainSubImage subImage = compositionHelper.MakeDefaultSubImage(swapchain, 0);
+                    XrSwapchainSubImage depthSubImage =
+                        submitDepthSwapchain ? compositionHelper.MakeDefaultSubImage(depthSwapchain, 0) : XrSwapchainSubImage{};
+                    for (XrSwapchainSubImage* s : {&subImage, &depthSubImage}) {
+                        s->imageRect.offset = {x, 0};
+                        s->imageRect.extent = {(int32_t)viewProperties[j].recommendedImageRectWidth,
+                                               (int32_t)viewProperties[j].recommendedImageRectHeight};
+                    }
+                    view.subImage = subImage;
+                    if (submitDepthSwapchain) {
+                        InsertDefaultDepthInfo(&depthInfo[j], &view.next, depthSubImage);
+                    }
+                    x += subImage.imageRect.extent.width;  // Each view is to the left of the previous view.
+                }
+
+                const std::vector<Cube> cubes = {Cube::Make({-1, 0, -2}), Cube::Make({1, 0, -2}), Cube::Make({0, -1, -2}),
+                                                 Cube::Make({0, 1, -2})};
+
+                auto updateLayers = [&](const XrFrameState& frameState) {
+                    auto viewData = compositionHelper.LocateViews(localSpace, frameState.predictedDisplayTime);
+                    const auto& viewState = std::get<XrViewState>(viewData);
+
+                    std::vector<XrCompositionLayerBaseHeader*> layers;
+                    if (viewState.viewStateFlags & XR_VIEW_STATE_POSITION_VALID_BIT &&
+                        viewState.viewStateFlags & XR_VIEW_STATE_ORIENTATION_VALID_BIT) {
+                        const auto& views = std::get<std::vector<XrView>>(viewData);
+
+                        // Render into each view port of the wide swapchain using the projection layer view fov and pose.
+                        compositionHelper.AcquireWaitReleaseImage(swapchain, [&](const XrSwapchainImageBaseHeader* swapchainImage) {
+                            GetGlobalData().graphicsPlugin->ClearImageSlice(swapchainImage);
+                            for (size_t view = 0; view < views.size(); view++) {
+                                const_cast<XrFovf&>(projLayer->views[view].fov) = views[view].fov;
+                                const_cast<XrPosef&>(projLayer->views[view].pose) = views[view].pose;
+                                GetGlobalData().graphicsPlugin->RenderView(projLayer->views[view], swapchainImage,
+                                                                           RenderParams().Draw(cubes));
+                            }
+                        });
+
+                        layers.push_back(reinterpret_cast<XrCompositionLayerBaseHeader*>(projLayer));
+                    }
+                    return interactiveLayerManager.EndFrame(frameState, layers);
+                };
+
+                RenderLoop(session, updateLayers).Loop();
             }
-            return interactiveLayerManager.EndFrame(frameState, layers);
-        };
-
-        RenderLoop(session, updateLayers).Loop();
+        }
     }
 
     TEST_CASE("ProjectionSeparateSwapchains", "[composition][interactive]")
@@ -524,25 +839,102 @@ namespace Conformance
             SKIP("Cannot test ProjectionSeparateSwapchains without a graphics plugin");
         }
 
-        CompositionHelper compositionHelper("Projection Separate Swapchains");
-        InteractiveLayerManager interactiveLayerManager(compositionHelper, "projection_separate.png",
-                                                        "Uses separate textures for each projection layer view.");
-        XrSession session = compositionHelper.GetSession();
-        InteractionManager& interactionManager = compositionHelper.GetInteractionManager();
-        interactionManager.AttachActionSets();
-        compositionHelper.BeginSession();
+        for (bool submitDepthSwapchain : {false, true}) {
+            DYNAMIC_SECTION((submitDepthSwapchain ? "With" : "Without") << " depth submission")
+            {
+                std::vector<const char*> extensions;
+                if (submitDepthSwapchain) {
+                    if (!GetGlobalData().IsInstanceExtensionSupported(XR_KHR_COMPOSITION_LAYER_DEPTH_EXTENSION_NAME)) {
+                        continue;
+                    }
+                    extensions.push_back(XR_KHR_COMPOSITION_LAYER_DEPTH_EXTENSION_NAME);
+                }
+                CompositionHelper compositionHelper("Projection Separate Swapchains", extensions);
+                InteractiveLayerManager interactiveLayerManager(compositionHelper, "projection_separate.png",
+                                                                "Uses separate textures for each projection layer view.");
+                XrSession session = compositionHelper.GetSession();
+                InteractionManager& interactionManager = compositionHelper.GetInteractionManager();
+                interactionManager.AttachActionSets();
+                compositionHelper.BeginSession();
 
-        SimpleProjectionLayerHelper simpleProjectionLayerHelper(compositionHelper);
+                const XrSpace localSpace = compositionHelper.CreateReferenceSpace(XR_REFERENCE_SPACE_TYPE_LOCAL);
 
-        auto updateLayers = [&](const XrFrameState& frameState) {
-            std::vector<XrCompositionLayerBaseHeader*> layers;
-            if (XrCompositionLayerBaseHeader* projLayer = simpleProjectionLayerHelper.TryGetUpdatedProjectionLayer(frameState)) {
-                layers.push_back(projLayer);
+                const std::vector<XrViewConfigurationView> viewProperties = compositionHelper.EnumerateConfigurationViews();
+
+                std::vector<XrSwapchain> swapchains;
+                std::vector<XrSwapchain> depthSwapchains;
+                XrCompositionLayerProjection* const projLayer = compositionHelper.CreateProjectionLayer(localSpace);
+                std::vector<XrCompositionLayerDepthInfoKHR> depthInfo(projLayer->viewCount);
+
+                if (submitDepthSwapchain) {
+                    // early check to avoid double loop break
+                    XrSwapchainCreateInfo depthSwapchainCreateInfo = compositionHelper.DefaultDepthSwapchainCreateInfo(1, 1);
+                    if (depthSwapchainCreateInfo.format == -1) {
+                        // no depth format available for testing
+                        continue;
+                    }
+                }
+                for (uint32_t j = 0; j < projLayer->viewCount; j++) {
+                    // views field is pointer to const, but views haven't been populated yet
+                    auto& projView = const_cast<XrCompositionLayerProjectionView&>(projLayer->views[j]);
+
+                    XrSwapchainCreateInfo swapchainCreateInfo = compositionHelper.DefaultColorSwapchainCreateInfo(
+                        viewProperties[j].recommendedImageRectWidth, viewProperties[j].recommendedImageRectHeight);
+                    XrSwapchainCreateInfo depthSwapchainCreateInfo = compositionHelper.DefaultDepthSwapchainCreateInfo(
+                        viewProperties[j].recommendedImageRectWidth, viewProperties[j].recommendedImageRectHeight);
+
+                    swapchains.push_back(XR_NULL_HANDLE_CPP);
+                    XrSwapchain& swapchain = swapchains.back();
+                    if (submitDepthSwapchain) {
+                        depthSwapchains.push_back(XR_NULL_HANDLE_CPP);
+                        XrSwapchain& depthSwapchain = depthSwapchains.back();
+
+                        std::tie(swapchain, depthSwapchain) =
+                            compositionHelper.CreateSwapchainWithDepth(swapchainCreateInfo, depthSwapchainCreateInfo);
+
+                        XrSwapchainSubImage depthSubImage = compositionHelper.MakeDefaultSubImage(depthSwapchain, 0);
+                        InsertDefaultDepthInfo(&depthInfo[j], &projView.next, depthSubImage);
+                    }
+                    else {
+                        swapchain = compositionHelper.CreateSwapchain(swapchainCreateInfo);
+                    }
+                    projView.subImage = compositionHelper.MakeDefaultSubImage(swapchain, 0);
+                }
+
+                const std::vector<Cube> cubes = {Cube::Make({-1, 0, -2}), Cube::Make({1, 0, -2}), Cube::Make({0, -1, -2}),
+                                                 Cube::Make({0, 1, -2})};
+
+                auto updateLayers = [&](const XrFrameState& frameState) {
+                    auto viewData = compositionHelper.LocateViews(localSpace, frameState.predictedDisplayTime);
+                    const auto& viewState = std::get<XrViewState>(viewData);
+
+                    std::vector<XrCompositionLayerBaseHeader*> layers;
+                    if (viewState.viewStateFlags & XR_VIEW_STATE_POSITION_VALID_BIT &&
+                        viewState.viewStateFlags & XR_VIEW_STATE_ORIENTATION_VALID_BIT) {
+                        const auto& views = std::get<std::vector<XrView>>(viewData);
+
+                        // Render into each view port of the wide swapchain using the projection layer view fov and pose.
+                        for (size_t view = 0; view < views.size(); view++) {
+                            compositionHelper.AcquireWaitReleaseImage(
+                                swapchains[view], [&](const XrSwapchainImageBaseHeader* swapchainImage) {
+                                    GetGlobalData().graphicsPlugin->ClearImageSlice(swapchainImage);
+
+                                    const_cast<XrFovf&>(projLayer->views[view].fov) = views[view].fov;
+                                    const_cast<XrPosef&>(projLayer->views[view].pose) = views[view].pose;
+                                    GetGlobalData().graphicsPlugin->RenderView(projLayer->views[view], swapchainImage,
+                                                                               RenderParams().Draw(cubes));
+                                });
+                        }
+
+                        layers.push_back(reinterpret_cast<XrCompositionLayerBaseHeader*>(projLayer));
+                    }
+
+                    return interactiveLayerManager.EndFrame(frameState, layers);
+                };
+
+                RenderLoop(session, updateLayers).Loop();
             }
-            return interactiveLayerManager.EndFrame(frameState, layers);
-        };
-
-        RenderLoop(session, updateLayers).Loop();
+        }
     }
 
     static uint32_t ComputeTotalWidthSBS(const std::vector<XrViewConfigurationView>& viewProperties)
@@ -1268,99 +1660,137 @@ namespace Conformance
 
     TEST_CASE("ProjectionMutableFieldOfView", "[composition][interactive]")
     {
-        GlobalData& globalData = GetGlobalData();
-        if (!globalData.IsUsingGraphicsPlugin()) {
-            SKIP("Cannot test without a graphics plugin");
-        }
-
-        CompositionHelper compositionHelper("Projection Mutable Field-of-View");
-        XrSession session = compositionHelper.GetSession();
-        InteractionManager& interactionManager = compositionHelper.GetInteractionManager();
-        InteractiveLayerManager interactiveLayerManager(compositionHelper, "projection_mutable.png",
-                                                        "Uses mutable field-of-views for each projection layer view.");
-        interactionManager.AttachActionSets();
-        compositionHelper.BeginSession();
-
-        const XrSpace localSpace = compositionHelper.CreateReferenceSpace(XR_REFERENCE_SPACE_TYPE_LOCAL);
-
-        if (!compositionHelper.GetViewConfigurationProperties().fovMutable) {
-            SKIP("View configuration does not support mutable FoV");
-        }
-
-        const std::vector<XrViewConfigurationView> viewProperties = compositionHelper.EnumerateConfigurationViews();
-
-        const auto totalWidth =
-            std::accumulate(viewProperties.begin(), viewProperties.end(), 0,
-                            [](uint32_t l, const XrViewConfigurationView& r) { return l + r.recommendedImageRectWidth; });
-        // Because a single swapchain is being used for all views the maximum height must be used.
-        const auto maxHeight = std::max_element(viewProperties.begin(), viewProperties.end(),
-                                                [](const XrViewConfigurationView& l, const XrViewConfigurationView& r) {
-                                                    return l.recommendedImageRectHeight < r.recommendedImageRectHeight;
-                                                })
-                                   ->recommendedImageRectHeight;
-
-        // Create wide swapchain.
-        const XrSwapchain swapchain =
-            compositionHelper.CreateSwapchain(compositionHelper.DefaultColorSwapchainCreateInfo(totalWidth, maxHeight));
-
-        XrCompositionLayerProjection* const projLayer = compositionHelper.CreateProjectionLayer(localSpace);
-        int x = 0;
-        for (uint32_t j = 0; j < projLayer->viewCount; j++) {
-            XrSwapchainSubImage subImage = compositionHelper.MakeDefaultSubImage(swapchain, 0);
-            subImage.imageRect.offset = {x, 0};
-            subImage.imageRect.extent = {(int32_t)viewProperties[j].recommendedImageRectWidth,
-                                         (int32_t)viewProperties[j].recommendedImageRectHeight};
-            const_cast<XrSwapchainSubImage&>(projLayer->views[j].subImage) = subImage;
-            x += subImage.imageRect.extent.width;  // Each view is to the left of the previous view.
-        }
-
-        const std::vector<Cube> cubes = {Cube::Make({-.2f, -.2f, -2}), Cube::Make({.2f, -.2f, -2}), Cube::Make({0, .1f, -2})};
-
-        const XrVector3f Forward{0, 0, 1};
-        const XrQuaternionf roll180 = Quat::FromAxisAngle(Forward, MATH_PI);
-
-        auto updateLayers = [&](const XrFrameState& frameState) {
-            auto viewData = compositionHelper.LocateViews(localSpace, frameState.predictedDisplayTime);
-            const auto& viewState = std::get<XrViewState>(viewData);
-
-            std::vector<XrCompositionLayerBaseHeader*> layers;
-            if (viewState.viewStateFlags & XR_VIEW_STATE_POSITION_VALID_BIT &&
-                viewState.viewStateFlags & XR_VIEW_STATE_ORIENTATION_VALID_BIT) {
-                const auto& views = std::get<std::vector<XrView>>(viewData);
-
-                // Render into each view port of the wide swapchain using the projection layer view fov and pose.
-                compositionHelper.AcquireWaitReleaseImage(swapchain, [&](const XrSwapchainImageBaseHeader* swapchainImage) {
-                    GetGlobalData().graphicsPlugin->ClearImageSlice(swapchainImage);
-                    for (size_t view = 0; view < views.size(); view++) {
-                        // Copy over the provided FOV and pose but use 40% of the suggested FOV.
-                        const_cast<XrFovf&>(projLayer->views[view].fov) = views[view].fov;
-                        const_cast<XrPosef&>(projLayer->views[view].pose) = views[view].pose;
-                        const_cast<float&>(projLayer->views[view].fov.angleUp) *= 0.4f;
-                        const_cast<float&>(projLayer->views[view].fov.angleDown) *= 0.4f;
-                        const_cast<float&>(projLayer->views[view].fov.angleLeft) *= 0.4f;
-                        const_cast<float&>(projLayer->views[view].fov.angleRight) *= 0.4f;
-
-                        // Render using a 180 degree roll on Z which effectively creates a flip on both the X and Y axis.
-                        XrCompositionLayerProjectionView rolled = projLayer->views[view];
-                        rolled.pose.orientation = roll180 * views[view].pose.orientation;
-                        GetGlobalData().graphicsPlugin->RenderView(rolled, swapchainImage, RenderParams().Draw(cubes));
-
-                        // After rendering, report a flipped FOV on X and Y without the 180 degree roll, which has the same
-                        // effect. This switcheroo is necessary since rendering with flipped FOV will result in an inverted
-                        // winding causing normally hidden triangles to be visible and visible triangles to be hidden.
-                        const_cast<float&>(projLayer->views[view].fov.angleUp) = -projLayer->views[view].fov.angleUp;
-                        const_cast<float&>(projLayer->views[view].fov.angleDown) = -projLayer->views[view].fov.angleDown;
-                        const_cast<float&>(projLayer->views[view].fov.angleLeft) = -projLayer->views[view].fov.angleLeft;
-                        const_cast<float&>(projLayer->views[view].fov.angleRight) = -projLayer->views[view].fov.angleRight;
+        for (bool submitDepthSwapchain : {false, true}) {
+            DYNAMIC_SECTION((submitDepthSwapchain ? "With" : "Without") << " depth submission")
+            {
+                std::vector<const char*> extensions;
+                if (submitDepthSwapchain) {
+                    if (!GetGlobalData().IsInstanceExtensionSupported(XR_KHR_COMPOSITION_LAYER_DEPTH_EXTENSION_NAME)) {
+                        continue;
                     }
-                });
+                    extensions.push_back(XR_KHR_COMPOSITION_LAYER_DEPTH_EXTENSION_NAME);
+                }
+                GlobalData& globalData = GetGlobalData();
+                if (!globalData.IsUsingGraphicsPlugin()) {
+                    SKIP("Cannot test without a graphics plugin");
+                }
 
-                layers.push_back(reinterpret_cast<XrCompositionLayerBaseHeader*>(projLayer));
+                CompositionHelper compositionHelper("Projection Mutable Field-of-View", extensions);
+                XrSession session = compositionHelper.GetSession();
+                InteractionManager& interactionManager = compositionHelper.GetInteractionManager();
+                InteractiveLayerManager interactiveLayerManager(compositionHelper, "projection_mutable.png",
+                                                                "Uses mutable field-of-views for each projection layer view.");
+                interactionManager.AttachActionSets();
+                compositionHelper.BeginSession();
+
+                const XrSpace localSpace = compositionHelper.CreateReferenceSpace(XR_REFERENCE_SPACE_TYPE_LOCAL);
+
+                if (!compositionHelper.GetViewConfigurationProperties().fovMutable) {
+                    SKIP("View configuration does not support mutable FoV");
+                }
+
+                const std::vector<XrViewConfigurationView> viewProperties = compositionHelper.EnumerateConfigurationViews();
+
+                const auto totalWidth =
+                    std::accumulate(viewProperties.begin(), viewProperties.end(), 0,
+                                    [](uint32_t l, const XrViewConfigurationView& r) { return l + r.recommendedImageRectWidth; });
+                // Because a single swapchain is being used for all views the maximum height must be used.
+                const auto maxHeight = std::max_element(viewProperties.begin(), viewProperties.end(),
+                                                        [](const XrViewConfigurationView& l, const XrViewConfigurationView& r) {
+                                                            return l.recommendedImageRectHeight < r.recommendedImageRectHeight;
+                                                        })
+                                           ->recommendedImageRectHeight;
+
+                // Create wide swapchain.
+                XrSwapchainCreateInfo swapchainCreateInfo = compositionHelper.DefaultColorSwapchainCreateInfo(totalWidth, maxHeight);
+                XrSwapchainCreateInfo depthSwapchainCreateInfo = compositionHelper.DefaultDepthSwapchainCreateInfo(totalWidth, maxHeight);
+                if (submitDepthSwapchain && depthSwapchainCreateInfo.format == -1) {
+                    // no depth format available for testing
+                    continue;
+                }
+
+                XrSwapchain swapchain{XR_NULL_HANDLE};
+                XrSwapchain depthSwapchain{XR_NULL_HANDLE};
+                if (submitDepthSwapchain) {
+                    std::tie(swapchain, depthSwapchain) =
+                        compositionHelper.CreateSwapchainWithDepth(swapchainCreateInfo, depthSwapchainCreateInfo);
+                }
+                else {
+                    swapchain = compositionHelper.CreateSwapchain(swapchainCreateInfo);
+                }
+
+                XrCompositionLayerProjection* const projLayer = compositionHelper.CreateProjectionLayer(localSpace);
+                std::vector<XrCompositionLayerDepthInfoKHR> depthInfo(projLayer->viewCount);
+                int x = 0;
+                for (uint32_t j = 0; j < projLayer->viewCount; j++) {
+                    // views field is pointer to const, but views haven't been populated yet
+                    auto& view = const_cast<XrCompositionLayerProjectionView&>(projLayer->views[j]);
+                    XrSwapchainSubImage subImage = compositionHelper.MakeDefaultSubImage(swapchain, 0);
+                    XrSwapchainSubImage depthSubImage =
+                        submitDepthSwapchain ? compositionHelper.MakeDefaultSubImage(depthSwapchain, 0) : XrSwapchainSubImage{};
+                    for (XrSwapchainSubImage* s : {&subImage, &depthSubImage}) {
+                        s->imageRect.offset = {x, 0};
+                        s->imageRect.extent = {(int32_t)viewProperties[j].recommendedImageRectWidth,
+                                               (int32_t)viewProperties[j].recommendedImageRectHeight};
+                    }
+                    view.subImage = subImage;
+                    if (submitDepthSwapchain) {
+                        InsertDefaultDepthInfo(&depthInfo[j], &view.next, depthSubImage);
+                    }
+                    x += subImage.imageRect.extent.width;  // Each view is to the left of the previous view.
+                }
+
+                const std::vector<Cube> cubes = {Cube::Make({-.2f, -.2f, -2}), Cube::Make({.2f, -.2f, -2}), Cube::Make({0, .1f, -2})};
+
+                const XrVector3f Forward{0, 0, 1};
+                const XrQuaternionf roll180 = Quat::FromAxisAngle(Forward, MATH_PI);
+
+                auto updateLayers = [&](const XrFrameState& frameState) {
+                    auto viewData = compositionHelper.LocateViews(localSpace, frameState.predictedDisplayTime);
+                    const auto& viewState = std::get<XrViewState>(viewData);
+
+                    std::vector<XrCompositionLayerBaseHeader*> layers;
+                    if (viewState.viewStateFlags & XR_VIEW_STATE_POSITION_VALID_BIT &&
+                        viewState.viewStateFlags & XR_VIEW_STATE_ORIENTATION_VALID_BIT) {
+                        const auto& views = std::get<std::vector<XrView>>(viewData);
+
+                        // Render into each view port of the wide swapchain using the projection layer view fov and pose.
+                        compositionHelper.AcquireWaitReleaseImage(swapchain, [&](const XrSwapchainImageBaseHeader* swapchainImage) {
+                            GetGlobalData().graphicsPlugin->ClearImageSlice(swapchainImage);
+                            for (size_t viewIndex = 0; viewIndex < views.size(); viewIndex++) {
+                                // views field is pointer to const, but views haven't been populated yet
+                                auto& projView = const_cast<XrCompositionLayerProjectionView&>(projLayer->views[viewIndex]);
+                                // Copy over the provided FOV and pose but use 40% of the suggested FOV.
+                                projView.fov = views[viewIndex].fov;
+                                projView.pose = views[viewIndex].pose;
+                                projView.fov.angleUp *= 0.4f;
+                                projView.fov.angleDown *= 0.4f;
+                                projView.fov.angleLeft *= 0.4f;
+                                projView.fov.angleRight *= 0.4f;
+
+                                // Render using a 180 degree roll on Z which effectively creates a flip on both the X and Y axis.
+                                XrCompositionLayerProjectionView rolled = projView;
+                                rolled.pose.orientation = roll180 * views[viewIndex].pose.orientation;
+                                GetGlobalData().graphicsPlugin->RenderView(rolled, swapchainImage, RenderParams().Draw(cubes));
+
+                                // After rendering, report a flipped FOV on X and Y without the 180 degree roll, which has the same
+                                // effect. This switcheroo is necessary since rendering with flipped FOV will result in an inverted
+                                // winding causing normally hidden triangles to be visible and visible triangles to be hidden.
+                                projView.fov.angleUp = -projView.fov.angleUp;
+                                projView.fov.angleDown = -projView.fov.angleDown;
+                                projView.fov.angleLeft = -projView.fov.angleLeft;
+                                projView.fov.angleRight = -projView.fov.angleRight;
+                            }
+                        });
+
+                        layers.push_back(reinterpret_cast<XrCompositionLayerBaseHeader*>(projLayer));
+                    }
+                    return interactiveLayerManager.EndFrame(frameState, layers);
+                };
+
+                RenderLoop(session, updateLayers).Loop();
             }
-            return interactiveLayerManager.EndFrame(frameState, layers);
-        };
-
-        RenderLoop(session, updateLayers).Loop();
+        }
     }
 
     TEST_CASE("StaleSwapchain", "[composition][interactive]")
@@ -1485,21 +1915,18 @@ namespace Conformance
 
             depthInfo[layer].resize(projLayers[layer]->viewCount);
             for (uint32_t j = 0; j < projLayers[layer]->viewCount; j++) {
+                // views field is pointer to const, but views haven't been populated yet
+                auto& projView = const_cast<XrCompositionLayerProjectionView&>(projLayers[layer]->views[j]);
+
                 // create color and depth swapchains
                 swapchain[layer].push_back(
                     compositionHelper.CreateSwapchainWithDepth(colorSwapchainCreateInfo[j], depthSwapchainCreateInfo[j]));
-                const_cast<XrSwapchainSubImage&>(projLayers[layer]->views[j].subImage) =
-                    compositionHelper.MakeDefaultSubImage(swapchain[layer][j].first);
+
+                projView.subImage = compositionHelper.MakeDefaultSubImage(swapchain[layer][j].first);
 
                 // Add depth info to the chain for each projection layer view
-                depthInfo[layer][j].type = XR_TYPE_COMPOSITION_LAYER_DEPTH_INFO_KHR;
-                depthInfo[layer][j].next = projLayers[layer]->views[j].next;
-                depthInfo[layer][j].minDepth = 0.0f;
-                depthInfo[layer][j].maxDepth = 1.0f;
-                depthInfo[layer][j].nearZ = 0.05f;
-                depthInfo[layer][j].farZ = 100.0f;
-                depthInfo[layer][j].subImage = compositionHelper.MakeDefaultSubImage(swapchain[layer][j].second);
-                const_cast<const void*&>(projLayers[layer]->views[j].next) = &depthInfo[layer][j];
+                XrSwapchainSubImage subImage = compositionHelper.MakeDefaultSubImage(swapchain[layer][j].second);
+                InsertDefaultDepthInfo(&depthInfo[layer][j], &projView.next, subImage);
             }
         }
 

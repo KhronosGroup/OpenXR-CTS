@@ -234,7 +234,9 @@ namespace Conformance
 
             bool failed;  // for visualisation only
 
-            HandSpace(XrPosef poseInActionSpace, XrSpace space) : poseInActionSpace(poseInActionSpace), space(space){};
+            HandSpace(XrPosef poseInActionSpace, XrSpace space) : poseInActionSpace(poseInActionSpace), space(space)
+            {
+            }
         };
 
         // Spaces attached to the hand (subaction).

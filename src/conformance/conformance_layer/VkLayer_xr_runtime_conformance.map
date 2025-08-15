@@ -1,0 +1,19 @@
+/*
+Copyright (c) 2025 The Khronos Group Inc.
+
+SPDX-License-Identifier: Apache-2.0
+*/
+
+/* for the Android-specific stub layer */
+{
+    global:
+        vkEnumerateDeviceExtensionProperties;
+        vkEnumerateDeviceLayerProperties;
+        vkEnumerateInstanceExtensionProperties;
+        vkEnumerateInstanceLayerProperties;
+        vkGetDeviceProcAddr;
+        vkGetInstanceProcAddr;
+        vkNegotiateLoaderLayerInterfaceVersion;
+    local:
+        *;
+};

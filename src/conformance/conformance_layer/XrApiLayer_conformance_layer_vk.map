@@ -1,0 +1,19 @@
+/*
+Copyright (c) 2025 The Khronos Group Inc.
+
+SPDX-License-Identifier: Apache-2.0
+*/
+
+{
+    global:
+        xrNegotiateLoaderApiLayerInterface;
+        vkEnumerateDeviceExtensionProperties;
+        vkEnumerateDeviceLayerProperties;
+        vkEnumerateInstanceExtensionProperties;
+        vkEnumerateInstanceLayerProperties;
+        vkGetDeviceProcAddr;
+        vkGetInstanceProcAddr;
+        vkNegotiateLoaderLayerInterfaceVersion;
+    local:
+        *;
+};

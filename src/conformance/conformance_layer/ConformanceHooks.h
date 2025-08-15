@@ -104,7 +104,7 @@ struct ConformanceHooks : ConformanceHooksBase
     // Defined in Swapchain.cpp
     //
     XrResult xrCreateSwapchain(XrSession session, const XrSwapchainCreateInfo* createInfo, XrSwapchain* swapchain) override;
-    //XrResult xrDestroySwapchain(XrSwapchain swapchain) override;
+    XrResult xrDestroySwapchain(XrSwapchain swapchain) override;
     XrResult xrEnumerateSwapchainImages(XrSwapchain swapchain, uint32_t imageCapacityInput, uint32_t* imageCountOutput,
                                         XrSwapchainImageBaseHeader* images) override;
     XrResult xrAcquireSwapchainImage(XrSwapchain swapchain, const XrSwapchainImageAcquireInfo* acquireInfo, uint32_t* index) override;

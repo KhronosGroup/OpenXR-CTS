@@ -27,23 +27,25 @@ namespace Conformance
 #ifdef XR_USE_GRAPHICS_API_D3D11
     std::shared_ptr<IGraphicsValidator> CreateGraphicsValidator_D3D11();
 #endif
-
-    using GraphicsValidatorFactory = std::function<std::shared_ptr<IGraphicsValidator>()>;
-
-    const std::map<XrStructureType, GraphicsValidatorFactory> graphicsValidatorMap = {
-#ifdef XR_USE_GRAPHICS_API_D3D11
-        {XR_TYPE_GRAPHICS_BINDING_D3D11_KHR, []() { return CreateGraphicsValidator_D3D11(); }},
+#ifdef XR_USE_GRAPHICS_API_VULKAN
+    std::shared_ptr<IGraphicsValidator> CreateGraphicsValidator_Vulkan(const XrGraphicsBindingVulkanKHR *graphicsBinding);
 #endif
-    };
 
-    std::shared_ptr<IGraphicsValidator> CreateGraphicsValidator(XrStructureType swapchainImageType) noexcept(false)
+    std::shared_ptr<IGraphicsValidator> CreateGraphicsValidator(const XrBaseInStructure *graphicsBinding)
     {
-        auto apiIt = graphicsValidatorMap.find(swapchainImageType);
-        if (apiIt == graphicsValidatorMap.end()) {
-            return std::shared_ptr<IGraphicsValidator>();
+        switch (graphicsBinding->type) {
+#ifdef XR_USE_GRAPHICS_API_D3D11
+        case XR_TYPE_GRAPHICS_BINDING_D3D11_KHR:
+            return CreateGraphicsValidator_D3D11();
+#endif
+#ifdef XR_USE_GRAPHICS_API_VULKAN
+        case XR_TYPE_GRAPHICS_BINDING_VULKAN_KHR:
+            return CreateGraphicsValidator_Vulkan(reinterpret_cast<const XrGraphicsBindingVulkanKHR *>(graphicsBinding));
+#endif
+        default:
+            break;
         }
-
-        return apiIt->second();
+        return NULL;
     }
 
 }  // namespace Conformance

@@ -19,7 +19,7 @@ jobs:
           lfs: true
 
       - name: Get modern CMake and Ninja
-        uses: "lukka/get-cmake@v3.31.6"
+        uses: "lukka/get-cmake@v4.0.3"
 
       - name: set up JDK
         uses: actions/setup-java@v4

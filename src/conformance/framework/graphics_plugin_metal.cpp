@@ -853,7 +853,7 @@ namespace Conformance
         // Note all matrixes are column-major, right-handed.
         const auto& pose = layerView.pose;
         XrMatrix4x4f proj;
-        XrMatrix4x4f_CreateProjectionFov(&proj, GRAPHICS_METAL, layerView.fov, 0.05f, 100.0f);
+        XrMatrix4x4f_CreateProjectionFov(&proj, GRAPHICS_METAL, layerView.fov, kNearClip, kFarClip);
         XrMatrix4x4f toView;
         XrVector3f scale{1.f, 1.f, 1.f};
         XrMatrix4x4f_CreateTranslationRotationScale(&toView, &pose.position, &pose.orientation, &scale);
