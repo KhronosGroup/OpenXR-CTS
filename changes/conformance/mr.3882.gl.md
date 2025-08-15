@@ -1,6 +1,0 @@
----
-- mr.3882.gl
-- mr.3893.gl
----
-- Improvement: Enable the clang-tidy cert-dcl16-c, bugprone-too-small-loop-variable, and bugprone-switch-missing-default-case checks, making fixes required to satisfy them.
-- Improvement: Disable the clang-tidy bugprone-reserved-identifier, cert-dcl37-c, and cert-dcl51-cpp checks.

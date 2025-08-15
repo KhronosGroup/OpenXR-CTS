@@ -70,7 +70,7 @@
 #include <vector>
 
 #define XR_LAYER_RUNTIME_CONFORMANCE "XR_APILAYER_KHRONOS_runtime_conformance"
-#define VK_LAYER_RUNTIME_CONFORMANCE "VK_LAYER_KHRONOS_xr_runtime_conformance"
+#define VK_LAYER_RUNTIME_CONFORMANCE "VK_LAYER_OPENXR_xr_runtime_conformance"
 
 namespace tinygltf
 {
@@ -987,11 +987,6 @@ namespace Conformance
             std::vector<VkLayerProperties> availableLayers(layerCount);
             vkEnumerateInstanceLayerProperties(&layerCount, availableLayers.data());
 
-            ReportConsoleOnlyF("Available Vulkan layers: %zu", availableLayers.size());
-            for (const auto& it : availableLayers) {
-                ReportF("\t%s", it.layerName);
-            }
-
             std::vector<const char*> layers;
 
             const GlobalData& globalData = GetGlobalData();
@@ -1007,11 +1002,6 @@ namespace Conformance
                     ReportF("Vulkan XR conformance layer not found");
                     return XR_ERROR_API_LAYER_NOT_PRESENT;
                 }
-            }
-
-            ReportConsoleOnlyF("Enabled Vulkan layers %zu", layers.size());
-            for (size_t i = 0; i < layers.size(); ++i) {
-                ReportF("\t%s", layers[i]);
             }
 
             VkInstanceCreateInfo instInfo{VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO};
@@ -1262,11 +1252,6 @@ namespace Conformance
             std::vector<VkLayerProperties> availableLayers(layerCount);
             vkEnumerateInstanceLayerProperties(&layerCount, availableLayers.data());
 
-            ReportConsoleOnlyF("Available Vulkan layers: %zu", availableLayers.size());
-            for (const auto& it : availableLayers) {
-                ReportF("\t%s", it.layerName);
-            }
-
             std::vector<const char*> layers;
 #if !defined(NDEBUG)
             auto GetValidationLayerName = [&availableLayers]() -> const char* {
@@ -1296,20 +1281,8 @@ namespace Conformance
                     return strcmp(VK_LAYER_RUNTIME_CONFORMANCE, layerProps.layerName) == 0;
                 });
 
-                if (it != availableLayers.end()) {
-                    layers.push_back(VK_LAYER_RUNTIME_CONFORMANCE);
-                }
-                else {
-                    ReportF("Vulkan XR conformance layer not found");
-#if !defined(XR_USE_PLATFORM_ANDROID)
-                    return false;
-#endif
-                }
-            }
-
-            ReportConsoleOnlyF("Enabled Vulkan layers %zu", layers.size());
-            for (size_t i = 0; i < layers.size(); ++i) {
-                ReportF("\t%s", layers[i]);
+                XRC_CHECK_THROW(it != availableLayers.end())
+                layers.push_back(VK_LAYER_RUNTIME_CONFORMANCE);
             }
 
             VkApplicationInfo appInfo{VK_STRUCTURE_TYPE_APPLICATION_INFO};

@@ -1,7 +1,7 @@
 {
   "file_format_version": "1.0.0",
   "layer": {
-    "name": "VK_LAYER_KHRONOS_xr_runtime_conformance",
+    "name": "VK_LAYER_OPENXR_xr_runtime_conformance",
     "type": "GLOBAL",
     "library_path": "./@CMAKE_SHARED_MODULE_PREFIX@XrApiLayer_runtime_conformance@CMAKE_SHARED_MODULE_SUFFIX@",
     "api_version": "1.0.0",

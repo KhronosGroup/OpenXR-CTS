@@ -114,7 +114,7 @@ if(XR_USE_GRAPHICS_API_VULKAN)
             VkLayer_xr_runtime_conformance
             PROPERTIES
                 LINK_FLAGS
-                "-Wl,--version-script=\"${CMAKE_CURRENT_SOURCE_DIR}/XrApiLayer_conformance_layer.map\""
+                "-Wl,--version-script=\"${CMAKE_CURRENT_SOURCE_DIR}/VkLayer_xr_runtime_conformance.map\""
         )
 
         target_include_directories(VkLayer_xr_runtime_conformance PRIVATE
@@ -133,7 +133,7 @@ if(XR_USE_GRAPHICS_API_VULKAN)
 
     configure_file(
         conformance_vk_layer.json
-        ${CMAKE_CURRENT_BINARY_DIR}/VkLayer_KHRONOS_xr_runtime_conformance.json
+        ${CMAKE_CURRENT_BINARY_DIR}/VkLayer_OPENXR_xr_runtime_conformance.json
     )
 endif()
 
@@ -205,8 +205,12 @@ if(BUILD_CONFORMANCE_CLI)
             POST_BUILD
             COMMAND
                 ${CMAKE_COMMAND} -E copy
-                ${CMAKE_CURRENT_BINARY_DIR}/VkLayer_KHRONOS_xr_runtime_conformance.json
+                ${CMAKE_CURRENT_BINARY_DIR}/VkLayer_OPENXR_xr_runtime_conformance.json
                 $<TARGET_PROPERTY:conformance_cli,BINARY_DIR>
+        )
+        install(
+           FILES $<TARGET_PROPERTY:conformance_cli,BINARY_DIR>/VkLayer_KHRONOS_xr_runtime_conformance.json
+           DESTINATION conformance
         )
     endif()
 endif()

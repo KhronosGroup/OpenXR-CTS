@@ -71,7 +71,9 @@ XrResult ConformanceHooks::xrCreateSwapchain(XrSession session, const XrSwapchai
 XrResult ConformanceHooks::xrDestroySwapchain(XrSwapchain swapchain)
 {
     CustomSwapchainState* const swapchainData = GetCustomSwapchainState(swapchain);
-    auto validator = swapchainData->sessionState->graphicsValidator;
+    // There is no CustomSwapchainState for XrSwapchain handles created via
+    // xrCreateSwapchainAndroidSurfaceKHR(), so make sure to check for null before using it.
+    auto validator = swapchainData ? swapchainData->sessionState->graphicsValidator : nullptr;
 
     if (validator) {
         validator->AllowVkQueueAccess(false);

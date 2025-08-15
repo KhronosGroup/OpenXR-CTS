@@ -33,7 +33,9 @@ namespace Conformance
                                         XrSwapchainImageBaseHeader* images) const = 0;
 
         // Vulkan specific function, allows or disallows the access to the VkQueue used in the graphics binding
-        virtual void AllowVkQueueAccess(bool /*allowed*/){};
+        virtual void AllowVkQueueAccess(bool /*allowed*/)
+        {
+        }
 
         // Checks if the internal state of the validator respects what is expected
         virtual bool CheckState() const = 0;

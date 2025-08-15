@@ -241,6 +241,14 @@ namespace Conformance
             std::vector<XrViewConfigurationType> runtimeViewTypes(viewCount);
             REQUIRE(XR_SUCCESS == xrEnumerateViewConfigurations(m_instance, m_systemId, viewCount, &viewCount, runtimeViewTypes.data()));
             if (std::find(runtimeViewTypes.begin(), runtimeViewTypes.end(), m_primaryViewType) == runtimeViewTypes.end()) {
+                GlobalData& globalData = GetGlobalData();
+                if (globalData.IsUsingGraphicsPlugin()) {
+                    auto graphicsPlugin = globalData.GetGraphicsPlugin();
+                    if (graphicsPlugin->IsInitialized()) {
+                        graphicsPlugin->ShutdownDevice();
+                    }
+                }
+
                 SKIP("View type not supported by runtime");
             }
         }

@@ -106,7 +106,9 @@ namespace Conformance
         {
         public:
             virtual XrCompositionLayerBaseHeader* Update(nonstd::span<const XrView> views) = 0;
-            virtual ~TestLayer(){};
+            virtual ~TestLayer()
+            {
+            }
         };
         class QuadLayer : public TestLayer
         {

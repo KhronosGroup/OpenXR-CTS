@@ -17,6 +17,54 @@ particular, since it is primarily software, pull requests may be integrated as
 they are accepted even between periodic updates. However, versions that are not
 signed tags on the `approved` branch are not valid for conformance submission.
 
+## OpenXR CTS 1.1.50.0 (2025-08-14)
+
+- Conformance Tests
+  - Fix: Crash in conformance layer when exiting the
+    "XR_KHR_android_surface_swapchain-interactive" test.
+    ([internal MR 3910](https://gitlab.khronos.org/openxr/openxr/merge_requests/3910))
+  - Fix: AlphaBlend mode in `EXT_spatial_entity` tests was not respected.
+    ([internal MR 3911](https://gitlab.khronos.org/openxr/openxr/merge_requests/3911))
+  - Improvement: Add support for sanitizers in CMake with sanitizers-cmake project.
+    ([internal MR 3716](https://gitlab.khronos.org/openxr/openxr/merge_requests/3716))
+  - Improvement: Add Vulkan API layer interface and `VulkanGraphicsValidator` to
+    `XrApiLayer_runtime_conformance`, to allow correlating OpenXR and Vulkan API
+    state.
+    ([internal MR 3760](https://gitlab.khronos.org/openxr/openxr/merge_requests/3760),
+    [internal MR 3829](https://gitlab.khronos.org/openxr/openxr/merge_requests/3829),
+    [internal MR 3912](https://gitlab.khronos.org/openxr/openxr/merge_requests/3912),
+    [internal MR 3920](https://gitlab.khronos.org/openxr/openxr/merge_requests/3920),
+    [internal MR 3930](https://gitlab.khronos.org/openxr/openxr/merge_requests/3930),
+    [internal MR 3933](https://gitlab.khronos.org/openxr/openxr/merge_requests/3933),
+    [internal MR 3917](https://gitlab.khronos.org/openxr/openxr/merge_requests/3917))
+  - Improvement: add `.clang-tidy` file.
+    ([internal MR 3802](https://gitlab.khronos.org/openxr/openxr/merge_requests/3802))
+  - Improvement: Enable the clang-tidy cert-dcl16-c, bugprone-too-small-loop-
+    variable, and bugprone-switch-missing-default-case checks, making fixes
+    required to satisfy them.
+    ([internal MR 3882](https://gitlab.khronos.org/openxr/openxr/merge_requests/3882),
+    [internal MR 3893](https://gitlab.khronos.org/openxr/openxr/merge_requests/3893),
+    [internal MR 3905](https://gitlab.khronos.org/openxr/openxr/merge_requests/3905))
+  - Improvement: Disable the clang-tidy bugprone-reserved-identifier, cert-dcl37-c,
+    and cert-dcl51-cpp checks.
+    ([internal MR 3882](https://gitlab.khronos.org/openxr/openxr/merge_requests/3882),
+    [internal MR 3893](https://gitlab.khronos.org/openxr/openxr/merge_requests/3893),
+    [internal MR 3905](https://gitlab.khronos.org/openxr/openxr/merge_requests/3905))
+  - New test: Verify the runtime implementation `VkQueue` access against the
+    specification in `XrApiLayer_runtime_conformance` through the
+    `VulkanGraphicsValidator`.
+    ([internal MR 3760](https://gitlab.khronos.org/openxr/openxr/merge_requests/3760),
+    [internal MR 3829](https://gitlab.khronos.org/openxr/openxr/merge_requests/3829),
+    [internal MR 3912](https://gitlab.khronos.org/openxr/openxr/merge_requests/3912),
+    [internal MR 3920](https://gitlab.khronos.org/openxr/openxr/merge_requests/3920),
+    [internal MR 3930](https://gitlab.khronos.org/openxr/openxr/merge_requests/3930),
+    [internal MR 3933](https://gitlab.khronos.org/openxr/openxr/merge_requests/3933),
+    [internal MR 3917](https://gitlab.khronos.org/openxr/openxr/merge_requests/3917))
+  - New test: Try submitting zero layers in both unknown session state and visible
+    session state.
+    ([internal MR 3833](https://gitlab.khronos.org/openxr/openxr/merge_requests/3833),
+    [internal issue 2296](https://gitlab.khronos.org/openxr/openxr/issues/2296))
+
 ## OpenXR CTS 1.1.49.0 (2025-07-03)
 
 - Conformance Tests

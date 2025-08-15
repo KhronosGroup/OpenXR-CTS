@@ -655,7 +655,7 @@ XrcResult XRAPI_CALL xrcEnumerateTestCases(uint32_t capacityInput, uint32_t* cou
 XrcResult XRAPI_CALL xrcRunConformanceTests(const ConformanceLaunchSettings* conformanceLaunchSettings, XrcTestResult* testResult,
                                             uint64_t* failureCount)
 {
-    // Reset the state of the catch session since catch session must be re-used across multiple calls
+    // Reset the state of the catch session since catch session must be reused across multiple calls
     // and cannot be recreated.
     CreateOrGetCatchSession().useConfigData({});
     CreateOrGetCatchSession().cli(Catch::makeCommandLineParser(CreateOrGetCatchSession().configData()));

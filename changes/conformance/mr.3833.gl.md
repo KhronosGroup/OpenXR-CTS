@@ -1,5 +1,0 @@
----
-- mr.3833.gl
-- issue.2296.gl
----
-- New test: Try submitting zero layers in both unknown session state and visible session state.

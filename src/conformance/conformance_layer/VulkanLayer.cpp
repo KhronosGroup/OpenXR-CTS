@@ -341,7 +341,7 @@ VKAPI_ATTR PFN_vkVoidFunction VKAPI_CALL vkGetDeviceProcAddr(VkDevice device, co
 
 // Keep in sync with conformance_vk_layer.json
 static const VkLayerProperties layerProperty = {
-    "VK_LAYER_KHRONOS_xr_runtime_conformance",
+    "VK_LAYER_OPENXR_xr_runtime_conformance",
     VK_API_VERSION_1_0,
     1,
     "API Layer to validate OpenXR runtime conformance",
