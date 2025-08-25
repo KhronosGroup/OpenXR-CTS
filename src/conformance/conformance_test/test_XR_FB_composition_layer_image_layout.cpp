@@ -1,3 +1,4 @@
+// Copyright (c) 2025 The Khronos Group Inc.
 // Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
 //
 // SPDX-License-Identifier: Apache-2.0
