@@ -25,6 +25,16 @@
 #include <string>
 #include <vector>
 
+#if !defined(VK_LAYER_EXPORT)
+#if defined(__GNUC__) && __GNUC__ >= 4
+#define VK_LAYER_EXPORT __attribute__((visibility("default")))
+#elif defined(__SUNPRO_C) && (__SUNPRO_C >= 0x590)
+#define VK_LAYER_EXPORT __attribute__((visibility("default")))
+#else
+#define VK_LAYER_EXPORT
+#endif
+#endif
+
 struct Device;
 
 struct Instance
@@ -315,7 +325,7 @@ static VKAPI_ATTR PFN_vkVoidFunction VKAPI_CALL getDeviceProcAddr(VkDevice devic
     return getDevice(device)->vkGetDeviceProcAddr(device, pName);
 }
 
-VKAPI_ATTR VkResult VKAPI_CALL vkNegotiateLoaderLayerInterfaceVersion(VkNegotiateLayerInterface *pVersionStruct)
+VK_LAYER_EXPORT VKAPI_ATTR VkResult VKAPI_CALL vkNegotiateLoaderLayerInterfaceVersion(VkNegotiateLayerInterface *pVersionStruct)
 {
     if (pVersionStruct == NULL || pVersionStruct->sType != LAYER_NEGOTIATE_INTERFACE_STRUCT) {
         return VK_ERROR_INITIALIZATION_FAILED;
@@ -329,12 +339,12 @@ VKAPI_ATTR VkResult VKAPI_CALL vkNegotiateLoaderLayerInterfaceVersion(VkNegotiat
     return VK_SUCCESS;
 }
 
-VKAPI_ATTR PFN_vkVoidFunction VKAPI_CALL vkGetInstanceProcAddr(VkInstance instance, const char *pName)
+VK_LAYER_EXPORT VKAPI_ATTR PFN_vkVoidFunction VKAPI_CALL vkGetInstanceProcAddr(VkInstance instance, const char *pName)
 {
     return getInstanceProcAddr(instance, pName);
 }
 
-VKAPI_ATTR PFN_vkVoidFunction VKAPI_CALL vkGetDeviceProcAddr(VkDevice device, const char *pName)
+VK_LAYER_EXPORT VKAPI_ATTR PFN_vkVoidFunction VKAPI_CALL vkGetDeviceProcAddr(VkDevice device, const char *pName)
 {
     return getDeviceProcAddr(device, pName);
 }
@@ -364,13 +374,13 @@ static VkResult getLayerProperties(uint32_t *pPropertyCount, VkLayerProperties *
     return VK_SUCCESS;
 }
 
-VKAPI_ATTR VkResult VKAPI_CALL vkEnumerateInstanceLayerProperties(uint32_t *pCount, VkLayerProperties *pProperties)
+VK_LAYER_EXPORT VKAPI_ATTR VkResult VKAPI_CALL vkEnumerateInstanceLayerProperties(uint32_t *pCount, VkLayerProperties *pProperties)
 {
     return getLayerProperties(pCount, pProperties);
 }
 
-VKAPI_ATTR VkResult VKAPI_CALL vkEnumerateDeviceLayerProperties(VkPhysicalDevice physicalDevice, uint32_t *pCount,
-                                                                VkLayerProperties *pProperties)
+VK_LAYER_EXPORT VKAPI_ATTR VkResult VKAPI_CALL vkEnumerateDeviceLayerProperties(VkPhysicalDevice physicalDevice, uint32_t *pCount,
+                                                                                VkLayerProperties *pProperties)
 {
     (void)physicalDevice;
     return getLayerProperties(pCount, pProperties);
@@ -387,14 +397,14 @@ static VkResult getLayerExtensionProps(const char *pLayerName, uint32_t *pCount,
     return VK_ERROR_LAYER_NOT_PRESENT;
 }
 
-VKAPI_ATTR VkResult VKAPI_CALL vkEnumerateInstanceExtensionProperties(const char *pLayerName, uint32_t *pCount,
-                                                                      VkExtensionProperties *pProperties)
+VK_LAYER_EXPORT VKAPI_ATTR VkResult VKAPI_CALL vkEnumerateInstanceExtensionProperties(const char *pLayerName, uint32_t *pCount,
+                                                                                      VkExtensionProperties *pProperties)
 {
     return getLayerExtensionProps(pLayerName, pCount, pProperties);
 }
 
-VKAPI_ATTR VkResult VKAPI_CALL vkEnumerateDeviceExtensionProperties(VkPhysicalDevice physicalDevice, const char *pLayerName,
-                                                                    uint32_t *pCount, VkExtensionProperties *pProperties)
+VK_LAYER_EXPORT VKAPI_ATTR VkResult VKAPI_CALL vkEnumerateDeviceExtensionProperties(VkPhysicalDevice physicalDevice, const char *pLayerName,
+                                                                                    uint32_t *pCount, VkExtensionProperties *pProperties)
 {
     (void)physicalDevice;
     return getLayerExtensionProps(pLayerName, pCount, pProperties);

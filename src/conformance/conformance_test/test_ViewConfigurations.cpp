@@ -151,8 +151,9 @@ namespace Conformance
 
                 SECTION("Unrecognized extension")
                 {
-                    // Runtimes should ignore unrecognized struct extensins.
-                    InsertUnrecognizableExtension(&vcp);
+                    // Runtimes should ignore unrecognized struct types.
+                    UnrecognizableOutputStruct unknown;
+                    unknown.Insert(&vcp);
                     REQUIRE(xrGetViewConfigurationProperties(instance, instance.systemId, vctArray[0], &vcp) == XR_SUCCESS);
                     REQUIRE(vcp.viewConfigurationType == vctArray[0]);
                 }
@@ -215,10 +216,11 @@ namespace Conformance
                         }
                     }
 
-                    SECTION("Unrecognized extension")
+                    SECTION("Unrecognized struct in chain")
                     {
-                        // Runtimes should ignore unrecognized struct extensins.
-                        InsertUnrecognizableExtensionArray(vcvArray.data(), vcvArray.size());
+                        // Runtimes should ignore unrecognized struct types.
+                        std::vector<UnrecognizableOutputStruct> unknowns(vcvArray.size());
+                        InsertUnrecognizableStructArray(vcvArray, unknowns);
                         REQUIRE(xrEnumerateViewConfigurationViews(instance, instance.systemId, vct, countOutput, &countOutput,
                                                                   vcvArray.data()) == XR_SUCCESS);
                     }

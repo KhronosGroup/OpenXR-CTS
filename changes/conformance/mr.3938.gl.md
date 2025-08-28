@@ -1,0 +1,4 @@
+---
+- mr.3938.gl
+---
+- New test: Add tests for `XR_KHR_maintenance1` `grip_surface` support.

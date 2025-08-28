@@ -246,3 +246,17 @@ XrResult ConformanceHooks::xrReleaseSwapchainImage(XrSwapchain swapchain, const 
     }
     return result;
 }
+
+#if defined(XR_USE_PLATFORM_ANDROID)
+XrResult ConformanceHooks::xrCreateSwapchainAndroidSurfaceKHR(XrSession session, const XrSwapchainCreateInfo* info, XrSwapchain* swapchain,
+                                                              jobject* surface)
+{
+    const XrResult result = ConformanceHooksBase::xrCreateSwapchainAndroidSurfaceKHR(session, info, swapchain, surface);
+    if (XR_SUCCEEDED(result)) {
+        // Tag on the custom swapchain state to the generated handle state.
+        session::CustomSessionState* customSessionState = session::GetCustomSessionState(session);
+        GetSwapchainState(*swapchain)->SetCustomState(std::make_unique<CustomSwapchainState>(info, customSessionState));
+    }
+    return result;
+}
+#endif  // defined(XR_USE_PLATFORM_ANDROID)

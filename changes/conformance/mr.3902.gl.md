@@ -1,0 +1,4 @@
+---
+- mr.3902.gl
+---
+- New test: Require `XR_SESSION_NOT_FOCUSED` for haptics functions when minimum version 1.1.

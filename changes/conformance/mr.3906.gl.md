@@ -1,0 +1,4 @@
+---
+- mr.3906.gl
+---
+- Improvement: Add clang-tidy exclusions for clang-tidy-20.

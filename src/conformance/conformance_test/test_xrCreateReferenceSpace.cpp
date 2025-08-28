@@ -50,8 +50,9 @@ namespace Conformance
             CHECK_FALSE(localSpace == XR_NULL_HANDLE_CPP);
             CHECK(XR_SUCCESS == xrDestroySpace(localSpace));
 
-            // Runtimes should ignore unrecognized struct extensions.
-            InsertUnrecognizableExtension(&reference_space_create_info);
+            // Runtimes should ignore unrecognized struct types.
+            UnrecognizableInputStruct unknown;
+            unknown.Insert(&reference_space_create_info);
             XrResult result = xrCreateReferenceSpace(session, &reference_space_create_info, &localSpace);
             CHECK(result == XR_SUCCESS);
             if (XR_SUCCEEDED(result))

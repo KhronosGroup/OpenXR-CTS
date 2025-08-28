@@ -85,11 +85,11 @@ namespace Conformance
                 CHECK_RESULT_SUCCEEDED(xrCreateInstance(&createInfo, &instance));
             }
 
-            SECTION("xrCreateInstance unrecognized extension")
+            SECTION("xrCreateInstance unrecognized struct in chain")
             {
-                InsertUnrecognizableExtension(&createInfo);
+                UnrecognizableInputStruct unknown;
+                unknown.Insert(&createInfo);
                 CHECK_RESULT_SUCCEEDED(xrCreateInstance(&createInfo, &instance));
-                RemoveUnrecognizableExtension(&createInfo);
             }
 
             SECTION("XR_SUCCESS in repetition")

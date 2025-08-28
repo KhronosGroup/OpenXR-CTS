@@ -353,58 +353,92 @@ namespace Conformance
     /// Scoped action set similar to other *Scoped types above. CHECK and REQUIRE can be added if needed.
     using ActionSetScoped = ScopedHandle<XrActionSet, deleters::ActionSetDelete>;
 
-    /// Returns an extension struct pointer suitable for use as a struct next parameter.
-    /// The returns extension is one that is not defined by the OpenXR spec and serves the
-    /// purpose of intentionally being unrecognizable. The returned struct pointer is read-only
-    /// and suitable for use multiple times simultaneously, including in separate threads.
-    const void* GetUnrecognizableExtension();
-
-    /// Inserts an unrecognizable extension into an existing struct's next chain.
+    /// Wraps an output structure with an unrecognized type field.
     ///
-    /// Example usage:
-    /// ```
-    ///    XrInstanceCreateInfo createInfo{XR_TYPE_INSTANCE_CREATE_INFO};
-    ///    InsertUnrecognizableExtension(&createInfo);
-    ///    [...]
-    ///    result = xrCreateInstance(&createInfo, instance);
-    /// ```
-    template <typename Struct>
-    void InsertUnrecognizableExtension(Struct* inStructure)
+    /// Intended to be used to verify that functions correctly ignore struct types
+    /// they do not recognize. Must live as long as the chain you insert it into.
+    class UnrecognizableOutputStruct
     {
-        // We have a bit of declspec and casting here because there are two types of
-        // next pointers, const and non-const.
-        auto nextSaved = inStructure->next;  // This is const or non-const void*
-        inStructure->next = (decltype(nextSaved))GetUnrecognizableExtension();
-        reinterpret_cast<Struct*>(const_cast<void*>(inStructure->next))->next = nextSaved;
-    }
+    public:
+        UnrecognizableOutputStruct();
 
-    /// Undo @ref InsertUnrecognizableExtension
-    template <typename Struct>
-    void RemoveUnrecognizableExtension(Struct* inStructure)
-    {
-        const void* ext = GetUnrecognizableExtension();
+        UnrecognizableOutputStruct(UnrecognizableOutputStruct&&) = delete;
+        UnrecognizableOutputStruct(const UnrecognizableOutputStruct&) = delete;
 
-        // We assume that a present unrecognized extension is always inStructure->next,
-        // as that's currently the only way we ever insert it.
-        if (inStructure->next == ext) {
-            inStructure->next = reinterpret_cast<Struct*>(const_cast<void*>(inStructure->next))->next;
+        UnrecognizableOutputStruct& operator=(UnrecognizableOutputStruct&&) = delete;
+        UnrecognizableOutputStruct& operator=(const UnrecognizableOutputStruct&) = delete;
+
+        /// Inserts an unrecognizable output structure into an existing struct's next chain.
+        template <typename Struct>
+        void Insert(Struct* s)
+        {
+            m_struct.next = reinterpret_cast<XrBaseOutStructure*>(s->next);
+            s->next = &m_struct;
         }
+
+    private:
+        XrBaseOutStructure m_struct;
+    };
+
+    // Specialize for this type, which is an output buffer but has a const next pointer...
+    template <>
+    inline void UnrecognizableOutputStruct::Insert<XrEventDataBuffer>(XrEventDataBuffer* s)
+    {
+        m_struct.next = reinterpret_cast<XrBaseOutStructure*>(const_cast<void*>(s->next));
+        s->next = &m_struct;
     }
 
-    /// Array version of InsertUnrecognizableExtension.
+    /// Wraps an input structure with an unrecognized type field.
+    ///
+    /// Intended to be used to verify that functions correctly ignore struct types
+    /// they do not recognize. Must live as long as the chain you insert it into.
+    class UnrecognizableInputStruct
+    {
+    public:
+        UnrecognizableInputStruct();
+        UnrecognizableInputStruct(UnrecognizableInputStruct&&) = delete;
+        UnrecognizableInputStruct(const UnrecognizableInputStruct&) = delete;
+
+        UnrecognizableInputStruct& operator=(UnrecognizableInputStruct&&) = delete;
+        UnrecognizableInputStruct& operator=(const UnrecognizableInputStruct&) = delete;
+
+        /// Inserts an unrecognizable input structure into an existing struct's next chain.
+        ///
+        /// Example usage:
+        /// ```
+        ///    XrInstanceCreateInfo createInfo{XR_TYPE_INSTANCE_CREATE_INFO};
+        ///    UnrecognizableInputStruct unknown;
+        ///    unknown.Insert(&createInfo);
+        ///    [...]
+        ///    result = xrCreateInstance(&createInfo, instance);
+        /// ```
+        template <typename Struct>
+        void Insert(Struct* s)
+        {
+            m_struct.next = reinterpret_cast<const XrBaseInStructure*>(s->next);
+            s->next = &m_struct;
+        }
+
+    private:
+        XrBaseInStructure m_struct;
+    };
+
+    /// Array version of UnrecognizableInputStruct::Insert and similar.
     ///
     /// Example usage:
     /// ```
     ///    std::vector<XrViewConfigurationView> vcvArray(20, {XR_TYPE_VIEW_CONFIGURATION_VIEW});
-    ///    InsertUnrecognizableExtensionArray(vcvArray.data(), vcvArray.size());
+    ///    std::vector<UnrecognizableOutputStruct> unknowns(vcvArray.size())
+    ///    InsertUnrecognizableStructArray(vcvArray, unknowns);
     ///    [...]
     /// ```
     ///
-    template <typename Struct>
-    void InsertUnrecognizableExtensionArray(Struct* inStructure, size_t arraySize)
+    template <typename Struct, typename Unknown>
+    void InsertUnrecognizableStructArray(std::vector<Struct>& structureArray, std::vector<Unknown>& unknowns)
     {
-        for (size_t i = 0; i < arraySize; ++i) {
-            InsertUnrecognizableExtension(inStructure + i);
+        const size_t n = structureArray.size();
+        for (size_t i = 0; i < n; ++i) {
+            unknowns[i].Insert(&structureArray[i]);
         }
     }
 

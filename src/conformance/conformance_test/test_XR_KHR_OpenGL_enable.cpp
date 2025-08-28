@@ -146,8 +146,9 @@ namespace Conformance
             REQUIRE(graphicsPlugin->InitializeDevice(instance, systemId, true));
             sessionCreateInfo.next = graphicsPlugin->GetGraphicsBinding();
 
-            // Exercise presence of unrecognized extensions, which the runtime should ignore.
-            InsertUnrecognizableExtension(&sessionCreateInfo);
+            // Exercise presence of unrecognized struct types, which the runtime should ignore.
+            UnrecognizableInputStruct unknown;
+            unknown.Insert(&sessionCreateInfo);
 
             GetGlobalData().graphicsPlugin->MakeCurrent(true);
 

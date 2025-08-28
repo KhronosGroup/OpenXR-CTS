@@ -1,0 +1,5 @@
+---
+- mr.3934.gl
+- issue.2572.gl
+---
+- Improvement: Track custom session state on swapchains created via `xrCreateSwapchainAndroidSurfaceKHR()`

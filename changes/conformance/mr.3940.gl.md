@@ -1,0 +1,1 @@
+- Improvement: Make it easier to track down failures in the "graphicsBindings" test that enables all graphics bindings extensions.

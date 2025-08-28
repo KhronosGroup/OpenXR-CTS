@@ -24,6 +24,7 @@
 #include "utilities/event_reader.h"
 #include "utilities/feature_availability.h"
 #include "utilities/throw_helpers.h"
+#include "utilities/types_and_constants.h"
 #include "utilities/utils.h"
 #include "utilities/xrduration_literals.h"
 
@@ -214,13 +215,6 @@ namespace Conformance
         }
 
     }  // namespace deleters
-
-    static XrBaseInStructure unrecognizedExtension{XRC_UNRECOGNIZABLE_STRUCTURE_TYPE};
-
-    const void* GetUnrecognizableExtension()
-    {
-        return &unrecognizedExtension;
-    }
 
     ////////////////////////////////////////////////////////////////////////////////////////////////
     // Stopwatch
@@ -1399,4 +1393,15 @@ namespace Conformance
         OutputHandle(os, sess.GetSession());
         return os;
     }
+
+    UnrecognizableOutputStruct::UnrecognizableOutputStruct() : m_struct()
+    {
+        m_struct.type = XRC_UNRECOGNIZABLE_STRUCTURE_TYPE;
+    }
+
+    UnrecognizableInputStruct::UnrecognizableInputStruct() : m_struct()
+    {
+        m_struct.type = XRC_UNRECOGNIZABLE_STRUCTURE_TYPE;
+    }
+
 }  // namespace Conformance

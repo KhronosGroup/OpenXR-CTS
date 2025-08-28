@@ -111,6 +111,11 @@ struct ConformanceHooks : ConformanceHooksBase
     XrResult xrWaitSwapchainImage(XrSwapchain swapchain, const XrSwapchainImageWaitInfo* waitInfo) override;
     XrResult xrReleaseSwapchainImage(XrSwapchain swapchain, const XrSwapchainImageReleaseInfo* releaseInfo) override;
 
+#if defined(XR_USE_PLATFORM_ANDROID)
+    XrResult xrCreateSwapchainAndroidSurfaceKHR(XrSession session, const XrSwapchainCreateInfo* info, XrSwapchain* swapchain,
+                                                jobject* surface) override;
+#endif  // defined(XR_USE_PLATFORM_ANDROID)
+
 #if 0
     // TODO (Warning this will become stale!)
     XrResult xrGetInstanceProcAddr(XrInstance instance, const char* name, PFN_xrVoidFunction* function) override;
