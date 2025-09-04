@@ -4,6 +4,7 @@
 
 #include "two_call_struct.h"
 #include <openxr/openxr.h>
+#include <cstdint>
 
 namespace Conformance
 {
@@ -11,7 +12,7 @@ namespace Conformance
 #define NAME_AND_MEMPTR(MEMBER) #MEMBER, &MEMBER
 
     /// Get the two-call-struct metadata for XrVisibilityMaskKHR
-    static inline auto getTwoCallStructData(const XrVisibilityMaskKHR&)
+    inline auto getTwoCallStructData(const XrVisibilityMaskKHR&)
     {
 
         static const XrVisibilityMaskKHR visibilityMask{XR_TYPE_VISIBILITY_MASK_KHR};
@@ -26,7 +27,7 @@ namespace Conformance
     }
 
     /// Get the two-call-struct metadata for XrControllerModelPropertiesMSFT
-    static inline auto getTwoCallStructData(const XrControllerModelPropertiesMSFT&)
+    inline auto getTwoCallStructData(const XrControllerModelPropertiesMSFT&)
     {
         static const XrControllerModelPropertiesMSFT modelProperties{XR_TYPE_CONTROLLER_MODEL_PROPERTIES_MSFT};
         static const auto data = TwoCallStruct(
@@ -38,7 +39,7 @@ namespace Conformance
     }
 
     /// Get the two-call-struct metadata for XrControllerModelStateMSFT
-    static inline auto getTwoCallStructData(const XrControllerModelStateMSFT&)
+    inline auto getTwoCallStructData(const XrControllerModelStateMSFT&)
     {
         static const XrControllerModelStateMSFT modelState{XR_TYPE_CONTROLLER_MODEL_STATE_MSFT};
         static const auto data = TwoCallStruct(
@@ -48,11 +49,22 @@ namespace Conformance
         return data;
     }
 
+    /// Get the two-call-struct metadata for XrRenderModelAssetDataEXT
+    inline auto getTwoCallStructData(const XrRenderModelAssetDataEXT& /*unused*/)
+    {
+        static const XrRenderModelAssetDataEXT assetData{XR_TYPE_RENDER_MODEL_ASSET_DATA_EXT};
+        static const auto data =
+            TwoCallStruct(assetData, CapacityInputCountOutput(NAME_AND_MEMPTR(XrRenderModelAssetDataEXT::bufferCapacityInput),
+                                                              NAME_AND_MEMPTR(XrRenderModelAssetDataEXT::bufferCountOutput))
+                                         .Array(NAME_AND_MEMPTR(XrRenderModelAssetDataEXT::buffer), (uint8_t)(0)));
+        return data;
+    }
+
 #undef NAME_AND_MEMPTR
 
     /// Get the two-call-struct metadata for the type parameter.
     template <typename T>
-    static inline auto getTwoCallStructData()
+    inline auto getTwoCallStructData()
     {
         return getTwoCallStructData(std::remove_const_t<std::remove_cv_t<T>>{});
     }

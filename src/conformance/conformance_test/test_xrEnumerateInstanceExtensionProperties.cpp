@@ -75,10 +75,12 @@ namespace Conformance
         REQUIRE(result == XR_SUCCESS);
         ValidateProperties(v, propertyCount);
 
-        SECTION("xrEnumerateInstanceExtensionProperties unrecognized extension")
+        SECTION("xrEnumerateInstanceExtensionProperties unrecognized struct in chain")
         {
             // Runtime/loader should ignore unrecognized struct extensions.
-            InsertUnrecognizableExtensionArray(v.data(), v.size());
+            // Runtimes should ignore unrecognized struct types.
+            std::vector<UnrecognizableOutputStruct> unknown(v.size());
+            InsertUnrecognizableStructArray(v, unknown);
             result = xrEnumerateInstanceExtensionProperties(nullptr, propertyCount, &propertyCount, v.data());
             REQUIRE(ValidateResultAllowed("xrEnumerateInstanceExtensionProperties", result));
             REQUIRE(result == XR_SUCCESS);
@@ -109,10 +111,11 @@ namespace Conformance
         REQUIRE(ValidateResultAllowed("xrEnumerateInstanceExtensionProperties", result));
         REQUIRE(result == XR_ERROR_API_LAYER_NOT_PRESENT);
 
-        SECTION("xrEnumerateInstanceExtensionProperties unrecognized extension")
+        SECTION("xrEnumerateInstanceExtensionProperties unrecognized struct in chain")
         {
-            // Runtimes should ignore unrecognized struct extensions.
-            InsertUnrecognizableExtensionArray(v.data(), v.size());
+            // Runtimes should ignore unrecognized struct types.
+            std::vector<UnrecognizableOutputStruct> unknown(v.size());
+            InsertUnrecognizableStructArray(v, unknown);
             result = xrEnumerateInstanceExtensionProperties(nullptr, propertyCount, &propertyCount, v.data());
             REQUIRE(ValidateResultAllowed("xrEnumerateInstanceExtensionProperties", result));
             REQUIRE(result == XR_SUCCESS);

@@ -24,6 +24,7 @@
 #include "utilities/event_reader.h"
 #include "utilities/feature_availability.h"
 #include "utilities/throw_helpers.h"
+#include "utilities/types_and_constants.h"
 #include "utilities/utils.h"
 #include "utilities/xrduration_literals.h"
 
@@ -214,13 +215,6 @@ namespace Conformance
         }
 
     }  // namespace deleters
-
-    static XrBaseInStructure unrecognizedExtension{XRC_UNRECOGNIZABLE_STRUCTURE_TYPE};
-
-    const void* GetUnrecognizableExtension()
-    {
-        return &unrecognizedExtension;
-    }
 
     ////////////////////////////////////////////////////////////////////////////////////////////////
     // Stopwatch
@@ -825,9 +819,9 @@ namespace Conformance
                 sessionState = sessionStateChanged.state;
                 return TickResult::SessionStateChanged;
             }
+            default:
+                return TickResult::SessionStateUnchanged;
             }
-
-            return TickResult::SessionStateUnchanged;
         }
 
         case XR_EVENT_UNAVAILABLE: {
@@ -873,21 +867,15 @@ namespace Conformance
         return RunResult::Success;
     }
 
-    FrameIterator::RunResult FrameIterator::WaitAndBeginFrame()
+    void FrameIterator::WaitAndBeginFrame()
     {
-        if (autoBasicSession->spaceVector.empty()) {
-            // AutoBasicSession must be created with flags including AutoBasicSession::createSpaces
-            return RunResult::Error;
-        }
+        XRC_CHECK_THROW(!autoBasicSession->spaceVector.empty());
 
-        XrResult result;
         XrSession session = autoBasicSession->GetSession();
         // xrWaitFrame may block.
         XrFrameWaitInfo frameWaitInfo{XR_TYPE_FRAME_WAIT_INFO};
         frameState = XrFrameState{XR_TYPE_FRAME_STATE};
-        result = xrWaitFrame(session, &frameWaitInfo, &frameState);
-        if (XR_FAILED(result))
-            return RunResult::Error;
+        XRC_CHECK_THROW_XRCMD(xrWaitFrame(session, &frameWaitInfo, &frameState));
 
         XrViewLocateInfo viewLocateInfo{XR_TYPE_VIEW_LOCATE_INFO};
         viewLocateInfo.viewConfigurationType = autoBasicSession->viewConfigurationType;
@@ -896,28 +884,20 @@ namespace Conformance
         XrViewState viewState{XR_TYPE_VIEW_STATE};
         uint32_t viewCount = (uint32_t)autoBasicSession->viewConfigurationViewVector.size();
         viewVector.resize(viewCount, {XR_TYPE_VIEW});
-        result = xrLocateViews(session, &viewLocateInfo, &viewState, viewCount, &viewCount, viewVector.data());
-        if (XR_FAILED(result))
-            return RunResult::Error;
+        XRC_CHECK_THROW_XRCMD(xrLocateViews(session, &viewLocateInfo, &viewState, viewCount, &viewCount, viewVector.data()));
+
         viewVector.resize(viewCount);
 
         XrFrameBeginInfo frameBeginInfo{XR_TYPE_FRAME_BEGIN_INFO};
-        result = xrBeginFrame(session, &frameBeginInfo);
-        if (XR_FAILED(result))
-            return RunResult::Error;
-
-        return RunResult::Success;
+        XRC_CHECK_THROW_XRCMD(xrBeginFrame(session, &frameBeginInfo));
     }
 
-    FrameIterator::RunResult FrameIterator::PrepareFrameEndInfo()
+    void FrameIterator::PrepareFrameEndInfo()
     {
-        if (autoBasicSession->spaceVector.empty()) {
-            // AutoBasicSession must be created with flags including AutoBasicSession::createSpaces
-            return RunResult::Error;
-        }
+        // AutoBasicSession must be created with flags including AutoBasicSession::createSpaces
+        XRC_CHECK_THROW(!autoBasicSession->spaceVector.empty());
 
-        if (GetGlobalData().IsUsingGraphicsPlugin() && autoBasicSession->swapchainVector.empty())
-            return RunResult::Error;
+        XRC_CHECK_THROW(!GetGlobalData().IsUsingGraphicsPlugin() || !autoBasicSession->swapchainVector.empty());
 
         frameEndInfo = XrFrameEndInfo{XR_TYPE_FRAME_END_INFO};
         frameEndInfo.displayTime = frameState.predictedDisplayTime;
@@ -949,23 +929,17 @@ namespace Conformance
         compositionLayerProjection.space = autoBasicSession->spaceVector[0];
         compositionLayerProjection.viewCount = (uint32_t)projectionViewVector.size();
         compositionLayerProjection.views = projectionViewVector.data();
-
-        return RunResult::Success;
     }
 
     FrameIterator::RunResult FrameIterator::PrepareSubmitFrame()
     {
-        RunResult runResult = WaitAndBeginFrame();
+        WaitAndBeginFrame();
+
+        RunResult runResult = CycleToNextSwapchainImage();
         if (runResult != RunResult::Success)
             return runResult;
 
-        runResult = CycleToNextSwapchainImage();
-        if (runResult != RunResult::Success)
-            return runResult;
-
-        runResult = PrepareFrameEndInfo();
-        if (runResult != RunResult::Success)
-            return runResult;
+        PrepareFrameEndInfo();
 
         return RunResult::Success;
     }
@@ -973,17 +947,14 @@ namespace Conformance
     FrameIterator::RunResult FrameIterator::SubmitFrame()
     {
         RunResult runResult = PrepareSubmitFrame();
-        if (runResult != RunResult::Success)
-            return runResult;
+        XRC_CHECK_THROW(runResult == RunResult::Success);
 
         const XrCompositionLayerBaseHeader* headerPtrArray[1] = {
             reinterpret_cast<const XrCompositionLayerBaseHeader*>(&compositionLayerProjection)};
         frameEndInfo.layerCount = 1;
         frameEndInfo.layers = headerPtrArray;
 
-        XrResult result = xrEndFrame(autoBasicSession->GetSession(), &frameEndInfo);
-        if (XR_FAILED(result))
-            return RunResult::Error;
+        XRC_CHECK_THROW_XRCMD(xrEndFrame(autoBasicSession->GetSession(), &frameEndInfo));
 
         return RunResult::Success;
     }
@@ -1018,6 +989,9 @@ namespace Conformance
             // XR_SESSION_STATE_VISIBLE, XR_SESSION_STATE_FOCUSED. We proceed based on the
             // current state.
 
+            CAPTURE(sessionState);
+            CAPTURE(m_lastError);
+            CAPTURE(m_lastErrorSource);
             switch (sessionState) {
             case XR_SESSION_STATE_UNKNOWN:
                 // Wait until we timeout or are moved to a new state.
@@ -1045,7 +1019,14 @@ namespace Conformance
             case XR_SESSION_STATE_FOCUSED: {
                 // In these states we need to submit frames. Otherwise the runtime won't
                 // necessarily move us from synchronized to visible or focused.
-                REQUIRE(SubmitFrame() == RunResult::Success);
+                // XR_MND_headless:
+                // In a headless session, the session state proceeds to XR_SESSION_STATE_SYNCHRONIZED,
+                // then XR_SESSION_STATE_VISIBLE and XR_SESSION_STATE_FOCUSED, after the call to
+                // xrBeginSession. The application does not need to call xrWaitFrame, xrBeginFrame, or
+                // xrEndFrame, unlike with non-headless sessions.
+                if (!autoBasicSession->IsSkippingGraphics()) {
+                    REQUIRE(SubmitFrame() == RunResult::Success);
+                }
 
                 // Just keep going. We haven't reached the target state yet.
                 break;
@@ -1412,4 +1393,15 @@ namespace Conformance
         OutputHandle(os, sess.GetSession());
         return os;
     }
+
+    UnrecognizableOutputStruct::UnrecognizableOutputStruct() : m_struct()
+    {
+        m_struct.type = XRC_UNRECOGNIZABLE_STRUCTURE_TYPE;
+    }
+
+    UnrecognizableInputStruct::UnrecognizableInputStruct() : m_struct()
+    {
+        m_struct.type = XRC_UNRECOGNIZABLE_STRUCTURE_TYPE;
+    }
+
 }  // namespace Conformance

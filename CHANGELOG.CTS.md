@@ -17,6 +17,167 @@ particular, since it is primarily software, pull requests may be integrated as
 they are accepted even between periodic updates. However, versions that are not
 signed tags on the `approved` branch are not valid for conformance submission.
 
+## OpenXR CTS 1.1.51.0 (2025-09-04)
+
+- Conformance Tests
+  - Fix: Thread-safe unrecognized structure type mechanisms, and clarify names of
+    sections testing correct handling of unrecognized types.
+    ([internal MR 3865](https://gitlab.khronos.org/openxr/openxr/merge_requests/3865))
+  - Fix: Extension number calculation in `xrResultToString`,
+    `xrStructureTypeToString`, and `KHR_extended_struct_name_length` tests.
+    ([internal MR 3946](https://gitlab.khronos.org/openxr/openxr/merge_requests/3946),
+    [internal issue 2544](https://gitlab.khronos.org/openxr/openxr/issues/2544))
+  - Fix: Move version directive to the first line of the OpenGL ES shaders. Similar
+    to PR 310 on OpenXR-SDK-Source.
+    ([internal MR 3950](https://gitlab.khronos.org/openxr/openxr/merge_requests/3950))
+  - Fix: Add explicit linker visibility for symbols in
+    `XrApiLayer_conformance_layer`.
+    ([internal MR 3958](https://gitlab.khronos.org/openxr/openxr/merge_requests/3958))
+  - Fix: Crash when skipping some tests due to missing view configuration type.
+    ([internal MR 3988](https://gitlab.khronos.org/openxr/openxr/merge_requests/3988))
+  - Fix: Warning from conformance layer when using `XR_MND_headless` and testing
+    it.
+    ([OpenXR-CTS PR 110](https://github.com/KhronosGroup/OpenXR-CTS/pull/110))
+  - Improvement: Enable clang-tidy bugprone-casting-through-void check.
+    ([internal MR 3865](https://gitlab.khronos.org/openxr/openxr/merge_requests/3865))
+  - Improvement: Add clang-tidy exclusions for clang-tidy-20.
+    ([internal MR 3906](https://gitlab.khronos.org/openxr/openxr/merge_requests/3906))
+  - Improvement: Track custom session state on swapchains created via
+    `xrCreateSwapchainAndroidSurfaceKHR()`
+    ([internal MR 3934](https://gitlab.khronos.org/openxr/openxr/merge_requests/3934),
+    [internal issue 2572](https://gitlab.khronos.org/openxr/openxr/issues/2572))
+  - Improvement: Make it easier to track down failures in the "graphicsBindings"
+    test that enables all graphics bindings extensions.
+    ([internal MR 3940](https://gitlab.khronos.org/openxr/openxr/merge_requests/3940))
+  - New test: Validate that action bind state matches when suggesting a binding for
+    both a `.../click` or `.../value` path and its parent (checking component
+    inference rules).
+    ([internal MR 3702](https://gitlab.khronos.org/openxr/openxr/merge_requests/3702),
+    [internal issue 1569](https://gitlab.khronos.org/openxr/openxr/issues/1569),
+    [internal MR 3962](https://gitlab.khronos.org/openxr/openxr/merge_requests/3962))
+  - New test: Validate that action values match and that coercion rules are
+    followed when suggesting a binding for both a `.../click` or `.../value` path
+    and its parent (checking component inference rules).
+    ([internal MR 3702](https://gitlab.khronos.org/openxr/openxr/merge_requests/3702),
+    [internal issue 1569](https://gitlab.khronos.org/openxr/openxr/issues/1569),
+    [internal MR 3962](https://gitlab.khronos.org/openxr/openxr/merge_requests/3962))
+  - New test: Require `XR_SESSION_NOT_FOCUSED` for haptics functions when minimum
+    version 1.1.
+    ([internal MR 3902](https://gitlab.khronos.org/openxr/openxr/merge_requests/3902))
+  - New test: Add tests for `XR_KHR_maintenance1` `grip_surface` support.
+    ([internal MR 3938](https://gitlab.khronos.org/openxr/openxr/merge_requests/3938))
+  - New test: interactive tests for `XR_FB_composition_layer_image_layout`
+    ([OpenXR-CTS PR 111](https://github.com/KhronosGroup/OpenXR-CTS/pull/111),
+    [internal issue 2591](https://gitlab.khronos.org/openxr/openxr/issues/2591),
+    [OpenXR-CTS PR 115](https://github.com/KhronosGroup/OpenXR-CTS/pull/115),
+    [internal MR 3969](https://gitlab.khronos.org/openxr/openxr/merge_requests/3969),
+    [internal MR 3974](https://gitlab.khronos.org/openxr/openxr/merge_requests/3974))
+
+## OpenXR CTS 1.1.50.0 (2025-08-14)
+
+- Conformance Tests
+  - Fix: Crash in conformance layer when exiting the
+    "XR_KHR_android_surface_swapchain-interactive" test.
+    ([internal MR 3910](https://gitlab.khronos.org/openxr/openxr/merge_requests/3910))
+  - Fix: AlphaBlend mode in `EXT_spatial_entity` tests was not respected.
+    ([internal MR 3911](https://gitlab.khronos.org/openxr/openxr/merge_requests/3911))
+  - Improvement: Add support for sanitizers in CMake with sanitizers-cmake project.
+    ([internal MR 3716](https://gitlab.khronos.org/openxr/openxr/merge_requests/3716))
+  - Improvement: Add Vulkan API layer interface and `VulkanGraphicsValidator` to
+    `XrApiLayer_runtime_conformance`, to allow correlating OpenXR and Vulkan API
+    state.
+    ([internal MR 3760](https://gitlab.khronos.org/openxr/openxr/merge_requests/3760),
+    [internal MR 3829](https://gitlab.khronos.org/openxr/openxr/merge_requests/3829),
+    [internal MR 3912](https://gitlab.khronos.org/openxr/openxr/merge_requests/3912),
+    [internal MR 3920](https://gitlab.khronos.org/openxr/openxr/merge_requests/3920),
+    [internal MR 3930](https://gitlab.khronos.org/openxr/openxr/merge_requests/3930),
+    [internal MR 3933](https://gitlab.khronos.org/openxr/openxr/merge_requests/3933),
+    [internal MR 3917](https://gitlab.khronos.org/openxr/openxr/merge_requests/3917))
+  - Improvement: add `.clang-tidy` file.
+    ([internal MR 3802](https://gitlab.khronos.org/openxr/openxr/merge_requests/3802))
+  - Improvement: Enable the clang-tidy cert-dcl16-c, bugprone-too-small-loop-
+    variable, and bugprone-switch-missing-default-case checks, making fixes
+    required to satisfy them.
+    ([internal MR 3882](https://gitlab.khronos.org/openxr/openxr/merge_requests/3882),
+    [internal MR 3893](https://gitlab.khronos.org/openxr/openxr/merge_requests/3893),
+    [internal MR 3905](https://gitlab.khronos.org/openxr/openxr/merge_requests/3905))
+  - Improvement: Disable the clang-tidy bugprone-reserved-identifier, cert-dcl37-c,
+    and cert-dcl51-cpp checks.
+    ([internal MR 3882](https://gitlab.khronos.org/openxr/openxr/merge_requests/3882),
+    [internal MR 3893](https://gitlab.khronos.org/openxr/openxr/merge_requests/3893),
+    [internal MR 3905](https://gitlab.khronos.org/openxr/openxr/merge_requests/3905))
+  - New test: Verify the runtime implementation `VkQueue` access against the
+    specification in `XrApiLayer_runtime_conformance` through the
+    `VulkanGraphicsValidator`.
+    ([internal MR 3760](https://gitlab.khronos.org/openxr/openxr/merge_requests/3760),
+    [internal MR 3829](https://gitlab.khronos.org/openxr/openxr/merge_requests/3829),
+    [internal MR 3912](https://gitlab.khronos.org/openxr/openxr/merge_requests/3912),
+    [internal MR 3920](https://gitlab.khronos.org/openxr/openxr/merge_requests/3920),
+    [internal MR 3930](https://gitlab.khronos.org/openxr/openxr/merge_requests/3930),
+    [internal MR 3933](https://gitlab.khronos.org/openxr/openxr/merge_requests/3933),
+    [internal MR 3917](https://gitlab.khronos.org/openxr/openxr/merge_requests/3917))
+  - New test: Try submitting zero layers in both unknown session state and visible
+    session state.
+    ([internal MR 3833](https://gitlab.khronos.org/openxr/openxr/merge_requests/3833),
+    [internal issue 2296](https://gitlab.khronos.org/openxr/openxr/issues/2296))
+
+## OpenXR CTS 1.1.49.0 (2025-07-03)
+
+- Conformance Tests
+  - Fix: Skip unsupported graphics tests with headless; and similarly skip tracking
+    tests for untracked systems.
+    ([internal MR 3844](https://gitlab.khronos.org/openxr/openxr/merge_requests/3844))
+  - Fix: Remove redundant device on/off sections in
+    `StateQueryFunctionsInteractive`.
+    ([internal MR 3854](https://gitlab.khronos.org/openxr/openxr/merge_requests/3854),
+    [internal issue 2277](https://gitlab.khronos.org/openxr/openxr/issues/2277))
+  - Improvement: Conformance utilities for writing tests for extensions based on
+    `XR_EXT_render_model`.
+    ([internal MR 2464](https://gitlab.khronos.org/openxr/openxr/merge_requests/2464),
+    [internal MR 3314](https://gitlab.khronos.org/openxr/openxr/merge_requests/3314))
+  - Improvement: Conformance utilities for the `XR_EXT_spatial_*` set of
+    extensions.
+    ([internal MR 3030](https://gitlab.khronos.org/openxr/openxr/merge_requests/3030))
+  - Improvement: Add timeout to `XR_EXT_hand_tracking-interactive`.
+    ([internal MR 3804](https://gitlab.khronos.org/openxr/openxr/merge_requests/3804),
+    [internal issue 2418](https://gitlab.khronos.org/openxr/openxr/issues/2418))
+  - Improvement: Clean up frame iterator helper to improve ease of troubleshooting
+    conformance failures.
+    ([internal MR 3821](https://gitlab.khronos.org/openxr/openxr/merge_requests/3821),
+    [OpenXR-CTS PR 109](https://github.com/KhronosGroup/OpenXR-CTS/pull/109))
+  - Improvement: Fix some clang-tidy warnings and errors.
+    ([internal MR 3886](https://gitlab.khronos.org/openxr/openxr/merge_requests/3886))
+  - New test: Add test for `XR_EXT_render_model`.
+    ([internal MR 2464](https://gitlab.khronos.org/openxr/openxr/merge_requests/2464),
+    [internal MR 3314](https://gitlab.khronos.org/openxr/openxr/merge_requests/3314))
+  - New test: Add test for `XR_EXT_interaction_render_model`.
+    ([internal MR 2615](https://gitlab.khronos.org/openxr/openxr/merge_requests/2615),
+    [internal MR 3240](https://gitlab.khronos.org/openxr/openxr/merge_requests/3240),
+    [internal MR 3291](https://gitlab.khronos.org/openxr/openxr/merge_requests/3291),
+    [internal MR 3870](https://gitlab.khronos.org/openxr/openxr/merge_requests/3870),
+    [internal MR 3869](https://gitlab.khronos.org/openxr/openxr/merge_requests/3869),
+    [internal MR 3881](https://gitlab.khronos.org/openxr/openxr/merge_requests/3881),
+    [internal MR 3889](https://gitlab.khronos.org/openxr/openxr/merge_requests/3889),
+    [internal MR 3895](https://gitlab.khronos.org/openxr/openxr/merge_requests/3895))
+  - New test: Add test for `XR_EXT_spatial_anchor`.
+    ([internal MR 3286](https://gitlab.khronos.org/openxr/openxr/merge_requests/3286),
+    [internal MR 3881](https://gitlab.khronos.org/openxr/openxr/merge_requests/3881),
+    [internal MR 3887](https://gitlab.khronos.org/openxr/openxr/merge_requests/3887))
+  - New test: Add test for `XR_EXT_spatial_plane_tracking`.
+    ([internal MR 3402](https://gitlab.khronos.org/openxr/openxr/merge_requests/3402),
+    [internal MR 3881](https://gitlab.khronos.org/openxr/openxr/merge_requests/3881),
+    [internal MR 3887](https://gitlab.khronos.org/openxr/openxr/merge_requests/3887))
+  - New test: Add test for `XR_EXT_spatial_marker_tracking`.
+    ([internal MR 3414](https://gitlab.khronos.org/openxr/openxr/merge_requests/3414),
+    [internal MR 3881](https://gitlab.khronos.org/openxr/openxr/merge_requests/3881),
+    [internal MR 3887](https://gitlab.khronos.org/openxr/openxr/merge_requests/3887))
+  - New test: Add test for `XR_EXT_spatial_persistence`.
+    ([internal MR 3533](https://gitlab.khronos.org/openxr/openxr/merge_requests/3533),
+    [internal MR 3873](https://gitlab.khronos.org/openxr/openxr/merge_requests/3873),
+    [internal MR 3887](https://gitlab.khronos.org/openxr/openxr/merge_requests/3887))
+  - New test: Add test for `XR_EXT_spatial_persistence_operations`.
+    ([internal MR 3873](https://gitlab.khronos.org/openxr/openxr/merge_requests/3873))
+
 ## OpenXR CTS 1.1.48.0 (2025-06-12)
 
 - Conformance Tests

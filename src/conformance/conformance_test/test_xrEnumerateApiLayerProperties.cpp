@@ -112,10 +112,11 @@ namespace Conformance
         CHECK(propertyCount2 == propertyCount);
         ValidateProperties(v, propertyCount2);
 
-        SECTION("xrEnumerateApiLayerProperties unrecognized extension")
+        SECTION("xrEnumerateApiLayerProperties unrecognized struct in chain")
         {
-            // Runtimes should ignore unrecognized struct extensions.
-            InsertUnrecognizableExtensionArray(v.data(), v.size());
+            // Runtimes should ignore unrecognized struct types.
+            std::vector<UnrecognizableOutputStruct> unknown(v.size());
+            InsertUnrecognizableStructArray(v, unknown);
             result = xrEnumerateApiLayerProperties(propertyCount, &propertyCount, v.data());
             REQUIRE(ValidateResultAllowed("xrEnumerateApiLayerProperties", result));
             REQUIRE(result == XR_SUCCESS);

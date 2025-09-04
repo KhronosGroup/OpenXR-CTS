@@ -261,7 +261,7 @@ namespace Conformance
             XrSpace baseSpace{waitCondition.baseSpace};
 
             const auto initialTime = std::chrono::steady_clock::now();
-            XrTime lastUsed;
+            XrTime lastUsed = 0;
             auto makeTimestamp = [=, &lastUsed] {
                 auto nanos = std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - initialTime);
                 lastUsed = waitCondition.initialLocateTime + nanos.count();

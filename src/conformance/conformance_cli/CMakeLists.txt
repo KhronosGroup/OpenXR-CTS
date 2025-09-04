@@ -48,6 +48,7 @@ file(
 )
 
 add_executable(conformance_cli ${LOCAL_SOURCE} ${LOCAL_HEADERS})
+add_sanitizers(conformance_cli)
 
 source_group("Headers" FILES ${LOCAL_HEADERS})
 
@@ -139,6 +140,25 @@ install(
         "$<TARGET_FILE_DIR:XrApiLayer_runtime_conformance>/XrApiLayer_runtime_conformance.json"
     DESTINATION conformance
 )
+
+if(ANDROID AND XR_USE_GRAPHICS_API_VULKAN)
+    # Copy Vulkan XR conformance layer file to the conformance_cli binary folder
+    add_custom_command(
+        TARGET conformance_cli
+        PRE_BUILD
+        COMMAND
+            "${CMAKE_COMMAND}" -E make_directory
+            "$<TARGET_FILE_DIR:conformance_cli>"
+        COMMAND
+            "${CMAKE_COMMAND}" -E copy
+            "$<TARGET_FILE:VkLayer_xr_runtime_conformance>"
+            "$<TARGET_FILE_DIR:conformance_cli>"
+        VERBATIM
+        COMMENT
+            "Copying Vulkan conformance test layer binary $<TARGET_FILE_NAME:conformance_test>"
+    )
+
+endif()
 
 # Copy test layer files to conformance_cli binary folder
 add_custom_command(

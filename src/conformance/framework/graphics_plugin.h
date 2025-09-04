@@ -82,6 +82,10 @@ namespace Conformance
     /// Color constant used as the default clear color.
     constexpr XrColor4f DarkSlateGrey = {0.184313729f, 0.309803933f, 0.309803933f, 1.0f};
 
+    /// Near and far clip planes used in standard rendering.
+    static constexpr float kNearClip = 0.05f;
+    static constexpr float kFarClip = 100.0f;
+
     /// Parameters for a particular copy of a drawable.
     struct DrawableParams
     {

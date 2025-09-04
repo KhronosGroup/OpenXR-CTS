@@ -46,6 +46,7 @@ namespace Conformance
     namespace
     {
         const auto kExtensionRequirements = FeatureSet{FeatureBitIndex::BIT_XR_VERSION_1_0, FeatureBitIndex::BIT_XR_EXT_palm_pose};
+        const auto kBackPortCoreRequirements = FeatureSet{FeatureBitIndex::BIT_XR_VERSION_1_0, FeatureBitIndex::BIT_XR_KHR_maintenance1};
         const auto kPromotedCoreRequirements = FeatureSet{FeatureBitIndex::BIT_XR_VERSION_1_1};
 
         constexpr XrVector3f Up{0, 1, 0};
@@ -786,6 +787,11 @@ namespace Conformance
         SharedGripSurface(kExtensionRequirements);
     }
 
+    TEST_CASE("GripSurface-XR_KHR_maintenance1", "[XR_KHR_maintenance1][scenario][interactive][no_auto]")
+    {
+        SharedGripSurface(kBackPortCoreRequirements);
+    }
+
     // Purpose: Ensure that the action space for grip_surface can be used for placing a hand representation.
     TEST_CASE("GripSurface", "[XR_VERSION_1_1][scenario][interactive][no_auto]")
     {
@@ -808,4 +814,15 @@ namespace Conformance
     {
         SharedGripSurfaceAutomated(kPromotedCoreRequirements);
     }
+
+    TEST_CASE("GripSurface-objective-XR_KHR_maintenance1", "[XR_KHR_maintenance1][actions][interactive]")
+    {
+        SharedGripSurfaceAutomated(kBackPortCoreRequirements);
+    }
+
+    TEST_CASE("GripSurface-objective-XR_KHR_maintenance1_1_1", "[XR_KHR_maintenance1][actions][interactive]")
+    {
+        SharedGripSurfaceAutomated(kBackPortCoreRequirements + FeatureSet{FeatureBitIndex::BIT_XR_VERSION_1_1});
+    }
+
 }  // namespace Conformance

@@ -30,8 +30,9 @@ namespace Conformance
             return "GL_STACK_UNDERFLOW";
         case GL_STACK_OVERFLOW:
             return "GL_STACK_OVERFLOW";
+        default:
+            return "<unknown " + std::to_string(err) + ">";
         }
-        return "<unknown " + std::to_string(err) + ">";
     }
 
     void CheckGLShader(GLuint shader)

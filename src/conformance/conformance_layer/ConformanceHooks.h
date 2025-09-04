@@ -104,12 +104,17 @@ struct ConformanceHooks : ConformanceHooksBase
     // Defined in Swapchain.cpp
     //
     XrResult xrCreateSwapchain(XrSession session, const XrSwapchainCreateInfo* createInfo, XrSwapchain* swapchain) override;
-    //XrResult xrDestroySwapchain(XrSwapchain swapchain) override;
+    XrResult xrDestroySwapchain(XrSwapchain swapchain) override;
     XrResult xrEnumerateSwapchainImages(XrSwapchain swapchain, uint32_t imageCapacityInput, uint32_t* imageCountOutput,
                                         XrSwapchainImageBaseHeader* images) override;
     XrResult xrAcquireSwapchainImage(XrSwapchain swapchain, const XrSwapchainImageAcquireInfo* acquireInfo, uint32_t* index) override;
     XrResult xrWaitSwapchainImage(XrSwapchain swapchain, const XrSwapchainImageWaitInfo* waitInfo) override;
     XrResult xrReleaseSwapchainImage(XrSwapchain swapchain, const XrSwapchainImageReleaseInfo* releaseInfo) override;
+
+#if defined(XR_USE_PLATFORM_ANDROID)
+    XrResult xrCreateSwapchainAndroidSurfaceKHR(XrSession session, const XrSwapchainCreateInfo* info, XrSwapchain* swapchain,
+                                                jobject* surface) override;
+#endif  // defined(XR_USE_PLATFORM_ANDROID)
 
 #if 0
     // TODO (Warning this will become stale!)

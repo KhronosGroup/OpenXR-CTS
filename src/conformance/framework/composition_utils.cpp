@@ -241,6 +241,16 @@ namespace Conformance
             std::vector<XrViewConfigurationType> runtimeViewTypes(viewCount);
             REQUIRE(XR_SUCCESS == xrEnumerateViewConfigurations(m_instance, m_systemId, viewCount, &viewCount, runtimeViewTypes.data()));
             if (std::find(runtimeViewTypes.begin(), runtimeViewTypes.end(), m_primaryViewType) == runtimeViewTypes.end()) {
+                xrDestroySession(m_session);
+
+                GlobalData& globalData = GetGlobalData();
+                if (globalData.IsUsingGraphicsPlugin()) {
+                    auto graphicsPlugin = globalData.GetGraphicsPlugin();
+                    if (graphicsPlugin->IsInitialized()) {
+                        graphicsPlugin->ShutdownDevice();
+                    }
+                }
+
                 SKIP("View type not supported by runtime");
             }
         }
@@ -295,7 +305,7 @@ namespace Conformance
             XRC_CHECK_THROW_XRCMD(xrDestroySwapchain(swapchain.first));
         }
 
-        xrDestroySession(m_session);
+        XRC_CHECK_THROW_XRCMD(xrDestroySession(m_session));
 
         GlobalData& globalData = GetGlobalData();
         if (globalData.IsUsingGraphicsPlugin()) {
@@ -587,11 +597,10 @@ namespace Conformance
             XRC_CHECK_THROW(1 == m_swapchainImages.erase(swapchain));
     }
 
-    XrSwapchain CompositionHelper::CreateStaticSwapchainSolidColor(const XrColor4f& color)
+    XrSwapchain CompositionHelper::CreateStaticSwapchainSolidColor(const XrColor4f& color, XrExtent2Di size /*= {256, 256} */)
     {
-        // Avoid using a 1x1 image here since runtimes may do special processing near texture edges.
-        RGBAImage image(256, 256);
-        image.DrawRect(0, 0, 256, 256, color);
+        RGBAImage image(size.width, size.height);
+        image.DrawRect(0, 0, size.width, size.height, color);
 
         return CreateStaticSwapchainImage(image);
     }

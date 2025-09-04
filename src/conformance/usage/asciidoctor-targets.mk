@@ -14,7 +14,7 @@ ADOCOPTS = --doctype book \
            $(ADOC_FAILURE_LEVEL) \
            $(ATTRIBOPTS)
 
-SPECREVISION = 1.1.48
+SPECREVISION = 1.1.51
 
 ifneq (,$(strip $(RELEASE)))
 # No dates or internal commit hashes in release builds for reproducibility

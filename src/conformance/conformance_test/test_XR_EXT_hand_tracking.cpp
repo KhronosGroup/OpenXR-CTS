@@ -303,7 +303,11 @@ namespace Conformance
     {
         const char* instructions =
             "Small cubes are rendered to represent the joints of each hand. "
-            "Bring index finger of both hands together to complete the validation.";
+            "Bring index finger of both hands together to complete the validation. "
+            "Prevent both hands from tracking for 20 seconds to fail.";
+
+        static constexpr std::chrono::nanoseconds kHandTrackingLostTimeout = 20s;
+        static constexpr std::chrono::nanoseconds kHandTrackingGainedTime = 1s;
 
         GlobalData& globalData = GetGlobalData();
         if (!globalData.IsInstanceExtensionSupported(XR_EXT_HAND_TRACKING_EXTENSION_NAME)) {
@@ -357,10 +361,16 @@ namespace Conformance
                                               localSpace, 1.0f, {{0, 0, 0, 1}, {-1.5f, 0, -0.3f}});
         instructionsQuad->pose.orientation = Quat::FromAxisAngle(Up, DegToRad(70));
 
+        Stopwatch sinceHandLastContinuouslySeen;
+        // avoid brief tracking glitches resetting the timer
+        Stopwatch handSeenContinuouslyFor;
+
         auto update = [&](const XrFrameState& frameState) {
             std::vector<Cube> renderedCubes;
 
             XrHandJointLocationEXT jointLocations[HAND_COUNT][XR_HAND_JOINT_COUNT_EXT];
+
+            bool eitherHandIsTracked = false;
 
             for (auto hand : {LEFT_HAND, RIGHT_HAND}) {
                 XrHandJointLocationsEXT locations{XR_TYPE_HAND_JOINT_LOCATIONS_EXT};
@@ -373,6 +383,14 @@ namespace Conformance
                 REQUIRE(XR_SUCCESS == xrLocateHandJointsEXT(handTracker[hand], &locateInfo, &locations));
 
                 if (locations.isActive) {
+                    for (const XrHandJointLocationEXT& jointLocation : jointLocations[hand]) {
+                        if ((jointLocation.locationFlags & XR_SPACE_LOCATION_POSITION_TRACKED_BIT) ==
+                            XR_SPACE_LOCATION_POSITION_TRACKED_BIT) {
+                            eitherHandIsTracked = true;
+                            break;
+                        }
+                    }
+
                     const auto& wrist = jointLocations[hand][XR_HAND_JOINT_WRIST_EXT];
                     const auto& palm = jointLocations[hand][XR_HAND_JOINT_PALM_EXT];
                     const auto& middleMetacarpal = jointLocations[hand][XR_HAND_JOINT_MIDDLE_METACARPAL_EXT];
@@ -436,8 +454,29 @@ namespace Conformance
                 }
             }
 
-            // Check if user has requested to complete the test.
+            auto runTimerWhile = [](Stopwatch& stopwatch, bool predicate) {
+                // if the predicate is false, cancel the timer
+                if (!predicate) {
+                    stopwatch.Stop();
+                }
+                // if the predicate is true, make sure timer is running.
+                else if (!stopwatch.IsStarted()) {
+                    stopwatch.Restart();
+                }
+            };
+
+            runTimerWhile(handSeenContinuouslyFor, eitherHandIsTracked);
+            bool handContinuouslySeen =
+                (handSeenContinuouslyFor.IsStarted() && handSeenContinuouslyFor.Elapsed() >= kHandTrackingGainedTime);
+            runTimerWhile(sinceHandLastContinuouslySeen, !handContinuouslySeen);
+
+            // Check if user has requested to fail or complete the test.
             {
+                // Check if the user has not had tracking of either hand for at least 20 seconds
+                // This may be the user deliberately failing the test or because of lack of permissions
+                if (sinceHandLastContinuouslySeen.IsStarted() && sinceHandLastContinuouslySeen.Elapsed() >= kHandTrackingLostTimeout) {
+                    FAIL("Test failed by user request - neither hand was tracked for longer than timeout");
+                }
                 XrHandJointLocationEXT& leftIndexTip = jointLocations[LEFT_HAND][XR_HAND_JOINT_INDEX_TIP_EXT];
                 XrHandJointLocationEXT& rightIndexTip = jointLocations[RIGHT_HAND][XR_HAND_JOINT_INDEX_TIP_EXT];
 

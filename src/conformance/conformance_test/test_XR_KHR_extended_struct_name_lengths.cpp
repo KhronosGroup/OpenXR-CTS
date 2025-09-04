@@ -64,7 +64,7 @@ namespace Conformance
                 uint64_t ext_num = 0;
                 if (value.first >= XR_EXTENSION_ENUM_BASE) {
                     // This is an extension
-                    ext_num = (value.first - XR_EXTENSION_ENUM_BASE) / XR_EXTENSION_ENUM_STRIDE;
+                    ext_num = enumValueToExtensionNumber(value.first);
                     if (!IsInstanceExtensionEnabled(ext_num)) {
                         // It's not enabled, so not enforcing that it must be the real value.
                         allowGeneratedName = true;

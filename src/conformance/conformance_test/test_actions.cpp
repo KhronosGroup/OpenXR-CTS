@@ -1104,18 +1104,28 @@ namespace Conformance
                 // required that the functions return `XR_SUCCESS` and we only added this change
                 // to the spec later (see issue 1270), so it is not really right to enforce this
                 // return code; but we can warn runtimes here instead.
-                // TODO enforce for 1.1?
                 XrResult applyResult =
                     xrApplyHapticFeedback(session, &hapticActionInfo, reinterpret_cast<XrHapticBaseHeader*>(&hapticPacket));
                 REQUIRE_RESULT_SUCCEEDED(applyResult);
-                if (applyResult != XR_SESSION_NOT_FOCUSED) {
+                // will usually be 1.0 in combined testing, but if the user asks to test a higher
+                // version, the current version will be that version, so we can use a CHECK.
+                XrVersion minApiVersion = Options::Get().minApiVersionValue;
+                static_assert(XR_VERSION_MAJOR(XR_CURRENT_API_VERSION) == 1, "This code does not handle a major version upgrade");
+                bool usingAtLeastVersion11 = XR_VERSION_MAJOR(minApiVersion) == 1 && XR_VERSION_MINOR(minApiVersion) >= 1;
+                if (usingAtLeastVersion11) {
+                    CHECK(applyResult == XR_SESSION_NOT_FOCUSED);
+                }
+                else if (applyResult != XR_SESSION_NOT_FOCUSED) {
                     WARN(
                         "Runtime should prefer XR_SESSION_NOT_FOCUSED over XR_SUCCESS when calling xrApplyHapticFeedback when the session is not focused.");
                 }
 
                 XrResult stopResult = xrStopHapticFeedback(session, &hapticActionInfo);
                 REQUIRE_RESULT_SUCCEEDED(stopResult);
-                if (applyResult != XR_SESSION_NOT_FOCUSED) {
+                if (usingAtLeastVersion11) {
+                    CHECK(applyResult == XR_SESSION_NOT_FOCUSED);
+                }
+                else if (applyResult != XR_SESSION_NOT_FOCUSED) {
                     WARN(
                         "Runtime should prefer XR_SESSION_NOT_FOCUSED over XR_SUCCESS when calling xrStopHapticFeedback when the session is not focused.");
                 }
@@ -1843,13 +1853,11 @@ namespace Conformance
 
         XrPath simpleControllerInteractionProfile = StringToPath(instance, GetSimpleInteractionProfile().InteractionProfilePathString);
 
-        std::string leftHandPathString = "/user/hand/left";
         XrPath leftHandPath{StringToPath(instance, "/user/hand/left")};
         std::shared_ptr<IInputTestDevice> leftHandInputDevice =
             CreateTestDevice(&actionLayerManager, &compositionHelper.GetInteractionManager(), instance, session,
                              simpleControllerInteractionProfile, leftHandPath, GetSimpleInteractionProfile().BindingPaths, &featureSet);
 
-        std::string rightHandPathString = "/user/hand/right";
         XrPath rightHandPath{StringToPath(instance, "/user/hand/right")};
         std::shared_ptr<IInputTestDevice> rightHandInputDevice =
             CreateTestDevice(&actionLayerManager, &compositionHelper.GetInteractionManager(), instance, session,
@@ -2252,6 +2260,810 @@ namespace Conformance
         xrSyncActions_priorityTest(kExtensionRequirements);
     }
 
+    namespace
+    {
+        bool canBeExercised(const InteractionProfileAvailMetadata& ipMetadata, const BindingPathData& bindingPathData)
+        {
+            if (bindingPathData.systemOnly) {
+                return false;
+            }
+            if (strcmp(ipMetadata.InteractionProfileShortname, "oculus/touch_controller") == 0 &&
+                ends_with(bindingPathData.Path, "/input/thumbrest/touch")) {
+                // Rift S and Quest 1 controllers lack thumbrests.
+                return false;
+            }
+            if (strcmp(ipMetadata.InteractionProfileShortname, "ext/hand_interaction_ext") == 0 &&
+                ends_with(bindingPathData.Path, "/input/aim_activate_ext/value")) {
+                // aim_activate_ext/value does not require that the values coming back
+                // actually be floats, they can also be boolean so this is hard for
+                // us to exercise.
+                return false;
+            }
+            return true;
+        }
+    }  // namespace
+
+    namespace
+    {
+        struct ParentPathToTest
+        {
+            // one or both of click and value will be populated
+            const BindingPathData* clickPathData{nullptr};
+            XrAction clickAction{XR_NULL_HANDLE};
+            const BindingPathData* valuePathData{nullptr};
+            XrAction valueAction{XR_NULL_HANDLE};
+            // actions on the parent, both of these will be populated
+            XrAction booleanAction{XR_NULL_HANDLE};
+            XrAction floatAction{XR_NULL_HANDLE};
+        };
+
+        bool HasBoolFloatBindingPath(const InteractionProfileAvailMetadata* ipMetadata)
+        {
+            for (const BindingPathData& bindingPathData : ipMetadata->BindingPaths) {
+                if (bindingPathData.Type == XR_ACTION_TYPE_BOOLEAN_INPUT || bindingPathData.Type == XR_ACTION_TYPE_FLOAT_INPUT) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        // Make a map of all the testable /click and /value paths, on a
+        // particular profile / user path, keyed by the path with that suffix
+        // stripped. In some cases, both may exist, so we store both in one
+        // struct so they can be handled as a unit. In addition to identifying
+        // these paths, this function also populates actions for /click and/or
+        // /value, as well as a boolean and float action on the parent path.
+        // (Both are always created, as if one of /click or /value doesn't
+        // exist, the other will be used with coercion.)
+        //
+        // (Uses ordered map because order may be visible, so it's nice to make
+        // it consistent.)
+        std::map<std::string, ParentPathToTest> SetupParentComponentTest(const InteractionProfileAvailMetadata& ipMetadata,
+                                                                         const std::string& topLevelUserPathString,
+                                                                         const FeatureSet& profileAndOverallRequirements,
+                                                                         XrInstance instance, InteractionManager& interactionManager,
+                                                                         XrActionSet actionSet, bool exercisableOnly)
+        {
+            std::map<std::string, ParentPathToTest> pathsByParent;
+
+            XrPath topLevelUserPath{StringToPath(instance, topLevelUserPathString.data())};
+            XrPath interactionProfilePath = StringToPath(instance, ipMetadata.InteractionProfilePathString);
+
+            uint32_t uniqueActionNameCounter = 0;
+            auto GetActionNames = [&uniqueActionNameCounter]() mutable -> std::tuple<std::string, std::string> {
+                uniqueActionNameCounter++;
+                return std::tuple<std::string, std::string>{"parent_component_test_action_" + std::to_string(uniqueActionNameCounter),
+                                                            "parent component test action " + std::to_string(uniqueActionNameCounter)};
+            };
+
+            // Fill pathsByParent with all /click and /value paths.
+            // We will need to know the existence of both for each parent path we test later.
+            for (const BindingPathData& bindingPathData : ipMetadata.BindingPaths) {
+                INFO("child binding path: " << bindingPathData.Path);
+
+                // First, we filter out non-boolean/float paths, paths out of scope, paths we can't test, and unavailable paths.
+
+                if (bindingPathData.Type != XR_ACTION_TYPE_BOOLEAN_INPUT && bindingPathData.Type != XR_ACTION_TYPE_FLOAT_INPUT) {
+                    continue;
+                }
+                if (!starts_with(bindingPathData.Path, topLevelUserPathString)) {
+                    continue;
+                }
+                if (exercisableOnly && !canBeExercised(ipMetadata, bindingPathData)) {
+                    continue;
+                }
+                auto pathRequirements = GetInteractionProfileAvailability(bindingPathData.Availability);
+                if (!pathRequirements.IsSatisfiedBy(profileAndOverallRequirements)) {
+                    continue;
+                }
+
+                // Then, we check for the suffixes we care about, and put a suffix-stripped copy into parentPath.
+
+                bool isClick = ends_with(bindingPathData.Path, "/click");
+                bool isValue = ends_with(bindingPathData.Path, "/value");
+
+                std::string parentPath;
+                if (isClick) {
+                    parentPath = {bindingPathData.Path, strlen(bindingPathData.Path) - strlen("/click")};
+                }
+                else if (isValue) {
+                    parentPath = {bindingPathData.Path, strlen(bindingPathData.Path) - strlen("/value")};
+                }
+                else {
+                    continue;
+                }
+
+                // Now we know we care about this path, so we add it to the map if it isn't.
+
+                auto res = pathsByParent.insert({std::move(parentPath), {}});
+                auto it = res.first;
+                const std::string& parentPathRef = it->first;
+                ParentPathToTest& pathToTest = it->second;
+                auto inserted = res.second;
+
+                // Lastly, we create the action for the child path (with e.g. /click),
+                // and if it hasn't been done already, both a float and a boolean action
+                // for the parent path. These are returned in the struct.
+
+                XrPath childBindingPath = StringToPath(instance, bindingPathData.Path);
+                XrPath parentBindingPath = StringToPath(instance, parentPathRef);
+
+                XrActionCreateInfo actionCreateInfo{XR_TYPE_ACTION_CREATE_INFO};
+                actionCreateInfo.countSubactionPaths = 1;
+                actionCreateInfo.subactionPaths = &topLevelUserPath;
+
+                if (isClick) {
+                    pathToTest.clickPathData = &bindingPathData;
+
+                    actionCreateInfo.actionType = XR_ACTION_TYPE_BOOLEAN_INPUT;
+                    auto actionNames = GetActionNames();
+                    strcpy(actionCreateInfo.localizedActionName, std::get<1>(actionNames).c_str());
+                    strcpy(actionCreateInfo.actionName, std::get<0>(actionNames).c_str());
+                    REQUIRE_RESULT(xrCreateAction(actionSet, &actionCreateInfo, &pathToTest.clickAction), XR_SUCCESS);
+                    interactionManager.AddActionBindings(interactionProfilePath, {{pathToTest.clickAction, childBindingPath}});
+                }
+                if (isValue) {
+                    pathToTest.valuePathData = &bindingPathData;
+
+                    actionCreateInfo.actionType = XR_ACTION_TYPE_FLOAT_INPUT;
+                    auto actionNames = GetActionNames();
+                    strcpy(actionCreateInfo.localizedActionName, std::get<1>(actionNames).c_str());
+                    strcpy(actionCreateInfo.actionName, std::get<0>(actionNames).c_str());
+                    REQUIRE_RESULT(xrCreateAction(actionSet, &actionCreateInfo, &pathToTest.valueAction), XR_SUCCESS);
+                    interactionManager.AddActionBindings(interactionProfilePath, {{pathToTest.valueAction, childBindingPath}});
+                }
+
+                // we set up actions for each parent path once
+                if (inserted) {
+                    actionCreateInfo.actionType = XR_ACTION_TYPE_BOOLEAN_INPUT;
+                    auto actionNames = GetActionNames();
+                    strcpy(actionCreateInfo.localizedActionName, std::get<1>(actionNames).c_str());
+                    strcpy(actionCreateInfo.actionName, std::get<0>(actionNames).c_str());
+                    REQUIRE_RESULT(xrCreateAction(actionSet, &actionCreateInfo, &pathToTest.booleanAction), XR_SUCCESS);
+
+                    actionCreateInfo.actionType = XR_ACTION_TYPE_FLOAT_INPUT;
+                    actionNames = GetActionNames();
+                    strcpy(actionCreateInfo.localizedActionName, std::get<1>(actionNames).c_str());
+                    strcpy(actionCreateInfo.actionName, std::get<0>(actionNames).c_str());
+                    REQUIRE_RESULT(xrCreateAction(actionSet, &actionCreateInfo, &pathToTest.floatAction), XR_SUCCESS);
+
+                    interactionManager.AddActionBindings(interactionProfilePath, {{pathToTest.booleanAction, parentBindingPath}});
+                    interactionManager.AddActionBindings(interactionProfilePath, {{pathToTest.floatAction, parentBindingPath}});
+                }
+            }
+
+            return pathsByParent;
+        }
+    }  // namespace
+
+    namespace UnseenValue
+    {
+        constexpr float cStepSize = 0.5f;
+        const int32_t cStepSizeOffset = -int32_t(std::roundf(-1.f / cStepSize));
+
+        class Tracker
+        {
+        public:
+            Tracker() = default;
+
+            void PopulateBool()
+            {
+                assert(m_actionType == 0);
+                m_actionType = XR_ACTION_TYPE_BOOLEAN_INPUT;
+                // Need to see 0 1
+                m_unseenValues = {false, true};
+            }
+
+            bool HandleBool(const BindingPathData& data, XrActionStateBoolean booleanState)
+            {
+                assert(m_actionType == XR_ACTION_TYPE_BOOLEAN_INPUT);
+                auto key = int32_t(booleanState.currentState);
+                return See(data, key);
+            }
+
+            void PopulateFloat()
+            {
+                assert(m_actionType == 0);
+                m_actionType = XR_ACTION_TYPE_FLOAT_INPUT;
+                // Need to see normalized [0..2] 0 1 2
+                for (float f = 0.f; f <= 1.f; f += cStepSize) {
+                    m_unseenValues.insert(int32_t(std::roundf(f / cStepSize)));
+                }
+            }
+
+            bool HandleFloat(const BindingPathData& data, XrActionStateFloat floatState)
+            {
+                assert(m_actionType == XR_ACTION_TYPE_FLOAT_INPUT);
+                auto key = int32_t(std::roundf(floatState.currentState / cStepSize));
+                return See(data, key);
+            }
+
+            void PopulateVector2f()
+            {
+                assert(m_actionType == 0);
+                m_actionType = XR_ACTION_TYPE_VECTOR2F_INPUT;
+                // Need to see normalized [0..4] x + y * 10:
+                //    01 02 03
+                // 10 11 12 13 14
+                // 20 21 22 23 24
+                // 30 31 32 33 34
+                //    41 42 43
+
+                // Avoid corner values that a circular thumbstick can't generate (both > cos(45_deg)):
+                const float limit = std::cos(std::acos(-1.f) / 4.f);
+
+                for (float x = -1.f; x <= 1.f; x += cStepSize) {
+                    int32_t i = int32_t(std::roundf(x / cStepSize)) + cStepSizeOffset;
+                    for (float y = -1.f; y <= 1.f; y += cStepSize) {
+                        if ((std::fabs(x) > limit) && (std::fabs(y) > limit))
+                            continue;
+                        int32_t j = int32_t(std::roundf(y / cStepSize)) + cStepSizeOffset;
+                        m_unseenValues.insert(i + j * 10);
+                    }
+                }
+            }
+
+            bool HandleVector2f(const BindingPathData& data, XrActionStateVector2f vectorState)
+            {
+                assert(m_actionType == XR_ACTION_TYPE_VECTOR2F_INPUT);
+                auto i = int32_t(std::roundf(vectorState.currentState.x / cStepSize)) + cStepSizeOffset;
+                auto j = int32_t(std::roundf(vectorState.currentState.y / cStepSize)) + cStepSizeOffset;
+                auto key = i + j * 10;
+                return See(data, key);
+            }
+
+            std::string GetPrompt(const BindingPathData& data) const
+            {
+                // If we've seen all the values, leave the prompt empty
+                if (m_unseenValues.empty()) {
+                    return "";
+                }
+
+                // Format the prompt as \n/path/to/component:\n[unseen value 1] [unseen value 2]
+                //
+                // This can result in messages that aren't intuitive, like:
+                // \n/user/hand/right/input/trigger/value:\ntrue
+                // but this is because m_actionType may not match data.Type,
+                // requiring a coercion by the runtime.
+                std::string nextActionPrompt = "\n" + std::string(data.Path) + ":\n";
+                auto fmt_float = [](float v) -> std::string {
+                    auto s = std::to_string(v);
+                    if (s.length() > 4)
+                        s.resize(4);
+                    return s;
+                };
+                for (auto remainingKeys : m_unseenValues) {
+                    switch (m_actionType) {
+                    case XR_ACTION_TYPE_BOOLEAN_INPUT:
+                        nextActionPrompt += remainingKeys ? "true " : "false ";
+                        break;
+                    case XR_ACTION_TYPE_FLOAT_INPUT:
+                        nextActionPrompt += fmt_float(static_cast<float>(remainingKeys) * cStepSize) + " ";
+                        break;
+                    case XR_ACTION_TYPE_VECTOR2F_INPUT: {
+                        float x = static_cast<float>((remainingKeys % 10) - 2) * cStepSize;
+                        float y = ((static_cast<float>(remainingKeys) / 10) - 2) * cStepSize;
+                        nextActionPrompt += "(" + fmt_float(x) + "," + fmt_float(y) + ") ";
+                        break;
+                    }
+                    case XR_ACTION_TYPE_POSE_INPUT:
+                    case XR_ACTION_TYPE_VIBRATION_OUTPUT:
+                        break;
+                    case XR_ACTION_TYPE_MAX_ENUM:
+                    default:
+                        WARN("Unexpected action type " << m_actionType);
+                        break;
+                    }
+                }
+
+                return nextActionPrompt;
+            }
+
+            size_t UnseenCount() const
+            {
+                return m_unseenValues.size();
+            }
+            size_t SeenCount() const
+            {
+                return m_seenCount;
+            }
+
+#if !defined(NDEBUG)
+            const std::set<int32_t>& DebugGetKeys() const
+            {
+                return m_unseenValues;
+            }
+#endif
+
+        private:
+            bool See(const BindingPathData& data, int32_t key)
+            {
+                (void)data;  // not always used
+                // Remove the key if it's never been seen.
+                if (m_unseenValues.count(key) > 0) {
+                    m_unseenValues.erase(key);
+                    ++m_seenCount;
+#if !defined(NDEBUG)
+                    ReportF("%s saw %d", data.Path, key);
+#endif
+                    return true;
+                }
+                return false;
+            }
+            XrActionType m_actionType{XrActionType(0)};
+            std::set<int32_t> m_unseenValues;
+            uint32_t m_seenCount;
+        };
+
+        class Synthesizer
+        {
+        public:
+            void Advance()
+            {
+                // Use cStepSize / 2 to generate {-1.0, -0.5, 0.0, 0.5, 1.0} for x, y in GetVector2f.
+                m_synthesizedX += cStepSize / 2.f;
+                if (m_synthesizedX > 1.f) {
+                    m_synthesizedX = 0.f;
+                    m_synthesizedY += cStepSize / 2.f;
+                    if (m_synthesizedY > 1.f) {
+                        m_synthesizedY = 0.f;
+                    }
+                }
+            }
+
+            bool GetBool()
+            {
+                return m_synthesizedX > 0.5f;
+            }
+            float GetFloat()
+            {
+                return m_synthesizedX;
+            }
+            XrVector2f GetVector2f()
+            {
+                float x = (m_synthesizedX - 0.5f) * 2.f;
+                float y = (m_synthesizedY - 0.5f) * 2.f;
+                return {x, y};
+            }
+
+        private:
+            // Synthetic values for automation (these loop around by cStepSize in x then y order).
+            float m_synthesizedX{0.f};
+            float m_synthesizedY{0.f};
+        };
+    }  // namespace UnseenValue
+
+    // Purpose: Verify that if a parent component and the child component it
+    // should be mapped to are both attached, that the isActive of the parent
+    // component and that of the component it should be mapped to match. This is
+    // tested over five frames in which any path was active to increase the
+    // opportunity for failures.
+    //
+    // See ParentComponentsValues for a more detailed explanation.
+    TEST_CASE("ParentComponentsBindState", "[actions][interactive]")
+    {
+        GlobalData& globalData = GetGlobalData();
+
+        FeatureSet enabled;
+        globalData.PopulateMinVersionAndEnabledExtensions(enabled);
+        FeatureSet available;
+        globalData.PopulateMaxSupportedVersionAndAvailableExtensions(available);
+
+        auto TestParentComponentsOfProfile = [](const InteractionProfileAvailMetadata& ipMetadata,
+                                                const std::string& topLevelUserPathString,
+                                                const FeatureSet& profileAndOverallRequirements) {
+            CompositionHelper compositionHelper("Parent Components Bind State", profileAndOverallRequirements);
+            XrInstance instance = compositionHelper.GetInstance();
+            XrSession session = compositionHelper.GetSession();
+            InteractionManager& interactionManager = compositionHelper.GetInteractionManager();
+
+            compositionHelper.BeginSession();
+
+            ActionLayerManager actionLayerManager(compositionHelper);
+            actionLayerManager.WaitForSessionFocusWithMessage();
+
+            XrPath topLevelUserPath{StringToPath(instance, topLevelUserPathString.data())};
+            XrPath interactionProfilePath = StringToPath(instance, ipMetadata.InteractionProfilePathString);
+
+            std::shared_ptr<IInputTestDevice> inputDevice =
+                CreateTestDevice(&actionLayerManager, &interactionManager, instance, session, interactionProfilePath, topLevelUserPath,
+                                 ipMetadata.BindingPaths, &profileAndOverallRequirements);
+
+            XrActionSet actionSet{XR_NULL_HANDLE};
+            XrActionSetCreateInfo actionSetCreateInfo{XR_TYPE_ACTION_SET_CREATE_INFO};
+            strcpy(actionSetCreateInfo.localizedActionSetName, "test action set localized name");
+            strcpy(actionSetCreateInfo.actionSetName, "test_action_set_name");
+            REQUIRE_RESULT(xrCreateActionSet(instance, &actionSetCreateInfo, &actionSet), XR_SUCCESS);
+
+            std::map<std::string, ParentPathToTest> pathsByParent = SetupParentComponentTest(
+                ipMetadata, topLevelUserPathString, profileAndOverallRequirements, instance, interactionManager, actionSet, false);
+
+            if (pathsByParent.empty()) {
+                ReportF("Skipping %s as no candidate /click or /value paths were found", ipMetadata.InteractionProfileShortname);
+                return;
+            }
+
+            interactionManager.AddActionSet(actionSet);
+            interactionManager.AttachActionSets();
+
+            XrActionsSyncInfo syncInfo{XR_TYPE_ACTIONS_SYNC_INFO};
+            XrActiveActionSet activeActionSet{actionSet};
+            syncInfo.activeActionSets = &activeActionSet;
+            syncInfo.countActiveActionSets = 1;
+
+            inputDevice->SetDeviceActiveWithoutWaiting(/*state = */ true);
+
+            const std::chrono::seconds bindingWaitTime = 30s;  // matches SetDeviceActive
+            const auto timeoutTime = std::chrono::system_clock::now() + bindingWaitTime;
+
+            const int requiredActiveIterations = 5;
+            int activeIterations = 0;
+            while (activeIterations < requiredActiveIterations && std::chrono::system_clock::now() < timeoutTime) {
+                XrBool32 anyPathWasActive = XR_FALSE;
+                actionLayerManager.SyncActionsUntilFocusWithMessage(syncInfo);
+
+                for (auto& it : pathsByParent) {
+                    XrActionStateGetInfo getInfo{XR_TYPE_ACTION_STATE_GET_INFO};
+                    const ParentPathToTest& pathToTest = it.second;
+
+                    INFO("parent path: " << it.first);
+
+                    getInfo.action = pathToTest.booleanAction;
+                    XrActionStateBoolean booleanState{XR_TYPE_ACTION_STATE_BOOLEAN};
+                    REQUIRE_RESULT(xrGetActionStateBoolean(session, &getInfo, &booleanState), XR_SUCCESS);
+                    anyPathWasActive |= booleanState.isActive;
+
+                    getInfo.action = pathToTest.floatAction;
+                    XrActionStateFloat floatState{XR_TYPE_ACTION_STATE_FLOAT};
+                    REQUIRE_RESULT(xrGetActionStateFloat(session, &getInfo, &floatState), XR_SUCCESS);
+                    anyPathWasActive |= floatState.isActive;
+
+                    if (pathToTest.clickAction != XR_NULL_HANDLE) {
+                        getInfo.action = pathToTest.clickAction;
+                        XrActionStateBoolean clickState{XR_TYPE_ACTION_STATE_BOOLEAN};
+                        REQUIRE_RESULT(xrGetActionStateBoolean(session, &getInfo, &clickState), XR_SUCCESS);
+                        anyPathWasActive |= clickState.isActive;
+                        REQUIRE(booleanState.isActive == clickState.isActive);
+                        if (pathToTest.valueAction == XR_NULL_HANDLE) {
+                            REQUIRE(floatState.isActive == clickState.isActive);
+                            // otherwise, .../value handles float
+                        }
+                    }
+                    if (pathToTest.valueAction != XR_NULL_HANDLE) {
+                        getInfo.action = pathToTest.valueAction;
+                        XrActionStateFloat valueState{XR_TYPE_ACTION_STATE_FLOAT};
+                        REQUIRE_RESULT(xrGetActionStateFloat(session, &getInfo, &valueState), XR_SUCCESS);
+                        anyPathWasActive |= valueState.isActive;
+                        REQUIRE(floatState.isActive == valueState.isActive);
+                        if (pathToTest.clickAction == XR_NULL_HANDLE) {
+                            REQUIRE(booleanState.isActive == valueState.isActive);
+                            // otherwise, .../click handles boolean
+                        }
+                    }
+                }
+                if (anyPathWasActive) {
+                    activeIterations++;
+                }
+            }
+            if (activeIterations < requiredActiveIterations) {
+                if (activeIterations == 0) {
+                    FAIL("Timeout waiting for any binding to become active");
+                }
+                FAIL("Only had " << activeIterations << " iterations with active bindings before timeout,"
+                                 << " require " << requiredActiveIterations << " to pass");
+            }
+        };
+
+        const std::string leftHandString{"/user/hand/left"};
+        const std::string rightHandString{"/user/hand/right"};
+        FeatureSet required{enabled};
+        std::vector<const InteractionProfileAvailMetadata*> enabledProfiles;
+        // Looping over all profiles means we do not have to de-duplicate the command line args
+        // We combine all interaction profiles because we may be able to exercise paths
+        // that would not be exercised if we only enabled the requirements of one at a time
+        for (const InteractionProfileAvailMetadata& ipMetadata : GetAllInteractionProfiles()) {
+            if (!IsInteractionProfileEnabled(ipMetadata.InteractionProfileShortname)) {
+                continue;
+            }
+            enabledProfiles.push_back(&ipMetadata);
+            FeatureSet requiredForProfile;
+            REQUIRE(FindFeasibleFeatureSetFromAvailability(ipMetadata.Availability, available, required, true, requiredForProfile));
+            required += requiredForProfile;
+        }
+
+        const bool leftHandUnderTest = globalData.leftHandUnderTest;
+        const bool rightHandUnderTest = globalData.rightHandUnderTest;
+        // `required` now contains all extensions needed for all listed interaction profiles.
+        // (But not any extra top level /user paths.)
+        for (const InteractionProfileAvailMetadata* ipMetadata : enabledProfiles) {
+            for (const auto& topLevelUserPathInfo : ipMetadata->TopLevelPaths) {
+                const char* const topLevelUserPathString = topLevelUserPathInfo.first;
+                if (!GetInteractionProfileAvailability(topLevelUserPathInfo.second).IsSatisfiedBy(required)) {
+                    ReportF("Skipping %s on %s - top level /user path not available", ipMetadata->InteractionProfileShortname,
+                            topLevelUserPathString);
+                    continue;
+                }
+                if (!HasBoolFloatBindingPath(ipMetadata)) {
+                    ReportF("Skipping %s as no boolean or float paths are supported", ipMetadata->InteractionProfileShortname);
+                    continue;
+                }
+                if ((topLevelUserPathString == leftHandString && !leftHandUnderTest) ||
+                    (topLevelUserPathString == rightHandString && !rightHandUnderTest)) {
+                    continue;
+                }
+
+                INFO(ipMetadata->InteractionProfileShortname);
+                TestParentComponentsOfProfile(*ipMetadata, topLevelUserPathString, required);
+            }
+        }
+    }
+
+    // Purpose: Verify that if a parent component and the child component it
+    // should be mapped to are both attached, tests that the values reported by
+    // the parent and the component it should be mapped to match (including
+    // specified coercions).
+    //
+    // According to the spec, if a path would be valid if you appended /click or
+    // /value, then that "parent" path is treated as if it were the path with
+    // that appended. If both /click and /value exist, there is preference for
+    // selecting /click for boolean actions and /value for float actions.
+    //
+    // Specifically, we wait for (and ask for) the user to enter, on each parent
+    // path, at least two states for each action, i.e. both false and true on
+    // the boolean action, and near two of 0.0, 0.5, and 1.0 on the float
+    // action. During this time we validate that the returned values match as
+    // required by the spec.
+    TEST_CASE("ParentComponentsValues", "[actions][interactive]")
+    {
+        GlobalData& globalData = GetGlobalData();
+
+        FeatureSet enabled;
+        globalData.PopulateMinVersionAndEnabledExtensions(enabled);
+        FeatureSet available;
+        globalData.PopulateMaxSupportedVersionAndAvailableExtensions(available);
+
+        auto TestParentComponentsOfProfile = [](const InteractionProfileAvailMetadata& ipMetadata,
+                                                const std::string& topLevelUserPathString,
+                                                const FeatureSet& profileAndOverallRequirements) {
+            CompositionHelper compositionHelper("Parent Components Values", profileAndOverallRequirements);
+            XrInstance instance = compositionHelper.GetInstance();
+            XrSession session = compositionHelper.GetSession();
+            InteractionManager& interactionManager = compositionHelper.GetInteractionManager();
+
+            compositionHelper.BeginSession();
+
+            ActionLayerManager actionLayerManager(compositionHelper);
+            actionLayerManager.WaitForSessionFocusWithMessage();
+
+            XrPath topLevelUserPath{StringToPath(instance, topLevelUserPathString.data())};
+            XrPath interactionProfilePath = StringToPath(instance, ipMetadata.InteractionProfilePathString);
+
+            std::shared_ptr<IInputTestDevice> inputDevice =
+                CreateTestDevice(&actionLayerManager, &interactionManager, instance, session, interactionProfilePath, topLevelUserPath,
+                                 ipMetadata.BindingPaths, &profileAndOverallRequirements);
+
+            XrActionSet actionSet{XR_NULL_HANDLE};
+            XrActionSetCreateInfo actionSetCreateInfo{XR_TYPE_ACTION_SET_CREATE_INFO};
+            strcpy(actionSetCreateInfo.localizedActionSetName, "test action set localized name");
+            strcpy(actionSetCreateInfo.actionSetName, "test_action_set_name");
+            REQUIRE_RESULT(xrCreateActionSet(instance, &actionSetCreateInfo, &actionSet), XR_SUCCESS);
+
+            std::map<std::string, ParentPathToTest> rawPathsByParent = SetupParentComponentTest(
+                ipMetadata, topLevelUserPathString, profileAndOverallRequirements, instance, interactionManager, actionSet, true);
+
+            if (rawPathsByParent.empty()) {
+                ReportF("Skipping %s as no candidate /click or /value paths were found", ipMetadata.InteractionProfileShortname);
+                return;
+            }
+
+            // To ensure all paths are exercised, and to provide hints to the
+            // user of any paths they have not exercised, transform the map
+            // above into a vector with tracking of which states we have not
+            // seen. Once we have seen two on each, the test has passed.
+            struct TrackedParentPath
+            {
+                std::string parentPath;
+                ParentPathToTest pathToTest;
+                UnseenValue::Tracker unseenBoolStates;
+                UnseenValue::Tracker unseenFloatStates;
+            };
+            std::vector<TrackedParentPath> trackedPaths;
+            for (const auto& pair : rawPathsByParent) {
+                TrackedParentPath trackedPath = {pair.first, pair.second};
+                trackedPath.unseenBoolStates.PopulateBool();
+                trackedPath.unseenFloatStates.PopulateFloat();
+                trackedPaths.push_back(trackedPath);
+            }
+
+            interactionManager.AddActionSet(actionSet);
+            interactionManager.AttachActionSets();
+
+            XrActionsSyncInfo syncInfo{XR_TYPE_ACTIONS_SYNC_INFO};
+            XrActiveActionSet activeActionSet{actionSet};
+            syncInfo.activeActionSets = &activeActionSet;
+            syncInfo.countActiveActionSets = 1;
+
+            inputDevice->SetDeviceActiveWithoutWaiting(/*state = */ true);
+
+            std::chrono::seconds bindingWaitTime = 30s;      // matches SetDeviceActive
+            const std::chrono::seconds stallWaitTime = 30s;  // time to wait between novel inputs
+            auto timeoutTime = std::chrono::system_clock::now() + bindingWaitTime;
+
+            UnseenValue::Synthesizer valueSynthesizer;
+
+            XrBool32 anyPathHasBeenActive = XR_FALSE;
+            std::set<std::string> satisfiedTrackedPaths{};
+            while (true) {
+                actionLayerManager.SyncActionsUntilFocusWithMessage(syncInfo);
+
+                bool gotNewInput = false;
+                std::string nextActionPrompt = "";
+
+                auto updateNextActionPrompt = [&nextActionPrompt](const UnseenValue::Tracker& tracker, const BindingPathData& data) {
+                    if (nextActionPrompt.empty() && tracker.SeenCount() < 2) {
+                        nextActionPrompt = tracker.GetPrompt(data);
+                    }
+                };
+
+                for (TrackedParentPath& trackedPath : trackedPaths) {
+                    if (satisfiedTrackedPaths.count(trackedPath.parentPath) > 0) {
+                        continue;
+                    }
+
+                    XrActionStateGetInfo getInfo{XR_TYPE_ACTION_STATE_GET_INFO};
+                    const ParentPathToTest& pathToTest = trackedPath.pathToTest;
+
+                    INFO("parent path: " << trackedPath.parentPath);
+
+                    getInfo.action = pathToTest.booleanAction;
+                    XrActionStateBoolean booleanState{XR_TYPE_ACTION_STATE_BOOLEAN};
+                    REQUIRE_RESULT(xrGetActionStateBoolean(session, &getInfo, &booleanState), XR_SUCCESS);
+                    anyPathHasBeenActive |= booleanState.isActive;
+                    if (booleanState.isActive) {
+                        gotNewInput |= trackedPath.unseenBoolStates.HandleBool(
+                            pathToTest.clickAction != XR_NULL_HANDLE ? *pathToTest.clickPathData : *pathToTest.valuePathData, booleanState);
+                    }
+
+                    getInfo.action = pathToTest.floatAction;
+                    XrActionStateFloat floatState{XR_TYPE_ACTION_STATE_FLOAT};
+                    REQUIRE_RESULT(xrGetActionStateFloat(session, &getInfo, &floatState), XR_SUCCESS);
+                    anyPathHasBeenActive |= floatState.isActive;
+                    if (floatState.isActive) {
+                        gotNewInput |= trackedPath.unseenFloatStates.HandleFloat(
+                            pathToTest.valueAction != XR_NULL_HANDLE ? *pathToTest.valuePathData : *pathToTest.clickPathData, floatState);
+                    }
+
+                    // If there is a child /click action, the boolean action on
+                    // the parent must have the same value, and if there is no
+                    // /value action, the float action on the parent must be 0.0
+                    // or 1.0 if /click is false or true respectively.
+                    if (pathToTest.clickAction != XR_NULL_HANDLE) {
+                        getInfo.action = pathToTest.clickAction;
+                        XrActionStateBoolean clickState{XR_TYPE_ACTION_STATE_BOOLEAN};
+                        REQUIRE_RESULT(xrGetActionStateBoolean(session, &getInfo, &clickState), XR_SUCCESS);
+                        anyPathHasBeenActive |= clickState.isActive;
+                        REQUIRE(booleanState.isActive == clickState.isActive);
+                        REQUIRE(booleanState.currentState == clickState.currentState);
+                        updateNextActionPrompt(trackedPath.unseenBoolStates, *pathToTest.clickPathData);
+                        if (pathToTest.valueAction == XR_NULL_HANDLE) {
+                            REQUIRE(floatState.isActive == clickState.isActive);
+                            REQUIRE(floatState.currentState == (clickState.currentState * 1.0f));
+                            updateNextActionPrompt(trackedPath.unseenFloatStates, *pathToTest.clickPathData);
+                            // otherwise, .../value handles float
+                        }
+                    }
+
+                    // If there is a child /value action, the float action on
+                    // the parent must have the same value, and if there is no
+                    // /click action, the boolean action on the parent must be
+                    // based on a thresholding of that float value, however, it
+                    // should use hysteresis, so we cannot easily assert
+                    // anything here.
+                    if (pathToTest.valueAction != XR_NULL_HANDLE) {
+                        getInfo.action = pathToTest.valueAction;
+                        XrActionStateFloat valueState{XR_TYPE_ACTION_STATE_FLOAT};
+                        REQUIRE_RESULT(xrGetActionStateFloat(session, &getInfo, &valueState), XR_SUCCESS);
+                        anyPathHasBeenActive |= valueState.isActive;
+                        REQUIRE(floatState.isActive == valueState.isActive);
+                        REQUIRE(floatState.currentState == valueState.currentState);
+                        updateNextActionPrompt(trackedPath.unseenFloatStates, *pathToTest.valuePathData);
+                        if (pathToTest.clickAction == XR_NULL_HANDLE) {
+                            REQUIRE(booleanState.isActive == (valueState.isActive));
+                            updateNextActionPrompt(trackedPath.unseenBoolStates, *pathToTest.valuePathData);
+                            // otherwise, .../click handles boolean
+                        }
+                    }
+
+                    // consider it passed as long as every path has had multiple seen states
+                    if (trackedPath.unseenBoolStates.SeenCount() >= 2 && trackedPath.unseenFloatStates.SeenCount() >= 2) {
+                        satisfiedTrackedPaths.insert(trackedPath.parentPath);
+                    }
+                }
+
+                if (satisfiedTrackedPaths.size() == trackedPaths.size()) {
+                    break;
+                }
+
+                // For automation only, drive inputs through a set of legal values that should cover all cases required by UnseenValueTracker.
+                {
+                    valueSynthesizer.Advance();
+
+                    for (TrackedParentPath& trackedPath : trackedPaths) {
+                        if (trackedPath.pathToTest.clickAction != XR_NULL_HANDLE) {
+                            inputDevice->SetButtonStateBool(StringToPath(instance, trackedPath.pathToTest.clickPathData->Path),
+                                                            valueSynthesizer.GetBool(), true);
+                        }
+                        if (trackedPath.pathToTest.valueAction != XR_NULL_HANDLE) {
+                            inputDevice->SetButtonStateFloat(StringToPath(instance, trackedPath.pathToTest.valuePathData->Path),
+                                                             valueSynthesizer.GetFloat(), 0, true);
+                        }
+                    }
+                }
+
+                if (gotNewInput) {
+                    timeoutTime = std::chrono::system_clock::now() + stallWaitTime;
+                    continue;
+                }
+                if (std::chrono::system_clock::now() >= timeoutTime) {
+                    if (!anyPathHasBeenActive) {
+                        FAIL("Timeout waiting for any binding to become active");
+                    }
+                    FAIL("Timeout waiting for inputs. All required inputs were satisfied on " << satisfiedTrackedPaths.size() << "/"
+                                                                                              << trackedPaths.size() << " paths.");
+                }
+                if (nextActionPrompt.empty()) {
+                    nextActionPrompt = "[unknown next action]";  // possible CTS bug
+                }
+                std::string prompt = "Used " + std::to_string(satisfiedTrackedPaths.size()) + "/" + std::to_string(trackedPaths.size()) +
+                                     " inputs on:\n" + topLevelUserPathString + nextActionPrompt;
+                actionLayerManager.DisplayMessage(prompt);
+            }
+        };
+
+        const std::string leftHandString{"/user/hand/left"};
+        const std::string rightHandString{"/user/hand/right"};
+        FeatureSet required{enabled};
+        std::vector<const InteractionProfileAvailMetadata*> enabledProfiles;
+        // Looping over all profiles means we do not have to de-duplicate the command line args
+        // We combine all interaction profiles because we may be able to exercise paths
+        // that would not be exercised if we only enabled the requirements of one at a time
+        for (const InteractionProfileAvailMetadata& ipMetadata : GetAllInteractionProfiles()) {
+            if (!IsInteractionProfileEnabled(ipMetadata.InteractionProfileShortname)) {
+                continue;
+            }
+            enabledProfiles.push_back(&ipMetadata);
+            FeatureSet requiredForProfile;
+            REQUIRE(FindFeasibleFeatureSetFromAvailability(ipMetadata.Availability, available, required, true, requiredForProfile));
+            required += requiredForProfile;
+        }
+
+        const bool leftHandUnderTest = globalData.leftHandUnderTest;
+        const bool rightHandUnderTest = globalData.rightHandUnderTest;
+        // `required` now contains all extensions needed for all listed interaction profiles.
+        // (But not any extra top level /user paths.)
+        for (const InteractionProfileAvailMetadata* ipMetadata : enabledProfiles) {
+            for (const auto& topLevelUserPathInfo : ipMetadata->TopLevelPaths) {
+                const char* const topLevelUserPathString = topLevelUserPathInfo.first;
+                if (!GetInteractionProfileAvailability(topLevelUserPathInfo.second).IsSatisfiedBy(required)) {
+                    ReportF("Skipping %s on %s - top level /user path not available", ipMetadata->InteractionProfileShortname,
+                            topLevelUserPathString);
+                    continue;
+                }
+                if (!HasBoolFloatBindingPath(ipMetadata)) {
+                    ReportF("Skipping %s as no boolean or float paths are supported", ipMetadata->InteractionProfileShortname);
+                    continue;
+                }
+                if ((topLevelUserPathString == leftHandString && !leftHandUnderTest) ||
+                    (topLevelUserPathString == rightHandString && !rightHandUnderTest)) {
+                    continue;
+                }
+
+                INFO(ipMetadata->InteractionProfileShortname);
+                TestParentComponentsOfProfile(*ipMetadata, topLevelUserPathString, required);
+            }
+        }
+    }
+
     TEST_CASE("StateQueryFunctionsInteractive", "[actions][interactive][gamepad]")
     {
         struct ActionInfo
@@ -2260,11 +3072,9 @@ namespace Conformance
             XrAction Action{XR_NULL_HANDLE};
             XrAction XAction{XR_NULL_HANDLE};  // Set if type is vector2f
             XrAction YAction{XR_NULL_HANDLE};  // Set if type is vector2f
-            std::set<int32_t> UnseenValues;
+            UnseenValue::Tracker UnseenValues;
         };
 
-        constexpr float cStepSize = 0.5f;
-        const int32_t cStepSizeOffset = -int32_t(std::roundf(-1.f / cStepSize));
         constexpr float cEpsilon = 0.1f;
         constexpr float cLargeEpsilon = 0.15f;
         GlobalData& globalData = GetGlobalData();
@@ -2315,19 +3125,7 @@ namespace Conformance
             };
 
             auto shouldExercisePath = [&ipMetadata, &profileAndOverallRequirements](const BindingPathData& bindingPathData) -> bool {
-                if (bindingPathData.systemOnly) {
-                    return false;
-                }
-                if (strcmp(ipMetadata.InteractionProfileShortname, "oculus/touch_controller") == 0 &&
-                    ends_with(bindingPathData.Path, "/input/thumbrest/touch")) {
-                    // Rift S and Quest 1 controllers lack thumbrests.
-                    return false;
-                }
-                if (strcmp(ipMetadata.InteractionProfileShortname, "ext/hand_interaction_ext") == 0 &&
-                    ends_with(bindingPathData.Path, "/input/aim_activate_ext/value")) {
-                    // aim_activate_ext/value does not require that the values coming back
-                    // actually be floats, they can also be boolean so this is hard for
-                    // us to exercise.
+                if (!canBeExercised(ipMetadata, bindingPathData)) {
                     return false;
                 }
                 auto pathRequirements = GetInteractionProfileAvailability(bindingPathData.Availability);
@@ -2391,35 +3189,13 @@ namespace Conformance
 
                     switch (bindingPathData.Type) {
                     case XR_ACTION_TYPE_BOOLEAN_INPUT:
-                        // Need to see 0 1
-                        info.UnseenValues = {false, true};
+                        info.UnseenValues.PopulateBool();
                         break;
                     case XR_ACTION_TYPE_FLOAT_INPUT:
-                        // Need to see normalized [0..2] 0 1 2
-                        for (float f = 0.f; f <= 1.f; f += cStepSize) {
-                            info.UnseenValues.insert(int32_t(std::roundf(f / cStepSize)));
-                        }
+                        info.UnseenValues.PopulateFloat();
                         break;
                     case XR_ACTION_TYPE_VECTOR2F_INPUT: {
-                        // Need to see normalized [0..4] x + y * 10:
-                        //    01 02 03
-                        // 10 11 12 13 14
-                        // 20 21 22 23 24
-                        // 30 31 32 33 34
-                        //    41 42 43
-
-                        // Avoid corner values that a circular thumbstick can't generate (both > cos(45_deg)):
-                        const float limit = std::cos(std::acos(-1.f) / 4.f);
-
-                        for (float x = -1.f; x <= 1.f; x += cStepSize) {
-                            int32_t i = int32_t(std::roundf(x / cStepSize)) + cStepSizeOffset;
-                            for (float y = -1.f; y <= 1.f; y += cStepSize) {
-                                if ((std::fabs(x) > limit) && (std::fabs(y) > limit))
-                                    continue;
-                                int32_t j = int32_t(std::roundf(y / cStepSize)) + cStepSizeOffset;
-                                info.UnseenValues.insert(i + j * 10);
-                            }
-                        }
+                        info.UnseenValues.PopulateVector2f();
 
                         // If we have a vector action, we must have /x and /y float actions.
                         actionCreateInfo.actionType = XR_ACTION_TYPE_FLOAT_INPUT;
@@ -2454,7 +3230,7 @@ namespace Conformance
 #if !defined(NDEBUG)
                     // Debug UnseenValues
                     std::string unseen = bindingPathData.Path;
-                    for (auto key : info.UnseenValues) {
+                    for (auto key : info.UnseenValues.DebugGetKeys()) {
                         unseen += " " + std::to_string(key);
                     }
                     ReportF("Keys for %s", unseen.c_str());
@@ -2648,9 +3424,8 @@ namespace Conformance
                 getInfo.action = allVectorAction.Action;
                 REQUIRE_RESULT(xrGetActionStateVector2f(session, &getInfo, &previousVectorState), XR_SUCCESS);
 
-                // Synthetic values for automation (these loop around by cStepSize in x then y order).
-                float synthesizedX = 0.f;
-                float synthesizedY = 0.f;
+                // Synthetic values for automation
+                UnseenValue::Synthesizer valueSynthesizer;
                 // Number of actions that need value observations.
                 auto actionCount = booleanActions.size() + floatActions.size() + vectorActions.size();
                 // Actions for which all necessary values have been observed.
@@ -2703,54 +3478,13 @@ namespace Conformance
 
                         // Track a remaining unseen action & values to prompt with.
                         std::string nextActionPrompt;
-                        auto update = [&](int32_t key, ActionInfo& actionInfo) {
-                            // Don't do anything if all the action's values have been seen.
-                            if (seenActions.count(actionInfo.Action) > 0)
-                                return;
-                            // Remove the key if it's never been seen.
-                            if (actionInfo.UnseenValues.count(key) > 0) {
-                                actionInfo.UnseenValues.erase(key);
-#if !defined(NDEBUG)
-                                ReportF("%s saw %d", actionInfo.Data.Path, key);
-#endif
+                        auto updateForAction = [&](const ActionInfo& actionInfo) {
+                            // by doing this action by action, prompts for the same action will be suggested one after another
+                            if (nextActionPrompt.empty()) {
+                                nextActionPrompt = actionInfo.UnseenValues.GetPrompt(actionInfo.Data);
                             }
-                            // If we've seen all the values mark the whole action as seen.
-                            if (actionInfo.UnseenValues.empty()) {
+                            if (actionInfo.UnseenValues.UnseenCount() == 0) {
                                 seenActions.insert(actionInfo.Action);
-                                return;
-                            }
-                            // For now just prompt with the first still-pending action and its values.
-                            if (!nextActionPrompt.empty())
-                                return;
-                            nextActionPrompt = "\n" + std::string(actionInfo.Data.Path) + ":\n";
-                            auto fmt_float = [](float v) -> std::string {
-                                auto s = std::to_string(v);
-                                if (s.length() > 4)
-                                    s.resize(4);
-                                return s;
-                            };
-                            for (auto remainingKeys : actionInfo.UnseenValues) {
-                                switch (actionInfo.Data.Type) {
-                                case XR_ACTION_TYPE_BOOLEAN_INPUT:
-                                    nextActionPrompt += remainingKeys ? "true " : "false ";
-                                    break;
-                                case XR_ACTION_TYPE_FLOAT_INPUT:
-                                    nextActionPrompt += fmt_float(static_cast<float>(remainingKeys) * cStepSize) + " ";
-                                    break;
-                                case XR_ACTION_TYPE_VECTOR2F_INPUT: {
-                                    float x = static_cast<float>((remainingKeys % 10) - 2) * cStepSize;
-                                    float y = ((static_cast<float>(remainingKeys) / 10) - 2) * cStepSize;
-                                    nextActionPrompt += "(" + fmt_float(x) + "," + fmt_float(y) + ") ";
-                                    break;
-                                }
-                                case XR_ACTION_TYPE_POSE_INPUT:
-                                case XR_ACTION_TYPE_VIBRATION_OUTPUT:
-                                    break;
-                                case XR_ACTION_TYPE_MAX_ENUM:
-                                default:
-                                    WARN("Unexpected action type " << actionInfo.Data.Type);
-                                    break;
-                                }
                             }
                         };
 
@@ -2758,8 +3492,9 @@ namespace Conformance
                             getInfo.action = actionInfo.Action;
                             REQUIRE_RESULT(xrGetActionStateBoolean(session, &getInfo, &booleanState), XR_SUCCESS);
                             if (booleanState.isActive) {
-                                auto key = int32_t(booleanState.currentState);
-                                update(key, actionInfo);
+                                actionInfo.UnseenValues.HandleBool(actionInfo.Data, booleanState);
+                                updateForAction(actionInfo);
+
                                 ++combinedBoolCount;
                                 if (!largestBoolState.isActive || (largestBoolState.currentState < booleanState.currentState)) {
                                     largestBoolState = booleanState;
@@ -2771,8 +3506,9 @@ namespace Conformance
                             getInfo.action = actionInfo.Action;
                             REQUIRE_RESULT(xrGetActionStateFloat(session, &getInfo, &floatState), XR_SUCCESS);
                             if (floatState.isActive) {
-                                auto key = int32_t(std::roundf(floatState.currentState / cStepSize));
-                                update(key, actionInfo);
+                                actionInfo.UnseenValues.HandleFloat(actionInfo.Data, floatState);
+                                updateForAction(actionInfo);
+
                                 ++combinedFloatCount;
                                 if (!largestFloatState.isActive ||
                                     (std::fabs(largestFloatState.currentState) < std::fabs(floatState.currentState))) {
@@ -2785,10 +3521,9 @@ namespace Conformance
                             getInfo.action = actionInfo.Action;
                             REQUIRE_RESULT(xrGetActionStateVector2f(session, &getInfo, &vectorState), XR_SUCCESS);
                             if (vectorState.isActive) {
-                                auto i = int32_t(std::roundf(vectorState.currentState.x / cStepSize)) + cStepSizeOffset;
-                                auto j = int32_t(std::roundf(vectorState.currentState.y / cStepSize)) + cStepSizeOffset;
-                                auto key = i + j * 10;
-                                update(key, actionInfo);
+                                actionInfo.UnseenValues.HandleVector2f(actionInfo.Data, vectorState);
+                                updateForAction(actionInfo);
+
                                 ++combinedVectorCount;
                                 if (!largestVectorState.isActive ||
                                     (mag(largestVectorState.currentState) < mag(vectorState.currentState))) {
@@ -2880,29 +3615,22 @@ namespace Conformance
                             }
                         }
 
-                        // For automation only, drive inputs through a set of legal values with at most cStepSize intervals.
+                        // For automation only, drive inputs through a set of legal values that should cover all cases required by UnseenValueTracker.
                         {
-                            // Use cStepSize / 2 to generate {-1.0, -0.5, 0.0, 0.5, 1.0} for x, y below.
-                            synthesizedX += cStepSize / 2.f;
-                            if (synthesizedX > 1.f) {
-                                synthesizedX = 0.f;
-                                synthesizedY += cStepSize / 2.f;
-                                if (synthesizedY > 1.f) {
-                                    synthesizedY = 0.f;
-                                }
-                            }
+                            valueSynthesizer.Advance();
                             for (const auto& actionInfo : booleanActions) {
-                                inputDevice->SetButtonStateBool(StringToPath(instance, actionInfo.Data.Path), synthesizedX > 0.5f, true);
+                                inputDevice->SetButtonStateBool(StringToPath(instance, actionInfo.Data.Path), valueSynthesizer.GetBool(),
+                                                                true);
                             }
 
                             for (const auto& actionInfo : floatActions) {
-                                inputDevice->SetButtonStateFloat(StringToPath(instance, actionInfo.Data.Path), synthesizedX, 0, true);
+                                inputDevice->SetButtonStateFloat(StringToPath(instance, actionInfo.Data.Path), valueSynthesizer.GetFloat(),
+                                                                 0, true);
                             }
 
                             for (const auto& actionInfo : vectorActions) {
-                                float x = (synthesizedX - 0.5f) * 2.f;
-                                float y = (synthesizedY - 0.5f) * 2.f;
-                                inputDevice->SetButtonStateVector2(StringToPath(instance, actionInfo.Data.Path), {x, y}, 0, true);
+                                inputDevice->SetButtonStateVector2(StringToPath(instance, actionInfo.Data.Path),
+                                                                   valueSynthesizer.GetVector2f(), 0, true);
                             }
                         }
 
@@ -2947,25 +3675,33 @@ namespace Conformance
             {
                 INFO("Pose state query");
 
+                XrActionStateGetInfo getInfo{XR_TYPE_ACTION_STATE_GET_INFO};
+
+                actionLayerManager.SyncActionsUntilFocusWithMessage(syncInfo);
+
                 for (const auto& poseActionData : poseActions) {
                     CAPTURE(poseActionData.Data.Path);
-
-                    XrActionStateGetInfo getInfo{XR_TYPE_ACTION_STATE_GET_INFO};
                     getInfo.action = poseActionData.Action;
-
-                    actionLayerManager.SyncActionsUntilFocusWithMessage(syncInfo);
                     REQUIRE_RESULT(xrGetActionStatePose(session, &getInfo, &poseState), XR_SUCCESS);
                     REQUIRE(poseState.isActive);
+                }
 
-                    inputDevice->SetDeviceActive(false);
+                inputDevice->SetDeviceActive(false);
+                actionLayerManager.SyncActionsUntilFocusWithMessage(syncInfo);
 
-                    actionLayerManager.SyncActionsUntilFocusWithMessage(syncInfo);
+                for (const auto& poseActionData : poseActions) {
+                    CAPTURE(poseActionData.Data.Path);
+                    getInfo.action = poseActionData.Action;
                     REQUIRE_RESULT(xrGetActionStatePose(session, &getInfo, &poseState), XR_SUCCESS);
                     REQUIRE_FALSE(poseState.isActive);
+                }
 
-                    inputDevice->SetDeviceActive(true);
+                inputDevice->SetDeviceActive(true);
+                actionLayerManager.SyncActionsUntilFocusWithMessage(syncInfo);
 
-                    actionLayerManager.SyncActionsUntilFocusWithMessage(syncInfo);
+                for (const auto& poseActionData : poseActions) {
+                    CAPTURE(poseActionData.Data.Path);
+                    getInfo.action = poseActionData.Action;
                     REQUIRE_RESULT(xrGetActionStatePose(session, &getInfo, &poseState), XR_SUCCESS);
                     REQUIRE(poseState.isActive);
                 }
@@ -3206,6 +3942,8 @@ namespace Conformance
         FeatureSet required{enabled};
         std::vector<const InteractionProfileAvailMetadata*> enabledProfiles;
         // Looping over all profiles means we do not have to de-duplicate the command line args
+        // We combine all interaction profiles because we may be able to exercise paths
+        // that would not be exercised if we only enabled the requirements of one at a time
         for (const InteractionProfileAvailMetadata& ipMetadata : GetAllInteractionProfiles()) {
             if (!IsInteractionProfileEnabled(ipMetadata.InteractionProfileShortname)) {
                 continue;

@@ -156,11 +156,11 @@ namespace Conformance
 
         AutoBasicSession session(AutoBasicSession::OptionFlags::createSession, instance);
 
-        SECTION("Unrecognized extension")
+        SECTION("Unrecognized struct in chain")
         {
-            // Runtimes should ignore unrecognized struct extensins.
-            InsertUnrecognizableExtension(&eventData);
-            result = xrPollEvent(instance, &eventData);
+            // Runtimes should ignore unrecognized struct types.
+            UnrecognizableOutputStruct unknown;
+            unknown.Insert(&eventData);
             CHECK(ValidateResultAllowed("xrPollEvent", result));
             CHECK(((result == XR_SUCCESS) || (result == XR_EVENT_UNAVAILABLE)));
         }

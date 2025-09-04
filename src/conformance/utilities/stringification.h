@@ -5,6 +5,7 @@
 #pragma once
 
 #include <openxr/openxr.h>
+#include <openxr/openxr_reflection.h>
 
 #include <string>
 #include <map>
@@ -32,6 +33,26 @@ namespace Conformance
 
     /// Helper to convert an XrVersion to a string formatted as major.minor.patch
     std::string VersionToString(XrVersion version);
+
+    /// @addtogroup cts_framework
+    /// @{
+
+#define XR_ENUM_CASE_STR(name, val) \
+    case name:                      \
+        return #name;
+#define XR_ENUM_STR(enumType)                                                       \
+    constexpr const char* XrEnumStr(enumType e)                                     \
+    {                                                                               \
+        switch (e) {                                                                \
+            XR_LIST_ENUM_##enumType(XR_ENUM_CASE_STR) default : return "<unknown>"; \
+        }                                                                           \
+    }
+
+    XR_ENUM_STR(XrSpatialCapabilityEXT)
+    XR_ENUM_STR(XrSpatialCapabilityFeatureEXT)
+    XR_ENUM_STR(XrSpatialComponentTypeEXT)
+    XR_ENUM_STR(XrSpatialPersistenceScopeEXT)
+    XR_ENUM_STR(XrSpatialPersistenceContextResultEXT)
 
 #define XRC_CHECK_STRINGIFY(x) #x
 #define XRC_TO_STRING(x) XRC_CHECK_STRINGIFY(x)

@@ -122,6 +122,22 @@
     }
 //#         endif
 
+//## If this is a create command from an async api (EXT_future), we have to create an entry in the
+//## appropriate unordered_map pointing to the correct dispatch table for the newly created object.
+//#         set is_async_create = (("xrCreate" in cur_cmd.name) and ("Complete" in cur_cmd.name))
+//#         if is_async_create and gen.isStruct(cur_cmd.params[-1].type)
+    if (XR_SUCCEEDED(result)) {
+//#             set last_param_name = cur_cmd.params[-1].name
+//#             set last_param_struct = gen.getStruct(cur_cmd.params[-1].type)
+//#             set completion_struct_last_param_name = last_param_struct.members[-1].name
+//#             if last_param_struct.members[-1].is_handle and not last_param_struct.members[-1].is_array
+//#                 set completion_struct_last_param_object_type = gen.genXrObjectType(last_param_struct.members[-1].type)
+        HandleState* const parentHandleState = GetHandleState(HandleStateKey{HandleToInt(/*{first_handle_name}*/), /*{first_param_object_type}*/});
+        RegisterHandleState(parentHandleState->CloneForChild(HandleToInt(/*{last_param_name}*/->/*{completion_struct_last_param_name}*/), /*{completion_struct_last_param_object_type}*/));
+//#             endif
+    }
+//#         endif
+
 //## If this is a xrQuerySpacesFB, we have to create an entry in
 //## the appropriate unordered_map pointing to the correct dispatch table for
 //## the newly created objects.

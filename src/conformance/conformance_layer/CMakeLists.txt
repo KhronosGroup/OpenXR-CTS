@@ -14,19 +14,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-file(
-    GLOB
-    LOCAL_HEADERS
-    CONFIGURE_DEPENDS
-    "*.h"
-)
-file(
-    GLOB
-    LOCAL_SOURCE
-    CONFIGURE_DEPENDS
-    "*.cpp"
-)
-
 run_xr_xml_generate(
     conformance_layer_generator.py gen_dispatch.cpp
     ${PROJECT_SOURCE_DIR}/src/scripts/template_gen_dispatch.cpp
@@ -43,8 +30,23 @@ configure_file(
 
 add_library(
     XrApiLayer_runtime_conformance MODULE
-    ${LOCAL_SOURCE}
-    ${LOCAL_HEADERS}
+    Action.cpp
+    ActionSet.cpp
+    Common.h
+    ConformanceHooks.h
+    CustomHandleState.h
+    D3D11GraphicsValidator.cpp
+    GraphicsValidator.cpp
+    HandleState.cpp
+    HandleState.h
+    IGraphicsValidator.h
+    Instance.cpp
+    Negotiate.cpp
+    RuntimeFailure.cpp
+    RuntimeFailure.h
+    Session.cpp
+    Space.cpp
+    Swapchain.cpp
     ${PROJECT_BINARY_DIR}/src/xr_generated_dispatch_table.c
     ${CMAKE_CURRENT_BINARY_DIR}/gen_dispatch.cpp
     ${CMAKE_CURRENT_BINARY_DIR}/gen_dispatch.h
@@ -83,15 +85,55 @@ if(MSVC)
 endif()
 
 # Flag generated files
+# cmake-format: off
 set_source_files_properties(
     ${PROJECT_BINARY_DIR}/src/xr_generated_dispatch_table.c
     # ${PROJECT_BINARY_DIR}/src/conformance/conformance_layer/gen_dispatch.cpp
     # ${PROJECT_BINARY_DIR}/src/conformance/conformance_layer/gen_dispatch.h
-    PROPERTIES GENERATED TRUE
+    PROPERTIES
+        GENERATED TRUE
+        SKIP_LINTING ON
 )
+# cmake-format: on
+
 if(XR_USE_GRAPHICS_API_VULKAN)
-    target_include_directories(
-        XrApiLayer_runtime_conformance PRIVATE ${Vulkan_INCLUDE_DIRS}
+    if(ANDROID)
+        # The vulkan/vk_layer.h header is only available in the NDK 27.2.12479018 toolchain
+        # For older NDKs we have to find it from the third party folder
+        find_path(VK_LAYER_PATH NAMES vulkan/vk_layer.h
+            PATHS ${ANDROID_NDK}
+            HINTS ${ANDROID_NDK}/sources/third_party/vulkan/src/include/
+        )
+        target_include_directories(XrApiLayer_runtime_conformance PRIVATE ${VK_LAYER_PATH})
+
+        # The Android Vulkan Loader needs a dedicated library in order to load the layer.
+        add_library(
+            VkLayer_xr_runtime_conformance MODULE AndroidVulkanLayer.cpp
+        )
+        set_target_properties(
+            VkLayer_xr_runtime_conformance
+            PROPERTIES
+                LINK_FLAGS
+                "-Wl,--version-script=\"${CMAKE_CURRENT_SOURCE_DIR}/VkLayer_xr_runtime_conformance.map\""
+        )
+
+        target_include_directories(VkLayer_xr_runtime_conformance PRIVATE
+            ${Vulkan_INCLUDE_DIRS}
+            ${VK_LAYER_PATH}
+        )
+    endif()
+
+    target_sources(XrApiLayer_runtime_conformance PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/VulkanLayer.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/VulkanGraphicsValidator.cpp
+    )
+
+    target_include_directories(XrApiLayer_runtime_conformance PRIVATE ${Vulkan_INCLUDE_DIRS})
+    target_link_libraries(XrApiLayer_runtime_conformance PRIVATE ${Vulkan_LIBRARY})
+
+    configure_file(
+        conformance_vk_layer.json
+        ${CMAKE_CURRENT_BINARY_DIR}/VkLayer_OPENXR_xr_runtime_conformance.json
     )
 endif()
 
@@ -109,33 +151,40 @@ endif()
 # Dynamic Library:
 #  - Make build depend on the module definition/version script/export map
 #  - Add the linker flag (except windows)
+
+if(XR_USE_GRAPHICS_API_VULKAN)
+    set(SYMBOLS_FILE "XrApiLayer_conformance_layer_vk")
+else()
+    set(SYMBOLS_FILE "XrApiLayer_conformance_layer")
+endif()
+
 if(WIN32)
     target_sources(
         XrApiLayer_runtime_conformance
-        PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/XrApiLayer_conformance_layer.def"
+        PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/${SYMBOLS_FILE}.def"
     )
 elseif(APPLE)
     set_target_properties(
         XrApiLayer_runtime_conformance
         PROPERTIES
             LINK_FLAGS
-            "-Wl,-exported_symbols_list,${CMAKE_CURRENT_SOURCE_DIR}/XrApiLayer_conformance_layer.expsym"
+            "-Wl,-exported_symbols_list,${CMAKE_CURRENT_SOURCE_DIR}/${SYMBOLS_FILE}.expsym"
     )
     target_sources(
         XrApiLayer_runtime_conformance
         PRIVATE
-            "${CMAKE_CURRENT_SOURCE_DIR}/XrApiLayer_conformance_layer.expsym"
+            "${CMAKE_CURRENT_SOURCE_DIR}/${SYMBOLS_FILE}.expsym"
     )
 else()
     set_target_properties(
         XrApiLayer_runtime_conformance
         PROPERTIES
             LINK_FLAGS
-            "-Wl,--version-script=\"${CMAKE_CURRENT_SOURCE_DIR}/XrApiLayer_conformance_layer.map\""
+            "-Wl,--version-script=\"${CMAKE_CURRENT_SOURCE_DIR}/${SYMBOLS_FILE}.map\""
     )
     target_sources(
         XrApiLayer_runtime_conformance
-        PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/XrApiLayer_conformance_layer.map"
+        PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/${SYMBOLS_FILE}.map"
     )
 endif()
 
@@ -149,6 +198,21 @@ if(BUILD_CONFORMANCE_CLI)
             "${CMAKE_CURRENT_BINARY_DIR}/XrApiLayer_runtime_conformance.json"
             "$<TARGET_FILE_DIR:XrApiLayer_runtime_conformance>"
     )
+
+    if(XR_USE_GRAPHICS_API_VULKAN AND NOT ANDROID)
+        add_custom_command(
+            TARGET XrApiLayer_runtime_conformance
+            POST_BUILD
+            COMMAND
+                ${CMAKE_COMMAND} -E copy
+                ${CMAKE_CURRENT_BINARY_DIR}/VkLayer_OPENXR_xr_runtime_conformance.json
+                $<TARGET_PROPERTY:conformance_cli,BINARY_DIR>
+        )
+        install(
+           FILES $<TARGET_PROPERTY:conformance_cli,BINARY_DIR>/VkLayer_OPENXR_xr_runtime_conformance.json
+           DESTINATION conformance
+        )
+    endif()
 endif()
 
 set_target_properties(

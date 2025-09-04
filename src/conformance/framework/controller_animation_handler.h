@@ -15,6 +15,7 @@
 #include <openxr/openxr.h>
 
 #include <vector>
+#include <memory>
 
 namespace Pbr
 {
@@ -24,6 +25,7 @@ namespace Pbr
 
 namespace Conformance
 {
+    /// For XR_MSFT_controller_model
     class ControllerAnimationHandler
     {
     public:
@@ -38,5 +40,25 @@ namespace Conformance
         std::vector<Pbr::NodeIndex_t> m_nodeIndices;
         std::vector<XrControllerModelNodePropertiesMSFT> m_nodeProperties;
         std::vector<XrControllerModelNodeStateMSFT> m_nodeStates;
+    };
+
+    /// For XR_EXT_render_model
+    /// Handles display and animation of a single render model.
+    class RenderModelAnimationHandler
+    {
+    public:
+        RenderModelAnimationHandler() = default;
+        RenderModelAnimationHandler(std::shared_ptr<Pbr::Model> model, std::vector<XrRenderModelAssetNodePropertiesEXT> nodeProperties);
+        void UpdateNodes(std::vector<XrRenderModelNodeStateEXT>&& nodeStates, Pbr::ModelInstance& pbrModelInstance);
+        size_t GetNumberOfAnimatableNodes() const
+        {
+            return m_nodeIndices.size();
+        }
+
+    private:
+        std::shared_ptr<Pbr::Model> m_pbrModel;
+        std::vector<Pbr::NodeIndex_t> m_nodeIndices;
+        std::vector<XrRenderModelAssetNodePropertiesEXT> m_nodeProperties;
+        std::vector<XrRenderModelNodeStateEXT> m_nodeStates;
     };
 }  // namespace Conformance

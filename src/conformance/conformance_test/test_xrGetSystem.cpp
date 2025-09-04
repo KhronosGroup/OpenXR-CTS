@@ -53,10 +53,11 @@ namespace Conformance
         // We don't have a good way to test XR_ERROR_FORM_FACTOR_UNAVAILABLE without
         // being able to conspire with the runtime to make it so.
 
-        SECTION("xrGetSystem unrecognized extension")
+        SECTION("xrGetSystem unrecognized struct in chain")
         {
-            // Runtimes should ignore unrecognized struct extensins.
-            InsertUnrecognizableExtension(&systemGetInfo);
+            // Runtimes should ignore unrecognized struct types.
+            UnrecognizableInputStruct unknown;
+            unknown.Insert(&systemGetInfo);
             result = xrGetSystem(instance, &systemGetInfo, &systemId);
             CHECK(ValidateResultAllowed("xrGetSystem", result));
             REQUIRE(result == XR_SUCCESS);

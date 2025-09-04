@@ -46,10 +46,11 @@ namespace Conformance
             CHECK(ValidateFixedSizeString(instanceProperties.runtimeName, false));
         }
 
-        SECTION("xrGetInstanceProperties unrecognized extension")
+        SECTION("xrGetInstanceProperties unrecognized struct in chain")
         {
-            // Runtimes should ignore unrecognized struct extensins.
-            InsertUnrecognizableExtension(&instanceProperties);
+            // Runtimes should ignore unrecognized struct types.
+            UnrecognizableOutputStruct unknown;
+            unknown.Insert(&instanceProperties);
             result = xrGetInstanceProperties(instance, &instanceProperties);
             CHECK(ValidateResultAllowed("xrGetInstanceProperties", result));
             CHECK_RESULT_SUCCEEDED(result);
