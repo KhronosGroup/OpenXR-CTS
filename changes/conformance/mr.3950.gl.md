@@ -1,4 +1,0 @@
----
-- mr.3950.gl
----
-- Fix: Move version directive to the first line of the OpenGL ES shader. Similar to PR 310 on OpenXR-SDK-Source.

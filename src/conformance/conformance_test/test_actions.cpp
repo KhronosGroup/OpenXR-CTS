@@ -2296,6 +2296,17 @@ namespace Conformance
             XrAction booleanAction{XR_NULL_HANDLE};
             XrAction floatAction{XR_NULL_HANDLE};
         };
+
+        bool HasBoolFloatBindingPath(const InteractionProfileAvailMetadata* ipMetadata)
+        {
+            for (const BindingPathData& bindingPathData : ipMetadata->BindingPaths) {
+                if (bindingPathData.Type == XR_ACTION_TYPE_BOOLEAN_INPUT || bindingPathData.Type == XR_ACTION_TYPE_FLOAT_INPUT) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
         // Make a map of all the testable /click and /value paths, on a
         // particular profile / user path, keyed by the path with that suffix
         // stripped. In some cases, both may exist, so we store both in one
@@ -2667,6 +2678,11 @@ namespace Conformance
             std::map<std::string, ParentPathToTest> pathsByParent = SetupParentComponentTest(
                 ipMetadata, topLevelUserPathString, profileAndOverallRequirements, instance, interactionManager, actionSet, false);
 
+            if (pathsByParent.empty()) {
+                ReportF("Skipping %s as no candidate /click or /value paths were found", ipMetadata.InteractionProfileShortname);
+                return;
+            }
+
             interactionManager.AddActionSet(actionSet);
             interactionManager.AttachActionSets();
 
@@ -2767,6 +2783,10 @@ namespace Conformance
                             topLevelUserPathString);
                     continue;
                 }
+                if (!HasBoolFloatBindingPath(ipMetadata)) {
+                    ReportF("Skipping %s as no boolean or float paths are supported", ipMetadata->InteractionProfileShortname);
+                    continue;
+                }
                 if ((topLevelUserPathString == leftHandString && !leftHandUnderTest) ||
                     (topLevelUserPathString == rightHandString && !rightHandUnderTest)) {
                     continue;
@@ -2830,6 +2850,11 @@ namespace Conformance
 
             std::map<std::string, ParentPathToTest> rawPathsByParent = SetupParentComponentTest(
                 ipMetadata, topLevelUserPathString, profileAndOverallRequirements, instance, interactionManager, actionSet, true);
+
+            if (rawPathsByParent.empty()) {
+                ReportF("Skipping %s as no candidate /click or /value paths were found", ipMetadata.InteractionProfileShortname);
+                return;
+            }
 
             // To ensure all paths are exercised, and to provide hints to the
             // user of any paths they have not exercised, transform the map
@@ -3022,6 +3047,10 @@ namespace Conformance
                 if (!GetInteractionProfileAvailability(topLevelUserPathInfo.second).IsSatisfiedBy(required)) {
                     ReportF("Skipping %s on %s - top level /user path not available", ipMetadata->InteractionProfileShortname,
                             topLevelUserPathString);
+                    continue;
+                }
+                if (!HasBoolFloatBindingPath(ipMetadata)) {
+                    ReportF("Skipping %s as no boolean or float paths are supported", ipMetadata->InteractionProfileShortname);
                     continue;
                 }
                 if ((topLevelUserPathString == leftHandString && !leftHandUnderTest) ||

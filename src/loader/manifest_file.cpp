@@ -514,7 +514,7 @@ void ManifestFile::GetInstanceExtensionProperties(std::vector<XrExtensionPropert
     GetExtensionProperties(_instance_extensions, props);
 }
 
-const std::string &ManifestFile::GetFunctionName(const std::string &func_name) const {
+std::string ManifestFile::GetFunctionName(const std::string &func_name) const {
     if (!_functions_renamed.empty()) {
         auto found = _functions_renamed.find(func_name);
         if (found != _functions_renamed.end()) {

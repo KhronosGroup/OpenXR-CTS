@@ -1,5 +1,0 @@
----
-- mr.3865.gl.md
----
-- Fix: Thread-safe unrecognized structure type mechanisms, and clarify names of sections testing correct handling of unrecognized types.
-- Improvement: Enable clang-tidy bugprone-casting-through-void check.

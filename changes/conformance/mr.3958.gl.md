@@ -1,4 +1,0 @@
----
-- mr.3958.gl
----
-- Fix: Add explicit linker visibility for symbols in XrApiLayer_conformance_layer.

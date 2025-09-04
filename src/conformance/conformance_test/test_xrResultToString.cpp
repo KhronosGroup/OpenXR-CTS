@@ -53,7 +53,7 @@ namespace Conformance
             uint64_t ext_num = 0;
             if (std::abs(value.first) >= XR_EXTENSION_ENUM_BASE) {
                 // This is an extension
-                ext_num = (std::abs(value.first) - XR_EXTENSION_ENUM_BASE) / XR_EXTENSION_ENUM_STRIDE;
+                ext_num = enumValueToExtensionNumber(std::abs(value.first));
                 if (!IsInstanceExtensionEnabled(ext_num)) {
                     // It's not enabled, so not enforcing that it must be the real value.
                     allowGeneratedName = true;

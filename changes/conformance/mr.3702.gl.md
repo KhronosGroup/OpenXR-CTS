@@ -1,5 +1,0 @@
----
-- issue.1569.gl
----
-- New test: Validate that bind state matches when binding both a `.../click` or `.../value` path and its parent
-- New test: Validate that action values match and that coercion rules are followed when binding both a `.../click` or `.../value` path and its parent

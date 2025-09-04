@@ -241,6 +241,8 @@ namespace Conformance
             std::vector<XrViewConfigurationType> runtimeViewTypes(viewCount);
             REQUIRE(XR_SUCCESS == xrEnumerateViewConfigurations(m_instance, m_systemId, viewCount, &viewCount, runtimeViewTypes.data()));
             if (std::find(runtimeViewTypes.begin(), runtimeViewTypes.end(), m_primaryViewType) == runtimeViewTypes.end()) {
+                xrDestroySession(m_session);
+
                 GlobalData& globalData = GetGlobalData();
                 if (globalData.IsUsingGraphicsPlugin()) {
                     auto graphicsPlugin = globalData.GetGraphicsPlugin();
@@ -303,7 +305,7 @@ namespace Conformance
             XRC_CHECK_THROW_XRCMD(xrDestroySwapchain(swapchain.first));
         }
 
-        xrDestroySession(m_session);
+        XRC_CHECK_THROW_XRCMD(xrDestroySession(m_session));
 
         GlobalData& globalData = GetGlobalData();
         if (globalData.IsUsingGraphicsPlugin()) {

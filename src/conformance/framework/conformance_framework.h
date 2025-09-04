@@ -470,6 +470,12 @@ inline void ValidateInstanceExtensionFunctionNotSupported(XrInstance instance, c
     }
 }
 
+inline uint64_t enumValueToExtensionNumber(uint64_t value)
+{
+    uint64_t ext_num = (value - XR_EXTENSION_ENUM_BASE) / XR_EXTENSION_ENUM_STRIDE + 1;
+    return ext_num;
+}
+
 /// Returns a pointer to an extension function retrieved via xrGetInstanceProcAddr, or nullptr in case of error.
 ///
 /// Like @ref GetInstanceExtensionFunction but does not throw, so safe to use in destructors.
