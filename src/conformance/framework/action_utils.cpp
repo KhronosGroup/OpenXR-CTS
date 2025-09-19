@@ -138,7 +138,7 @@ namespace Conformance
     void ActionLayerManager::SyncActionsUntilFocusWithMessage(const XrActionsSyncInfo& syncInfo)
     {
         XrSession session = m_compositionHelper.GetSession();
-        WaitWithMessage("Waiting for session focus...", [&] {
+        WaitWithMessage("Waiting (with xrSyncActions) for session focus...", [&] {
             XrResult res = xrSyncActions(session, &syncInfo);
             REQUIRE_RESULT_SUCCEEDED(res);
             return XR_UNQUALIFIED_SUCCESS(res);  // XR_SUCCESS means there is focus, as opposed to XR_SESSION_NOT_FOCUSED.

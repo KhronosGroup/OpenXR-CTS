@@ -157,9 +157,9 @@ namespace Conformance
             }
         }
 
-        TEST_CASE("XR_EXT_spatial_persistence_operations",
-                  "[XR_EXT_spatial_persistence_operations][XR_EXT_spatial_persistence]"
-                  "[XR_EXT_spatial_entity]")
+        TEST_CASE(
+            "XR_EXT_spatial_persistence_operations",
+            "[XR_EXT_spatial_persistence_operations][XR_EXT_spatial_persistence][XR_EXT_spatial_entity][scenario][interactive][no_auto]")
         {
             const std::vector<const char*> requiredExtensions = {
                 XR_EXT_FUTURE_EXTENSION_NAME, XR_EXT_SPATIAL_ENTITY_EXTENSION_NAME, XR_EXT_SPATIAL_ANCHOR_EXTENSION_NAME,

@@ -107,12 +107,13 @@ class ApiLayerManifestFile : public ManifestFile {
     static bool LocateLibraryRelativeToJson(const std::string &json_filename, const std::string &library_path,
                                             std::string &out_combined_path);
 
-#if defined(XR_KHR_LOADER_INIT_SUPPORT) && defined(XR_USE_PLATFORM_ANDROID)
+    // actually only implemented if defined(XR_USE_PLATFORM_ANDROID) && defined(XR_HAS_REQUIRED_PLATFORM_LOADER_INIT_STRUCT)
+#if defined(XR_USE_PLATFORM_ANDROID)
     static bool LocateLibraryInAssets(const std::string &json_filename, const std::string &library_path,
                                       std::string &out_combined_path);
     static void AddManifestFilesAndroid(const std::string &openxr_command, ManifestFileType type,
                                         std::vector<std::unique_ptr<ApiLayerManifestFile>> &manifest_files);
-#endif  // defined(XR_USE_PLATFORM_ANDROID) && defined(XR_KHR_LOADER_INIT_SUPPORT)
+#endif  // defined(XR_USE_PLATFORM_ANDROID)
 
     JsonVersion _api_version;
     std::string _layer_name;

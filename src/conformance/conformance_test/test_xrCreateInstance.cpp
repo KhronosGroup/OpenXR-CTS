@@ -230,13 +230,13 @@ namespace Conformance
                 }
                 /*
                      * This test is required for Android only:
-                     * "The XrInstanceCreateInfoAndroidKHR struct must be provided as the next pointer in 
+                     * "The XrInstanceCreateInfoAndroidKHR struct must be provided as the next pointer in
                      *  the XrInstanceCreateInfo struct when calling xrCreateInstance."
-                     * "If the XrInstanceCreateInfo struct contains a platform-specific extension for a platform 
-                     *  other than the target platform, XR_ERROR_INITIALIZATION_FAILED will be returned. The same 
-                     *  is true if a mandatory platform-specific extension is defined for the target platform but 
+                     * "If the XrInstanceCreateInfo struct contains a platform-specific extension for a platform
+                     *  other than the target platform, XR_ERROR_INITIALIZATION_FAILED will be returned. The same
+                     *  is true if a mandatory platform-specific extension is defined for the target platform but
                      *  no matching extension struct is provided in XrInstanceCreateInfo."
-                     * 
+                     *
                      * TODO: Do platform specific tests.
                     SECTION("Missing platform struct")
                     {

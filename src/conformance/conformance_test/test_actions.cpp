@@ -882,8 +882,7 @@ namespace Conformance
         REQUIRE_RESULT(xrSuggestInteractionProfileBindings(instance, &bindings), XR_SUCCESS);
 
         // Calling attach on the interaction manager will call xrSuggestInteractionProfileBindings with the bindings provided here, overwriting the previous bindings
-        compositionHelper.GetInteractionManager().AddActionBindings(
-            StringToPath(instance, GetSimpleInteractionProfile().InteractionProfilePathString), {{{selectActionB, selectPath}}});
+        compositionHelper.GetInteractionManager().AddActionBindings(bindings.interactionProfile, {{{selectActionB, selectPath}}});
         compositionHelper.GetInteractionManager().AttachActionSets();
 
         actionLayerManager.WaitForSessionFocusWithMessage();

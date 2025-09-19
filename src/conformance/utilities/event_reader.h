@@ -51,6 +51,7 @@ namespace Conformance
     class EventReader
     {
     public:
+        /// Will not receive any events that were in the queue prior to its construction
         explicit EventReader(const EventQueue& eventQueue);
 
         bool TryReadNext(XrEventDataBuffer& dataBuffer);

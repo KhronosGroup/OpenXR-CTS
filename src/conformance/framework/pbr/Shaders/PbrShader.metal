@@ -31,14 +31,14 @@ namespace
         Emissive,
         LastMaterialSlot = Emissive,
         NumMaterialSlots = LastMaterialSlot + 1,
-        
+
         // Extra material slots
         Brdf = NumMaterialSlots,
-        
+
         // Texture only
         SpecularTexture = Brdf + 1,
         DiffuseTexture = SpecularTexture + 1,
-        
+
         // Sampler only
         EnvironmentMapSampler = Brdf + 1
     };
@@ -64,16 +64,16 @@ struct MaterialConstantBuffer
 {
     // packoffset(c0)
     float4 BaseColorFactor;
-    
+
     // packoffset(c1.x and c1.y)
     float MetallicFactor;
     float RoughnessFactor;
     float _pad0[2];
-    
+
     // packoffset(c2)
     float3 EmissiveFactor;
     // float _pad1;
-    
+
     // packoffset(c3.x, c3.y and c3.z)
     float NormalScale;
     float OcclusionStrength;
@@ -95,12 +95,12 @@ struct VertexOutputPbr
 {
     float4 PositionProj [[position]];
     float3 PositionWorld;
-    
+
     // float3x3 TBN;
     float3 tangentW;
     float3 bitangentW;
     float3 normalW;
-    
+
     float2 TexCoord0;
     float4 Color0;
 };
@@ -120,14 +120,14 @@ VertexOutputPbr vertex VertexShaderPbr(VertexDataPbr input [[stage_in]],
     float4 transformedPosWorld = modelTransform * input.Position;
     output.PositionProj = sceneBuffer->ViewProjection * transformedPosWorld;
     output.PositionWorld = transformedPosWorld.xyz / transformedPosWorld.w;
-    
+
     const float3 normalW = normalize((modelTransform * float4(input.Normal, 0.0)).xyz);
     const float3 tangentW = normalize((modelTransform * float4(input.Tangent.xyz, 0.0)).xyz);
     const float3 bitangentW = cross(normalW, tangentW) * input.Tangent.w;
     output.tangentW = tangentW;
     output.bitangentW = bitangentW;
     output.normalW = normalW;
-    
+
     output.TexCoord0 = input.TexCoord0;
     output.Color0 = input.Color0;
 

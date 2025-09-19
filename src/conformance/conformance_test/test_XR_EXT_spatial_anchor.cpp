@@ -148,7 +148,7 @@ namespace Conformance
             REQUIRE_THAT(entityIds, VectorContains(lookupEntityId));
         }
 
-        TEST_CASE("XR_EXT_spatial_anchor", "[XR_EXT_spatial_anchor][XR_EXT_spatial_entity]")
+        TEST_CASE("XR_EXT_spatial_anchor", "[XR_EXT_spatial_anchor][XR_EXT_spatial_entity][scenario][interactive][no_auto]")
         {
             XrSpatialCapabilityConfigurationAnchorEXT anchorConfig{XR_TYPE_SPATIAL_CAPABILITY_CONFIGURATION_ANCHOR_EXT};
             anchorConfig.capability = XR_SPATIAL_CAPABILITY_ANCHOR_EXT;
@@ -400,9 +400,7 @@ namespace Conformance
             PFN_xrDestroySpatialSnapshotEXT xrDestroySpatialSnapshotEXT{};
         };
 
-        TEST_CASE("XR_EXT_spatial_anchor-interactive",
-                  "[XR_EXT_spatial_anchor][XR_EXT_spatial_entity][scenario]["
-                  "interactive][no_auto]")
+        TEST_CASE("XR_EXT_spatial_anchor-interactive", "[XR_EXT_spatial_anchor][XR_EXT_spatial_entity][scenario][interactive][no_auto]")
         {
             SpatialAnchorTestRunner({XR_SPATIAL_COMPONENT_TYPE_ANCHOR_EXT})
                 .RunTest(XR_EXT_SPATIAL_ANCHOR_EXTENSION_NAME,

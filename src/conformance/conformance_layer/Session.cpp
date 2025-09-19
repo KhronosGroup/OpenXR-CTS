@@ -42,7 +42,7 @@ namespace
         }
 
         return s_validStateTransitions.find(std::make_pair(oldState, newState)) != s_validStateTransitions.end();
-    };
+    }
 }  // namespace
 
 namespace session
@@ -80,7 +80,7 @@ namespace session
             // There are three exceptions:
             // 1. The app has requested the session to exit while in the RUNNING state.
             // 2. The session is headless.
-            // 3. Rare cases where the runtime wants to end the session before becoming synchornized.
+            // 3. Rare cases where the runtime wants to end the session before becoming synchronized.
             //    For this reason it this is a warning rather than an error.
             if (!customSessionState->sessionExitRequested && !customSessionState->headless) {
                 conformanceHooks->ConformanceFailure(
@@ -140,7 +140,7 @@ namespace session
             std::memory_order_seq_cst
 #else
             std::memory_order::memory_order_seq_cst
-#endif  // __cpluscplus >= 202000L
+#endif  // __cplusplus >= 202000L
         );
         if (syncActionsState == SyncActionsState::NOT_CALLED_SINCE_QUEUE_EXHAUST) {
             conformanceHooks->ConformanceFailure(
@@ -443,7 +443,7 @@ XrResult ConformanceHooks::xrEnumerateReferenceSpaces(XrSession session, uint32_
             std::unique_lock<std::mutex> lock(customSessionState->lock);
 
             // If reference spaces are already cached, then make sure the enumeration function is returning the same results.
-            if (customSessionState->referenceSpaces.size() > 0) {
+            if (!customSessionState->referenceSpaces.empty()) {
                 NONCONFORMANT_IF(!referenceSpaceInspect.SameElementsAs(customSessionState->referenceSpaces),
                                  "References spaces differs from original enumeration of reference spaces.");
             }
@@ -482,7 +482,7 @@ XrResult ConformanceHooks::xrEnumerateSwapchainFormats(XrSession session, uint32
         NONCONFORMANT_IF(formatsInspect.ContainsDuplicates(), "Duplicate swapchain formats found");
 
         // If swapchain formats are already cached, then make sure the enumeration function is returning the same results.
-        if (customSessionState->swapchainFormats.size() > 0) {
+        if (!customSessionState->swapchainFormats.empty()) {
             NONCONFORMANT_IF(!formatsInspect.SameElementsAs(customSessionState->swapchainFormats),
                              "Swapchain formats differs from original enumeration of swapchain formats");
 

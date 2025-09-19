@@ -32,6 +32,7 @@ namespace Conformance
     {
         virtual ~IInputTestDevice() = default;
         virtual XrPath TopLevelPath() const = 0;
+        virtual XrActionSet ActionSet() const = 0;
 
         /// Set device active or inactive
         ///

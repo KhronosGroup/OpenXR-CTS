@@ -99,14 +99,30 @@ struct Device
     }
 };
 
-std::mutex layer_mutex{};
+static std::mutex &GetLayerMutex()
+{
+    static std::mutex layer_mutex{};
+    return layer_mutex;
+}
 
-static std::list<Instance> instances{};
-static std::list<Device> devices{};
+/// Must only call and use return value while holding the lock from @ref GetLayerMutex()
+static std::list<Instance> &GetInstanceListLocked()
+{
+    static std::list<Instance> instances{};
+    return instances;
+}
+
+/// Must only call and use return value while holding the lock from @ref GetLayerMutex()
+static std::list<Device> &GetDeviceListLocked()
+{
+    static std::list<Device> devices{};
+    return devices;
+}
 
 static Instance *getInstance(VkInstance instance)
 {
-    const std::lock_guard<std::mutex> lock(layer_mutex);
+    const std::lock_guard<std::mutex> lock(GetLayerMutex());
+    std::list<Instance> &instances = GetInstanceListLocked();
     const auto it = std::find_if(instances.begin(), instances.end(), [&instance](const auto &i) { return i.handle == instance; });
     if (it != instances.end()) {
         return &(*it);
@@ -116,7 +132,8 @@ static Instance *getInstance(VkInstance instance)
 
 static Device *getDevice(VkDevice device)
 {
-    const std::lock_guard<std::mutex> lock(layer_mutex);
+    const std::lock_guard<std::mutex> lock(GetLayerMutex());
+    std::list<Device> &devices = GetDeviceListLocked();
     const auto it = std::find_if(devices.begin(), devices.end(), [&device](const auto &d) { return d.handle == device; });
     if (it != devices.end()) {
         return &(*it);
@@ -126,7 +143,8 @@ static Device *getDevice(VkDevice device)
 
 static Queue *getQueue(VkQueue queue)
 {
-    const std::lock_guard<std::mutex> lock(layer_mutex);
+    const std::lock_guard<std::mutex> lock(GetLayerMutex());
+    std::list<Device> &devices = GetDeviceListLocked();
     for (Device &d : devices) {
         const auto it = std::find_if(d.queues.begin(), d.queues.end(), [&queue](const auto &q) { return q.handle == queue; });
         if (it != d.queues.end()) {
@@ -142,7 +160,7 @@ void ResetVkQueueAccess(VkDevice device, uint32_t queueFamilyIndex, uint32_t que
     Device *d = getDevice(device);
     assert(d);
 
-    const std::lock_guard<std::mutex> lock(layer_mutex);
+    const std::lock_guard<std::mutex> lock(GetLayerMutex());
     for (Queue &q : d->queues) {
         if (q.queueFamilyIndex == queueFamilyIndex && q.queueIndex == queueIndex) {
             q.accessed.store(false);
@@ -156,7 +174,7 @@ bool CheckVkQueueAccess(VkDevice device, uint32_t queueFamilyIndex, uint32_t que
     Device *d = getDevice(device);
     assert(d);
 
-    const std::lock_guard<std::mutex> lock(layer_mutex);
+    const std::lock_guard<std::mutex> lock(GetLayerMutex());
     for (Queue &q : d->queues) {
         if (q.queueFamilyIndex == queueFamilyIndex && q.queueIndex == queueIndex) {
             return q.accessed.load();
@@ -169,6 +187,7 @@ bool CheckVkQueueAccess(VkDevice device, uint32_t queueFamilyIndex, uint32_t que
 static VKAPI_ATTR VkResult VKAPI_CALL createInstance(const VkInstanceCreateInfo *pCreateInfo, const VkAllocationCallbacks *pAllocator,
                                                      VkInstance *pInstance)
 {
+    // Find the loader info with the layer link: VK_LAYER_LINK_INFO
     VkLayerInstanceCreateInfo *pLayerCreateInfo = (VkLayerInstanceCreateInfo *)pCreateInfo->pNext;
 
     while (pLayerCreateInfo) {
@@ -185,37 +204,47 @@ static VKAPI_ATTR VkResult VKAPI_CALL createInstance(const VkInstanceCreateInfo 
 
     assert(pLayerCreateInfo->u.pLayerInfo);
 
+    // Next layer/runtime's GIPA
     PFN_vkGetInstanceProcAddr getInstanceProcAddr = pLayerCreateInfo->u.pLayerInfo->pfnNextGetInstanceProcAddr;
     PFN_vkCreateInstance fpCreateInstance = (PFN_vkCreateInstance)getInstanceProcAddr(NULL, "vkCreateInstance");
     if (fpCreateInstance == NULL) {
         return VK_ERROR_INITIALIZATION_FAILED;
     }
 
+    // Pop one level of layer info
     pLayerCreateInfo->u.pLayerInfo = pLayerCreateInfo->u.pLayerInfo->pNext;
 
+    // Call into next layer/runtime
     VkResult result = fpCreateInstance(pCreateInfo, pAllocator, pInstance);
     if (result != VK_SUCCESS) {
         return result;
     }
 
-    const std::lock_guard<std::mutex> lock(layer_mutex);
-    instances.emplace_back(*pInstance, getInstanceProcAddr);
+    // Initialize our per-instance object using the instance handle and the next level GIPA
+    // (outside the lock) then move it in
+    Instance inst{*pInstance, getInstanceProcAddr};
+    {
+        const std::lock_guard<std::mutex> lock(GetLayerMutex());
+        GetInstanceListLocked().emplace_back(std::move(inst));
+    }
 
     return VK_SUCCESS;
 }
 
 static VKAPI_ATTR void VKAPI_CALL destroyInstance(VkInstance instance, const VkAllocationCallbacks *pAllocator)
 {
-    const std::lock_guard<std::mutex> lock(layer_mutex);
-    auto it = std::find_if(instances.begin(), instances.end(), [&instance](const auto &i) { return i.handle == instance; });
+    const std::lock_guard<std::mutex> lock(GetLayerMutex());
+    auto it = std::find_if(GetInstanceListLocked().begin(), GetInstanceListLocked().end(),
+                           [&instance](const auto &i) { return i.handle == instance; });
 
     it->vkDestroyInstance(instance, pAllocator);
-    instances.erase(it);
+    GetInstanceListLocked().erase(it);
 }
 
 static VKAPI_ATTR VkResult VKAPI_CALL createDevice(VkPhysicalDevice physicalDevice, const VkDeviceCreateInfo *pCreateInfo,
                                                    const VkAllocationCallbacks *pAllocator, VkDevice *pDevice)
 {
+    // Find the loader info with the layer link: VK_LAYER_LINK_INFO
     VkLayerDeviceCreateInfo *pLayerCreateInfo = (VkLayerDeviceCreateInfo *)pCreateInfo->pNext;
 
     while (pLayerCreateInfo) {
@@ -232,6 +261,7 @@ static VKAPI_ATTR VkResult VKAPI_CALL createDevice(VkPhysicalDevice physicalDevi
 
     assert(pLayerCreateInfo->u.pLayerInfo);
 
+    // Next layer/runtime's GIPA and GDPA
     PFN_vkGetInstanceProcAddr getInstanceProcAddr = pLayerCreateInfo->u.pLayerInfo->pfnNextGetInstanceProcAddr;
     PFN_vkGetDeviceProcAddr getDeviceProcAddr = pLayerCreateInfo->u.pLayerInfo->pfnNextGetDeviceProcAddr;
 
@@ -240,15 +270,22 @@ static VKAPI_ATTR VkResult VKAPI_CALL createDevice(VkPhysicalDevice physicalDevi
         return VK_ERROR_INITIALIZATION_FAILED;
     }
 
+    // Pop one level of layer info
     pLayerCreateInfo->u.pLayerInfo = pLayerCreateInfo->u.pLayerInfo->pNext;
 
+    // Call into next layer/runtime
     VkResult result = fpCreateDevice(physicalDevice, pCreateInfo, pAllocator, pDevice);
     if (result != VK_SUCCESS) {
         return result;
     }
 
-    const std::lock_guard<std::mutex> lock(layer_mutex);
-    devices.emplace_back(*pDevice, getDeviceProcAddr);
+    // Initialize our per-device object using the device handle and the next level GDPA
+    // (outside the lock) then move it in.
+    Device dev{*pDevice, getDeviceProcAddr};
+    {
+        const std::lock_guard<std::mutex> lock(GetLayerMutex());
+        GetDeviceListLocked().emplace_back(std::move(dev));
+    }
 
     return VK_SUCCESS;
 }
@@ -257,13 +294,13 @@ static VKAPI_ATTR PFN_vkVoidFunction VKAPI_CALL getInstanceProcAddr(VkInstance i
 {
     const std::string pfn(pName);
 
-    if (pfn.compare("vkCreateInstance") == 0) {
+    if (pfn == "vkCreateInstance") {
         return (PFN_vkVoidFunction)createInstance;
     }
-    if (pfn.compare("vkDestroyInstance") == 0) {
+    if (pfn == "vkDestroyInstance") {
         return (PFN_vkVoidFunction)destroyInstance;
     }
-    if (pfn.compare("vkCreateDevice") == 0) {
+    if (pfn == "vkCreateDevice") {
         return (PFN_vkVoidFunction)createDevice;
     }
 
@@ -272,11 +309,12 @@ static VKAPI_ATTR PFN_vkVoidFunction VKAPI_CALL getInstanceProcAddr(VkInstance i
 
 static VKAPI_ATTR void VKAPI_CALL destroyDevice(VkDevice device, const VkAllocationCallbacks *pAllocator)
 {
-    const std::lock_guard<std::mutex> lock(layer_mutex);
-    auto it = std::find_if(devices.begin(), devices.end(), [&device](const auto &d) { return d.handle == device; });
+    const std::lock_guard<std::mutex> lock(GetLayerMutex());
+    auto it =
+        std::find_if(GetDeviceListLocked().begin(), GetDeviceListLocked().end(), [&device](const auto &d) { return d.handle == device; });
 
     it->vkDestroyDevice(device, pAllocator);
-    devices.erase(it);
+    GetDeviceListLocked().erase(it);
 }
 
 static VKAPI_ATTR void VKAPI_CALL getDeviceQueue(VkDevice device, uint32_t queueFamilyIndex, uint32_t queueIndex, VkQueue *pQueue)
@@ -285,7 +323,7 @@ static VKAPI_ATTR void VKAPI_CALL getDeviceQueue(VkDevice device, uint32_t queue
 
     d->vkGetDeviceQueue(device, queueFamilyIndex, queueIndex, pQueue);
 
-    const std::lock_guard<std::mutex> lock(layer_mutex);
+    const std::lock_guard<std::mutex> lock(GetLayerMutex());
     d->queues.emplace_back(*pQueue, queueFamilyIndex, queueIndex, d);
 }
 
@@ -309,16 +347,16 @@ static VKAPI_ATTR PFN_vkVoidFunction VKAPI_CALL getDeviceProcAddr(VkDevice devic
 {
     const std::string pfn(pName);
 
-    if (pfn.compare("vkDestroyDevice") == 0) {
+    if (pfn == "vkDestroyDevice") {
         return (PFN_vkVoidFunction)destroyDevice;
     }
-    if (pfn.compare("vkGetDeviceQueue") == 0) {
+    if (pfn == "vkGetDeviceQueue") {
         return (PFN_vkVoidFunction)getDeviceQueue;
     }
-    if (pfn.compare("vkQueueSubmit") == 0) {
+    if (pfn == "vkQueueSubmit") {
         return (PFN_vkVoidFunction)queueSubmit;
     }
-    if (pfn.compare("vkQueueWaitIdle") == 0) {
+    if (pfn == "vkQueueWaitIdle") {
         return (PFN_vkVoidFunction)queueWaitIdle;
     }
 
@@ -359,13 +397,12 @@ static const VkLayerProperties layerProperty = {
 
 static VkResult getLayerProperties(uint32_t *pPropertyCount, VkLayerProperties *pProperties)
 {
+    if (pPropertyCount == NULL) {
+        return VK_INCOMPLETE;
+    }
     if (pProperties == NULL) {
         *pPropertyCount = 1;
         return VK_SUCCESS;
-    }
-
-    if (pPropertyCount == 0) {
-        return VK_INCOMPLETE;
     }
 
     *pPropertyCount = 1;
