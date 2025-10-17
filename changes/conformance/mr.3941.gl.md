@@ -1,0 +1,1 @@
+- Improvement: Handle graphics plugin `ShutdownDevice()` calls in most cases with a scope guard.

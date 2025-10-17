@@ -207,3 +207,22 @@ endif()
 
 # Install the README
 install(FILES ../conformance_test/readme.md DESTINATION conformance)
+
+add_test(
+    NAME conformance_cli
+    COMMAND conformance_cli -E XR_MND_headless exclude:[interactive]
+    WORKING_DIRECTORY "$<TARGET_FILE_DIR:conformance_cli>"
+)
+
+set_tests_properties(
+    conformance_cli
+    PROPERTIES
+        TIMEOUT 60
+        ENVIRONMENT XR_RUNTIME_JSON=${PROJECT_BINARY_DIR}/src/conformance/conformance_cli/test_runtime.json
+)
+
+add_dependencies(
+    conformance_cli
+    test_runtime
+)
+

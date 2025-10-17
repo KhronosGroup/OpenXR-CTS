@@ -77,6 +77,7 @@ add_library(
     environment.cpp
     ext_render_model.cpp
     gltf_helpers.cpp
+    graphics_plugin.cpp
     graphics_plugin_d3d11.cpp
     graphics_plugin_d3d11_gltf.cpp
     graphics_plugin_d3d12.cpp

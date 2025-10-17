@@ -629,6 +629,9 @@ namespace Conformance
     ///     xrDestroySession(session);
     /// ```
     ///
+    /// Note that you will likely want to call @ref IGraphicsPlugin::ShutdownDevice() after you destroy
+    /// a session created this way, since the graphics system is initialized within this function.
+    /// See @ref GraphicsPluginShutdownDeviceOnScopeExit for a scope guard that can do that.
     XrResult CreateBasicSession(XrInstance instance, XrSystemId* systemId, XrSession* session, bool enableGraphicsSystem = true);
 
     /// Similar to CreateBasicSession but manages handle lifetime, including destroying

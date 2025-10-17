@@ -1,0 +1,5 @@
+---
+- mr.3891.gl
+- mr.4031.gl
+---
+- Improvement: enable clang-tidy bugprone-use-after-move check after fixing issues discovered.

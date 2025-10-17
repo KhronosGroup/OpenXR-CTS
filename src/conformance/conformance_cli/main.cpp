@@ -65,11 +65,12 @@ int main(int argc, const char** argv)
     XrcTestResult testResult;
     uint64_t failureCount = 0;
     XrcResult result = xrcRunConformanceTests(&launchSettings, &testResult, &failureCount);
+
     if (result != XRC_SUCCESS) {
+        xrcCleanup();
         return 2;  // Tests failed to run.
     }
 
     xrcCleanup();
-
     return testResult == XRC_TEST_RESULT_SUCCESS ? 0 : 1;
 }

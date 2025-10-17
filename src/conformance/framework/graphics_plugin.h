@@ -270,6 +270,8 @@ namespace Conformance
 
         /// Shuts down the device initialized by InitializeDevice. Restores to the same state as prior to
         /// the call to InitializeDevice.
+        /// Must be idempotent (callable multiple times) and safe to call at any point in the lifecycle,
+        /// including from within @ref InitializeDevice.
         virtual void ShutdownDevice() = 0;
 
         /// Get the graphics binding header for session creation.
@@ -406,5 +408,48 @@ namespace Conformance
     /// Throws std::invalid_argument if the graphics API is empty, unknown, or unsupported.
     std::shared_ptr<IGraphicsPlugin> CreateGraphicsPlugin(const char* graphicsAPI,
                                                           std::shared_ptr<IPlatformPlugin> platformPlugin) noexcept(false);
+
+    /// Shut down the global graphics plugin, if it exists and is initialized.
+    void GlobalGraphicsPluginShutdownDevice();
+
+    /// A scope-guard class to deterministically shut down the graphics plugin, if it is initialized, on scope exit.
+    ///
+    /// Technically we could have lightly misused std::unique_ptr to do this, but this seemed cleaner and easier to understand.
+    class GraphicsPluginShutdownDeviceOnScopeExit
+    {
+    public:
+        /// Default constructor. Does nothing, but needed when graphics plugin may be optional.
+        GraphicsPluginShutdownDeviceOnScopeExit() noexcept = default;
+
+        /// Constructor
+        explicit GraphicsPluginShutdownDeviceOnScopeExit(IGraphicsPlugin* plugin) noexcept : m_plugin(plugin)
+        {
+        }
+
+        /// Returns a scope guard from global data, if global data has a graphics plugin.
+        static GraphicsPluginShutdownDeviceOnScopeExit FromGlobalData();
+
+        /// Destructor - calls IGraphicsPlugin::ShutdownDevice() on the supplied graphics plugin
+        /// if it exists and was initialized, and if this guard was not released or shutdown first.
+        ~GraphicsPluginShutdownDeviceOnScopeExit();
+
+        /// Perform device shutdown.
+        ///
+        /// Note that this makes the destructor and future calls to @ref ShutdownDevice() a no-op.
+        void ShutdownDevice();
+
+        /// Turn off this scope guard so it does not actually shutdown the device.
+        void Release();
+
+        GraphicsPluginShutdownDeviceOnScopeExit(GraphicsPluginShutdownDeviceOnScopeExit&& other) noexcept;
+        GraphicsPluginShutdownDeviceOnScopeExit& operator=(GraphicsPluginShutdownDeviceOnScopeExit&& other) noexcept;
+
+        // no copy
+        GraphicsPluginShutdownDeviceOnScopeExit(const GraphicsPluginShutdownDeviceOnScopeExit&) = delete;
+        GraphicsPluginShutdownDeviceOnScopeExit& operator=(const GraphicsPluginShutdownDeviceOnScopeExit&) = delete;
+
+    private:
+        IGraphicsPlugin* m_plugin{};
+    };
 
 }  // namespace Conformance

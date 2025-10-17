@@ -1,0 +1,5 @@
+---
+- mr.3809.gl
+- pr.101.gh.OpenXR-CTS
+---
+- Improvement: Clean up handle state creation.

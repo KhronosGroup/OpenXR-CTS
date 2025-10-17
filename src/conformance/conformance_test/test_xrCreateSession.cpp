@@ -89,6 +89,8 @@ namespace Conformance
                 // xrGetD3D12GraphicsRequirementsKHR). This spec states that applications must call this, but
                 // how we enforce it in conformance testing is problematic because a specific return code isn't specified.
                 REQUIRE(graphicsPlugin->InitializeDevice(instance, systemId, false /* checkGraphicsRequirements */));
+                GraphicsPluginShutdownDeviceOnScopeExit pluginShutdown{graphicsPlugin.get()};
+
                 sessionCreateInfo.next = graphicsPlugin->GetGraphicsBinding();
                 XrResult sessionResult = xrCreateSession(instance, &sessionCreateInfo, &session);
                 CHECK_THAT(sessionResult, In<XrResult>({XR_ERROR_VALIDATION_FAILURE, XR_ERROR_GRAPHICS_REQUIREMENTS_CALL_MISSING}));
@@ -97,7 +99,6 @@ namespace Conformance
                 }
 
                 cleanup.Destroy();
-                graphicsPlugin->ShutdownDevice();
             }
 
             OPTIONAL_INVALID_TYPE_VALIDATION_SECTION
