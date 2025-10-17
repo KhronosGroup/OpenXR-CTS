@@ -97,9 +97,6 @@ set_target_properties(
     openxr_loader PROPERTIES DEBUG_POSTFIX "${OPENXR_DEBUG_POSTFIX}"
 )
 
-# All platforms can now do something with the XR_KHR_loader_init extension.
-target_compile_definitions(openxr_loader PRIVATE XR_KHR_LOADER_INIT_SUPPORT=1)
-
 # TODO remove once we get rid of add_definitions()
 if(Vulkan_FOUND)
     target_include_directories(openxr_loader PRIVATE ${Vulkan_INCLUDE_DIR})
@@ -384,6 +381,17 @@ if(CMAKE_COMPILER_IS_GNUCC OR CMAKE_C_COMPILER_ID MATCHES "Clang")
     # there's no consistent way to satisfy all compilers until they all accept the C++17 standard
     if(CMAKE_COMPILER_IS_GNUCC AND NOT (CMAKE_CXX_COMPILER_VERSION LESS 7.1))
         target_compile_options(openxr_loader PRIVATE -Wimplicit-fallthrough=0)
+    endif()
+endif()
+
+include(CheckCCompilerFlag)
+
+if(NOT ANDROID)
+    check_c_compiler_flag(-Wmissing-prototypes HAVE_MISSING_PROTOTYPES)
+    # https://gitlab.khronos.org/openxr/openxr/-/merge_requests/4020 highlighted that
+    # teams often have stricter compiler settings for the openxr_loader
+    if(HAVE_MISSING_PROTOTYPES)
+        target_compile_options(openxr_loader PRIVATE -Werror=missing-prototypes)
     endif()
 endif()
 

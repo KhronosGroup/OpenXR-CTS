@@ -132,9 +132,9 @@ namespace Conformance
                 config.enabledComponentCount = 0;
                 config.enabledComponents = nullptr;
 
-                std::array<const XrSpatialCapabilityConfigurationBaseHeaderEXT*, 1> capabilityConfigs = {
+                std::array<const XrSpatialCapabilityConfigurationBaseHeaderEXT*, 1> capabilityConfigs = {{
                     reinterpret_cast<const XrSpatialCapabilityConfigurationBaseHeaderEXT*>(&config),
-                };
+                }};
 
                 XrSpatialContextCreateInfoEXT contextCreateInfo{XR_TYPE_SPATIAL_CONTEXT_CREATE_INFO_EXT, nullptr,
                                                                 static_cast<uint32_t>(capabilityConfigs.size()), capabilityConfigs.data()};
@@ -163,10 +163,10 @@ namespace Conformance
                 config1.enabledComponents = guaranteedComponents.data();
                 T config2 = config1;
 
-                std::array<const XrSpatialCapabilityConfigurationBaseHeaderEXT*, 2> capabilityConfigs = {
+                std::array<const XrSpatialCapabilityConfigurationBaseHeaderEXT*, 2> capabilityConfigs = {{
                     reinterpret_cast<const XrSpatialCapabilityConfigurationBaseHeaderEXT*>(&config1),
                     reinterpret_cast<const XrSpatialCapabilityConfigurationBaseHeaderEXT*>(&config2),
-                };
+                }};
 
                 XrSpatialContextCreateInfoEXT contextCreateInfo{XR_TYPE_SPATIAL_CONTEXT_CREATE_INFO_EXT, nullptr,
                                                                 static_cast<uint32_t>(capabilityConfigs.size()), capabilityConfigs.data()};
@@ -187,9 +187,9 @@ namespace Conformance
                 config.enabledComponentCount = static_cast<uint32_t>(guaranteedComponents.size());
                 config.enabledComponents = guaranteedComponents.data();
 
-                std::array<const XrSpatialCapabilityConfigurationBaseHeaderEXT*, 1> capabilityConfigs = {
+                std::array<const XrSpatialCapabilityConfigurationBaseHeaderEXT*, 1> capabilityConfigs = {{
                     reinterpret_cast<const XrSpatialCapabilityConfigurationBaseHeaderEXT*>(&config),
-                };
+                }};
 
                 XrSpatialContextCreateInfoEXT contextCreateInfo{XR_TYPE_SPATIAL_CONTEXT_CREATE_INFO_EXT, nullptr,
                                                                 static_cast<uint32_t>(capabilityConfigs.size()), capabilityConfigs.data()};

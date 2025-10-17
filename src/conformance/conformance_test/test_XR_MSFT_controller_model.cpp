@@ -153,10 +153,10 @@ namespace Conformance
             &actionLayerManager, &compositionHelper.GetInteractionManager(), instance, session, simpleKHR, rightHandPath,
             GetInteractionProfile(InteractionProfileIndex::Profile_microsoft_motion_controller).BindingPaths, &additionalFeatures);
 
-        const std::array<XrPath, 2> subactionPaths{
+        const std::array<XrPath, 2> subactionPaths{{
             leftHandPath,
             rightHandPath,
-        };
+        }};
 
         XrActionSet actionSet;
         XrAction gripPoseAction;
@@ -324,7 +324,7 @@ namespace Conformance
 
         const char* instructions =
             "Ensure the controller model is positioned in the same position as the physical controller. "
-            "Press menu to complete the validation.";
+            "Press select to complete the validation. Press select while holding menu to fail the validation.";
 
         FeatureSet additionalFeatures = FeatureSet{FeatureBitIndex::BIT_XR_MSFT_controller_model};
         CompositionHelper compositionHelper("XR_MSFT_controller_model_inte...", additionalFeatures);
@@ -363,12 +363,12 @@ namespace Conformance
         hands[1].subactionPath = StringToPath(instance, "/user/hand/right");
 
         // Set up the actions.
-        const std::array<XrPath, 2> subactionPaths{
+        const std::array<XrPath, 2> subactionPaths{{
             hands[0].subactionPath,
             hands[1].subactionPath,
-        };
+        }};
         XrActionSet actionSet;
-        XrAction completeAction, gripPoseAction;
+        XrAction completeAction, failAction, gripPoseAction;
         {
             XrActionSetCreateInfo actionSetInfo{XR_TYPE_ACTION_SET_CREATE_INFO};
             strcpy(actionSetInfo.actionSetName, "interaction_test");
@@ -380,6 +380,11 @@ namespace Conformance
             strcpy(actionInfo.actionName, "complete_test");
             strcpy(actionInfo.localizedActionName, "Complete test");
             XRC_CHECK_THROW_XRCMD(xrCreateAction(actionSet, &actionInfo, &completeAction));
+
+            actionInfo.actionType = XR_ACTION_TYPE_BOOLEAN_INPUT;
+            strcpy(actionInfo.actionName, "fail_test");
+            strcpy(actionInfo.localizedActionName, "Fail test");
+            XRC_CHECK_THROW_XRCMD(xrCreateAction(actionSet, &actionInfo, &failAction));
 
             // Remainder of actions use subaction.
             actionInfo.subactionPaths = subactionPaths.data();
@@ -394,8 +399,10 @@ namespace Conformance
         }
 
         const std::vector<XrActionSuggestedBinding> bindings = {
-            {completeAction, StringToPath(instance, "/user/hand/left/input/menu/click")},
-            {completeAction, StringToPath(instance, "/user/hand/right/input/menu/click")},
+            {completeAction, StringToPath(instance, "/user/hand/left/input/select/click")},
+            {completeAction, StringToPath(instance, "/user/hand/right/input/select/click")},
+            {failAction, StringToPath(instance, "/user/hand/left/input/menu/click")},
+            {failAction, StringToPath(instance, "/user/hand/right/input/menu/click")},
             {gripPoseAction, StringToPath(instance, "/user/hand/left/input/grip/pose")},
             {gripPoseAction, StringToPath(instance, "/user/hand/right/input/grip/pose")},
         };
@@ -446,6 +453,16 @@ namespace Conformance
                 XrActionStateBoolean completeActionState{XR_TYPE_ACTION_STATE_BOOLEAN};
                 XRC_CHECK_THROW_XRCMD(xrGetActionStateBoolean(session, &completeActionGetInfo, &completeActionState));
                 if (completeActionState.currentState == XR_TRUE && completeActionState.changedSinceLastSync) {
+                    {
+                        // Check if menu (failAction) is also pressed, because that means fail
+                        XrActionStateGetInfo failActionGetInfo{XR_TYPE_ACTION_STATE_GET_INFO};
+                        failActionGetInfo.action = failAction;
+                        XrActionStateBoolean failActionValue{XR_TYPE_ACTION_STATE_BOOLEAN};
+                        XRC_CHECK_THROW_XRCMD(xrGetActionStateBoolean(session, &failActionGetInfo, &failActionValue));
+                        if (failActionValue.currentState == XR_TRUE) {
+                            FAIL("User failed the interactive test");
+                        }
+                    }
                     return false;
                 }
             }

@@ -65,7 +65,7 @@ namespace Conformance
         /// Main workings of the two-call checker.
         template <typename T, typename F, typename... Args>
         inline std::vector<T> test(Catch::StringRef const& macroName, Strings const& strings, const Catch::SourceLineInfo& lineinfo,
-                                   Catch::ResultDisposition::Flags resultDisposition, T const& empty, F&& wrappedCall, Args&&... a)
+                                   Catch::ResultDisposition::Flags resultDisposition, T const& empty, F&& wrappedCall, Args... a)
         {
             std::vector<T> ret;
             uint32_t count = 0;
@@ -77,7 +77,7 @@ namespace Conformance
                 Catch::AssertionHandler catchAssertionHandler(macroName, lineinfo, name, resultDisposition);
                 INTERNAL_CATCH_TRY
                 {
-                    auto result = wrappedCall(std::forward<Args>(a)..., 0, &count, nullptr);
+                    auto result = wrappedCall(a..., 0, &count, nullptr);
                     catchAssertionHandler.handleExpr(Catch::ExprLhs<XrResult>(XR_SUCCESS) == result);
                 }
                 INTERNAL_CATCH_CATCH(catchAssertionHandler)
@@ -96,7 +96,7 @@ namespace Conformance
                     ret.resize(count, empty);
 
                     // Perform call and handle assertion
-                    auto result = wrappedCall(std::forward<Args>(a)..., uint32_t(ret.size()), &count, ret.data());
+                    auto result = wrappedCall(a..., uint32_t(ret.size()), &count, ret.data());
                     catchAssertionHandler.handleExpr(Catch::ExprLhs<XrResult>(XR_SUCCESS) == result);
                     if (Catch::getResultCapture().lastAssertionPassed()) {
                         // If success, resize to exact length.

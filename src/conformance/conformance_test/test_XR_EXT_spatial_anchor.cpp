@@ -80,17 +80,17 @@ namespace Conformance
                 GetInstanceExtensionFunction<PFN_xrCreateSpatialContextCompleteEXT>(instance, "xrCreateSpatialContextCompleteEXT");
             auto xrPollFutureEXT = GetInstanceExtensionFunction<PFN_xrPollFutureEXT>(instance, "xrPollFutureEXT");
 
-            std::array<XrSpatialComponentTypeEXT, 1> enabledComponents = {
+            std::array<XrSpatialComponentTypeEXT, 1> enabledComponents = {{
                 XR_SPATIAL_COMPONENT_TYPE_ANCHOR_EXT,
-            };
+            }};
             XrSpatialCapabilityConfigurationAnchorEXT anchorConfig{XR_TYPE_SPATIAL_CAPABILITY_CONFIGURATION_ANCHOR_EXT};
             anchorConfig.capability = XR_SPATIAL_CAPABILITY_ANCHOR_EXT;
             anchorConfig.enabledComponentCount = static_cast<uint32_t>(enabledComponents.size());
             anchorConfig.enabledComponents = enabledComponents.data();
 
-            std::array<XrSpatialCapabilityConfigurationBaseHeaderEXT*, 1> capabilityConfigs = {
+            std::array<XrSpatialCapabilityConfigurationBaseHeaderEXT*, 1> capabilityConfigs = {{
                 reinterpret_cast<XrSpatialCapabilityConfigurationBaseHeaderEXT*>(&anchorConfig),
-            };
+            }};
 
             XrSpatialContextCreateInfoEXT contextCreateInfo{XR_TYPE_SPATIAL_CONTEXT_CREATE_INFO_EXT};
             contextCreateInfo.capabilityConfigCount = static_cast<uint32_t>(capabilityConfigs.size());
@@ -121,9 +121,9 @@ namespace Conformance
             auto xrQuerySpatialComponentDataEXT =
                 GetInstanceExtensionFunction<PFN_xrQuerySpatialComponentDataEXT>(instance, "xrQuerySpatialComponentDataEXT");
 
-            std::array<XrSpatialComponentTypeEXT, 1> enabledComponents = {
+            std::array<XrSpatialComponentTypeEXT, 1> enabledComponents = {{
                 XR_SPATIAL_COMPONENT_TYPE_ANCHOR_EXT,
-            };
+            }};
 
             XrSpatialComponentDataQueryConditionEXT queryCond{XR_TYPE_SPATIAL_COMPONENT_DATA_QUERY_CONDITION_EXT};
             queryCond.componentTypeCount = static_cast<uint32_t>(enabledComponents.size());
@@ -148,7 +148,7 @@ namespace Conformance
             REQUIRE_THAT(entityIds, VectorContains(lookupEntityId));
         }
 
-        TEST_CASE("XR_EXT_spatial_anchor", "[XR_EXT_spatial_anchor][XR_EXT_spatial_entity]")
+        TEST_CASE("XR_EXT_spatial_anchor", "[XR_EXT_spatial_anchor][XR_EXT_spatial_entity][scenario][interactive][no_auto]")
         {
             XrSpatialCapabilityConfigurationAnchorEXT anchorConfig{XR_TYPE_SPATIAL_CAPABILITY_CONFIGURATION_ANCHOR_EXT};
             anchorConfig.capability = XR_SPATIAL_CAPABILITY_ANCHOR_EXT;
@@ -400,9 +400,7 @@ namespace Conformance
             PFN_xrDestroySpatialSnapshotEXT xrDestroySpatialSnapshotEXT{};
         };
 
-        TEST_CASE("XR_EXT_spatial_anchor-interactive",
-                  "[XR_EXT_spatial_anchor][XR_EXT_spatial_entity][scenario]["
-                  "interactive][no_auto]")
+        TEST_CASE("XR_EXT_spatial_anchor-interactive", "[XR_EXT_spatial_anchor][XR_EXT_spatial_entity][scenario][interactive][no_auto]")
         {
             SpatialAnchorTestRunner({XR_SPATIAL_COMPONENT_TYPE_ANCHOR_EXT})
                 .RunTest(XR_EXT_SPATIAL_ANCHOR_EXTENSION_NAME,

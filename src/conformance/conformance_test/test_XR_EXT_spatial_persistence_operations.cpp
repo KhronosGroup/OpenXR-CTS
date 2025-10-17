@@ -157,9 +157,9 @@ namespace Conformance
             }
         }
 
-        TEST_CASE("XR_EXT_spatial_persistence_operations",
-                  "[XR_EXT_spatial_persistence_operations][XR_EXT_spatial_persistence]"
-                  "[XR_EXT_spatial_entity]")
+        TEST_CASE(
+            "XR_EXT_spatial_persistence_operations",
+            "[XR_EXT_spatial_persistence_operations][XR_EXT_spatial_persistence][XR_EXT_spatial_entity][scenario][interactive][no_auto]")
         {
             const std::vector<const char*> requiredExtensions = {
                 XR_EXT_FUTURE_EXTENSION_NAME, XR_EXT_SPATIAL_ENTITY_EXTENSION_NAME, XR_EXT_SPATIAL_ANCHOR_EXTENSION_NAME,
@@ -256,18 +256,18 @@ namespace Conformance
                                                             XR_SPATIAL_COMPONENT_TYPE_ANCHOR_EXT));
                     }
 
-                    std::array<XrSpatialComponentTypeEXT, 2> enabledComponents = {
+                    std::array<XrSpatialComponentTypeEXT, 2> enabledComponents = {{
                         XR_SPATIAL_COMPONENT_TYPE_ANCHOR_EXT,
                         XR_SPATIAL_COMPONENT_TYPE_PERSISTENCE_EXT,
-                    };
+                    }};
                     XrSpatialCapabilityConfigurationAnchorEXT anchorConfig{XR_TYPE_SPATIAL_CAPABILITY_CONFIGURATION_ANCHOR_EXT};
                     anchorConfig.capability = XR_SPATIAL_CAPABILITY_ANCHOR_EXT;
                     anchorConfig.enabledComponentCount = static_cast<uint32_t>(enabledComponents.size());
                     anchorConfig.enabledComponents = enabledComponents.data();
 
-                    std::array<XrSpatialCapabilityConfigurationBaseHeaderEXT*, 1> capabilityConfigs = {
+                    std::array<XrSpatialCapabilityConfigurationBaseHeaderEXT*, 1> capabilityConfigs = {{
                         reinterpret_cast<XrSpatialCapabilityConfigurationBaseHeaderEXT*>(&anchorConfig),
-                    };
+                    }};
 
                     XrSpatialContextCreateInfoEXT contextCreateInfo{XR_TYPE_SPATIAL_CONTEXT_CREATE_INFO_EXT, nullptr,
                                                                     static_cast<uint32_t>(capabilityConfigs.size()),
@@ -415,10 +415,10 @@ namespace Conformance
 
                                 // Persist UUID filter for discovery snapshot
                                 {
-                                    const std::array<XrUuid, 2> persistUuids = {
+                                    const std::array<XrUuid, 2> persistUuids = {{
                                         persistUuid,
-                                        {0},
-                                    };
+                                        {{0}},
+                                    }};
                                     XrSpatialDiscoveryPersistenceUuidFilterEXT persistFilter{
                                         XR_TYPE_SPATIAL_DISCOVERY_PERSISTENCE_UUID_FILTER_EXT};
                                     persistFilter.persistedUuidCount = static_cast<uint32_t>(persistUuids.size());
@@ -492,9 +492,9 @@ namespace Conformance
 
                                     // Unpersisted uuid state must be "not found"
                                     {
-                                        const std::array<XrUuid, 1> persistUuids = {
+                                        const std::array<XrUuid, 1> persistUuids = {{
                                             persistUuid,
-                                        };
+                                        }};
                                         XrSpatialDiscoveryPersistenceUuidFilterEXT persistFilter{
                                             XR_TYPE_SPATIAL_DISCOVERY_PERSISTENCE_UUID_FILTER_EXT};
                                         persistFilter.persistedUuidCount = static_cast<uint32_t>(persistUuids.size());

@@ -2323,7 +2323,7 @@ namespace Conformance
         struct
         {
             float color[4];
-        } ubo = {color.r, color.r, color.g, color.a};
+        } ubo = {{color.r, color.r, color.g, color.a}};
         uint8_t* uboData = (uint8_t*)&ubo;
 
         VkBufferCreateInfo bufferCreateInfo{VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO};

@@ -241,7 +241,7 @@ namespace Conformance
         for (uint32_t i = 0; i < visibilityMask.indexCountOutput; ++i) {
             XrVector2f vertex = getVertexAtIndexNumber(visibilityMask, i);
 
-            polygon.push_back({vertex.x, vertex.y});
+            polygon.push_back({{vertex.x, vertex.y}});
         }
 
         // earcut wants a vector of polygons, subsequent polygons are holes

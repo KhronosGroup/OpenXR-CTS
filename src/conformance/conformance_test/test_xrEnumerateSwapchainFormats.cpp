@@ -31,12 +31,12 @@ namespace Conformance
 
         if (!GetGlobalData().IsUsingGraphicsPlugin()) {
             INFO("Headless shouldn't provide any swapchain formats");
-            auto formats = REQUIRE_TWO_CALL(int64_t, {}, xrEnumerateSwapchainFormats, session);
+            auto formats = REQUIRE_TWO_CALL(int64_t, {}, xrEnumerateSwapchainFormats, session.GetSession());
             REQUIRE(formats.empty());
             return;
         }
 
-        auto formats = REQUIRE_TWO_CALL(int64_t, {}, xrEnumerateSwapchainFormats, session);
+        auto formats = REQUIRE_TWO_CALL(int64_t, {}, xrEnumerateSwapchainFormats, session.GetSession());
         REQUIRE(formats.size() > 0);
 
         // https://registry.khronos.org/OpenXR/specs/1.1/html/xrspec.html#xrEnumerateSwapchainFormats

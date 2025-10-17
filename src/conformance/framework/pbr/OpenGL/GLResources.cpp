@@ -45,17 +45,17 @@ namespace Pbr
 
 // IWYU pragma: begin_keep
 static const char* g_PbrVertexShader =
-#ifdef XR_USE_GRAPHICS_API_OPENGL
+#if defined(XR_USE_GRAPHICS_API_OPENGL)
 #include <PbrVertexShader_glsl_src.h>
-#elif XR_USE_GRAPHICS_API_OPENGL_ES
+#elif defined(XR_USE_GRAPHICS_API_OPENGL_ES)
 #include <PbrVertexShader_glsl_src_es.h>
 #endif
     ;
 
 static const char* g_PbrPixelShader =
-#ifdef XR_USE_GRAPHICS_API_OPENGL
+#if defined(XR_USE_GRAPHICS_API_OPENGL)
 #include <PbrPixelShader_glsl_src.h>
-#elif XR_USE_GRAPHICS_API_OPENGL_ES
+#elif defined(XR_USE_GRAPHICS_API_OPENGL_ES)
 #include <PbrPixelShader_glsl_src_es.h>
 #endif
     ;
@@ -71,19 +71,15 @@ namespace
 
         for (auto& format : Pbr::GetGLFormatMap()) {
             switch (format.first.codec) {
-            case Conformance::Image::Codec::Raw8bpc:
-                break;
-            case Conformance::Image::Codec::BC7:
-                // TODO: implement extension checking once GL loader changes land
-#ifdef XR_USE_GRAPHICS_API_OPENGL
-                break;  // core as of OpenGL 4.2
-#elif XR_USE_GRAPHICS_API_OPENGL_ES
+            case Conformance::Image::Codec::BC7:  // core as of OpenGL 4.3
+#if defined(XR_USE_GRAPHICS_API_OPENGL_ES)
+                // TODO: enable GL_EXT_texture_compression_bptc in GLAD
                 continue;  // requires GL_EXT_texture_compression_bptc
 #endif
-            case Conformance::Image::Codec::ETC:
-                break;  // core as of OpenGL 4.3 and OpenGL ES 3.0
-            case Conformance::Image::Codec::ASTC:
-                continue;  // requires KHR_texture_compression_astc_hdr or GL_KHR_texture_compression_astc_ldr
+            case Conformance::Image::Codec::Raw8bpc:
+            case Conformance::Image::Codec::ETC:  // core as of OpenGL 4.3 and OpenGL ES 3.0
+                break;
+            case Conformance::Image::Codec::ASTC:  // requires KHR_texture_compression_astc_hdr or GL_KHR_texture_compression_astc_ldr
             default:
                 continue;
             }

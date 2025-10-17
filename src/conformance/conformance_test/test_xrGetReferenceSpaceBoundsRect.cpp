@@ -35,7 +35,7 @@ namespace Conformance
         XrResult result;
 
         // Get all supported reference space types and exercise them.
-        auto spaceTypeVector = CHECK_TWO_CALL(XrReferenceSpaceType, {}, xrEnumerateReferenceSpaces, session);
+        auto spaceTypeVector = CHECK_TWO_CALL(XrReferenceSpaceType, {}, xrEnumerateReferenceSpaces, session.GetSession());
 
         XrExtent2Df extent{-1.f, -1.f};
         // Note: View has to be supported and we already checked this in the xrEnumerateReferenceSpaces tests.

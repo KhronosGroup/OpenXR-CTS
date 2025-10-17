@@ -25,10 +25,10 @@ v
 #hugin_optimizeReferenceImage 0
 #hugin_blender enblend
 #hugin_remapper nona
-#hugin_enblendOptions 
-#hugin_enfuseOptions 
+#hugin_enblendOptions
+#hugin_enfuseOptions
 #hugin_hdrmergeOptions -m avg -c
-#hugin_verdandiOptions 
+#hugin_verdandiOptions
 #hugin_edgeFillMode 0
 #hugin_edgeFillKeepInput false
 #hugin_outputLDRBlended true

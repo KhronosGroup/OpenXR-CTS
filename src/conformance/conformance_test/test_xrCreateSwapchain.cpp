@@ -74,7 +74,7 @@ namespace Conformance
         AutoBasicSession session(AutoBasicSession::createSession);
 
         if (!GetGlobalData().IsUsingGraphicsPlugin()) {
-            auto formats = REQUIRE_TWO_CALL(int64_t, {}, xrEnumerateSwapchainFormats, session);
+            auto formats = REQUIRE_TWO_CALL(int64_t, {}, xrEnumerateSwapchainFormats, session.GetSession());
             SECTION("Headless shouldn't provide any swapchain formats")
             {
                 REQUIRE(formats.empty());
@@ -82,7 +82,7 @@ namespace Conformance
             return;
         }
 
-        auto formats = REQUIRE_TWO_CALL(int64_t, {}, xrEnumerateSwapchainFormats, session);
+        auto formats = REQUIRE_TWO_CALL(int64_t, {}, xrEnumerateSwapchainFormats, session.GetSession());
         SECTION("A non-headless session should provide at least one swapchain format")
         {
             REQUIRE(formats.size() > 0);

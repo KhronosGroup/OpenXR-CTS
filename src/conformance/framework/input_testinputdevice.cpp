@@ -90,8 +90,12 @@ namespace Conformance
             , m_topLevelPath(topLevelPath)
             , m_conformanceAutomationExtensionEnabled(GetGlobalData().IsUsingConformanceAutomation())
         {
-            std::string actionSetName = "test_device_action_set_" + std::to_string(m_topLevelPath);
-            std::string localizedActionSetName = "Test Device Action Set " + std::to_string(m_topLevelPath);
+            // these are integers (XrPath values), not the actual path strings
+            std::string actionSetSuffix = std::to_string(m_topLevelPath) + "_" + std::to_string(m_interactionProfile);
+            std::string actionSetName = "test_device_actionset_" + actionSetSuffix;
+            XRC_CHECK_THROW(actionSetName.size() < XR_MAX_ACTION_SET_NAME_SIZE);
+            std::string localizedActionSetName = "Test Device ActionSet " + actionSetSuffix;
+            XRC_CHECK_THROW(localizedActionSetName.size() < XR_MAX_LOCALIZED_ACTION_SET_NAME_SIZE);
 
             XrActionSetCreateInfo actionSetCreateInfo{XR_TYPE_ACTION_SET_CREATE_INFO};
             strcpy(actionSetCreateInfo.localizedActionSetName, localizedActionSetName.c_str());
@@ -158,6 +162,11 @@ namespace Conformance
         XrPath TopLevelPath() const override
         {
             return m_topLevelPath;
+        }
+
+        XrActionSet ActionSet() const override
+        {
+            return m_actionSet;
         }
         // void SetDeviceActive(bool state, WaitUntilBoolActionIsActiveUpdated waitCondition) override
         // {

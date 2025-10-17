@@ -292,10 +292,10 @@ namespace Conformance
 
             SECTION("Duplicate subaction paths")
             {
-                const std::array<XrPath, 2> subactionPaths = {
+                const std::array<XrPath, 2> subactionPaths = {{
                     StringToPath(instance, "/user/head"),
                     StringToPath(instance, "/user/head"),
-                };
+                }};
                 actionCreateInfo.countSubactionPaths = 2;
                 actionCreateInfo.subactionPaths = subactionPaths.data();
                 REQUIRE_RESULT(xrCreateAction(actionSet, &actionCreateInfo, &action), XR_ERROR_PATH_UNSUPPORTED);
@@ -882,8 +882,7 @@ namespace Conformance
         REQUIRE_RESULT(xrSuggestInteractionProfileBindings(instance, &bindings), XR_SUCCESS);
 
         // Calling attach on the interaction manager will call xrSuggestInteractionProfileBindings with the bindings provided here, overwriting the previous bindings
-        compositionHelper.GetInteractionManager().AddActionBindings(
-            StringToPath(instance, GetSimpleInteractionProfile().InteractionProfilePathString), {{{selectActionB, selectPath}}});
+        compositionHelper.GetInteractionManager().AddActionBindings(bindings.interactionProfile, {{{selectActionB, selectPath}}});
         compositionHelper.GetInteractionManager().AttachActionSets();
 
         actionLayerManager.WaitForSessionFocusWithMessage();
@@ -1152,7 +1151,8 @@ namespace Conformance
 
                 REQUIRE_RESULT(xrAttachSessionActionSets(session, &attachInfo), XR_SUCCESS);
 
-                std::vector<XrPath> boundSourcesPaths = REQUIRE_TWO_CALL(XrPath, {}, xrEnumerateBoundSourcesForAction, session, &info);
+                std::vector<XrPath> boundSourcesPaths =
+                    REQUIRE_TWO_CALL(XrPath, {}, xrEnumerateBoundSourcesForAction, session.GetSession(), &info);
                 sourceCountOutput = static_cast<uint32_t>(boundSourcesPaths.size());
 
                 // should not get a null path, not really much else we can assert here.
@@ -1973,8 +1973,8 @@ namespace Conformance
         if (globalData.leftHandUnderTest && globalData.rightHandUnderTest) {
             {
                 // Both sets with null subaction path
-                std::array<XrActiveActionSet, 4> activeSets = {lowPriorityLeftHandActiveActionSet, lowPriorityRightHandActiveActionSet,
-                                                               highPriorityLeftHandActiveActionSet, highPriorityRightHandActiveActionSet};
+                std::array<XrActiveActionSet, 4> activeSets = {{lowPriorityLeftHandActiveActionSet, lowPriorityRightHandActiveActionSet,
+                                                                highPriorityLeftHandActiveActionSet, highPriorityRightHandActiveActionSet}};
 
                 XrActionsSyncInfo syncInfo{XR_TYPE_ACTIONS_SYNC_INFO};
                 syncInfo.countActiveActionSets = static_cast<uint32_t>(activeSets.size());
@@ -2007,9 +2007,9 @@ namespace Conformance
                     XrActiveActionSetPrioritiesEXT activeActionSetPriorities{XR_TYPE_ACTIVE_ACTION_SET_PRIORITIES_EXT};
 
                     // Both sets with priorities swapped
-                    std::array<XrActiveActionSet, 4> activeSets = {lowPriorityLeftHandActiveActionSet, lowPriorityRightHandActiveActionSet,
-                                                                   highPriorityLeftHandActiveActionSet,
-                                                                   highPriorityRightHandActiveActionSet};
+                    std::array<XrActiveActionSet, 4> activeSets = {{lowPriorityLeftHandActiveActionSet, lowPriorityRightHandActiveActionSet,
+                                                                    highPriorityLeftHandActiveActionSet,
+                                                                    highPriorityRightHandActiveActionSet}};
                     actionSetPriorities = {{highPriorityActionSet, 2}, {lowPriorityActionSet, 3}};
 
                     XrActionsSyncInfo syncInfo{XR_TYPE_ACTIONS_SYNC_INFO};
@@ -2044,9 +2044,9 @@ namespace Conformance
                     XrActiveActionSetPrioritiesEXT activeActionSetPriorities{XR_TYPE_ACTIVE_ACTION_SET_PRIORITIES_EXT};
 
                     // Both sets with equal priorities
-                    std::array<XrActiveActionSet, 4> activeSets = {lowPriorityLeftHandActiveActionSet, lowPriorityRightHandActiveActionSet,
-                                                                   highPriorityLeftHandActiveActionSet,
-                                                                   highPriorityRightHandActiveActionSet};
+                    std::array<XrActiveActionSet, 4> activeSets = {{lowPriorityLeftHandActiveActionSet, lowPriorityRightHandActiveActionSet,
+                                                                    highPriorityLeftHandActiveActionSet,
+                                                                    highPriorityRightHandActiveActionSet}};
                     actionSetPriorities = {{highPriorityActionSet, 2}, {lowPriorityActionSet, 2}};
 
                     XrActionsSyncInfo syncInfo{XR_TYPE_ACTIONS_SYNC_INFO};
@@ -2080,7 +2080,7 @@ namespace Conformance
 
         if (globalData.rightHandUnderTest) {
             // Both sets with right hand subaction path
-            std::array<XrActiveActionSet, 2> activeSets = {highPriorityRightHandActiveActionSet, lowPriorityRightHandActiveActionSet};
+            std::array<XrActiveActionSet, 2> activeSets = {{highPriorityRightHandActiveActionSet, lowPriorityRightHandActiveActionSet}};
 
             XrActionsSyncInfo syncInfo{XR_TYPE_ACTIONS_SYNC_INFO};
             syncInfo.countActiveActionSets = static_cast<uint32_t>(activeSets.size());
@@ -2108,7 +2108,7 @@ namespace Conformance
 
         if (globalData.leftHandUnderTest) {
             // Both sets with left hand subaction path
-            std::array<XrActiveActionSet, 2> activeSets = {highPriorityLeftHandActiveActionSet, lowPriorityLeftHandActiveActionSet};
+            std::array<XrActiveActionSet, 2> activeSets = {{highPriorityLeftHandActiveActionSet, lowPriorityLeftHandActiveActionSet}};
 
             XrActionsSyncInfo syncInfo{XR_TYPE_ACTIONS_SYNC_INFO};
             syncInfo.countActiveActionSets = static_cast<uint32_t>(activeSets.size());
@@ -2137,7 +2137,7 @@ namespace Conformance
         if (globalData.leftHandUnderTest && globalData.rightHandUnderTest) {
             {
                 // Both sets with differing subaction path
-                std::array<XrActiveActionSet, 2> activeSets = {highPriorityRightHandActiveActionSet, lowPriorityLeftHandActiveActionSet};
+                std::array<XrActiveActionSet, 2> activeSets = {{highPriorityRightHandActiveActionSet, lowPriorityLeftHandActiveActionSet}};
 
                 XrActionsSyncInfo syncInfo{XR_TYPE_ACTIONS_SYNC_INFO};
                 syncInfo.countActiveActionSets = static_cast<uint32_t>(activeSets.size());
@@ -2164,7 +2164,7 @@ namespace Conformance
             }
             {
                 // Both sets with differing subaction path
-                std::array<XrActiveActionSet, 2> activeSets = {highPriorityLeftHandActiveActionSet, lowPriorityRightHandActiveActionSet};
+                std::array<XrActiveActionSet, 2> activeSets = {{highPriorityLeftHandActiveActionSet, lowPriorityRightHandActiveActionSet}};
                 XrActionsSyncInfo syncInfo{XR_TYPE_ACTIONS_SYNC_INFO};
                 syncInfo.countActiveActionSets = static_cast<uint32_t>(activeSets.size());
                 syncInfo.activeActionSets = activeSets.data();
@@ -2190,8 +2190,8 @@ namespace Conformance
             }
             {
                 // Both sets with differing subaction path
-                std::array<XrActiveActionSet, 3> activeSets = {highPriorityRightHandActiveActionSet, lowPriorityLeftHandActiveActionSet,
-                                                               lowPriorityRightHandActiveActionSet};
+                std::array<XrActiveActionSet, 3> activeSets = {
+                    {highPriorityRightHandActiveActionSet, lowPriorityLeftHandActiveActionSet, lowPriorityRightHandActiveActionSet}};
                 XrActionsSyncInfo syncInfo{XR_TYPE_ACTIONS_SYNC_INFO};
                 syncInfo.countActiveActionSets = static_cast<uint32_t>(activeSets.size());
                 syncInfo.activeActionSets = activeSets.data();
@@ -2217,8 +2217,8 @@ namespace Conformance
             }
             {
                 // Both sets with differing subaction path
-                std::array<XrActiveActionSet, 3> activeSets = {highPriorityRightHandActiveActionSet, lowPriorityLeftHandActiveActionSet,
-                                                               lowPriorityRightHandActiveActionSet};
+                std::array<XrActiveActionSet, 3> activeSets = {
+                    {highPriorityRightHandActiveActionSet, lowPriorityLeftHandActiveActionSet, lowPriorityRightHandActiveActionSet}};
                 XrActionsSyncInfo syncInfo{XR_TYPE_ACTIONS_SYNC_INFO};
                 syncInfo.countActiveActionSets = static_cast<uint32_t>(activeSets.size());
                 syncInfo.activeActionSets = activeSets.data();

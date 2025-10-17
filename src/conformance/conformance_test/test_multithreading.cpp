@@ -256,24 +256,32 @@ namespace Conformance
             size_t functionIndex = randEngine.RandSizeT(0, env.TestFunctionVector().size());
             const ThreadTestFunction& testFunction = env.TestFunctionVector()[functionIndex];
 
+            bool shouldExerciseFunction = false;
             try {
-                if ((testFunction.callRequirement == CallRequirement::session) &&
-                    (env.GetAutoBasicSession().GetSession() != XR_NULL_HANDLE)) {
+                switch (testFunction.callRequirement) {
+                case CallRequirement::session:
+                    shouldExerciseFunction = (env.GetAutoBasicSession().GetSession() != XR_NULL_HANDLE);
+                    break;
+                case CallRequirement::systemId:
+                    shouldExerciseFunction = (env.GetAutoBasicSession().GetSystemId() != XR_NULL_SYSTEM_ID);
+                    break;
+                case CallRequirement::instance:
+                    shouldExerciseFunction = (env.GetAutoBasicSession().GetInstance() != XR_NULL_HANDLE);
+                    break;
+                case CallRequirement::global:
+                    shouldExerciseFunction = true;
+                    break;
+                default:
+                    break;
+                }
+
+                if (shouldExerciseFunction) {
                     testFunction.exerciseFunction(env);
                 }
-                else if ((testFunction.callRequirement == CallRequirement::systemId) &&
-                         (env.GetAutoBasicSession().GetSystemId() != XR_NULL_SYSTEM_ID)) {
-                    testFunction.exerciseFunction(env);
-                }
-                else if ((testFunction.callRequirement == CallRequirement::instance) &&
-                         (env.GetAutoBasicSession().GetInstance() != XR_NULL_HANDLE)) {
-                    testFunction.exerciseFunction(env);
-                }
-                else if (testFunction.callRequirement == CallRequirement::global) {
-                    testFunction.exerciseFunction(env);
-                }
-                else {    // Else we can't call this function due to the environment.
-                    --i;  // Don't count it as an invocation.
+                else {
+                    // We can't call this function due to the environment.
+                    // Don't count it as an invocation.
+                    --i;
                 }
             }
             catch (const std::exception& ex) {

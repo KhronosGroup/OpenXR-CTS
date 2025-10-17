@@ -8,7 +8,7 @@
     "implementation_version": "1",
     "description": "API Layer to validate OpenXR runtime conformance",
     "disable_environment":  {
-        "KHRONOS_xr_runtime_conformance_disabled": "1"
+        "OPENXR_xr_runtime_conformance_disabled": "1"
     }
   }
 }

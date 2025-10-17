@@ -163,9 +163,9 @@ namespace Pbr
     {
         (void)fillMode;  // suppress unused warning under GL
         GLenum drawMode =
-#ifdef XR_USE_GRAPHICS_API_OPENGL
+#if defined(XR_USE_GRAPHICS_API_OPENGL)
             GL_TRIANGLES  // use glPolygonMode(..., GL_LINE)
-#elif XR_USE_GRAPHICS_API_OPENGL_ES
+#elif defined(XR_USE_GRAPHICS_API_OPENGL_ES)
             fillMode == FillMode::Wireframe ? GL_LINES : GL_TRIANGLES
 #endif
             ;

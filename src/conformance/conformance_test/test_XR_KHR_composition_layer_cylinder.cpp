@@ -55,13 +55,13 @@ namespace Conformance
         auto&& layerFlagsGenerator = bitmaskGeneratorIncluding0({XR_COMPOSITION_LAYER_CORRECT_CHROMATIC_ABERRATION_BIT,
                                                                  XR_COMPOSITION_LAYER_BLEND_TEXTURE_SOURCE_ALPHA_BIT,
                                                                  XR_COMPOSITION_LAYER_UNPREMULTIPLIED_ALPHA_BIT});
-        std::array<XrEyeVisibility, 3> eyeVisibilityArray{XR_EYE_VISIBILITY_BOTH, XR_EYE_VISIBILITY_LEFT /* just these two */};
+        std::array<XrEyeVisibility, 3> eyeVisibilityArray{{XR_EYE_VISIBILITY_BOTH, XR_EYE_VISIBILITY_LEFT /* just these two */}};
 
         while (layerFlagsGenerator.next()) {
             CAPTURE(XrCompositionLayerFlagsCPP(layerFlagsGenerator.get()));
             for (XrSpace space : session.spaceVector) {
                 for (XrEyeVisibility eyeVisibility : eyeVisibilityArray) {
-                    std::array<float, 3> radiusTestArray{0, 1.f, INFINITY};  // Spec explicitly supports radius 0 and +infinity
+                    std::array<float, 3> radiusTestArray{{0, 1.f, INFINITY}};  // Spec explicitly supports radius 0 and +infinity
 
                     for (float radius : radiusTestArray) {
                         REQUIRE(FrameIterator::RunResult::Success == frameIterator.PrepareSubmitFrame());

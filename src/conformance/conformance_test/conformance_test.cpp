@@ -292,12 +292,12 @@ namespace
                 // readme.md instructions use [interactive] with [actions], [composition], and [scenario].
                 // (self_test are not required for submission.)
                 // Let's ensure that these cover all of the possible test cases.
-                const std::array<std::string, 4> interactiveTestTypes = {
+                const std::array<std::string, 4> interactiveTestTypes = {{
                     "[actions]",
                     "[composition]",
                     "[scenario]",
                     "[self_test]",
-                };
+                }};
                 if (testTags.find("[interactive]") != std::string::npos) {
                     {
                         bool foundInteractiveTestType = false;

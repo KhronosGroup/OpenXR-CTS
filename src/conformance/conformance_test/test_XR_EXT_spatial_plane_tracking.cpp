@@ -48,7 +48,7 @@ namespace Conformance
     namespace
     {
 
-        TEST_CASE("XR_EXT_spatial_plane_tracking", "[XR_EXT_spatial_plane_tracking][XR_EXT_spatial_entity]")
+        TEST_CASE("XR_EXT_spatial_plane_tracking", "[XR_EXT_spatial_plane_tracking][XR_EXT_spatial_entity][scenario][interactive][no_auto]")
         {
             XrSpatialCapabilityConfigurationPlaneTrackingEXT planeConfig{XR_TYPE_SPATIAL_CAPABILITY_CONFIGURATION_PLANE_TRACKING_EXT,
                                                                          nullptr, XR_SPATIAL_CAPABILITY_PLANE_TRACKING_EXT};
@@ -194,8 +194,7 @@ namespace Conformance
         };
 
         TEST_CASE("XR_EXT_spatial_plane_tracking-plane-alignment",
-                  "[XR_EXT_spatial_plane_tracking][XR_EXT_spatial_entity][scenario]["
-                  "interactive][no_auto]")
+                  "[XR_EXT_spatial_plane_tracking][XR_EXT_spatial_entity][scenario][interactive][no_auto]")
         {
             SpatialPlaneTrackingTestRunner({
                                                XR_SPATIAL_COMPONENT_TYPE_BOUNDED_2D_EXT,
@@ -209,8 +208,7 @@ namespace Conformance
         }
 
         TEST_CASE("XR_EXT_spatial_plane_tracking-semantic-label",
-                  "[XR_EXT_spatial_plane_tracking][XR_EXT_spatial_entity][scenario]["
-                  "interactive][no_auto]")
+                  "[XR_EXT_spatial_plane_tracking][XR_EXT_spatial_entity][scenario][interactive][no_auto]")
         {
             SpatialPlaneTrackingTestRunner({
                                                XR_SPATIAL_COMPONENT_TYPE_BOUNDED_2D_EXT,
@@ -304,8 +302,7 @@ namespace Conformance
         };
 
         TEST_CASE("XR_EXT_spatial_plane_tracking-update-snapshot",
-                  "[XR_EXT_spatial_plane_tracking][XR_EXT_spatial_entity][scenario]["
-                  "interactive][no_auto]")
+                  "[XR_EXT_spatial_plane_tracking][XR_EXT_spatial_entity][scenario][interactive][no_auto]")
         {
             SpatialPlaneTrackingUpdateSnapshotTestRunner({
                                                              XR_SPATIAL_COMPONENT_TYPE_BOUNDED_2D_EXT,
