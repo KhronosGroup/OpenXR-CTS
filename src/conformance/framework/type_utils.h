@@ -66,72 +66,75 @@ namespace Conformance
     namespace detail
     {
         template <typename Functor, typename Tuple, size_t... Indices>
-        static inline void ForEachTupleElement_impl(Tuple&& t, Functor&& f, std::index_sequence<Indices...>)
+        static inline void ForEachTupleElement_impl(Tuple& t, Functor&& f, std::index_sequence<Indices...>)
         {
             // workaround for not having fold expressions, that nevertheless enforces evaluation order
             // https://codereview.stackexchange.com/questions/51407/stdtuple-foreach-implementation
 
+            // clang-format off
             auto throwaway = {
                 1,
                 // this parenthesized expression is parameter-pack-expanded (repeated for each value in Indices)
-                (f(std::get<Indices>(std::forward<Tuple>(t))) /* call f on an element */, void() /* defang return value of f */,
-                 int{} /* default construct an int so this whole parens evaluates to an int */)...};
+                (f(std::get<Indices>(t)) /* call f on an element */, void() /* defang return value of f */,
+                int{} /* default construct an int so this whole parens evaluates to an int */)...};
             (void)throwaway;
+            // clang-format on
         }
 
     }  // namespace detail
 
     /// Calls a functor (class with templated operator(), or a generic lambda) on each element of a tuple.
     template <typename Functor, typename Tuple>
-    static inline void ForEachTupleElement(Tuple&& t, Functor&& f)
+    static inline void ForEachTupleElement(Tuple& t, Functor&& f)
     {
         static_assert(types::IsTuple<std::decay_t<Tuple>>(), "Can only call on a tuple");
         constexpr size_t size = std::tuple_size<std::decay_t<Tuple>>::value;
-        detail::ForEachTupleElement_impl(std::forward<Tuple>(t), std::forward<Functor>(f), std::make_index_sequence<size>{});
+        detail::ForEachTupleElement_impl(t, std::forward<Functor>(f), std::make_index_sequence<size>{});
     }
 
     namespace detail
     {
         template <typename Functor, typename Tuple, size_t... Indices>
-        static inline void ForEachTupleElementAndIndex_impl(Tuple&& t, Functor&& f, std::index_sequence<Indices...>)
+        static inline void ForEachTupleElementAndIndex_impl(Tuple& t, Functor&& f, std::index_sequence<Indices...>)
         {
             // Just a workaround for not having fold expressions, that nevertheless enforces evaluation order
             // https://codereview.stackexchange.com/questions/51407/stdtuple-foreach-implementation
 
+            // clang-format off
             auto throwaway = {
                 1,
                 // this parenthesized expression is parameter-pack-expanded (repeated for each value in Indices)
-                (f(std::get<Indices>(std::forward<Tuple>(t)), Indices) /* call f on an element and index */,
-                 void() /* defang return value of f */, int{} /* default construct an int so this whole parens evaluates to an int */)...};
+                (f(std::get<Indices>(t), Indices) /* call f on an element and index */, void() /* defang return value of f */,
+                int{} /* default construct an int so this whole parens evaluates to an int */)...};
             (void)throwaway;
+            // clang-format on
         }
     }  // namespace detail
 
     /// Calls a functor @p f (class with templated operator(), or a generic lambda) on each element of a tuple and its index as std::integral_constant<size_t, I>
     template <typename Functor, typename Tuple>
-    static inline void ForEachTupleElementAndIndex(Tuple&& t, Functor&& f)
+    static inline void ForEachTupleElementAndIndex(Tuple& t, Functor&& f)
     {
         static_assert(types::IsTuple<std::decay_t<Tuple>>(), "Can only call on a tuple");
         constexpr size_t size = std::tuple_size<std::decay_t<Tuple>>::value;
-        detail::ForEachTupleElementAndIndex_impl(std::forward<Tuple>(t), std::forward<Functor>(f), std::make_index_sequence<size>{});
+        detail::ForEachTupleElementAndIndex_impl(t, std::forward<Functor>(f), std::make_index_sequence<size>{});
     }
 
     namespace detail
     {
-        template <typename F, typename Tuple, size_t... I>
-        decltype(auto) TransformTuple_impl(F&& f, Tuple&& tuple, std::index_sequence<I...>)
+        template <typename F, typename... Types, size_t... I>
+        auto TransformTuple_impl(F&& f, const std::tuple<Types...>& tuple, std::index_sequence<I...>)
         {
-            return std::make_tuple(f(std::get<I>(std::forward<Tuple>(tuple)))...);
+            return std::make_tuple(f(std::get<I>(tuple))...);
         }
     }  // namespace detail
 
     /// Make one tuple from another one, by transforming each element by applying functor @p f (class with templated operator(), or a generic lambda) to each element.
-    template <typename F, typename Tuple>
-    decltype(auto) TransformTuple(F&& f, Tuple&& t)
+    template <typename F, typename... Types>
+    auto TransformTuple(F&& f, const std::tuple<Types...>& t)
     {
-        static_assert(types::IsTuple<std::decay_t<Tuple>>(), "Can only call on a tuple");
-        constexpr size_t size = std::tuple_size<std::decay_t<Tuple>>::value;
-        return detail::TransformTuple_impl(std::forward<F>(f), std::forward<Tuple>(t), std::make_index_sequence<size>{});
+        constexpr size_t size = std::tuple_size<std::tuple<Types...>>::value;
+        return detail::TransformTuple_impl(std::forward<F>(f), t, std::make_index_sequence<size>{});
     }
 
     namespace detail
@@ -154,7 +157,7 @@ namespace Conformance
                 // which allows lambda capture, etc.
                 return converter(std::get<Idx>(tup));
             }
-            static constexpr std::array<function_type, std::tuple_size<Tup>::value> access_func_ptrs = {&Access<Indices>...};
+            static constexpr std::array<function_type, std::tuple_size<Tup>::value> access_func_ptrs = {{&Access<Indices>...}};
         };
 
         // need this separate redeclare for pre-C++17 compilers

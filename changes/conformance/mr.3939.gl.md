@@ -1,4 +1,4 @@
 ---
 - mr.3939.gl
 ---
-- Improvement: General improvements to reliability in the Vulkan API layer embedded to `XrApiLayer_runtime_conformance`.
+- Improvement: General improvements to reliability in the Vulkan API layer embedded in `XrApiLayer_runtime_conformance`.

@@ -156,7 +156,7 @@ namespace Conformance
                 INFO("Check that setting any one CapacityInput to 0 is treated as if all were 0");
                 for (size_t i = 0; i < kNumberOfArraySets; ++i) {
                     twoCallStorage.Clear();
-                    CheckSpecificSingleZero(twoCallStorage, emptyStruct, structWithCounts, i, functionName, std::forward<F>(doCall));
+                    CheckSpecificSingleZero(twoCallStorage, emptyStruct, structWithCounts, i, functionName, doCall);
                 }
             }
 
@@ -201,7 +201,7 @@ namespace Conformance
                 INFO("Check that reducing any one CapacityInput (>1) to a non-zero value is XR_ERROR_SIZE_INSUFFICIENT");
 
                 for (size_t i = 0; i < kNumberOfArraySets; ++i) {
-                    CheckSpecificInsufficientCapacity(twoCallStorage, emptyStruct, structWithCounts, i, std::forward<F>(doCall));
+                    CheckSpecificInsufficientCapacity(twoCallStorage, emptyStruct, structWithCounts, i, doCall);
                 }
             }
         };
@@ -274,10 +274,10 @@ namespace Conformance
         }
 
         // Condition 3 - at least one capacity is non-zero but insufficient, while other capacities (if any) are sufficient
-        Subtests::CheckInsufficientCapacity(twoCallStorage, emptyStruct, structWithCounts, std::forward<F>(doCall));
+        Subtests::CheckInsufficientCapacity(twoCallStorage, emptyStruct, structWithCounts, doCall);
 
         // Condition 4 - one capacity is 0, so the runtime should act as if all capacities were 0
-        Subtests::CheckSingleZero(twoCallStorage, emptyStruct, structWithCounts, functionName, std::forward<F>(doCall));
+        Subtests::CheckSingleZero(twoCallStorage, emptyStruct, structWithCounts, functionName, doCall);
     }
 
 }  // namespace Conformance

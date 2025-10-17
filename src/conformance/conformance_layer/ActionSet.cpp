@@ -41,12 +41,9 @@ namespace actionset
         else if (syncResult == XR_SUCCESS) {
             actionSet->lastSyncResult = SyncResult::Synced;
         }
-        else if (XR_SUCCEEDED(syncResult)) {
-            // e.g. XR_SESSION_LOSS_PENDING
-            // TODO: Is loss pending success or not focused? For now, treat as no-op.
-        }
         else {
             // In case of failure, assume xrSyncActionData was no-op.
+            // TODO: Is XR_SESSION_LOSS_PENDING success or not focused? For now, treat as no-op.
         }
     }
 }  // namespace actionset

@@ -36,7 +36,7 @@ namespace Conformance
         AutoBasicSession session(AutoBasicSession::createSession);
 
         // Get all supported reference space types and exercise them.
-        auto refSpaceTypes = CHECK_TWO_CALL(XrReferenceSpaceType, {}, xrEnumerateReferenceSpaces, session);
+        auto refSpaceTypes = CHECK_TWO_CALL(XrReferenceSpaceType, {}, xrEnumerateReferenceSpaces, session.GetSession());
 
         for (auto refSpaceType : refSpaceTypes) {
             INFO("Reference space type is " << refSpaceType);

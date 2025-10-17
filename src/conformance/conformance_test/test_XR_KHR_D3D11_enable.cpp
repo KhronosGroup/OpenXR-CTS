@@ -57,6 +57,8 @@ namespace Conformance
             REQUIRE(graphicsPlugin->Initialize());
         }
 
+        GraphicsPluginShutdownDeviceOnScopeExit pluginShutdown{graphicsPlugin.get()};
+
         // We'll use this XrSession and XrSessionCreateInfo for testing below.
         XrSession session = XR_NULL_HANDLE_CPP;
 
@@ -71,7 +73,6 @@ namespace Conformance
             sessionCreateInfo.next = nullptr;
             CHECK(xrCreateSession(instance, &sessionCreateInfo, &session) == XR_ERROR_GRAPHICS_DEVICE_INVALID);
             cleanup.Destroy();
-            graphicsPlugin->ShutdownDevice();
         }
 
         SECTION("NULL D3D11 device")
@@ -83,7 +84,6 @@ namespace Conformance
             sessionCreateInfo.next = reinterpret_cast<const void*>(&graphicsBinding);
             CHECK(xrCreateSession(instance, &sessionCreateInfo, &session) == XR_ERROR_GRAPHICS_DEVICE_INVALID);
             cleanup.Destroy();
-            graphicsPlugin->ShutdownDevice();
         }
 
         SECTION("Valid session after bad session")
@@ -97,7 +97,6 @@ namespace Conformance
                 sessionCreateInfo.next = reinterpret_cast<const void*>(&graphicsBinding);
                 CHECK(xrCreateSession(instance, &sessionCreateInfo, &session) == XR_ERROR_GRAPHICS_DEVICE_INVALID);
                 cleanup.Destroy();
-                graphicsPlugin->ShutdownDevice();
             }
 
             // Using the same instance pass valid binding the second time
@@ -105,13 +104,14 @@ namespace Conformance
                 REQUIRE(XR_SUCCESS == FindBasicSystem(instance, &systemId));
                 sessionCreateInfo.systemId = systemId;
 
+                // manually shutting it down here, we will re-init it.
+                graphicsPlugin->ShutdownDevice();
                 REQUIRE(graphicsPlugin->InitializeDevice(instance, systemId, true));
                 XrGraphicsBindingD3D11KHR graphicsBinding =
                     *reinterpret_cast<const XrGraphicsBindingD3D11KHR*>(graphicsPlugin->GetGraphicsBinding());
                 sessionCreateInfo.next = reinterpret_cast<const void*>(&graphicsBinding);
                 CHECK(xrCreateSession(instance, &sessionCreateInfo, &session) == XR_SUCCESS);
                 cleanup.Destroy();
-                graphicsPlugin->ShutdownDevice();
             }
         }
 
@@ -124,7 +124,6 @@ namespace Conformance
             sessionCreateInfo.next = reinterpret_cast<const void*>(&graphicsBinding);
             CHECK(xrCreateSession(instance, &sessionCreateInfo, &session) == XR_SUCCESS);
             cleanup.Destroy();
-            graphicsPlugin->ShutdownDevice();
         }
 
         SECTION("Multiple session with same device")
@@ -169,7 +168,6 @@ namespace Conformance
                 CHECK(xrDestroySession(session) == XR_SUCCESS);
                 session = XR_NULL_HANDLE;
             }
-            graphicsPlugin->ShutdownDevice();
         }
     }
 }  // namespace Conformance

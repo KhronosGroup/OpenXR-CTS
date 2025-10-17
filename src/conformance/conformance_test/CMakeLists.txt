@@ -175,12 +175,23 @@ elseif(ANDROID)
         PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/conformance_test_android.map"
     )
 else()
-    set_target_properties(
-        conformance_test
-        PROPERTIES
-            LINK_FLAGS
-            "-Wl,--version-script=\"${CMAKE_CURRENT_SOURCE_DIR}/conformance_test.map\""
-    )
+    if(SANITIZE_ADDRESS)
+        # spurious leak sanitize failures when using asan if we allow the conformance_test so to be
+        # unloaded at the wrong time
+        set_target_properties(
+            conformance_test
+            PROPERTIES
+                LINK_FLAGS
+                "-Wl,--version-script=\"${CMAKE_CURRENT_SOURCE_DIR}/conformance_test.map\" -Wl,-z,nodelete"
+        )
+    else()
+        set_target_properties(
+            conformance_test
+            PROPERTIES
+                LINK_FLAGS
+                "-Wl,--version-script=\"${CMAKE_CURRENT_SOURCE_DIR}/conformance_test.map\""
+        )
+    endif()
     target_sources(
         conformance_test
         PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/conformance_test.map"

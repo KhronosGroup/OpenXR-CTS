@@ -71,7 +71,8 @@ namespace Conformance
             instructions << "An origin marker is rendered in each hand using the " << poseIdentifier << " action space. ";
             instructions << "A hand in an open pose is rendered in one hand using the " << poseIdentifier << " action space. ";
             instructions << "A hand in a pointing pose is rendered in the other hand using the " << poseIdentifier << " action space. ";
-            instructions << "Press select to swap hands. Press menu to complete the validation.";
+            instructions << "Press menu to swap hands. Press select to complete the validation. ";
+            instructions << "Press select while holding menu to fail the validation.";
 
             CompositionHelper compositionHelper(spaceName, featureSet);
             XrInstance instance = compositionHelper.GetInstance();
@@ -111,10 +112,10 @@ namespace Conformance
             hands[1].subactionPath = StringToPath(instance, "/user/hand/right");
 
             // Set up the actions.
-            const std::array<XrPath, 2> subactionPaths{
+            const std::array<XrPath, 2> subactionPaths{{
                 hands[0].subactionPath,
                 hands[1].subactionPath,
-            };
+            }};
             XrActionSet actionSet;
             XrAction completeAction, switchHandsAction, gripSurfacePoseAction;
             {
@@ -152,10 +153,10 @@ namespace Conformance
             }
 
             const std::vector<XrActionSuggestedBinding> bindings = {
-                {completeAction, StringToPath(instance, "/user/hand/left/input/menu/click")},
-                {completeAction, StringToPath(instance, "/user/hand/right/input/menu/click")},
-                {switchHandsAction, StringToPath(instance, "/user/hand/left/input/select/click")},
-                {switchHandsAction, StringToPath(instance, "/user/hand/right/input/select/click")},
+                {completeAction, StringToPath(instance, "/user/hand/left/input/select/click")},
+                {completeAction, StringToPath(instance, "/user/hand/right/input/select/click")},
+                {switchHandsAction, StringToPath(instance, "/user/hand/left/input/menu/click")},
+                {switchHandsAction, StringToPath(instance, "/user/hand/right/input/menu/click")},
                 {gripSurfacePoseAction,
                  StringToPath(instance, testExtension ? "/user/hand/left/input/palm_ext/pose" : "/user/hand/left/input/grip_surface/pose")},
                 {gripSurfacePoseAction, StringToPath(instance, testExtension ? "/user/hand/right/input/palm_ext/pose"
@@ -361,7 +362,7 @@ namespace Conformance
                         hands[1].handPointingCubes);  // Pinky
             }
 
-            // Initially the pointer is on the 0th hand (left) but it changes to whichever hand last pressed select.
+            // Initially the pointer is on the 0th hand (left) but it changes to whichever hand last pressed menu.
             XrPath pointerHand = hands[0].subactionPath;
 
             auto update = [&](const XrFrameState& frameState) {
@@ -380,6 +381,16 @@ namespace Conformance
                     XrActionStateBoolean completeActionState{XR_TYPE_ACTION_STATE_BOOLEAN};
                     XRC_CHECK_THROW_XRCMD(xrGetActionStateBoolean(session, &completeActionGetInfo, &completeActionState));
                     if (completeActionState.currentState == XR_TRUE && completeActionState.changedSinceLastSync) {
+                        {
+                            // Check if menu (switchHandsAction) is also pressed, because that means fail
+                            XrActionStateGetInfo swapActionGetInfo{XR_TYPE_ACTION_STATE_GET_INFO};
+                            swapActionGetInfo.action = switchHandsAction;
+                            XrActionStateBoolean swapActionState{XR_TYPE_ACTION_STATE_BOOLEAN};
+                            XRC_CHECK_THROW_XRCMD(xrGetActionStateBoolean(session, &swapActionGetInfo, &swapActionState));
+                            if (swapActionState.currentState == XR_TRUE) {
+                                FAIL("User failed the interactive test");
+                            }
+                        }
                         return false;
                     }
                 }
@@ -481,10 +492,10 @@ namespace Conformance
 
             auto makeActionSuggestedBindings = [&](XrInstance instance, bool testExtension) -> const std::vector<XrActionSuggestedBinding> {
                 // Set up the actions.
-                const std::array<XrPath, 2> subactionPaths{
+                const std::array<XrPath, 2> subactionPaths{{
                     StringToPath(instance, "/user/hand/left"),
                     StringToPath(instance, "/user/hand/right"),
-                };
+                }};
 
                 {
                     XrActionSetCreateInfo actionSetInfo{XR_TYPE_ACTION_SET_CREATE_INFO};

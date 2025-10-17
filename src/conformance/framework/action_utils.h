@@ -145,6 +145,11 @@ namespace Conformance
             MessageQuad(CompositionHelper& compositionHelper, std::unique_ptr<RGBAImage> image, XrSpace compositionSpace);
             ~MessageQuad();
 
+            MessageQuad(MessageQuad const&) = delete;
+            MessageQuad(MessageQuad&&) = delete;
+            MessageQuad& operator=(MessageQuad const&) = delete;
+            MessageQuad& operator=(MessageQuad&&) = delete;
+
         private:
             CompositionHelper& m_compositionHelper;
         };

@@ -607,6 +607,11 @@ namespace Conformance
 
             XRC_CHECK_THROW_XRCMD(CreateBasicSession(instance, &systemId, &session, enableGraphics));
 
+            GraphicsPluginShutdownDeviceOnScopeExit pluginShutdown;
+            if (enableGraphics) {
+                pluginShutdown = GraphicsPluginShutdownDeviceOnScopeExit::FromGlobalData();
+            }
+
             assert(systemId != XR_NULL_SYSTEM_ID);
             assert(session != XR_NULL_HANDLE);
 
@@ -658,6 +663,9 @@ namespace Conformance
                     spaceVector.push_back(space);
                 }
             }
+
+            /// If we made it down here, release the scope guard on the graphics plugin.
+            pluginShutdown.Release();
         }
         catch (...) {
             Shutdown();
@@ -760,13 +768,7 @@ namespace Conformance
         // Shutdown the device initialized by CreateBasicSession
         // after the session is destroyed.
         if (sessionCreated && !graphicsSkipped) {
-            GlobalData& globalData = GetGlobalData();
-            if (globalData.IsUsingGraphicsPlugin()) {
-                auto graphicsPlugin = globalData.GetGraphicsPlugin();
-                if (graphicsPlugin->IsInitialized()) {
-                    graphicsPlugin->ShutdownDevice();
-                }
-            }
+            GlobalGraphicsPluginShutdownDevice();
         }
 
         m_privateEventReader.reset();
@@ -832,13 +834,11 @@ namespace Conformance
         case XR_ERROR_INSTANCE_LOST:
         case XR_ERROR_RUNTIME_FAILURE:
         case XR_ERROR_HANDLE_INVALID:
-        case XR_ERROR_VALIDATION_FAILURE: {
-            return TickResult::Error;  // Error result.
-        }
-
-        default: {
-            return TickResult::Error;  // Unexpected result.
-        }
+        case XR_ERROR_VALIDATION_FAILURE:
+            return TickResult::Error;
+        default:
+            ReportF("Unexpected result %d", result);
+            return TickResult::Error;
         }
     }
 
@@ -993,14 +993,11 @@ namespace Conformance
             CAPTURE(m_lastError);
             CAPTURE(m_lastErrorSource);
             switch (sessionState) {
-            case XR_SESSION_STATE_UNKNOWN:
-                // Wait until we timeout or are moved to a new state.
-                break;
-
+            case XR_SESSION_STATE_UNKNOWN:  // Wait until we timeout or are moved to a new state.
             case XR_SESSION_STATE_IDLE:
                 break;
 
-            case XR_SESSION_STATE_READY:
+            case XR_SESSION_STATE_READY: {
                 if (tickResult == TickResult::SessionStateChanged) {
                     // If we just transitioned to READY then we will call begin session, otherwise we will be stuck.
                     // If the caller of this function does not desire this, it should use targetSessionState=XR_SESSION_STATE_READY
@@ -1012,8 +1009,12 @@ namespace Conformance
                     REQUIRE(xrBeginSession(autoBasicSession->GetSession(), &sessionBeginInfo) == XR_SUCCESS);
                 }
 
-                // Fall-through because frames must be submitted to get promoted from READY to SYNCHRONIZED.
+                if (!autoBasicSession->IsSkippingGraphics()) {
+                    REQUIRE(SubmitFrame() == RunResult::Success);
+                }
 
+                break;
+            }
             case XR_SESSION_STATE_SYNCHRONIZED:
             case XR_SESSION_STATE_VISIBLE:
             case XR_SESSION_STATE_FOCUSED: {

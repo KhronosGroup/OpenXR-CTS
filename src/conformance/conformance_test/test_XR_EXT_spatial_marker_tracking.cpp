@@ -185,10 +185,10 @@ namespace Conformance
         TEST_CASE("XR_EXT_spatial_marker_tracking-qr-code-interactive",
                   "[XR_EXT_spatial_marker_tracking][XR_EXT_spatial_entity][scenario][interactive][no_auto]")
         {
-            const std::array<XrSpatialComponentTypeEXT, 2> enabledComponents = {
+            const std::array<XrSpatialComponentTypeEXT, 2> enabledComponents = {{
                 XR_SPATIAL_COMPONENT_TYPE_BOUNDED_2D_EXT,
                 XR_SPATIAL_COMPONENT_TYPE_MARKER_EXT,
-            };
+            }};
 
             XrSpatialCapabilityConfigurationQrCodeEXT qrCodeConfig{XR_TYPE_SPATIAL_CAPABILITY_CONFIGURATION_QR_CODE_EXT};
             qrCodeConfig.capability = XR_SPATIAL_CAPABILITY_MARKER_TRACKING_QR_CODE_EXT;
@@ -207,10 +207,10 @@ namespace Conformance
         TEST_CASE("XR_EXT_spatial_marker_tracking-micro-qr-code-interactive",
                   "[XR_EXT_spatial_marker_tracking][XR_EXT_spatial_entity][scenario][interactive][no_auto]")
         {
-            const std::array<XrSpatialComponentTypeEXT, 2> enabledComponents = {
+            const std::array<XrSpatialComponentTypeEXT, 2> enabledComponents = {{
                 XR_SPATIAL_COMPONENT_TYPE_BOUNDED_2D_EXT,
                 XR_SPATIAL_COMPONENT_TYPE_MARKER_EXT,
-            };
+            }};
             XrSpatialCapabilityConfigurationMicroQrCodeEXT microQrCodeConfig{XR_TYPE_SPATIAL_CAPABILITY_CONFIGURATION_MICRO_QR_CODE_EXT};
             microQrCodeConfig.capability = XR_SPATIAL_CAPABILITY_MARKER_TRACKING_MICRO_QR_CODE_EXT;
             microQrCodeConfig.enabledComponentCount = static_cast<uint32_t>(enabledComponents.size());
@@ -228,10 +228,10 @@ namespace Conformance
         TEST_CASE("XR_EXT_spatial_marker_tracking-aruco-interactive",
                   "[XR_EXT_spatial_marker_tracking][XR_EXT_spatial_entity][scenario][interactive][no_auto]")
         {
-            const std::array<XrSpatialComponentTypeEXT, 2> enabledComponents = {
+            const std::array<XrSpatialComponentTypeEXT, 2> enabledComponents = {{
                 XR_SPATIAL_COMPONENT_TYPE_BOUNDED_2D_EXT,
                 XR_SPATIAL_COMPONENT_TYPE_MARKER_EXT,
-            };
+            }};
 
             XrSpatialCapabilityConfigurationArucoMarkerEXT arucoConfig{XR_TYPE_SPATIAL_CAPABILITY_CONFIGURATION_ARUCO_MARKER_EXT};
             arucoConfig.capability = XR_SPATIAL_CAPABILITY_MARKER_TRACKING_ARUCO_MARKER_EXT;
@@ -250,10 +250,10 @@ namespace Conformance
         TEST_CASE("XR_EXT_spatial_marker_tracking-april-tag-interactive",
                   "[XR_EXT_spatial_marker_tracking][XR_EXT_spatial_entity][scenario][interactive][no_auto]")
         {
-            const std::array<XrSpatialComponentTypeEXT, 2> enabledComponents = {
+            const std::array<XrSpatialComponentTypeEXT, 2> enabledComponents = {{
                 XR_SPATIAL_COMPONENT_TYPE_BOUNDED_2D_EXT,
                 XR_SPATIAL_COMPONENT_TYPE_MARKER_EXT,
-            };
+            }};
             XrSpatialCapabilityConfigurationAprilTagEXT aprilTagConfig{XR_TYPE_SPATIAL_CAPABILITY_CONFIGURATION_APRIL_TAG_EXT};
             aprilTagConfig.capability = XR_SPATIAL_CAPABILITY_MARKER_TRACKING_APRIL_TAG_EXT;
             aprilTagConfig.enabledComponentCount = static_cast<uint32_t>(enabledComponents.size());

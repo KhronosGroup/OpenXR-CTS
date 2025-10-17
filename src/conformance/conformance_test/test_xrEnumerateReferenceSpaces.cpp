@@ -38,7 +38,8 @@ namespace Conformance
         SECTION("Normal reference space enumeration")
         {
             // Get all supported reference space types
-            std::vector<XrReferenceSpaceType> refSpaceTypes = CHECK_TWO_CALL(XrReferenceSpaceType, {}, xrEnumerateReferenceSpaces, session);
+            std::vector<XrReferenceSpaceType> refSpaceTypes =
+                CHECK_TWO_CALL(XrReferenceSpaceType, {}, xrEnumerateReferenceSpaces, session.GetSession());
 
             // at least VIEW and LOCAL need to be provided
             REQUIRE_FALSE(refSpaceTypes.size() < 2);

@@ -16,6 +16,7 @@
 
 #include "conformance_utils.h"
 #include "conformance_framework.h"
+#include "graphics_plugin.h"
 #include "two_call.h"
 
 #include <catch2/catch_test_macros.hpp>
@@ -31,12 +32,12 @@ namespace Conformance
 
         if (!GetGlobalData().IsUsingGraphicsPlugin()) {
             INFO("Headless shouldn't provide any swapchain formats");
-            auto formats = REQUIRE_TWO_CALL(int64_t, {}, xrEnumerateSwapchainFormats, session);
+            auto formats = REQUIRE_TWO_CALL(int64_t, {}, xrEnumerateSwapchainFormats, session.GetSession());
             REQUIRE(formats.empty());
             return;
         }
 
-        auto formats = REQUIRE_TWO_CALL(int64_t, {}, xrEnumerateSwapchainFormats, session);
+        auto formats = REQUIRE_TWO_CALL(int64_t, {}, xrEnumerateSwapchainFormats, session.GetSession());
         REQUIRE(formats.size() > 0);
 
         // https://registry.khronos.org/OpenXR/specs/1.1/html/xrspec.html#xrEnumerateSwapchainFormats
@@ -57,6 +58,15 @@ namespace Conformance
                     WARN(
                         "swapchain formats are listed in numerical order; this is not inherently a conformance failure, but potentially indicates that the runtime is not indicating a preference.");
                 }
+            }
+        }
+
+        SECTION("common depth format support")
+        {
+            auto graphicsPlugin = GetGlobalData().GetGraphicsPlugin();
+            int64_t selectedFormat = graphicsPlugin->SelectDepthSwapchainFormat(false, formats);
+            if (selectedFormat < 0) {
+                WARN("No commonly used depth format enumerated. It is recommended to support at least one commonly used depth format.");
             }
         }
     }

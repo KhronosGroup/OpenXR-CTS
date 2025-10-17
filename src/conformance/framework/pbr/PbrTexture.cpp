@@ -22,8 +22,8 @@ namespace Pbr
 {
     std::array<uint8_t, 4> LoadRGBAUI4(RGBAColor color)
     {
-        return std::array<uint8_t, 4>{(uint8_t)(color.r * 255.), (uint8_t)(color.g * 255.), (uint8_t)(color.b * 255.),
-                                      (uint8_t)(color.a * 255.)};
+        return std::array<uint8_t, 4>{
+            {(uint8_t)(color.r * 255.), (uint8_t)(color.g * 255.), (uint8_t)(color.b * 255.), (uint8_t)(color.a * 255.)}};
     }
 
     namespace StbiLoader

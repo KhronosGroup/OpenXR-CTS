@@ -14,12 +14,21 @@
 #include "utilities/android_declarations.h"
 #endif
 
+#ifdef __clang__
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wimplicit-fallthrough"
+#endif  // __clang__
+
 // Only one compilation unit can have the STB implementations.
 #define STB_IMAGE_IMPLEMENTATION
 #define STB_TRUETYPE_IMPLEMENTATION
 
 #include "stb/stb_image.h"
 #include "stb/stb_truetype.h"
+
+#ifdef __clang__
+#pragma clang diagnostic pop
+#endif  // __clang__
 
 #include <openxr/openxr.h>
 

@@ -586,6 +586,11 @@ namespace Conformance
         bool operator==(NullHandleType const& /*unused*/) const;
         bool operator!=(NullHandleType const& /*unused*/) const;
 
+        AutoBasicInstance(AutoBasicInstance const&) = delete;
+        AutoBasicInstance(AutoBasicInstance&&) = delete;
+        AutoBasicInstance& operator=(AutoBasicInstance const&) = delete;
+        AutoBasicInstance& operator=(AutoBasicInstance&&) = delete;
+
         bool IsValidHandle() const
         {
             return instance != XR_NULL_HANDLE;
@@ -624,6 +629,9 @@ namespace Conformance
     ///     xrDestroySession(session);
     /// ```
     ///
+    /// Note that you will likely want to call @ref IGraphicsPlugin::ShutdownDevice() after you destroy
+    /// a session created this way, since the graphics system is initialized within this function.
+    /// See @ref GraphicsPluginShutdownDeviceOnScopeExit for a scope guard that can do that.
     XrResult CreateBasicSession(XrInstance instance, XrSystemId* systemId, XrSession* session, bool enableGraphicsSystem = true);
 
     /// Similar to CreateBasicSession but manages handle lifetime, including destroying
@@ -666,6 +674,11 @@ namespace Conformance
 
         /// Calls Shutdown if not shut down already.
         ~AutoBasicSession();
+
+        AutoBasicSession(AutoBasicSession const&) = delete;
+        AutoBasicSession(AutoBasicSession&&) = delete;
+        AutoBasicSession& operator=(AutoBasicSession const&) = delete;
+        AutoBasicSession& operator=(AutoBasicSession&&) = delete;
 
         /// If instance is valid then we inherit it instead of create one ourselves.
         void Init(int optionFlags, XrInstance instance = XR_NULL_HANDLE,
@@ -859,6 +872,11 @@ namespace Conformance
     public:
         explicit FrameIterator(AutoBasicSession* autoBasicSession_ = nullptr);
         ~FrameIterator() = default;
+
+        FrameIterator(FrameIterator const&) = delete;
+        FrameIterator(FrameIterator&&) = delete;
+        FrameIterator& operator=(FrameIterator const&) = delete;
+        FrameIterator& operator=(FrameIterator&&) = delete;
 
         XrSessionState GetCurrentSessionState() const;
 

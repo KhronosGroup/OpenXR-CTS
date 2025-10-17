@@ -48,10 +48,10 @@ namespace Conformance
             uint32_t count = 0;
         };
         template <typename F, typename... Args>
-        static inline TwoCallResult getCount(F&& wrappedCall, Args&&... a)
+        static inline TwoCallResult getCount(F&& wrappedCall, Args... a)
         {
             TwoCallResult ret;
-            ret.returnCode = wrappedCall(std::forward<Args>(a)..., 0, &ret.count, nullptr);
+            ret.returnCode = wrappedCall(a..., 0, &ret.count, nullptr);
 
             if (ret.returnCode != XR_SUCCESS || ret.count == 0) {
                 // Zero should always give success, whether there are 0
@@ -63,16 +63,16 @@ namespace Conformance
         }
 
         template <typename T, typename F, typename... Args>
-        static inline TwoCallResult callOnce(std::vector<T>& container, T const& emptyElement, F&& wrappedCall, Args&&... a)
+        static inline TwoCallResult callOnce(std::vector<T>& container, T const& emptyElement, F&& wrappedCall, Args... a)
         {
             TwoCallResult ret;
             if (container.empty()) {
                 // No capacity, just treat as a count retrieval.
-                ret = getCount(std::forward<F>(wrappedCall), std::forward<Args>(a)...);
+                ret = getCount(wrappedCall, a...);
             }
             else {
                 // We have at least some capacity already.
-                ret.returnCode = wrappedCall(std::forward<Args>(a)..., uint32_t(container.size()), &ret.count, container.data());
+                ret.returnCode = wrappedCall(a..., uint32_t(container.size()), &ret.count, container.data());
 
                 // If we get a non-size related error, or a success,
                 // we're done.
@@ -87,14 +87,13 @@ namespace Conformance
         }
 
         template <typename T, typename F, typename... Args>
-        static inline XrResult twoCallLoop(uint32_t max_calls, std::vector<T>& container, T const& emptyElement, F&& wrappedCall,
-                                           Args&&... a)
+        static inline XrResult twoCallLoop(uint32_t max_calls, std::vector<T>& container, T const& emptyElement, F&& wrappedCall, Args... a)
         {
             TwoCallResult result;
             // Repeatedly call until we succeed, fail, or get bored of
             // resizing.
             for (uint32_t i = 0; !result.doneCalling && i < max_calls; ++i) {
-                result = callOnce(container, emptyElement, std::forward<F>(wrappedCall), std::forward<Args>(a)...);
+                result = callOnce(container, emptyElement, wrappedCall, a...);
             }
             return result.returnCode;
         }
@@ -121,11 +120,10 @@ namespace Conformance
      * and @ref REQUIRE_TWO_CALL for those.
      */
     template <typename T, typename F, typename... Args>
-    inline XrResult doTwoCallInPlace(std::vector<T>& container, F&& wrappedCall, Args&&... a)
+    inline XrResult doTwoCallInPlace(std::vector<T>& container, F&& wrappedCall, Args... a)
     {
 
-        return detail::twoCallLoop(detail::MAX_CALLS_FOR_TWO_CALL_IDIOM, container, {}, std::forward<F>(wrappedCall),
-                                   std::forward<Args>(a)...);
+        return detail::twoCallLoop(detail::MAX_CALLS_FOR_TWO_CALL_IDIOM, container, {}, wrappedCall, a...);
     }
 
     /*!
@@ -146,11 +144,10 @@ namespace Conformance
      * and REQUIRE_TWO_CALL for those.
      */
     template <typename T, typename F, typename... Args>
-    inline XrResult doTwoCallInPlaceWithEmptyElement(std::vector<T>& container, T const& emptyElement, F&& wrappedCall, Args&&... a)
+    inline XrResult doTwoCallInPlaceWithEmptyElement(std::vector<T>& container, T const& emptyElement, F&& wrappedCall, Args... a)
     {
 
-        return detail::twoCallLoop(detail::MAX_CALLS_FOR_TWO_CALL_IDIOM, container, emptyElement, std::forward<F>(wrappedCall),
-                                   std::forward<Args>(a)...);
+        return detail::twoCallLoop(detail::MAX_CALLS_FOR_TWO_CALL_IDIOM, container, emptyElement, wrappedCall, a...);
     }
 
 }  // namespace Conformance

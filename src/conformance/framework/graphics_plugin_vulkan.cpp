@@ -1309,6 +1309,9 @@ namespace Conformance
             XRC_CHECK_THROW_VKCMD(err);
         }
 
+        // Now we have a Vulkan instance created, so we need to tear down stuff if we fail before the end of this method.
+        GraphicsPluginShutdownDeviceOnScopeExit scopeExit{this};
+
 #if defined(USE_CHECKPOINTS)
         vkCmdSetCheckpointNV = (PFN_vkCmdSetCheckpointNV)vkGetInstanceProcAddr(m_vkInstance, "vkCmdSetCheckpointNV");
         vkGetQueueCheckpointDataNV = (PFN_vkGetQueueCheckpointDataNV)vkGetInstanceProcAddr(m_vkInstance, "vkGetQueueCheckpointDataNV");
@@ -1386,6 +1389,8 @@ namespace Conformance
         m_graphicsBinding.queueFamilyIndex = queueInfo.queueFamilyIndex;
         m_graphicsBinding.queueIndex = 0;
 
+        // OK, made it to the end without failing.
+        scopeExit.Release();
         return true;
     }
 
@@ -2323,7 +2328,7 @@ namespace Conformance
         struct
         {
             float color[4];
-        } ubo = {color.r, color.r, color.g, color.a};
+        } ubo = {{color.r, color.r, color.g, color.a}};
         uint8_t* uboData = (uint8_t*)&ubo;
 
         VkBufferCreateInfo bufferCreateInfo{VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO};

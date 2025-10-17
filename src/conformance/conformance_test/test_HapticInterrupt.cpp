@@ -42,11 +42,12 @@ namespace Conformance
     TEST_CASE("HapticInterrupt", "[scenario][interactive][no_auto]")
     {
         const char* instructions =
-            "Press the select button on either hand to begin a 2 second haptic output. "
-            "Pressing the select button again during a haptic response should immediately interrupt "
+            "Press the menu button on either hand to begin a 2 second haptic output. "
+            "Pressing the menu button again during a haptic response should immediately interrupt "
             "the current haptic response and begin another with a different amplitude. "
             "Ensure that the new haptic response also lasts 2 seconds. "
-            "Press the menu button on either controller to pass the test. ";
+            "Press the select button on either controller to pass the test. "
+            "Press select while holding menu to fail the test.";
 
         CompositionHelper compositionHelper("Haptic Interrupt");
         XrInstance instance = compositionHelper.GetInstance();
@@ -66,10 +67,10 @@ namespace Conformance
             }
         }
 
-        const std::array<XrPath, 2> subactionPaths{
+        const std::array<XrPath, 2> subactionPaths{{
             StringToPath(instance, "/user/hand/left"),
             StringToPath(instance, "/user/hand/right"),
-        };
+        }};
 
         XrActionSet actionSet;
         XrAction hapticAction, completeAction, gripPoseAction, applyHapticAction;
@@ -112,10 +113,10 @@ namespace Conformance
         }
 
         const std::vector<XrActionSuggestedBinding> bindings = {
-            {completeAction, StringToPath(instance, "/user/hand/left/input/menu/click")},
-            {completeAction, StringToPath(instance, "/user/hand/right/input/menu/click")},
-            {applyHapticAction, StringToPath(instance, "/user/hand/left/input/select/click")},
-            {applyHapticAction, StringToPath(instance, "/user/hand/right/input/select/click")},
+            {completeAction, StringToPath(instance, "/user/hand/left/input/select/click")},
+            {completeAction, StringToPath(instance, "/user/hand/right/input/select/click")},
+            {applyHapticAction, StringToPath(instance, "/user/hand/left/input/menu/click")},
+            {applyHapticAction, StringToPath(instance, "/user/hand/right/input/menu/click")},
             {gripPoseAction, StringToPath(instance, "/user/hand/left/input/grip/pose")},
             {gripPoseAction, StringToPath(instance, "/user/hand/right/input/grip/pose")},
             {hapticAction, StringToPath(instance, "/user/hand/left/output/haptic")},
@@ -177,6 +178,16 @@ namespace Conformance
                 XrActionStateBoolean completeActionState{XR_TYPE_ACTION_STATE_BOOLEAN};
                 XRC_CHECK_THROW_XRCMD(xrGetActionStateBoolean(session, &completeActionGetInfo, &completeActionState));
                 if (completeActionState.currentState == XR_TRUE && completeActionState.changedSinceLastSync) {
+                    {
+                        // Check if menu (applyHapticAction) is also pressed, because that means fail
+                        XrActionStateGetInfo actionStateGetInfo{XR_TYPE_ACTION_STATE_GET_INFO};
+                        actionStateGetInfo.action = applyHapticAction;
+                        XrActionStateBoolean applyHapticValue{XR_TYPE_ACTION_STATE_BOOLEAN};
+                        XRC_CHECK_THROW_XRCMD(xrGetActionStateBoolean(session, &actionStateGetInfo, &applyHapticValue));
+                        if (applyHapticValue.currentState == XR_TRUE) {
+                            FAIL("User failed the interactive test");
+                        }
+                    }
                     return false;
                 }
             }
