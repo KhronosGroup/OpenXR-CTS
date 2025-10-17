@@ -72,18 +72,18 @@ namespace Conformance
         auto&& layerFlagsGenerator = bitmaskGeneratorIncluding0({XR_COMPOSITION_LAYER_CORRECT_CHROMATIC_ABERRATION_BIT,
                                                                  XR_COMPOSITION_LAYER_BLEND_TEXTURE_SOURCE_ALPHA_BIT,
                                                                  XR_COMPOSITION_LAYER_UNPREMULTIPLIED_ALPHA_BIT});
-        std::array<XrEyeVisibility, 3> eyeVisibilityArray{XR_EYE_VISIBILITY_BOTH, XR_EYE_VISIBILITY_LEFT /* just these two */};
+        std::array<XrEyeVisibility, 3> eyeVisibilityArray{{XR_EYE_VISIBILITY_BOTH, XR_EYE_VISIBILITY_LEFT /* just these two */}};
 
         while (layerFlagsGenerator.next()) {
             CAPTURE(XrCompositionLayerFlagsCPP(layerFlagsGenerator.get()));
             for (XrSpace space : session.spaceVector) {
                 for (XrEyeVisibility eyeVisibility : eyeVisibilityArray) {
-                    std::array<XrQuaternionf, 4> orientationTestArray{
+                    std::array<XrQuaternionf, 4> orientationTestArray{{
                         Quat::Identity,                                   // No rotation; looking down the +x axis
                         XrQuaternionf{0, 0.7071f, 0, 0.7071f},            // 90 degree rotation around y axis; looking down the -z axis.
                         XrQuaternionf{0, 0, 0.7071f, 0.7071f},            // 90 degree rotation around z axis; looking down the +y axis.
                         XrQuaternionf{-0.709f, 0.383f, -0.381f, -0.454f}  // Misc value.
-                    };
+                    }};
 
                     // typedef struct XrCompositionLayerCubeKHR {
                     //     XrStructureType             type;

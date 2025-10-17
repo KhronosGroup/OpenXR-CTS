@@ -207,7 +207,7 @@ namespace Conformance
         }
 
         XrActionSet actionSet;
-        XrAction completeAction;
+        XrAction completeAction, failAction;
         {
             XrActionSetCreateInfo actionSetInfo{XR_TYPE_ACTION_SET_CREATE_INFO};
             strcpy(actionSetInfo.actionSetName, "plane_detection_test");
@@ -219,11 +219,18 @@ namespace Conformance
             strcpy(actionInfo.actionName, "complete_test");
             strcpy(actionInfo.localizedActionName, "Complete test");
             XRC_CHECK_THROW_XRCMD(xrCreateAction(actionSet, &actionInfo, &completeAction))
+
+            actionInfo.actionType = XR_ACTION_TYPE_BOOLEAN_INPUT;
+            strcpy(actionInfo.actionName, "fail_test");
+            strcpy(actionInfo.localizedActionName, "Fail test");
+            XRC_CHECK_THROW_XRCMD(xrCreateAction(actionSet, &actionInfo, &failAction))
         }
 
         const std::vector<XrActionSuggestedBinding> bindings = {
             {completeAction, StringToPath(instance, "/user/hand/left/input/select/click")},
             {completeAction, StringToPath(instance, "/user/hand/right/input/select/click")},
+            {failAction, StringToPath(instance, "/user/hand/left/input/menu/click")},
+            {failAction, StringToPath(instance, "/user/hand/right/input/menu/click")},
         };
 
         XrInteractionProfileSuggestedBinding suggestedBindings{XR_TYPE_INTERACTION_PROFILE_SUGGESTED_BINDING};
@@ -245,9 +252,12 @@ namespace Conformance
         REQUIRE(XR_SUCCESS == xrCreatePlaneDetectorEXT(session, &createInfo, &detection));
 
         // Create the instructional quad layer placed to the left.
-        XrCompositionLayerQuad* const instructionsQuad =
-            compositionHelper.CreateQuadLayer(compositionHelper.CreateStaticSwapchainImage(CreateTextImage(1024, 512, instructions, 48)),
-                                              localSpace, 1.0f, {{0, 0, 0, 1}, {-0.2f, 0, -1.0f}});
+        std::string fullInstructions = std::string(instructions) +
+                                       "\n\nPress the select button on either controller to pass the test. "
+                                       "Press either select button while menu is held on either controller to fail the test.";
+        XrCompositionLayerQuad* const instructionsQuad = compositionHelper.CreateQuadLayer(
+            compositionHelper.CreateStaticSwapchainImage(CreateTextImage(1024, 512, fullInstructions.c_str(), 48)), localSpace, 1.0f,
+            {{0, 0, 0, 1}, {-0.2f, 0, -1.0f}});
         instructionsQuad->pose.orientation = Quat::FromAxisAngle(Up, DegToRad(10));
 
         enum DetectState
@@ -274,6 +284,16 @@ namespace Conformance
                 XrActionStateBoolean completeActionState{XR_TYPE_ACTION_STATE_BOOLEAN};
                 XRC_CHECK_THROW_XRCMD(xrGetActionStateBoolean(session, &completeActionGetInfo, &completeActionState))
                 if (completeActionState.currentState == XR_TRUE && completeActionState.changedSinceLastSync) {
+                    {
+                        // Check if menu (failAction) is also pressed, because that means fail
+                        XrActionStateGetInfo failActionGetInfo{XR_TYPE_ACTION_STATE_GET_INFO};
+                        failActionGetInfo.action = failAction;
+                        XrActionStateBoolean failActionValue{XR_TYPE_ACTION_STATE_BOOLEAN};
+                        XRC_CHECK_THROW_XRCMD(xrGetActionStateBoolean(session, &failActionGetInfo, &failActionValue));
+                        if (failActionValue.currentState == XR_TRUE) {
+                            FAIL("User failed the interactive test");
+                        }
+                    }
                     return false;
                 }
             }
@@ -324,7 +344,6 @@ namespace Conformance
                     detect_state = IDLE;
                     break;
                 case XR_PLANE_DETECTION_STATE_PENDING_EXT:
-                    break;
                 default:
                     break;
                 }
@@ -410,46 +429,36 @@ namespace Conformance
     {
         RunPlaneTest({XR_PLANE_DETECTOR_ORIENTATION_VERTICAL_EXT},
                      "Planes should be rendered at the vertical surfaces, "
-                     "the blue faces should face inward. "
-                     "Press the select button on either controller to pass the test.");
+                     "the blue faces should face inward.");
     }
 
     TEST_CASE("XR_EXT_plane_detection-HU", "[XR_EXT_plane_detection][scenario][interactive][no_auto]")
     {
         RunPlaneTest({XR_PLANE_DETECTOR_ORIENTATION_HORIZONTAL_UPWARD_EXT},
                      "Planes should be rendered at the horizontal surfaces with upward normals, "
-                     "the blue faces should face upward (e.g. floors). "
-                     "Press the select button on either controller to pass the test.");
+                     "the blue faces should face upward (e.g. floors).");
     }
 
     TEST_CASE("XR_EXT_plane_detection-HD", "[XR_EXT_plane_detection][scenario][interactive][no_auto]")
     {
         RunPlaneTest({XR_PLANE_DETECTOR_ORIENTATION_HORIZONTAL_DOWNWARD_EXT},
                      "Planes should be rendered at the horizontal surfaces with downward normals, "
-                     "the blue faces should face downward (e.g. ceilings). "
-                     "Press the select button on either controller to pass the test.");
+                     "the blue faces should face downward (e.g. ceilings).");
     }
 
     TEST_CASE("XR_EXT_plane_detection-A", "[XR_EXT_plane_detection][scenario][interactive][no_auto]")
     {
-        RunPlaneTest({XR_PLANE_DETECTOR_ORIENTATION_ARBITRARY_EXT},
-                     "Planes should be rendered at the non horizontal/vertical surfaces. "
-                     "Press the select button on either controller to pass the test.");
+        RunPlaneTest({XR_PLANE_DETECTOR_ORIENTATION_ARBITRARY_EXT}, "Planes should be rendered at the non horizontal/vertical surfaces.");
     }
 
     TEST_CASE("XR_EXT_plane_detection-empty-list", "[XR_EXT_plane_detection][scenario][interactive][no_auto]")
     {
-        RunPlaneTest({},
-                     "All planes should be rendered. "
-                     "Press the select button on either controller to pass the test.");
+        RunPlaneTest({}, "All planes should be rendered.");
     }
 
     TEST_CASE("XR_EXT_plane_detection-nullptr", "[XR_EXT_plane_detection][scenario][interactive][no_auto]")
     {
-        RunPlaneTest({},
-                     "All planes should be rendered. "
-                     "Press the select button on either controller to pass the test.",
-                     XR_PLANE_DETECTOR_SEMANTIC_TYPE_UNDEFINED_EXT, true);
+        RunPlaneTest({}, "All planes should be rendered.", XR_PLANE_DETECTOR_SEMANTIC_TYPE_UNDEFINED_EXT, true);
     }
 
     TEST_CASE("XR_EXT_plane_detection-ceiling", "[XR_EXT_plane_detection][scenario][interactive][no_auto]")
@@ -715,7 +724,6 @@ namespace Conformance
                     detect_state = IDLE;
                     break;
                 case XR_PLANE_DETECTION_STATE_PENDING_EXT:
-                    break;
                 default:
                     break;
                 }

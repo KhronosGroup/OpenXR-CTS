@@ -160,6 +160,11 @@ namespace Conformance
 
         ~CompositionHelper();
 
+        CompositionHelper(CompositionHelper const&) = delete;
+        CompositionHelper(CompositionHelper&&) = delete;
+        CompositionHelper& operator=(CompositionHelper const&) = delete;
+        CompositionHelper& operator=(CompositionHelper&&) = delete;
+
         InteractionManager& GetInteractionManager();
 
         /// Access the instance handle owned by this object.

@@ -11958,7 +11958,7 @@ typedef XrResult (XRAPI_PTR *<name>PFN_xrCreateApiLayerInstance</name>)(
 
     <extension name="XR_MND_headless" number="43" type="instance" supported="openxr">
         <require>
-            <enum value="2"                           name="XR_MND_headless_SPEC_VERSION"/>
+            <enum value="3"                           name="XR_MND_headless_SPEC_VERSION"/>
             <enum value="&quot;XR_MND_headless&quot;" name="XR_MND_HEADLESS_EXTENSION_NAME"/>
         </require>
     </extension>
@@ -12036,7 +12036,7 @@ typedef XrResult (XRAPI_PTR *<name>PFN_xrCreateApiLayerInstance</name>)(
         </require>
     </extension>
 
-    <extension name="XR_MSFT_hand_interaction" number="51" type="instance" supported="openxr">
+    <extension name="XR_MSFT_hand_interaction" number="51" type="instance" supported="openxr" promotedto="XR_EXT_hand_interaction">
         <require>
             <enum value="1"                                    name="XR_MSFT_hand_interaction_SPEC_VERSION"/>
             <enum value="&quot;XR_MSFT_hand_interaction&quot;" name="XR_MSFT_HAND_INTERACTION_EXTENSION_NAME"/>
@@ -17140,7 +17140,7 @@ typedef XrResult (XRAPI_PTR *<name>PFN_xrCreateApiLayerInstance</name>)(
 
     <extension name="XR_ANDROID_trackables_object" number="467" type="instance" supported="openxr" depends="XR_ANDROID_trackables">
         <require>
-            <enum value="1"                                        name="XR_ANDROID_trackables_object_SPEC_VERSION"/>
+            <enum value="2"                                        name="XR_ANDROID_trackables_object_SPEC_VERSION"/>
             <enum value="&quot;XR_ANDROID_trackables_object&quot;" name="XR_ANDROID_TRACKABLES_OBJECT_EXTENSION_NAME"/>
 
             <enum offset="0" extends="XrStructureType"             name="XR_TYPE_TRACKABLE_OBJECT_ANDROID"/>

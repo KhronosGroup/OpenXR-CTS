@@ -171,7 +171,7 @@ namespace Conformance
                 AutoBasicSession session(AutoBasicSession::OptionFlags::createSession, instance);
 
                 std::vector<XrReferenceSpaceType> refSpaceTypes =
-                    CHECK_TWO_CALL(XrReferenceSpaceType, {}, xrEnumerateReferenceSpaces, session);
+                    CHECK_TWO_CALL(XrReferenceSpaceType, {}, xrEnumerateReferenceSpaces, session.GetSession());
                 REQUIRE_THAT(refSpaceTypes, !Catch::Matchers::VectorContains(XR_REFERENCE_SPACE_TYPE_LOCAL_FLOOR_EXT));
             }
         }
@@ -184,7 +184,8 @@ namespace Conformance
             AutoBasicInstance instance(featureSet);
             AutoBasicSession session(AutoBasicSession::OptionFlags::createSession, instance);
 
-            std::vector<XrReferenceSpaceType> refSpaceTypes = CHECK_TWO_CALL(XrReferenceSpaceType, {}, xrEnumerateReferenceSpaces, session);
+            std::vector<XrReferenceSpaceType> refSpaceTypes =
+                CHECK_TWO_CALL(XrReferenceSpaceType, {}, xrEnumerateReferenceSpaces, session.GetSession());
             REQUIRE_THAT(refSpaceTypes, Catch::Matchers::Contains(XR_REFERENCE_SPACE_TYPE_LOCAL_FLOOR_EXT));
 
             XrReferenceSpaceCreateInfo localFloorCreateInfo{XR_TYPE_REFERENCE_SPACE_CREATE_INFO};
@@ -259,7 +260,7 @@ namespace Conformance
 
                 // If stage space is supported, check that LOCAL_FLOOR matches a LOCAL space that is created with LOCAL-to-STAGE y offset.
                 std::vector<XrReferenceSpaceType> refSpaceTypes =
-                    CHECK_TWO_CALL(XrReferenceSpaceType, {}, xrEnumerateReferenceSpaces, session);
+                    CHECK_TWO_CALL(XrReferenceSpaceType, {}, xrEnumerateReferenceSpaces, session.GetSession());
                 stageSpaceSupported = VectorContains(XR_REFERENCE_SPACE_TYPE_STAGE).match(refSpaceTypes);
 
                 if (stageSpaceSupported) {

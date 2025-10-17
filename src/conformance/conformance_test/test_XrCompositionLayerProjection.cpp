@@ -89,7 +89,7 @@ namespace Conformance
         // Acquire+Wait+Release swapchains so that they are in a valid state but leave
         // unreleasedColorSwapchain in an unused state for a test case.
         {
-            std::array<XrSwapchain, 2> swapchains{colorSwapchain, arrayColorSwapchain};
+            std::array<XrSwapchain, 2> swapchains{{colorSwapchain, arrayColorSwapchain}};
             REQUIRE(XR_SUCCESS == CycleToNextSwapchainImage(swapchains.data(), swapchains.size(), 3_xrSeconds));
         }
 

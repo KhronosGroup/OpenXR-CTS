@@ -1,4 +1,0 @@
----
-- mr.3997.gl
----
-- Fix: Mark spatial entity tests which require tracking as interactive.

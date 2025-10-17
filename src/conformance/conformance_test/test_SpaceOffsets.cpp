@@ -140,10 +140,10 @@ namespace Conformance
             }
         }
 
-        const std::array<XrPath, 2> subactionPaths{
+        const std::array<XrPath, 2> subactionPaths{{
             StringToPath(instance, "/user/hand/left"),
             StringToPath(instance, "/user/hand/right"),
-        };
+        }};
         XrActionSet actionSet;
         XrAction freezeAction, failAction, gripPoseAction;
         {

@@ -160,7 +160,7 @@ namespace openxr
         namespace Matrix
         {
             // Not using XrMatrix4x4f_CreateIdentity so that this can be written as a constexpr.
-            constexpr XrMatrix4x4f Identity{1.f, 0.f, 0.f, 0.f, 0.f, 1.f, 0.f, 0.f, 0.f, 0.f, 1.f, 0.f, 0.f, 0.f, 0.f, 1.f};
+            constexpr XrMatrix4x4f Identity{{1.f, 0.f, 0.f, 0.f, 0.f, 1.f, 0.f, 0.f, 0.f, 0.f, 1.f, 0.f, 0.f, 0.f, 0.f, 1.f}};
             xr_math_operators_nodiscard inline XrMatrix4x4f FromPose(const XrPosef& pose)
             {
                 XrMatrix4x4f m;

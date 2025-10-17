@@ -233,7 +233,7 @@ namespace Conformance
                 REQUIRE_RESULT_SUCCEEDED(xrWaitFrame(session, nullptr, &frameState));
                 REQUIRE_RESULT_SUCCEEDED(xrBeginFrame(session, nullptr));
 
-                std::array<XrCompositionLayerBaseHeader*, 1> layers = {nullptr};
+                std::array<XrCompositionLayerBaseHeader*, 1> layers = {{nullptr}};
 
                 XrFrameEndInfo frameEndInfo = defaultFrameEndInfo;
                 frameEndInfo.displayTime = frameState.predictedDisplayTime;

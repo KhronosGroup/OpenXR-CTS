@@ -1566,10 +1566,10 @@ namespace Conformance
                                                         "that \'R\' is always rendered atop \'L\', "
                                                         "and both are atop the cubes when visible.");
 
-        const std::array<XrPath, 2> subactionPaths{
+        const std::array<XrPath, 2> subactionPaths{{
             StringToPath(instance, "/user/hand/left"),
             StringToPath(instance, "/user/hand/right"),
-        };
+        }};
 
         XrActionSet actionSet;
         XrAction gripPoseAction;

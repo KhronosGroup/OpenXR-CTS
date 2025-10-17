@@ -1,4 +1,0 @@
----
-- mr.3987.gl
----
-- Fix: Rename `VK_LAYER_OPENXR_xr_runtime_conformance` `disable_environment` name to match layer.

@@ -46,7 +46,7 @@ namespace Conformance
         auto xrQueryPerformanceMetricsCounterMETA_ =
             GetInstanceExtensionFunction<PFN_xrQueryPerformanceMetricsCounterMETA>(instance, "xrQueryPerformanceMetricsCounterMETA");
 
-        std::vector<XrPath> paths = CHECK_TWO_CALL(XrPath, {}, xrEnumeratePerformanceMetricsCounterPathsMETA_, instance);
+        std::vector<XrPath> paths = CHECK_TWO_CALL(XrPath, {}, xrEnumeratePerformanceMetricsCounterPathsMETA_, instance.GetInstance());
 
         SECTION("Query metrics without starting")
         {

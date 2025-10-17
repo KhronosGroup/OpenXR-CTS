@@ -17,6 +17,39 @@ particular, since it is primarily software, pull requests may be integrated as
 they are accepted even between periodic updates. However, versions that are not
 signed tags on the `approved` branch are not valid for conformance submission.
 
+## OpenXR CTS 1.1.52.0 (2025-10-16)
+
+- Conformance Tests
+  - Fix: Rename `VK_LAYER_OPENXR_xr_runtime_conformance` `disable_environment` name
+    to match layer.
+    ([internal MR 3987](https://gitlab.khronos.org/openxr/openxr/merge_requests/3987))
+  - Fix: Mark spatial entity tests which require tracking as "interactive".
+    ([internal MR 3997](https://gitlab.khronos.org/openxr/openxr/merge_requests/3997))
+  - Improvement: add a way to fail most tests that ask for human judgement to pass.
+    ([internal MR 3853](https://gitlab.khronos.org/openxr/openxr/merge_requests/3853),
+    [internal issue 2262](https://gitlab.khronos.org/openxr/openxr/issues/2262))
+  - Improvement: align the interaction method for most interactive tests. (Select
+    to pass, Menu to show help or do other action, Menu+Select to fail.) This means
+    that the instructions to pass have **changed** for the following tests:
+    "GripAndAimPose", "HapticInterrupt", "XR_EXT_palm_pose", "GripSurface-
+    XR_KHR_maintenance1", "GripSurface", and "XR_MSFT_controller_model-interactive"
+    ([internal MR 3853](https://gitlab.khronos.org/openxr/openxr/merge_requests/3853),
+    [internal issue 2262](https://gitlab.khronos.org/openxr/openxr/issues/2262))
+  - Improvement: enable clang-tidy bugprone-use-after-move check after fixing
+    issues discovered.
+    ([internal MR 3891](https://gitlab.khronos.org/openxr/openxr/merge_requests/3891),
+    [internal MR 4031](https://gitlab.khronos.org/openxr/openxr/merge_requests/4031))
+  - Improvement: General improvements to reliability in the Vulkan API layer
+    embedded in `XrApiLayer_runtime_conformance`.
+    ([internal MR 3939](https://gitlab.khronos.org/openxr/openxr/merge_requests/3939))
+  - Improvement: Add stricter compiler flags.
+    ([internal MR 4028](https://gitlab.khronos.org/openxr/openxr/merge_requests/4028))
+  - New test: `XR_KHR_generic_controller` test of selection rule.
+    ([internal MR 3288](https://gitlab.khronos.org/openxr/openxr/merge_requests/3288),
+    [internal issue 2220](https://gitlab.khronos.org/openxr/openxr/issues/2220),
+    [internal MR 3018](https://gitlab.khronos.org/openxr/openxr/merge_requests/3018),
+    [internal MR 4019](https://gitlab.khronos.org/openxr/openxr/merge_requests/4019))
+
 ## OpenXR CTS 1.1.51.0 (2025-09-04)
 
 - Conformance Tests
