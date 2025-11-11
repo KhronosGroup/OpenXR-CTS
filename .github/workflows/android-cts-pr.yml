@@ -1,4 +1,4 @@
-# Copyright 2021-2024, Collabora, Ltd.
+# Copyright 2021-2025, Collabora, Ltd.
 # SPDX-License-Identifier: CC0-1.0
 
 name: Android OpenXR-CTS
@@ -19,7 +19,7 @@ jobs:
           lfs: true
 
       - name: Get modern CMake and Ninja
-        uses: "lukka/get-cmake@v4.1.1"
+        uses: "lukka/get-cmake@v4.1.2"
 
       - name: set up JDK
         uses: actions/setup-java@v5
@@ -29,13 +29,13 @@ jobs:
           cache: gradle
 
       # Also performs Gradle wrapper validation
-      - uses: "gradle/actions/setup-gradle@v4"
+      - uses: "gradle/actions/setup-gradle@v5"
 
       - name: "Build with Gradle"
         run: "cd src/conformance && ./gradlew assembleDebug"
 
       - name: Upload OpenXR-CTS Android
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: OpenXR-CTS Android
           path: src/conformance/build/outputs/apk/debug/conformance-debug.apk

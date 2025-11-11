@@ -49,6 +49,7 @@ namespace Conformance
                                 Conformance::CreateGraphicsPlugin(Options::Get().graphicsPlugin.c_str(), globalData.GetPlatformPlugin()));
             REQUIRE(graphicsPlugin->Initialize());
         }
+        GraphicsPluginShutdownDeviceOnScopeExit pluginShutdown{graphicsPlugin.get()};
 
         // We'll use this XrSession and XrSessionCreateInfo for testing below.
         XrSession session = XR_NULL_HANDLE_CPP;
@@ -61,7 +62,6 @@ namespace Conformance
             sessionCreateInfo.next = nullptr;
             CHECK(xrCreateSession(instance, &sessionCreateInfo, &session) == XR_ERROR_GRAPHICS_DEVICE_INVALID);
             cleanup.Destroy();
-            graphicsPlugin->ShutdownDevice();
         }
 
         SECTION("NULL Metal device")
@@ -74,7 +74,6 @@ namespace Conformance
 
             CHECK(xrCreateSession(instance, &sessionCreateInfo, &session) == XR_ERROR_VALIDATION_FAILURE);
             cleanup.Destroy();
-            graphicsPlugin->ShutdownDevice();
         }
 
         SECTION("Multiple session with same device")
@@ -102,7 +101,6 @@ namespace Conformance
                 CHECK(xrDestroySession(session) == XR_SUCCESS);
                 session = XR_NULL_HANDLE;
             }
-            graphicsPlugin->ShutdownDevice();
         }
     }
 }  // namespace Conformance

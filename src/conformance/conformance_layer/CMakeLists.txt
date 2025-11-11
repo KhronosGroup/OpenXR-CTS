@@ -100,11 +100,15 @@ if(XR_USE_GRAPHICS_API_VULKAN)
     if(ANDROID)
         # The vulkan/vk_layer.h header is only available in the NDK 27.2.12479018 toolchain
         # For older NDKs we have to find it from the third party folder
-        find_path(VK_LAYER_PATH NAMES vulkan/vk_layer.h
+        find_path(
+            VK_LAYER_PATH
+            NAMES vulkan/vk_layer.h
             PATHS ${ANDROID_NDK}
             HINTS ${ANDROID_NDK}/sources/third_party/vulkan/src/include/
         )
-        target_include_directories(XrApiLayer_runtime_conformance PRIVATE ${VK_LAYER_PATH})
+        target_include_directories(
+            XrApiLayer_runtime_conformance PRIVATE ${VK_LAYER_PATH}
+        )
 
         # The Android Vulkan Loader needs a dedicated library in order to load the layer.
         add_library(
@@ -117,19 +121,26 @@ if(XR_USE_GRAPHICS_API_VULKAN)
                 "-Wl,--version-script=\"${CMAKE_CURRENT_SOURCE_DIR}/VkLayer_xr_runtime_conformance.map\""
         )
 
-        target_include_directories(VkLayer_xr_runtime_conformance PRIVATE
-            ${Vulkan_INCLUDE_DIRS}
-            ${VK_LAYER_PATH}
+        target_include_directories(
+            VkLayer_xr_runtime_conformance PRIVATE ${Vulkan_INCLUDE_DIRS}
+                                                   ${VK_LAYER_PATH}
         )
     endif()
 
-    target_sources(XrApiLayer_runtime_conformance PRIVATE
-        ${CMAKE_CURRENT_SOURCE_DIR}/VulkanLayer.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/VulkanGraphicsValidator.cpp
+    target_sources(
+        XrApiLayer_runtime_conformance
+        PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}/VulkanLayer.cpp
+            ${CMAKE_CURRENT_SOURCE_DIR}/VulkanGraphicsValidator.cpp
+            ${CMAKE_CURRENT_SOURCE_DIR}/ApiVulkan.cpp
     )
 
-    target_include_directories(XrApiLayer_runtime_conformance PRIVATE ${Vulkan_INCLUDE_DIRS})
-    target_link_libraries(XrApiLayer_runtime_conformance PRIVATE ${Vulkan_LIBRARY})
+    target_include_directories(
+        XrApiLayer_runtime_conformance PRIVATE ${Vulkan_INCLUDE_DIRS}
+    )
+    target_link_libraries(
+        XrApiLayer_runtime_conformance PRIVATE ${Vulkan_LIBRARY}
+    )
 
     configure_file(
         conformance_vk_layer.json
@@ -172,8 +183,7 @@ elseif(APPLE)
     )
     target_sources(
         XrApiLayer_runtime_conformance
-        PRIVATE
-            "${CMAKE_CURRENT_SOURCE_DIR}/${SYMBOLS_FILE}.expsym"
+        PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/${SYMBOLS_FILE}.expsym"
     )
 else()
     set_target_properties(
@@ -206,11 +216,12 @@ if(BUILD_CONFORMANCE_CLI)
             COMMAND
                 ${CMAKE_COMMAND} -E copy
                 ${CMAKE_CURRENT_BINARY_DIR}/VkLayer_OPENXR_xr_runtime_conformance.json
-                $<TARGET_PROPERTY:conformance_cli,BINARY_DIR>
+                "$<TARGET_FILE_DIR:XrApiLayer_runtime_conformance>"
         )
         install(
-           FILES $<TARGET_PROPERTY:conformance_cli,BINARY_DIR>/VkLayer_OPENXR_xr_runtime_conformance.json
-           DESTINATION conformance
+            FILES
+                ${CMAKE_CURRENT_BINARY_DIR}/VkLayer_OPENXR_xr_runtime_conformance.json
+            DESTINATION conformance
         )
     endif()
 endif()
@@ -232,7 +243,7 @@ install(
     RUNTIME DESTINATION conformance
 )
 
-if(MSVC)
+if(MSVC AND INSTALL_SYMBOLS)
     install(
         FILES $<TARGET_PDB_FILE:XrApiLayer_runtime_conformance>
         DESTINATION conformance

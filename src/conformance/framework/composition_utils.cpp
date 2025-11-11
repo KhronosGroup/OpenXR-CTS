@@ -21,9 +21,11 @@
 #include "conformance_framework.h"
 #include "conformance_options.h"
 #include "conformance_utils.h"
+#include "graphics_plugin.h"
 #include "swapchain_image_data.h"
 #include "utilities/event_reader.h"
 #include "utilities/throw_helpers.h"
+#include "utilities/types_and_constants.h"
 
 #include <catch2/catch_test_macros.hpp>
 #include <openxr/openxr.h>
@@ -32,6 +34,7 @@
 #include <cassert>
 #include <chrono>
 #include <cstdint>
+#include <memory>
 #include <stdexcept>
 #include <utility>
 
@@ -233,7 +236,17 @@ namespace Conformance
         m_eventQueue = std::unique_ptr<EventQueue>(new EventQueue(m_instance));
         m_privateEventReader = std::unique_ptr<EventReader>(new EventReader(*m_eventQueue));
 
+        auto& globalData = GetGlobalData();
+
+        // This will set up the graphics plugin, if applicable.
         XRC_CHECK_THROW_XRCMD(CreateBasicSession(m_instance, &m_systemId, &m_session));
+        std::shared_ptr<IGraphicsPlugin> graphicsPlugin;
+        if (globalData.IsUsingGraphicsPlugin()) {
+            graphicsPlugin = globalData.GetGraphicsPlugin();
+        }
+
+        // This will call ShutdownDevice if we leave this function before completing it successfully.
+        GraphicsPluginShutdownDeviceOnScopeExit pluginShutdown{graphicsPlugin.get()};
 
         if (skipOnUnsupportedViewType) {
             uint32_t viewCount = 0;
@@ -242,14 +255,6 @@ namespace Conformance
             REQUIRE(XR_SUCCESS == xrEnumerateViewConfigurations(m_instance, m_systemId, viewCount, &viewCount, runtimeViewTypes.data()));
             if (std::find(runtimeViewTypes.begin(), runtimeViewTypes.end(), m_primaryViewType) == runtimeViewTypes.end()) {
                 xrDestroySession(m_session);
-
-                GlobalData& globalData = GetGlobalData();
-                if (globalData.IsUsingGraphicsPlugin()) {
-                    auto graphicsPlugin = globalData.GetGraphicsPlugin();
-                    if (graphicsPlugin->IsInitialized()) {
-                        graphicsPlugin->ShutdownDevice();
-                    }
-                }
 
                 SKIP("View type not supported by runtime");
             }
@@ -271,9 +276,9 @@ namespace Conformance
             }
         }
 
-        if (GetGlobalData().IsUsingGraphicsPlugin()) {
-            m_defaultColorFormat = GetGlobalData().graphicsPlugin->SelectColorSwapchainFormat(true, swapchainFormats);
-            m_defaultDepthFormat = GetGlobalData().graphicsPlugin->SelectDepthSwapchainFormat(true, swapchainFormats);
+        if (globalData.IsUsingGraphicsPlugin()) {
+            m_defaultColorFormat = graphicsPlugin->SelectColorSwapchainFormat(true, swapchainFormats);
+            m_defaultDepthFormat = graphicsPlugin->SelectDepthSwapchainFormat(true, swapchainFormats);
         }
         else {
             m_defaultColorFormat = static_cast<uint64_t>(-1);
@@ -293,27 +298,27 @@ namespace Conformance
             m_testNameQuad.space = m_viewSpace;
             m_testNameQuad.subImage = MakeDefaultSubImage(CreateStaticSwapchainImage(image));
         }
+
+        // Leave the graphics plugin running if we make it to the end.
+        pluginShutdown.Release();
     }
 
     CompositionHelper::~CompositionHelper()
     {
         for (XrSpace space : m_spaces) {
-            XRC_CHECK_THROW_XRCMD(xrDestroySpace(space));
+            xrDestroySpace(space);
         }
+        m_spaces.clear();
 
         for (auto swapchain : m_createdSwapchains) {
-            XRC_CHECK_THROW_XRCMD(xrDestroySwapchain(swapchain.first));
+            xrDestroySwapchain(swapchain.first);
         }
+        m_createdSwapchains.clear();
 
         XRC_CHECK_THROW_XRCMD(xrDestroySession(m_session));
+        m_session = XR_NULL_HANDLE;
 
-        GlobalData& globalData = GetGlobalData();
-        if (globalData.IsUsingGraphicsPlugin()) {
-            auto graphicsPlugin = globalData.GetGraphicsPlugin();
-            if (graphicsPlugin->IsInitialized()) {
-                graphicsPlugin->ShutdownDevice();
-            }
-        }
+        GlobalGraphicsPluginShutdownDevice();
     }
 
     InteractionManager& CompositionHelper::GetInteractionManager()

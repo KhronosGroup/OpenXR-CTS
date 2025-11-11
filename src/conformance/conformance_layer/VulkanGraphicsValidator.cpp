@@ -14,13 +14,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#if !defined(XR_USE_GRAPHICS_API_VULKAN)
-#error "XR_USE_GRAPHICS_API_VULKAN required"
-#endif
-
 #include "ConformanceHooks.h"
 #include "IGraphicsValidator.h"
 #include "VulkanLayer.h"
+
+#if defined(XR_USE_GRAPHICS_API_VULKAN)
 
 namespace Conformance
 {
@@ -94,3 +92,5 @@ namespace Conformance
     }
 
 }  // namespace Conformance
+
+#endif  // defined(XR_USE_GRAPHICS_API_VULKAN)

@@ -318,7 +318,7 @@ namespace Conformance
         else {
             WARN("Conformance layer warning: " << callbackData->functionName << ": " << callbackData->message);
         }
-        return XR_TRUE;
+        return XR_FALSE;
     }
     static inline XrDebugUtilsMessengerCreateInfoEXT MakeMessengerCreateInfo()
     {
@@ -607,6 +607,11 @@ namespace Conformance
 
             XRC_CHECK_THROW_XRCMD(CreateBasicSession(instance, &systemId, &session, enableGraphics));
 
+            GraphicsPluginShutdownDeviceOnScopeExit pluginShutdown;
+            if (enableGraphics) {
+                pluginShutdown = GraphicsPluginShutdownDeviceOnScopeExit::FromGlobalData();
+            }
+
             assert(systemId != XR_NULL_SYSTEM_ID);
             assert(session != XR_NULL_HANDLE);
 
@@ -658,6 +663,9 @@ namespace Conformance
                     spaceVector.push_back(space);
                 }
             }
+
+            /// If we made it down here, release the scope guard on the graphics plugin.
+            pluginShutdown.Release();
         }
         catch (...) {
             Shutdown();
@@ -760,13 +768,7 @@ namespace Conformance
         // Shutdown the device initialized by CreateBasicSession
         // after the session is destroyed.
         if (sessionCreated && !graphicsSkipped) {
-            GlobalData& globalData = GetGlobalData();
-            if (globalData.IsUsingGraphicsPlugin()) {
-                auto graphicsPlugin = globalData.GetGraphicsPlugin();
-                if (graphicsPlugin->IsInitialized()) {
-                    graphicsPlugin->ShutdownDevice();
-                }
-            }
+            GlobalGraphicsPluginShutdownDevice();
         }
 
         m_privateEventReader.reset();

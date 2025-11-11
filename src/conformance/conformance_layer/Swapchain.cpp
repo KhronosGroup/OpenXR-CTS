@@ -16,6 +16,7 @@
 
 #include "ConformanceHooks.h"
 #include "CustomHandleState.h"
+#include "HandleState.h"
 #include "RuntimeFailure.h"
 
 using namespace swapchain;
@@ -51,26 +52,32 @@ namespace swapchain
         return dynamic_cast<CustomSwapchainState*>(GetSwapchainState(handle)->GetCustomState());
     }
 
+    CustomSwapchainState* GetCustomSwapchainState(HandleState* handleState)
+    {
+        return dynamic_cast<CustomSwapchainState*>(handleState->GetCustomState());
+    }
+
 }  // namespace swapchain
 
 /////////////////
 // ABI
 /////////////////
 
-XrResult ConformanceHooks::xrCreateSwapchain(XrSession session, const XrSwapchainCreateInfo* createInfo, XrSwapchain* swapchain)
+XrResult ConformanceHooks::xrCreateSwapchain(HandleState* const handleState, XrSession session, const XrSwapchainCreateInfo* createInfo,
+                                             XrSwapchain* swapchain)
 {
-    const XrResult result = ConformanceHooksBase::xrCreateSwapchain(session, createInfo, swapchain);
+    const XrResult result = ConformanceHooksBase::xrCreateSwapchain(handleState, session, createInfo, swapchain);
     if (XR_SUCCEEDED(result)) {
         // Tag on the custom swapchain state to the generated handle state.
-        session::CustomSessionState* customSessionState = session::GetCustomSessionState(session);
+        session::CustomSessionState* customSessionState = session::GetCustomSessionState(handleState);
         GetSwapchainState(*swapchain)->SetCustomState(std::make_unique<CustomSwapchainState>(createInfo, customSessionState));
     }
     return result;
 }
 
-XrResult ConformanceHooks::xrDestroySwapchain(XrSwapchain swapchain)
+XrResult ConformanceHooks::xrDestroySwapchain(HandleState* const handleState, XrSwapchain swapchain)
 {
-    CustomSwapchainState* const swapchainData = GetCustomSwapchainState(swapchain);
+    CustomSwapchainState* const swapchainData = GetCustomSwapchainState(handleState);
     // There is no CustomSwapchainState for XrSwapchain handles created via
     // xrCreateSwapchainAndroidSurfaceKHR(), so make sure to check for null before using it.
     auto validator = swapchainData ? swapchainData->sessionState->graphicsValidator : nullptr;
@@ -79,7 +86,7 @@ XrResult ConformanceHooks::xrDestroySwapchain(XrSwapchain swapchain)
         validator->AllowVkQueueAccess(false);
     }
 
-    const XrResult result = ConformanceHooksBase::xrDestroySwapchain(swapchain);
+    const XrResult result = ConformanceHooksBase::xrDestroySwapchain(handleState, swapchain);
 
     if (validator) {
         NONCONFORMANT_IF(!validator->CheckState(), "Invalid graphics state");
@@ -87,17 +94,18 @@ XrResult ConformanceHooks::xrDestroySwapchain(XrSwapchain swapchain)
     return result;
 }
 
-XrResult ConformanceHooks::xrEnumerateSwapchainImages(XrSwapchain swapchain, uint32_t imageCapacityInput, uint32_t* imageCountOutput,
-                                                      XrSwapchainImageBaseHeader* images)
+XrResult ConformanceHooks::xrEnumerateSwapchainImages(HandleState* const handleState, XrSwapchain swapchain, uint32_t imageCapacityInput,
+                                                      uint32_t* imageCountOutput, XrSwapchainImageBaseHeader* images)
 {
-    CustomSwapchainState* const customSwapchainState = GetCustomSwapchainState(swapchain);
+    CustomSwapchainState* const customSwapchainState = GetCustomSwapchainState(handleState);
     auto validator = customSwapchainState->sessionState->graphicsValidator;
 
     if (validator) {
         validator->AllowVkQueueAccess(false);
     }
 
-    const XrResult result = ConformanceHooksBase::xrEnumerateSwapchainImages(swapchain, imageCapacityInput, imageCountOutput, images);
+    const XrResult result =
+        ConformanceHooksBase::xrEnumerateSwapchainImages(handleState, swapchain, imageCapacityInput, imageCountOutput, images);
 
     if (validator) {
         NONCONFORMANT_IF(!validator->CheckState(), "Invalid graphics state");
@@ -132,16 +140,17 @@ XrResult ConformanceHooks::xrEnumerateSwapchainImages(XrSwapchain swapchain, uin
     return result;
 }
 
-XrResult ConformanceHooks::xrAcquireSwapchainImage(XrSwapchain swapchain, const XrSwapchainImageAcquireInfo* acquireInfo, uint32_t* index)
+XrResult ConformanceHooks::xrAcquireSwapchainImage(HandleState* const handleState, XrSwapchain swapchain,
+                                                   const XrSwapchainImageAcquireInfo* acquireInfo, uint32_t* index)
 {
-    CustomSwapchainState* const swapchainData = GetCustomSwapchainState(swapchain);
+    CustomSwapchainState* const swapchainData = GetCustomSwapchainState(handleState);
     auto validator = swapchainData->sessionState->graphicsValidator;
 
     if (validator) {
         validator->AllowVkQueueAccess(true);
     }
 
-    const XrResult result = ConformanceHooksBase::xrAcquireSwapchainImage(swapchain, acquireInfo, index);
+    const XrResult result = ConformanceHooksBase::xrAcquireSwapchainImage(handleState, swapchain, acquireInfo, index);
 
     if (validator) {
         NONCONFORMANT_IF(!validator->CheckState(), "Invalid graphics state");
@@ -154,7 +163,7 @@ XrResult ConformanceHooks::xrAcquireSwapchainImage(XrSwapchain swapchain, const 
             // Must enumerate the swapchain images to set up the imageStates vector to the correct size.
             // This is an unusual situation because it means the app is calling xrAcquireSwapchainImage without first enumerating the swapchain images.
             uint32_t imageCountOutput;
-            const XrResult enumRes = ConformanceHooks::xrEnumerateSwapchainImages(swapchain, 0, &imageCountOutput, nullptr);
+            const XrResult enumRes = ConformanceHooks::xrEnumerateSwapchainImages(handleState, swapchain, 0, &imageCountOutput, nullptr);
             NONCONFORMANT_IF(!XR_SUCCEEDED(enumRes), "Unable to enumerate swapchain images due to error %s", to_string(enumRes));
         }
         else {
@@ -173,18 +182,19 @@ XrResult ConformanceHooks::xrAcquireSwapchainImage(XrSwapchain swapchain, const 
     return result;
 }
 
-XrResult ConformanceHooks::xrWaitSwapchainImage(XrSwapchain swapchain, const XrSwapchainImageWaitInfo* waitInfo)
+XrResult ConformanceHooks::xrWaitSwapchainImage(HandleState* const handleState, XrSwapchain swapchain,
+                                                const XrSwapchainImageWaitInfo* waitInfo)
 {
     auto waitStart = std::chrono::high_resolution_clock::now();
 
-    CustomSwapchainState* const swapchainData = GetCustomSwapchainState(swapchain);
+    CustomSwapchainState* const swapchainData = GetCustomSwapchainState(handleState);
     auto validator = swapchainData->sessionState->graphicsValidator;
 
     if (validator) {
         validator->AllowVkQueueAccess(false);
     }
 
-    const XrResult result = ConformanceHooksBase::xrWaitSwapchainImage(swapchain, waitInfo);
+    const XrResult result = ConformanceHooksBase::xrWaitSwapchainImage(handleState, swapchain, waitInfo);
     if (validator) {
         NONCONFORMANT_IF(!validator->CheckState(), "Invalid graphics state");
     }
@@ -214,16 +224,17 @@ XrResult ConformanceHooks::xrWaitSwapchainImage(XrSwapchain swapchain, const XrS
     return result;
 }
 
-XrResult ConformanceHooks::xrReleaseSwapchainImage(XrSwapchain swapchain, const XrSwapchainImageReleaseInfo* releaseInfo)
+XrResult ConformanceHooks::xrReleaseSwapchainImage(HandleState* const handleState, XrSwapchain swapchain,
+                                                   const XrSwapchainImageReleaseInfo* releaseInfo)
 {
-    CustomSwapchainState* const swapchainData = GetCustomSwapchainState(swapchain);
+    CustomSwapchainState* const swapchainData = GetCustomSwapchainState(handleState);
     auto validator = swapchainData->sessionState->graphicsValidator;
 
     if (validator) {
         validator->AllowVkQueueAccess(true);
     }
 
-    const XrResult result = ConformanceHooksBase::xrReleaseSwapchainImage(swapchain, releaseInfo);
+    const XrResult result = ConformanceHooksBase::xrReleaseSwapchainImage(handleState, swapchain, releaseInfo);
 
     if (validator) {
         NONCONFORMANT_IF(!validator->CheckState(), "Invalid graphics state");
@@ -248,13 +259,13 @@ XrResult ConformanceHooks::xrReleaseSwapchainImage(XrSwapchain swapchain, const 
 }
 
 #if defined(XR_USE_PLATFORM_ANDROID)
-XrResult ConformanceHooks::xrCreateSwapchainAndroidSurfaceKHR(XrSession session, const XrSwapchainCreateInfo* info, XrSwapchain* swapchain,
-                                                              jobject* surface)
+XrResult ConformanceHooks::xrCreateSwapchainAndroidSurfaceKHR(HandleState* const handleState, XrSession session,
+                                                              const XrSwapchainCreateInfo* info, XrSwapchain* swapchain, jobject* surface)
 {
-    const XrResult result = ConformanceHooksBase::xrCreateSwapchainAndroidSurfaceKHR(session, info, swapchain, surface);
+    const XrResult result = ConformanceHooksBase::xrCreateSwapchainAndroidSurfaceKHR(handleState, session, info, swapchain, surface);
     if (XR_SUCCEEDED(result)) {
         // Tag on the custom swapchain state to the generated handle state.
-        session::CustomSessionState* customSessionState = session::GetCustomSessionState(session);
+        session::CustomSessionState* customSessionState = session::GetCustomSessionState(handleState);
         GetSwapchainState(*swapchain)->SetCustomState(std::make_unique<CustomSwapchainState>(info, customSessionState));
     }
     return result;

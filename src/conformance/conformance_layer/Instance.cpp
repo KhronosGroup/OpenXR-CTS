@@ -39,13 +39,13 @@ namespace instance
 // ABI
 /////////////////
 
-XrResult ConformanceHooks::xrEnumerateViewConfigurations(XrInstance instance, XrSystemId systemId,
+XrResult ConformanceHooks::xrEnumerateViewConfigurations(HandleState* const handleState, XrInstance instance, XrSystemId systemId,
                                                          uint32_t viewConfigurationTypeCapacityInput,
                                                          uint32_t* viewConfigurationTypeCountOutput,
                                                          XrViewConfigurationType* viewConfigurationTypes)
 {
-    const XrResult result = ConformanceHooksBase::xrEnumerateViewConfigurations(instance, systemId, viewConfigurationTypeCapacityInput,
-                                                                                viewConfigurationTypeCountOutput, viewConfigurationTypes);
+    const XrResult result = ConformanceHooksBase::xrEnumerateViewConfigurations(
+        handleState, instance, systemId, viewConfigurationTypeCapacityInput, viewConfigurationTypeCountOutput, viewConfigurationTypes);
     if (checkTwoCallIdiomFunc(__func__, result, viewConfigurationTypeCapacityInput, viewConfigurationTypeCountOutput,
                               viewConfigurationTypes)) {
         // We have some output to check
@@ -57,15 +57,15 @@ XrResult ConformanceHooks::xrEnumerateViewConfigurations(XrInstance instance, Xr
     return result;
 }
 
-XrResult ConformanceHooks::xrEnumerateEnvironmentBlendModes(XrInstance instance, XrSystemId systemId,
+XrResult ConformanceHooks::xrEnumerateEnvironmentBlendModes(HandleState* const handleState, XrInstance instance, XrSystemId systemId,
                                                             XrViewConfigurationType viewConfigurationType,
                                                             uint32_t environmentBlendModeCapacityInput,
                                                             uint32_t* environmentBlendModeCountOutput,
                                                             XrEnvironmentBlendMode* environmentBlendModes)
 {
-    const XrResult result =
-        ConformanceHooksBase::xrEnumerateEnvironmentBlendModes(instance, systemId, viewConfigurationType, environmentBlendModeCapacityInput,
-                                                               environmentBlendModeCountOutput, environmentBlendModes);
+    const XrResult result = ConformanceHooksBase::xrEnumerateEnvironmentBlendModes(handleState, instance, systemId, viewConfigurationType,
+                                                                                   environmentBlendModeCapacityInput,
+                                                                                   environmentBlendModeCountOutput, environmentBlendModes);
     if (checkTwoCallIdiomFunc(__func__, result, environmentBlendModeCapacityInput, environmentBlendModeCountOutput,
                               environmentBlendModes)) {
         // We have some output to check
@@ -77,12 +77,12 @@ XrResult ConformanceHooks::xrEnumerateEnvironmentBlendModes(XrInstance instance,
     return result;
 }
 
-XrResult ConformanceHooks::xrPollEvent(XrInstance instance, XrEventDataBuffer* eventData)
+XrResult ConformanceHooks::xrPollEvent(HandleState* const handleState, XrInstance instance, XrEventDataBuffer* eventData)
 {
-    const XrResult result = ConformanceHooksBase::xrPollEvent(instance, eventData);
+    const XrResult result = ConformanceHooksBase::xrPollEvent(handleState, instance, eventData);
 
     if (result == XR_EVENT_UNAVAILABLE) {
-        const HandleState* const instanceState = instance::GetInstanceState(instance);
+        const HandleState* const instanceState = handleState;
 
         // Clear the "xrSyncActions called" flag for all known sessions
         std::unique_lock<std::recursive_mutex> lock(instanceState->childrenMutex);
@@ -250,9 +250,10 @@ void ConformanceHooks::checkEventPayload(const XrEventDataUserPresenceChangedEXT
     VALIDATE_EVENT_XRBOOL32(data->isUserPresent);
 }
 
-XrResult ConformanceHooks::xrGetSystemProperties(XrInstance instance, XrSystemId systemId, XrSystemProperties* properties)
+XrResult ConformanceHooks::xrGetSystemProperties(HandleState* const handleState, XrInstance instance, XrSystemId systemId,
+                                                 XrSystemProperties* properties)
 {
-    const XrResult result = ConformanceHooksBase::xrGetSystemProperties(instance, systemId, properties);
+    const XrResult result = ConformanceHooksBase::xrGetSystemProperties(handleState, instance, systemId, properties);
 
     if (result == XR_SUCCESS) {
         // validate some structs?

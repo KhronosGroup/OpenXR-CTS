@@ -1,1 +1,0 @@
-Fix ANDROID_trackables_object orientation.

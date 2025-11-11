@@ -37,9 +37,10 @@ namespace action
 
 using namespace action;
 
-XrResult ConformanceHooks::xrCreateAction(XrActionSet actionSet, const XrActionCreateInfo* createInfo, XrAction* action)
+XrResult ConformanceHooks::xrCreateAction(HandleState* const handleState, XrActionSet actionSet, const XrActionCreateInfo* createInfo,
+                                          XrAction* action)
 {
-    const XrResult result = ConformanceHooksBase::xrCreateAction(actionSet, createInfo, action);
+    const XrResult result = ConformanceHooksBase::xrCreateAction(handleState, actionSet, createInfo, action);
     if (XR_SUCCEEDED(result)) {
         // Tag on the custom action state to the generated handle state.
         GetActionState(*action)->SetCustomState(std::make_unique<CustomActionState>(createInfo));
@@ -47,11 +48,12 @@ XrResult ConformanceHooks::xrCreateAction(XrActionSet actionSet, const XrActionC
     return result;
 }
 
-XrResult ConformanceHooks::xrGetActionStateBoolean(XrSession session, const XrActionStateGetInfo* getInfo, XrActionStateBoolean* data)
+XrResult ConformanceHooks::xrGetActionStateBoolean(HandleState* const handleState, XrSession session, const XrActionStateGetInfo* getInfo,
+                                                   XrActionStateBoolean* data)
 {
     VALIDATE_STRUCT_CHAIN(getInfo);
     VALIDATE_STRUCT_CHAIN(data);
-    const XrResult result = ConformanceHooksBase::xrGetActionStateBoolean(session, getInfo, data);
+    const XrResult result = ConformanceHooksBase::xrGetActionStateBoolean(handleState, session, getInfo, data);
     if (XR_SUCCEEDED(result)) {
         CustomActionState* const actionData = GetCustomActionState(getInfo->action);
         NONCONFORMANT_IF(actionData->type != XR_ACTION_TYPE_BOOLEAN_INPUT, "Expected failure due to action type mismatch");
@@ -72,11 +74,12 @@ XrResult ConformanceHooks::xrGetActionStateBoolean(XrSession session, const XrAc
     return result;
 }
 
-XrResult ConformanceHooks::xrGetActionStateFloat(XrSession session, const XrActionStateGetInfo* getInfo, XrActionStateFloat* data)
+XrResult ConformanceHooks::xrGetActionStateFloat(HandleState* const handleState, XrSession session, const XrActionStateGetInfo* getInfo,
+                                                 XrActionStateFloat* data)
 {
     VALIDATE_STRUCT_CHAIN(getInfo);
     VALIDATE_STRUCT_CHAIN(data);
-    const XrResult result = ConformanceHooksBase::xrGetActionStateFloat(session, getInfo, data);
+    const XrResult result = ConformanceHooksBase::xrGetActionStateFloat(handleState, session, getInfo, data);
     if (XR_SUCCEEDED(result)) {
         CustomActionState* const actionData = GetCustomActionState(getInfo->action);
         NONCONFORMANT_IF(actionData->type != XR_ACTION_TYPE_FLOAT_INPUT, "Expected failure due to action type mismatch");
@@ -98,11 +101,12 @@ XrResult ConformanceHooks::xrGetActionStateFloat(XrSession session, const XrActi
     return result;
 }
 
-XrResult ConformanceHooks::xrGetActionStateVector2f(XrSession session, const XrActionStateGetInfo* getInfo, XrActionStateVector2f* data)
+XrResult ConformanceHooks::xrGetActionStateVector2f(HandleState* const handleState, XrSession session, const XrActionStateGetInfo* getInfo,
+                                                    XrActionStateVector2f* data)
 {
     VALIDATE_STRUCT_CHAIN(getInfo);
     VALIDATE_STRUCT_CHAIN(data);
-    const XrResult result = ConformanceHooksBase::xrGetActionStateVector2f(session, getInfo, data);
+    const XrResult result = ConformanceHooksBase::xrGetActionStateVector2f(handleState, session, getInfo, data);
     if (XR_SUCCEEDED(result)) {
         CustomActionState* const actionData = GetCustomActionState(getInfo->action);
         NONCONFORMANT_IF(actionData->type != XR_ACTION_TYPE_VECTOR2F_INPUT, "Expected failure due to action type mismatch");
@@ -126,11 +130,12 @@ XrResult ConformanceHooks::xrGetActionStateVector2f(XrSession session, const XrA
     return result;
 }
 
-XrResult ConformanceHooks::xrGetActionStatePose(XrSession session, const XrActionStateGetInfo* getInfo, XrActionStatePose* data)
+XrResult ConformanceHooks::xrGetActionStatePose(HandleState* const handleState, XrSession session, const XrActionStateGetInfo* getInfo,
+                                                XrActionStatePose* data)
 {
     VALIDATE_STRUCT_CHAIN(getInfo);
     VALIDATE_STRUCT_CHAIN(data);
-    const XrResult result = ConformanceHooksBase::xrGetActionStatePose(session, getInfo, data);
+    const XrResult result = ConformanceHooksBase::xrGetActionStatePose(handleState, session, getInfo, data);
     if (XR_SUCCEEDED(result)) {
         CustomActionState* const actionData = GetCustomActionState(getInfo->action);
         NONCONFORMANT_IF(actionData->type != XR_ACTION_TYPE_POSE_INPUT, "Unexpected success with action handle type %d",

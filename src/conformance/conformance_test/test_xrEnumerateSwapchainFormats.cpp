@@ -16,6 +16,7 @@
 
 #include "conformance_utils.h"
 #include "conformance_framework.h"
+#include "graphics_plugin.h"
 #include "two_call.h"
 
 #include <catch2/catch_test_macros.hpp>
@@ -57,6 +58,15 @@ namespace Conformance
                     WARN(
                         "swapchain formats are listed in numerical order; this is not inherently a conformance failure, but potentially indicates that the runtime is not indicating a preference.");
                 }
+            }
+        }
+
+        SECTION("common depth format support")
+        {
+            auto graphicsPlugin = GetGlobalData().GetGraphicsPlugin();
+            int64_t selectedFormat = graphicsPlugin->SelectDepthSwapchainFormat(false, formats);
+            if (selectedFormat < 0) {
+                WARN("No commonly used depth format enumerated. It is recommended to support at least one commonly used depth format.");
             }
         }
     }
