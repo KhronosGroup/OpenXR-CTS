@@ -318,7 +318,7 @@ namespace Conformance
         else {
             WARN("Conformance layer warning: " << callbackData->functionName << ": " << callbackData->message);
         }
-        return XR_TRUE;
+        return XR_FALSE;
     }
     static inline XrDebugUtilsMessengerCreateInfoEXT MakeMessengerCreateInfo()
     {

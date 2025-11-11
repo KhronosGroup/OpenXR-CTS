@@ -372,10 +372,13 @@ namespace Conformance
                 }
             }
 
-            if (m_device) {
-                m_commandQueue = NS::TransferPtr(m_device->newCommandQueue());
+            if (!m_device) {
+                // If graphics requirements was not called, we need to create a default device
+                // as we don't otherwise have one.
+                m_device = NS::TransferPtr((MTL::Device*)MTL::CreateSystemDefaultDevice());
             }
 
+            m_commandQueue = NS::TransferPtr(m_device->newCommandQueue());
             m_graphicsBinding.commandQueue = m_commandQueue.get();
 
             InitializeResources();

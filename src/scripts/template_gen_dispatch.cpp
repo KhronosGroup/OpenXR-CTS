@@ -53,7 +53,7 @@
     try {
         HandleState* const handleState = GetHandleState({HandleToInt(/*{ first_handle_name }*/), /*{ first_handle_object_type }*/});
 
-        return handleState->conformanceHooks->/*{cur_cmd.name}*/(/*{ cur_cmd.params | map(attribute="name") | join(", ") }*/);
+        return handleState->conformanceHooks->/*{cur_cmd.name}*/(handleState, /*{ cur_cmd.params | map(attribute="name") | join(", ") }*/);
     }
     ABI_CATCH
 }
@@ -61,8 +61,15 @@
 //##
 //## Generate the ConformanceHooksBase virtual method
 //##
-/*{ cur_cmd.cdecl | collapse_whitespace | replace("XRAPI_ATTR XrResult XRAPI_CALL xr", "XrResult ConformanceHooksBase::xr") | replace(";", "")
-}*/ {
+/*{ cur_cmd.cdecl
+    | collapse_whitespace
+    | replace("XRAPI_ATTR XrResult XRAPI_CALL xr", "XrResult ConformanceHooksBase::xr")
+    | replace("(", "(HandleState* const handleState, ")
+    | replace(";", "")
+}*/
+{
+    //## Possibly unused
+    (void)handleState;
     //## Ensure that the function is implemented by the runtime or its a validation error instead of a segfault caused by a nullptr dereference
     if (this->dispatchTable./*{ cur_cmd.name | base_name }*/ == nullptr) {
         this->ConformanceFailure(XR_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT, "/*{ cur_cmd.name | base_name }*/", "Function is not implemented in runtime");
@@ -100,8 +107,7 @@
 //#             set out_handle_type = cur_cmd.params[-1].type
 //#             set out_handle_object_type = gen.genXrObjectType(out_handle_type)
         // Normal "xrCreate" function: create and register state for child handle
-        CreateAndRegisterHandleState(
-            {HandleToInt(/*{ first_handle_name }*/), /*{ first_handle_object_type }*/},
+        CreateAndRegisterHandleState(handleState,
             {HandleToInt(* /*{ out_handle_name }*/), /*{ out_handle_object_type }*/});
     }
 //#         endif
@@ -112,7 +118,7 @@
 //#         if is_destroy
     if (XR_SUCCEEDED(result)) {
         // Normal "xrDestroy" function: unregister/destroy state for handle
-        UnregisterHandleState({HandleToInt(/*{ first_handle_name }*/), /*{ first_handle_object_type }*/});
+        UnregisterHandleState(handleState);
     }
 //#         endif
 
@@ -126,8 +132,7 @@
 //#         if is_create_swapchain_android_surface
     if (XR_SUCCEEDED(result)) {
 //#             set out_handle_name = cur_cmd.params[-2].name
-        CreateAndRegisterHandleState(
-            {HandleToInt(/*{ first_handle_name }*/), XR_OBJECT_TYPE_SESSION},
+        CreateAndRegisterHandleState(handleState,
             {HandleToInt(* /*{ out_handle_name }*/), XR_OBJECT_TYPE_SWAPCHAIN});
     }
 //#         endif
@@ -142,8 +147,7 @@
 //#             set completion_struct_last_param_name = last_param_struct.members[-1].name
 //#             if last_param_struct.members[-1].is_handle and not last_param_struct.members[-1].is_array
 //#                 set completion_struct_last_param_object_type = gen.genXrObjectType(last_param_struct.members[-1].type)
-        CreateAndRegisterHandleState(
-            {HandleToInt(/*{ first_handle_name }*/), /*{ first_handle_object_type }*/},
+        CreateAndRegisterHandleState(handleState,
             {HandleToInt(/*{ last_param_name }*/->/*{ completion_struct_last_param_name }*/), /*{ completion_struct_last_param_object_type }*/});
 //#             endif
     }
@@ -159,8 +163,7 @@
 //#             set out_handle_name = cur_cmd.params[-1].name
         // Create "handle state" for the XrAsyncRequestIdFB value, with "object type" of the completion event expected.
         // The session is considered the parent handle.
-        CreateAndRegisterHandleState(
-            {HandleToInt(/*{ first_handle_name }*/), XR_OBJECT_TYPE_SESSION},
+        CreateAndRegisterHandleState(handleState,
             {* /*{ out_handle_name }*/, static_cast<XrObjectType>(XR_TYPE_EVENT_DATA_SPATIAL_ANCHOR_CREATE_COMPLETE_FB)});
     }
 //#         endif
@@ -176,8 +179,8 @@
             XrEventDataSpatialAnchorCreateCompleteFB* completeEvent = reinterpret_cast<XrEventDataSpatialAnchorCreateCompleteFB*>(eventData);
             // Lookup "handle state" for the XrAsyncRequestIdFB value, with "object type" of the event struct type.
             HandleState* const requestStateObject = GetHandleState({(IntHandle)completeEvent->requestId, static_cast<XrObjectType>(XR_TYPE_EVENT_DATA_SPATIAL_ANCHOR_CREATE_COMPLETE_FB)});
-            HandleState* const parentHandleState = requestStateObject->parent; // session: parent of request ID
-            RegisterHandleState(parentHandleState->CloneForChild(HandleToInt(completeEvent->space), XR_OBJECT_TYPE_SPACE));
+            CreateAndRegisterHandleState(requestStateObject->parent, // session: parent of request ID
+                {HandleToInt(completeEvent->space), XR_OBJECT_TYPE_SPACE});
         }
     }
 //#         endif
@@ -192,8 +195,7 @@
         // Deal with created space handles
         if (/*{ out_param_name }*/->results) {
             for (uint32_t i = 0; i < /*{ out_param_name }*/->resultCountOutput; ++i) {
-                CreateAndRegisterHandleState(
-                    {HandleToInt(/*{ first_handle_name }*/), XR_OBJECT_TYPE_SESSION},
+                CreateAndRegisterHandleState(handleState,
                     {HandleToInt(/*{ out_param_name }*/->results[i].space), XR_OBJECT_TYPE_SPACE});
             }
         }

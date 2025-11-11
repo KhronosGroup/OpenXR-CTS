@@ -24,6 +24,7 @@
 
 #include <cstring>
 #include <limits>
+#include <stdexcept>
 #include <vector>
 
 namespace Conformance
@@ -65,8 +66,15 @@ namespace Conformance
 
         // Create motion vector and depth buffer swapchains.
         std::vector<XrSwapchain> motionVectorSwapchains(viewCount);
-        for (XrSwapchain& motionVectorSwapchain : motionVectorSwapchains) {
-            REQUIRE(CreateMotionVectorSwapchain(session, graphicsPlugin.get(), &motionVectorSwapchain, &mvSwapchainExtent) == XR_SUCCESS);
+        try {
+            for (XrSwapchain& motionVectorSwapchain : motionVectorSwapchains) {
+                XrResult motionVectorRes =
+                    CreateMotionVectorSwapchain(session, graphicsPlugin.get(), &motionVectorSwapchain, &mvSwapchainExtent);
+                REQUIRE(motionVectorRes == XR_SUCCESS);
+            }
+        }
+        catch (const std::runtime_error&) {
+            SKIP("No motion swapchain available");
         }
 
         std::vector<XrSwapchain> depthSwapchains(viewCount);

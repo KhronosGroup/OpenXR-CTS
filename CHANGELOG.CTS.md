@@ -17,6 +17,43 @@ particular, since it is primarily software, pull requests may be integrated as
 they are accepted even between periodic updates. However, versions that are not
 signed tags on the `approved` branch are not valid for conformance submission.
 
+## OpenXR CTS 1.1.53.0 (2025-11-06)
+
+- Conformance Tests
+  - Fix: Change conformance_layer debug utils callback return value to XR_FALSE to
+    match specification requirements.
+    ([internal MR 4032](https://gitlab.khronos.org/openxr/openxr/merge_requests/4032))
+  - Fix: Allow default Metal device to be created when
+    `xrGetMetalGraphicsRequirementsKHR` has not been called, to test the error case
+    similar to other graphics plugins.
+    ([internal MR 4039](https://gitlab.khronos.org/openxr/openxr/merge_requests/4039))
+  - Fix: Skip "XR_FB_space_warp" test when no suitable swapchain format is
+    available.
+    ([internal MR 4040](https://gitlab.khronos.org/openxr/openxr/merge_requests/4040))
+  - Fix: Correctly define `XR_EXT_dpad_binding` paths for
+    /interaction_profiles/bytedance/pico_ultra_controller_bd in XML, affecting
+    generated tests.
+    ([internal MR 4049](https://gitlab.khronos.org/openxr/openxr/merge_requests/4049))
+  - Fix: Copy vulkan layer json with conformance_cli.
+    ([internal MR 4062](https://gitlab.khronos.org/openxr/openxr/merge_requests/4062))
+  - Improvement: Clean up handle state creation and usage in the CTS layer, passing
+    handle state to hook implementations to reduce repeated mutex locking.
+    ([internal MR 3809](https://gitlab.khronos.org/openxr/openxr/merge_requests/3809),
+    [OpenXR-CTS PR 101](https://github.com/KhronosGroup/OpenXR-CTS/pull/101),
+    [internal MR 3808](https://gitlab.khronos.org/openxr/openxr/merge_requests/3808),
+    [OpenXR-CTS PR 108](https://github.com/KhronosGroup/OpenXR-CTS/pull/108))
+  - Improvement: Handle graphics plugin `ShutdownDevice()` calls in most cases with
+    a scope guard.
+    ([internal MR 3941](https://gitlab.khronos.org/openxr/openxr/merge_requests/3941))
+  - Improvement: Warn if the runtime does not support any commonly used depth
+    formats for swapchain creation.
+    ([internal MR 3980](https://gitlab.khronos.org/openxr/openxr/merge_requests/3980),
+    [internal issue 2111](https://gitlab.khronos.org/openxr/openxr/issues/2111))
+  - Improvement: Add self test for CTS, using the "do-nothing" test_runtime.
+    ([internal MR 3989](https://gitlab.khronos.org/openxr/openxr/merge_requests/3989))
+  - Improvement: Set Visual Studio working directory for `conformance_cli`
+    ([internal MR 4059](https://gitlab.khronos.org/openxr/openxr/merge_requests/4059))
+
 ## OpenXR CTS 1.1.52.0 (2025-10-16)
 
 - Conformance Tests

@@ -225,7 +225,7 @@ install(
     ARCHIVE DESTINATION conformance
     RUNTIME DESTINATION conformance
 )
-if(MSVC)
+if(MSVC AND INSTALL_SYMBOLS)
     install(
         FILES $<TARGET_PDB_FILE:conformance_test>
         DESTINATION conformance

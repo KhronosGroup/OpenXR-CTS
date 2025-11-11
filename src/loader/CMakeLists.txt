@@ -392,7 +392,10 @@ if(NOT ANDROID)
     # teams often have stricter compiler settings for the openxr_loader
     if(HAVE_MISSING_PROTOTYPES)
         # apply only for C source files
-        target_compile_options(openxr_loader PRIVATE $<IF:$<COMPILE_LANGUAGE:C>,-Werror=missing-prototypes,>)
+        target_compile_options(
+            openxr_loader
+            PRIVATE $<IF:$<COMPILE_LANGUAGE:C>,-Werror=missing-prototypes,>
+        )
     endif()
 endif()
 
@@ -455,6 +458,7 @@ install(
 if(WIN32
    AND NOT MINGW
    AND DYNAMIC_LOADER
+   AND INSTALL_SYMBOLS
 )
     install(
         FILES $<TARGET_PDB_FILE:openxr_loader>

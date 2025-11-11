@@ -18,6 +18,10 @@
 
 #include <vulkan/vulkan.h>
 
+bool InstanceVkExtensionEnabled(VkInstance instance, const char *extension);
+
+bool DeviceVkExtensionEnabled(VkDevice device, const char *extension);
+
 // Resets the VkQueue access flag
 void ResetVkQueueAccess(VkDevice device, uint32_t queueFamilyIndex, uint32_t queueIndex);
 

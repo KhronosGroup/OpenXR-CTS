@@ -1,5 +1,0 @@
----
-- issue.2262.gl
----
-- Improvement: add a way to fail most tests that ask for human judgement to pass.
-- Improvement: align the interaction method for most interactive tests. (Select to pass, Menu to show help or do other action, Menu+Select to fail.) This means that the instructions to pass have **changed** for the following tests: "GripAndAimPose", "HapticInterrupt", "XR_EXT_palm_pose", "GripSurface-XR_KHR_maintenance1", "GripSurface", and "XR_MSFT_controller_model-interactive"

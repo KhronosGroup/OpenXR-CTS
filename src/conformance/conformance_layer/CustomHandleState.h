@@ -70,6 +70,7 @@ namespace session
 
     HandleState* GetSessionState(XrSession handle);
     CustomSessionState* GetCustomSessionState(XrSession handle);
+    CustomSessionState* GetCustomSessionState(HandleState* handleState);
 
     void SessionStateChanged(ConformanceHooksBase* conformanceHooks, const XrEventDataSessionStateChanged* sessionStateChanged);
     void VisibilityMaskChanged(ConformanceHooksBase* conformanceHooks, const XrEventDataVisibilityMaskChangedKHR* visibilityMaskChanged);
@@ -119,6 +120,7 @@ namespace swapchain
 
     HandleState* GetSwapchainState(XrSwapchain handle);
     CustomSwapchainState* GetCustomSwapchainState(XrSwapchain handle);
+    CustomSwapchainState* GetCustomSwapchainState(HandleState* handleState);
 }  // namespace swapchain
 
 //

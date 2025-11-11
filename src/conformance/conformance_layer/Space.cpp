@@ -31,11 +31,12 @@ namespace space
 // ABI
 /////////////////
 
-XrResult ConformanceHooks::xrLocateSpace(XrSpace space, XrSpace baseSpace, XrTime time, XrSpaceLocation* location)
+XrResult ConformanceHooks::xrLocateSpace(HandleState* const handleState, XrSpace space, XrSpace baseSpace, XrTime time,
+                                         XrSpaceLocation* location)
 {
     VALIDATE_STRUCT_CHAIN(location);
 
-    const XrResult result = ConformanceHooksBase::xrLocateSpace(space, baseSpace, time, location);
+    const XrResult result = ConformanceHooksBase::xrLocateSpace(handleState, space, baseSpace, time, location);
 
     if (XR_SUCCEEDED(result)) {
         if ((location->locationFlags & XR_SPACE_LOCATION_ORIENTATION_TRACKED_BIT) != 0 &&

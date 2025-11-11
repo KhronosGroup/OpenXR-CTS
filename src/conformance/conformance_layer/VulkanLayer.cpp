@@ -43,6 +43,8 @@ struct Instance
     PFN_vkGetInstanceProcAddr vkGetInstanceProcAddr{};
     PFN_vkDestroyInstance vkDestroyInstance{};
 
+    std::vector<std::string> enabled_extensions{};
+
     Instance(VkInstance instance, PFN_vkGetInstanceProcAddr getInstanceProcAddr)
         : handle(instance), vkGetInstanceProcAddr(getInstanceProcAddr)
     {
@@ -86,6 +88,7 @@ struct Device
     PFN_vkQueueSubmit vkQueueSubmit{};
     PFN_vkQueueWaitIdle vkQueueWaitIdle{};
 
+    std::vector<std::string> enabled_extensions{};
     std::list<Queue> queues;
 
     Device(VkDevice device, PFN_vkGetDeviceProcAddr getDeviceProcAddr) : handle(device), vkGetDeviceProcAddr(getDeviceProcAddr)
@@ -153,6 +156,22 @@ static Queue *getQueue(VkQueue queue)
     }
 
     return NULL;
+}
+
+bool InstanceVkExtensionEnabled(VkInstance instance, const char *extension)
+{
+    Instance *i = getInstance(instance);
+    assert(i);
+
+    return std::find(i->enabled_extensions.begin(), i->enabled_extensions.end(), std::string{extension}) != i->enabled_extensions.end();
+}
+
+bool DeviceVkExtensionEnabled(VkDevice device, const char *extension)
+{
+    Device *d = getDevice(device);
+    assert(d);
+
+    return std::find(d->enabled_extensions.begin(), d->enabled_extensions.end(), std::string{extension}) != d->enabled_extensions.end();
 }
 
 void ResetVkQueueAccess(VkDevice device, uint32_t queueFamilyIndex, uint32_t queueIndex)
@@ -223,6 +242,10 @@ static VKAPI_ATTR VkResult VKAPI_CALL createInstance(const VkInstanceCreateInfo 
     // Initialize our per-instance object using the instance handle and the next level GIPA
     // (outside the lock) then move it in
     Instance inst{*pInstance, getInstanceProcAddr};
+    for (uint32_t i = 0; i < pCreateInfo->enabledExtensionCount; ++i) {
+        inst.enabled_extensions.emplace_back(pCreateInfo->ppEnabledExtensionNames[i]);
+    }
+
     {
         const std::lock_guard<std::mutex> lock(GetLayerMutex());
         GetInstanceListLocked().emplace_back(std::move(inst));
@@ -282,6 +305,10 @@ static VKAPI_ATTR VkResult VKAPI_CALL createDevice(VkPhysicalDevice physicalDevi
     // Initialize our per-device object using the device handle and the next level GDPA
     // (outside the lock) then move it in.
     Device dev{*pDevice, getDeviceProcAddr};
+    for (uint32_t i = 0; i < pCreateInfo->enabledExtensionCount; ++i) {
+        dev.enabled_extensions.emplace_back(pCreateInfo->ppEnabledExtensionNames[i]);
+    }
+
     {
         const std::lock_guard<std::mutex> lock(GetLayerMutex());
         GetDeviceListLocked().emplace_back(std::move(dev));

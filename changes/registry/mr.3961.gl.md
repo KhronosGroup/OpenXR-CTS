@@ -1,4 +1,0 @@
----
-- mr.3961.gl
----
-- Update: Bump version of `XR_MND_headless` for clarification.

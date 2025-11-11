@@ -1,4 +1,0 @@
----
-- mr.3989.gl
----
-- Improvement: Add self test for CTS, using the "do-nothing" test_runtime.

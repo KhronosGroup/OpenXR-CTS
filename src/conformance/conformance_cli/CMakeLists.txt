@@ -160,6 +160,28 @@ if(ANDROID AND XR_USE_GRAPHICS_API_VULKAN)
 
 endif()
 
+if(XR_USE_GRAPHICS_API_VULKAN)
+    add_custom_command(
+        TARGET conformance_cli
+        PRE_BUILD
+        COMMAND
+            "${CMAKE_COMMAND}" -E make_directory
+            "$<TARGET_FILE_DIR:conformance_cli>"
+        COMMAND
+            "${CMAKE_COMMAND}" -E copy
+            "$<TARGET_FILE_DIR:XrApiLayer_runtime_conformance>/VkLayer_OPENXR_xr_runtime_conformance.json"
+            "$<TARGET_FILE_DIR:conformance_cli>"
+        VERBATIM
+        COMMENT
+            "Copying conformance test layer manifest VkLayer_OPENXR_xr_runtime_conformance.json"
+    )
+    install(
+        FILES
+            "$<TARGET_FILE_DIR:XrApiLayer_runtime_conformance>/VkLayer_OPENXR_xr_runtime_conformance.json"
+        DESTINATION conformance
+    )
+endif()
+
 # Copy test layer files to conformance_cli binary folder
 add_custom_command(
     TARGET conformance_cli
@@ -198,6 +220,13 @@ if(DYNAMIC_LOADER)
 endif()
 
 if(MSVC)
+    set_property(
+        TARGET conformance_cli
+        PROPERTY VS_DEBUGGER_WORKING_DIRECTORY "$<TARGET_FILE_DIR:conformance_cli>"
+    )
+endif()
+
+if(MSVC AND INSTALL_SYMBOLS)
     install(
         FILES $<TARGET_PDB_FILE:conformance_cli>
         DESTINATION conformance
@@ -221,8 +250,4 @@ set_tests_properties(
         ENVIRONMENT XR_RUNTIME_JSON=${PROJECT_BINARY_DIR}/src/conformance/conformance_cli/test_runtime.json
 )
 
-add_dependencies(
-    conformance_cli
-    test_runtime
-)
-
+add_dependencies(conformance_cli test_runtime)
