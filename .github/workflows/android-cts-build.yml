@@ -19,7 +19,7 @@ jobs:
   build-android-cts:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
         with:
           lfs: true
           fetch-tags: "${{ inputs.gradleTask != 'assembleRelease' }}"
