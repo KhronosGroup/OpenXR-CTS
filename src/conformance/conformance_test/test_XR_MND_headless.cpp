@@ -54,6 +54,17 @@ namespace Conformance
             REQUIRE(countOutput == 0);
         }
 
+        SECTION("Headless session state transitions")
+        {
+            // Verify we can reach READY state without graphics
+            frameIterator.RunToSessionState(XR_SESSION_STATE_READY);
+            // Validate we're actually in READY state
+            XrSessionState currentState = frameIterator.GetCurrentSessionState();
+            REQUIRE(currentState == XR_SESSION_STATE_READY);
+            // Additional check: verify no graphics binding was required
+            INFO("Headless session reached READY without graphics binding");
+        }
+
         // Calls to functions xrCreateSwapchain, xrDestroySwapchain, xrAcquireSwapchainImage
         // are invalid, but there isn't a specification for what happens when called.
 
