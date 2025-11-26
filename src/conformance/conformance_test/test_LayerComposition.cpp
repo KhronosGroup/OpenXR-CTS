@@ -57,6 +57,11 @@ namespace Conformance
             depthInfo->subImage = subImage;
             *nextPtr = depthInfo;
         }
+        std::string GetImageName(std::string imageName){
+            std::transform(imageName.begin(), imageName.end(), imageName.begin(), ::tolower);
+            std::replace(imageName.begin(), imageName.end(), ' ', '_');
+            return imageName;
+        }
     }  // namespace
 
     using namespace openxr::math_operators;
@@ -71,56 +76,59 @@ namespace Conformance
         if (!globalData.IsUsingGraphicsPlugin()) {
             SKIP("Cannot test QuadOcclusion without a graphics plugin");
         }
-
-        for (std::string occlusion_type : {"Opaque", "alpha-blending", "additive-leaning"}) {
-            CompositionHelper compositionHelper(("Quad Occlusion - " + occlusion_type).c_str());
-            InteractiveLayerManager interactiveLayerManager(
-                compositionHelper, "quad_occlusion.png",
-                "This test includes a blue and green quad at Z=-2 with opposite rotations on Y axis forming X. The green quad should be"
-                " fully visible due to painter's algorithm. A red quad is facing away and should not be visible."
-                "The test additionally covers standard alpha-blending behavior as well as additive-leaning blending.");
-            XrSession session = compositionHelper.GetSession();
-            InteractionManager& interactionManager = compositionHelper.GetInteractionManager();
-            interactionManager.AttachActionSets();
-            compositionHelper.BeginSession();
-            XrColor4f Green = Colors::Green;
-            XrColor4f Blue = Colors::Blue;
-            XrColor4f Red = Colors::Red;
-            if (occlusion_type != "Opaque") {
-                Green = {0, 1, 0, 0.5f};  // SemiTransparent Green
+ 
+        for (std::string occlusion_type : {"Opaque", "Alpha Blending", "Additive Leaning"}) {
+            DYNAMIC_SECTION(("Quad Occlusion" + occlusion_type).c_str())
+            {
+                CompositionHelper compositionHelper(("Quad Occlusion " + occlusion_type).c_str());
+                InteractiveLayerManager interactiveLayerManager(
+                    compositionHelper, ("quad_occlusion_" + GetImageName(occlusion_type) + ".png").c_str(),
+                    "This test includes a blue and green quad at Z=-2 with opposite rotations on Y axis forming X. The green quad should be"
+                    " fully visible due to painter's algorithm. A red quad is facing away and should not be visible."
+                    "The test additionally covers standard alpha-blending behavior as well as additive-leaning blending.");
+                XrSession session = compositionHelper.GetSession();
+                InteractionManager& interactionManager = compositionHelper.GetInteractionManager();
+                interactionManager.AttachActionSets();
+                compositionHelper.BeginSession();
+                XrColor4f Green = Colors::Green;
+                XrColor4f Blue = Colors::Blue;
+                XrColor4f Red = Colors::Red;
+                if (occlusion_type != "Opaque") {
+                    Green = {0, 1, 0, 0.5f};  // SemiTransparent Green
+                }
+ 
+                const XrSwapchain greenSwapchain = compositionHelper.CreateStaticSwapchainSolidColor(Green);
+                const XrSwapchain blueSwapchain = compositionHelper.CreateStaticSwapchainSolidColor(Blue);
+                const XrSwapchain redSwapchain = compositionHelper.CreateStaticSwapchainSolidColor(Red);
+ 
+                const XrSpace viewSpace = compositionHelper.CreateReferenceSpace(XR_REFERENCE_SPACE_TYPE_VIEW);
+ 
+                const XrQuaternionf blueRot = Quat::FromAxisAngle({0, 1, 0}, DegToRad(-45));
+                const XrQuaternionf greenRot = Quat::FromAxisAngle({0, 1, 0}, DegToRad(45));
+                const XrQuaternionf redRot = Quat::FromAxisAngle({0, 1, 0}, DegToRad(180));
+ 
+                auto blueQuad = compositionHelper.CreateQuadLayer(blueSwapchain, viewSpace, 1.0f, XrPosef{blueRot, {0, 0, -2}});
+ 
+                interactiveLayerManager.AddLayer(blueQuad);
+ 
+                // Each quad is rotated on Y axis by 45 degrees to form an X.
+                // Green is added second so it should draw over the blue quad.
+                auto greenQuad = compositionHelper.CreateQuadLayer(greenSwapchain, viewSpace, 1.0f, XrPosef{greenRot, {0, 0, -2}});
+ 
+                if (occlusion_type != "Opaque") {
+                    greenQuad->layerFlags |= XR_COMPOSITION_LAYER_BLEND_TEXTURE_SOURCE_ALPHA_BIT;
+                }
+ 
+                if (occlusion_type == "Alpha Blending") {
+                    greenQuad->layerFlags |= XR_COMPOSITION_LAYER_UNPREMULTIPLIED_ALPHA_BIT;
+                }
+                interactiveLayerManager.AddLayer(greenQuad);
+ 
+                // Red quad is rotated away from the viewer and should not be visible.
+                interactiveLayerManager.AddLayer(compositionHelper.CreateQuadLayer(redSwapchain, viewSpace, 1.0f, XrPosef{redRot, {0, 0, -1}}));
+ 
+                RenderLoop(session, [&](const XrFrameState& frameState) { return interactiveLayerManager.EndFrame(frameState); }).Loop();
             }
-
-            const XrSwapchain greenSwapchain = compositionHelper.CreateStaticSwapchainSolidColor(Green);
-            const XrSwapchain blueSwapchain = compositionHelper.CreateStaticSwapchainSolidColor(Blue);
-            const XrSwapchain redSwapchain = compositionHelper.CreateStaticSwapchainSolidColor(Red);
-
-            const XrSpace viewSpace = compositionHelper.CreateReferenceSpace(XR_REFERENCE_SPACE_TYPE_VIEW);
-
-            const XrQuaternionf blueRot = Quat::FromAxisAngle({0, 1, 0}, DegToRad(-45));
-            const XrQuaternionf greenRot = Quat::FromAxisAngle({0, 1, 0}, DegToRad(45));
-            const XrQuaternionf redRot = Quat::FromAxisAngle({0, 1, 0}, DegToRad(180));
-
-            auto blueQuad = compositionHelper.CreateQuadLayer(blueSwapchain, viewSpace, 1.0f, XrPosef{blueRot, {0, 0, -2}});
-
-            interactiveLayerManager.AddLayer(blueQuad);
-
-            // Each quad is rotated on Y axis by 45 degrees to form an X.
-            // Green is added second so it should draw over the blue quad.
-            auto greenQuad = compositionHelper.CreateQuadLayer(greenSwapchain, viewSpace, 1.0f, XrPosef{greenRot, {0, 0, -2}});
-
-            if (occlusion_type != "Opaque") {
-                greenQuad->layerFlags |= XR_COMPOSITION_LAYER_BLEND_TEXTURE_SOURCE_ALPHA_BIT;
-            }
-
-            if (occlusion_type == "alpha-blending") {
-                greenQuad->layerFlags |= XR_COMPOSITION_LAYER_UNPREMULTIPLIED_ALPHA_BIT;
-            }
-            interactiveLayerManager.AddLayer(greenQuad);
-
-            // Red quad is rotated away from the viewer and should not be visible.
-            interactiveLayerManager.AddLayer(compositionHelper.CreateQuadLayer(redSwapchain, viewSpace, 1.0f, XrPosef{redRot, {0, 0, -1}}));
-
-            RenderLoop(session, [&](const XrFrameState& frameState) { return interactiveLayerManager.EndFrame(frameState); }).Loop();
         }
     }
 
