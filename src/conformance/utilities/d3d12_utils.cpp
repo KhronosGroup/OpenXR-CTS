@@ -16,9 +16,9 @@ using Microsoft::WRL::ComPtr;
 
 namespace Conformance
 {
-    ComPtr<ID3D12Resource> D3D12CreateResource(ID3D12Device* d3d12Device, uint32_t width, uint32_t height, uint16_t depth,
-                                               uint16_t mipLevels, D3D12_RESOURCE_DIMENSION dimension, DXGI_FORMAT format,
-                                               D3D12_TEXTURE_LAYOUT layout, D3D12_HEAP_TYPE heapType)
+    static ComPtr<ID3D12Resource> D3D12CreateResource(ID3D12Device* d3d12Device, uint32_t width, uint32_t height, uint16_t depth,
+                                                      uint16_t mipLevels, D3D12_RESOURCE_DIMENSION dimension, DXGI_FORMAT format,
+                                                      D3D12_TEXTURE_LAYOUT layout, D3D12_HEAP_TYPE heapType)
     {
         D3D12_RESOURCE_STATES d3d12ResourceState;
         if (heapType == D3D12_HEAP_TYPE_UPLOAD) {

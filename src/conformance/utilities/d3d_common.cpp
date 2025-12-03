@@ -57,7 +57,7 @@ namespace Conformance
         return compiled;
     }
 
-    bool operator==(LUID luid, uint64_t id)
+    static bool operator==(LUID luid, uint64_t id)
     {
         return ((((uint64_t)luid.HighPart << 32) | (uint64_t)luid.LowPart) == id);
     }

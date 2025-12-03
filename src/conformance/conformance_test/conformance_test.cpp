@@ -36,6 +36,7 @@
 #include <catch2/catch_test_case_info.hpp>
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/internal/catch_clara.hpp>                    // for customizing arg parsing
+#include <catch2/internal/catch_stdstreams.hpp>               // for redirecting stdout
 #include <catch2/internal/catch_test_case_registry_impl.hpp>  // for getAllTestCasesSorted
 #include <catch2/reporters/catch_reporter_event_listener.hpp>
 #include <catch2/reporters/catch_reporter_registrars.hpp>

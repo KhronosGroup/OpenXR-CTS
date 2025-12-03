@@ -301,10 +301,12 @@ namespace Conformance
     // Purpose: Ensure that if the hand tracking extension is enabled, you can see some hands!
     TEST_CASE("XR_EXT_hand_tracking-interactive", "[XR_EXT_hand_tracking][scenario][interactive][no_auto]")
     {
+        const char* exampleImage = "ext_hand_tracking.png";
         const char* instructions =
+            "Activate hand tracking if necessary. \n\n"
             "Small cubes are rendered to represent the joints of each hand. "
-            "Bring index finger of both hands together to complete the validation. "
-            "Prevent both hands from tracking for 20 seconds to fail.";
+            "Bring index finger of both hands together to complete the validation. \n\n"
+            "If your hands cannot be detected for 20 seconds, the test will marked as failure.";
 
         static constexpr std::chrono::nanoseconds kHandTrackingLostTimeout = 20s;
         static constexpr std::chrono::nanoseconds kHandTrackingGainedTime = 1s;
@@ -360,6 +362,12 @@ namespace Conformance
             compositionHelper.CreateQuadLayer(compositionHelper.CreateStaticSwapchainImage(CreateTextImage(1024, 512, instructions, 48)),
                                               localSpace, 1.0f, {{0, 0, 0, 1}, {-1.5f, 0, -0.3f}});
         instructionsQuad->pose.orientation = Quat::FromAxisAngle(Up, DegToRad(70));
+
+        // Create a sample image quad layer placed to the right.
+        XrCompositionLayerQuad* const exampleQuad =
+            compositionHelper.CreateQuadLayer(compositionHelper.CreateStaticSwapchainImage(RGBAImage::Load(exampleImage)), localSpace,
+                                              1.25f, {Quat::Identity, {1.5f, 0, -0.3f}});
+        exampleQuad->pose.orientation = Quat::FromAxisAngle(Up, DegToRad(-70));
 
         Stopwatch sinceHandLastContinuouslySeen;
         // avoid brief tracking glitches resetting the timer
@@ -533,6 +541,7 @@ namespace Conformance
             }
 
             layers.push_back({reinterpret_cast<XrCompositionLayerBaseHeader*>(instructionsQuad)});
+            layers.push_back({reinterpret_cast<XrCompositionLayerBaseHeader*>(exampleQuad)});
 
             compositionHelper.EndFrame(frameState.predictedDisplayTime, layers);
 

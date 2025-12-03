@@ -137,7 +137,7 @@ static void app_handle_cmd(struct android_app* app, int32_t cmd)
     }
 }
 
-int32_t app_handle_input(struct android_app* /* app */, AInputEvent* event)
+static int32_t app_handle_input(struct android_app* /* app */, AInputEvent* event)
 {
     const int type = AInputEvent_getType(event);
     if (type == AINPUT_EVENT_TYPE_KEY) {
@@ -154,7 +154,7 @@ int32_t app_handle_input(struct android_app* /* app */, AInputEvent* event)
     return 0;
 }
 
-XRAPI_ATTR void XRAPI_CALL OnTestMessage(MessageType type, const char* message)
+static XRAPI_ATTR void XRAPI_CALL OnTestMessage(MessageType type, const char* message)
 {
     switch (type) {
     case MessageType_Stdout:

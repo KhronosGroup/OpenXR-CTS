@@ -407,11 +407,12 @@ namespace Conformance
                          "A spatial anchor is created in front of the user & a cube is "
                          "rendered "
                          "at its pose. The cube color represents the anchor "
-                         "tracking state: Green: TRACKING, Yellow: PAUSED, Red: STOPPED.\n"
+                         "tracking state: Green: TRACKING, Yellow: PAUSED, Red: STOPPED.\n\n"
                          "If the system supports recentering, look away from the cube "
                          "& perform the recenter. This panel should move but the anchored "
                          "cube must continue to render in the same "
-                         "location as before.",
+                         "location as before.\n\n"
+                         "After recentering, press select to complete the validation.",
                          {{0, 0, 0, 1}, {-1.f, 0, -1.0f}});
         }
 

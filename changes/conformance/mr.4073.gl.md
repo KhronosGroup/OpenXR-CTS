@@ -1,0 +1,4 @@
+---
+- mr.4073.gl
+---
+- Improvement: Add additional test instructions for XR_EXT_hand_tracking interactive test.

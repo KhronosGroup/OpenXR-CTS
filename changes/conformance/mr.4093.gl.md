@@ -1,0 +1,1 @@
+- Fix: Use correct buffer size constant for xrStructureTypeToString2KHR test.

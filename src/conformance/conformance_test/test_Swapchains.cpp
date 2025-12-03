@@ -513,7 +513,7 @@ namespace Conformance
         }
     }
 
-    void SwapchainsCommonTest(
+    static void SwapchainsCommonTest(
         const std::function<bool(SwapchainCreateTestParameters&)>& skipFormatCondition,
         const std::function<bool(SwapchainCreateTestParameters&, XrSwapchainCreateInfo& createInfo)>& skipCreateInfoCondition,
         RenderTestRoutine renderRoutine)

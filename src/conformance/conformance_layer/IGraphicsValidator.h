@@ -41,6 +41,14 @@ namespace Conformance
         virtual bool CheckState() const = 0;
     };
 
+// Graphics Validator factories are forward declared here.
+#ifdef XR_USE_GRAPHICS_API_D3D11
+    std::shared_ptr<IGraphicsValidator> CreateGraphicsValidator_D3D11();
+#endif
+#ifdef XR_USE_GRAPHICS_API_VULKAN
+    std::shared_ptr<IGraphicsValidator> CreateGraphicsValidator_Vulkan(const XrGraphicsBindingVulkanKHR* graphicsBinding);
+#endif
+
     // Create a graphics plugin for the graphics API specified in the options.
     // Throws std::invalid_argument if the graphics API is empty, unknown, or unsupported.
     std::shared_ptr<IGraphicsValidator> CreateGraphicsValidator(const XrBaseInStructure* graphicsBinding);

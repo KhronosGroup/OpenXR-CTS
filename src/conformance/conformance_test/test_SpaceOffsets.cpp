@@ -41,8 +41,8 @@ namespace Conformance
     constexpr XrVector3f Up{0, 1, 0};
 
     // Calculate the correct XrSpaceVelocity for a space which is rigidly attached to another space via a known pose offset
-    XrSpaceVelocity adjustVelocitiesForPose(XrSpaceLocation locationWithoutOffset, XrSpaceVelocity velocityWithoutOffset,
-                                            XrPosef relativePose)
+    static XrSpaceVelocity adjustVelocitiesForPose(XrSpaceLocation locationWithoutOffset, XrSpaceVelocity velocityWithoutOffset,
+                                                   XrPosef relativePose)
     {
         XrSpaceVelocity adjustedVelocity = {XR_TYPE_SPACE_VELOCITY};
 

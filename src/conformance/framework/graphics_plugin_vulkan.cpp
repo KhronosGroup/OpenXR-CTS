@@ -1570,7 +1570,7 @@ namespace Conformance
         using namespace SwapchainFormat;
 
         // Add SwapchainCreateTestParameters for other Vulkan formats if they are supported by a runtime
-        static SwapchainFormatDataMap map{{
+        static SwapchainFormatDataMap map{
 
             XRC_SWAPCHAIN_FORMAT(VK_FORMAT_R8G8B8A8_UNORM).rgba().ToPair(),
             XRC_SWAPCHAIN_FORMAT(VK_FORMAT_R8G8B8A8_SRGB).rgba().ToPair(),
@@ -1725,7 +1725,7 @@ namespace Conformance
 
             XRC_SWAPCHAIN_FORMAT(VK_FORMAT_BC7_UNORM_BLOCK).rgba().Compressed().ToPair(),
             XRC_SWAPCHAIN_FORMAT(VK_FORMAT_BC7_SRGB_BLOCK).rgba().Compressed().ToPair(),
-        }};
+        };
         return map;
     }
 

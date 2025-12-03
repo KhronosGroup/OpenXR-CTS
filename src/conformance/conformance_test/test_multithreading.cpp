@@ -246,7 +246,7 @@ namespace Conformance
     // Executes a single thread of a multithreading test.
     // Works by invoking random Exercise functions a limited number of times.
     // Returns the error count.
-    void SessionThreadFunction(ThreadTestEnvironment& env)
+    static void SessionThreadFunction(ThreadTestEnvironment& env)
     {
         RandEngine& randEngine = GetGlobalData().GetRandEngine();
 
@@ -413,13 +413,13 @@ namespace Conformance
     // A challenge with that is that code linkers will often elide such auto-add functions unless you
     // annotate them specially [e.g. GCC's __attribute__((constructor)) ] See XRC_BEGIN_ON_STARTUP.
 
-    void Exercise_xrGetInstanceProcAddr(ThreadTestEnvironment& env)
+    static void Exercise_xrGetInstanceProcAddr(ThreadTestEnvironment& env)
     {
         PFN_xrVoidFunction voidFunction;
         XRC_CHECK_THROW_XRCMD(xrGetInstanceProcAddr(env.GetAutoBasicSession().GetInstance(), "xrPollEvent", &voidFunction));
     }
 
-    void Exercise_xrEnumerateInstanceExtensionProperties(ThreadTestEnvironment&)
+    static void Exercise_xrEnumerateInstanceExtensionProperties(ThreadTestEnvironment&)
     {
         uint32_t propertyCountOutput;
         XRC_CHECK_THROW_XRCMD(xrEnumerateInstanceExtensionProperties(nullptr, 0, &propertyCountOutput, nullptr));
@@ -428,7 +428,7 @@ namespace Conformance
             xrEnumerateInstanceExtensionProperties(nullptr, (uint32_t)properties.size(), &propertyCountOutput, properties.data()));
     }
 
-    void Exercise_xrEnumerateApiLayerProperties(ThreadTestEnvironment&)
+    static void Exercise_xrEnumerateApiLayerProperties(ThreadTestEnvironment&)
     {
         uint32_t propertyCountOutput;
         XRC_CHECK_THROW_XRCMD(xrEnumerateApiLayerProperties(0, &propertyCountOutput, nullptr));
@@ -436,7 +436,7 @@ namespace Conformance
         XRC_CHECK_THROW_XRCMD(xrEnumerateApiLayerProperties((uint32_t)properties.size(), &propertyCountOutput, properties.data()));
     }
 
-    void Exercise_xrCreateInstance(ThreadTestEnvironment&)
+    static void Exercise_xrCreateInstance(ThreadTestEnvironment&)
     {
         XrInstance instance;
         XrResult result = CreateBasicInstance(&instance);
@@ -448,18 +448,18 @@ namespace Conformance
         }
     }
 
-    void Exercise_xrDestroyInstance(ThreadTestEnvironment& env)
+    static void Exercise_xrDestroyInstance(ThreadTestEnvironment& env)
     {
         Exercise_xrCreateInstance(env);
     }
 
-    void Exercise_xrGetInstanceProperties(ThreadTestEnvironment& env)
+    static void Exercise_xrGetInstanceProperties(ThreadTestEnvironment& env)
     {
         XrInstanceProperties instanceProperties{XR_TYPE_INSTANCE_PROPERTIES};
         XRC_CHECK_THROW_XRCMD(xrGetInstanceProperties(env.GetAutoBasicSession().GetInstance(), &instanceProperties));
     }
 
-    void Exercise_xrPollEvent(ThreadTestEnvironment& env)
+    static void Exercise_xrPollEvent(ThreadTestEnvironment& env)
     {
         // We can't likely exercise this well unless multiple threads are dequeuing messages at
         // the same time. We need a means to tell the runtime to queue such messages.
@@ -467,7 +467,7 @@ namespace Conformance
         XRC_CHECK_THROW_XRCMD(xrPollEvent(env.GetAutoBasicSession().GetInstance(), &eventDataBuffer));
     }
 
-    void Exercise_xrResultToString(ThreadTestEnvironment& env)
+    static void Exercise_xrResultToString(ThreadTestEnvironment& env)
     {
         char buffer[XR_MAX_RESULT_STRING_SIZE];
         RandEngine& randEngine = GetGlobalData().GetRandEngine();
@@ -475,7 +475,7 @@ namespace Conformance
         XRC_CHECK_THROW_XRCMD(xrResultToString(env.GetAutoBasicSession().GetInstance(), value, buffer));  // but this can be inaccurate.
     }
 
-    void Exercise_xrStructureTypeToString(ThreadTestEnvironment& env)
+    static void Exercise_xrStructureTypeToString(ThreadTestEnvironment& env)
     {
         char buffer[XR_MAX_STRUCTURE_NAME_SIZE];
         RandEngine& randEngine = GetGlobalData().GetRandEngine();
@@ -484,7 +484,7 @@ namespace Conformance
                                                       buffer));  // but this can be inaccurate.
     }
 
-    void Exercise_xrGetSystem(ThreadTestEnvironment& env)
+    static void Exercise_xrGetSystem(ThreadTestEnvironment& env)
     {
         XrSystemGetInfo getInfo{XR_TYPE_SYSTEM_GET_INFO};
         getInfo.formFactor = Options::Get().formFactorValue;
@@ -493,14 +493,14 @@ namespace Conformance
         XRC_CHECK_THROW_XRCMD(xrGetSystem(env.GetAutoBasicSession().GetInstance(), &getInfo, &systemId));
     }
 
-    void Exercise_xrGetSystemProperties(ThreadTestEnvironment& env)
+    static void Exercise_xrGetSystemProperties(ThreadTestEnvironment& env)
     {
         XrSystemProperties properties{XR_TYPE_SYSTEM_PROPERTIES};
         XRC_CHECK_THROW_XRCMD(
             xrGetSystemProperties(env.GetAutoBasicSession().GetInstance(), env.GetAutoBasicSession().GetSystemId(), &properties));
     }
 
-    void Exercise_xrEnumerateEnvironmentBlendModes(ThreadTestEnvironment& env)
+    static void Exercise_xrEnumerateEnvironmentBlendModes(ThreadTestEnvironment& env)
     {
         std::array<XrEnvironmentBlendMode, 8> environmentBlendModes;
         uint32_t environmentBlendModeCountOutput;
@@ -510,7 +510,7 @@ namespace Conformance
             (uint32_t)environmentBlendModes.size(), &environmentBlendModeCountOutput, environmentBlendModes.data()));
     }
 
-    void Exercise_xrCreateSession(ThreadTestEnvironment& env)
+    static void Exercise_xrCreateSession(ThreadTestEnvironment& env)
     {
         GlobalData& globalData = GetGlobalData();
 
@@ -530,12 +530,12 @@ namespace Conformance
         }
     }
 
-    void Exercise_xrDestroySession(ThreadTestEnvironment& env)
+    static void Exercise_xrDestroySession(ThreadTestEnvironment& env)
     {
         return Exercise_xrCreateSession(env);
     }
 
-    void Exercise_xrEnumerateReferenceSpaces(ThreadTestEnvironment& env)
+    static void Exercise_xrEnumerateReferenceSpaces(ThreadTestEnvironment& env)
     {
         uint32_t spaceCountOutput;
         XRC_CHECK_THROW_XRCMD(xrEnumerateReferenceSpaces(env.GetAutoBasicSession().GetSession(), 0, &spaceCountOutput, nullptr));
@@ -544,7 +544,7 @@ namespace Conformance
             xrEnumerateReferenceSpaces(env.GetAutoBasicSession().GetSession(), (uint32_t)spaces.size(), &spaceCountOutput, spaces.data()));
     }
 
-    void Exercise_xrCreateReferenceSpace(ThreadTestEnvironment& env)
+    static void Exercise_xrCreateReferenceSpace(ThreadTestEnvironment& env)
     {
         // To do: make the reference space type dynamically chosen.
         XrReferenceSpaceCreateInfo createInfo{XR_TYPE_REFERENCE_SPACE_CREATE_INFO};
@@ -561,7 +561,7 @@ namespace Conformance
         }
     }
 
-    void Exercise_xrGetReferenceSpaceBoundsRect(ThreadTestEnvironment& env)
+    static void Exercise_xrGetReferenceSpaceBoundsRect(ThreadTestEnvironment& env)
     {
         // To do: make the reference space type dynamically chosen.
         XrExtent2Df bounds{};
@@ -569,7 +569,7 @@ namespace Conformance
             xrGetReferenceSpaceBoundsRect(env.GetAutoBasicSession().GetSession(), XR_REFERENCE_SPACE_TYPE_LOCAL, &bounds));
     }
 
-    void Exercise_xrCreateActionSpace(ThreadTestEnvironment& env)
+    static void Exercise_xrCreateActionSpace(ThreadTestEnvironment& env)
     {
         std::array<XrPath, 2>& handSubactionArray = env.GetAutoBasicSession().handSubactionArray;
 
@@ -589,7 +589,7 @@ namespace Conformance
         XRC_CHECK_THROW_XRCMD(xrDestroySpace(space));
     }
 
-    void Exercise_xrLocateSpace(ThreadTestEnvironment& env)
+    static void Exercise_xrLocateSpace(ThreadTestEnvironment& env)
     {
         RandEngine& randEngine = GetGlobalData().GetRandEngine();
         auto spaces = env.GetAutoBasicSession().spaceVector;
@@ -605,12 +605,12 @@ namespace Conformance
         }
     }
 
-    void Exercise_xrDestroySpace(ThreadTestEnvironment& env)
+    static void Exercise_xrDestroySpace(ThreadTestEnvironment& env)
     {
         return Exercise_xrCreateReferenceSpace(env);
     }
 
-    void Exercise_xrEnumerateViewConfigurations(ThreadTestEnvironment& env)
+    static void Exercise_xrEnumerateViewConfigurations(ThreadTestEnvironment& env)
     {
         uint32_t countOutput;
         XRC_CHECK_THROW_XRCMD(xrEnumerateViewConfigurations(env.GetAutoBasicSession().GetInstance(),
@@ -621,7 +621,7 @@ namespace Conformance
                                           (uint32_t)viewConfigurationTypes.size(), &countOutput, viewConfigurationTypes.data()));
     }
 
-    void Exercise_xrGetViewConfigurationProperties(ThreadTestEnvironment& env)
+    static void Exercise_xrGetViewConfigurationProperties(ThreadTestEnvironment& env)
     {
         XrViewConfigurationProperties viewConfigurationProperties{XR_TYPE_VIEW_CONFIGURATION_PROPERTIES};
 
@@ -630,7 +630,7 @@ namespace Conformance
                                                                Options::Get().viewConfigurationValue, &viewConfigurationProperties));
     }
 
-    void Exercise_xrEnumerateViewConfigurationViews(ThreadTestEnvironment& env)
+    static void Exercise_xrEnumerateViewConfigurationViews(ThreadTestEnvironment& env)
     {
         uint32_t countOutput;
         XRC_CHECK_THROW_XRCMD(xrEnumerateViewConfigurationViews(env.GetAutoBasicSession().GetInstance(),
@@ -644,7 +644,7 @@ namespace Conformance
         // Could potentially validate viewConfigurationViewArray.
     }
 
-    void Exercise_xrEnumerateSwapchainFormats(ThreadTestEnvironment& env)
+    static void Exercise_xrEnumerateSwapchainFormats(ThreadTestEnvironment& env)
     {
         std::vector<int64_t> formatArray;
         uint32_t countOutput;
@@ -655,7 +655,7 @@ namespace Conformance
                                                           &countOutput, formatArray.data()));
     }
 
-    void Exercise_xrCreateSwapchain(ThreadTestEnvironment& env)
+    static void Exercise_xrCreateSwapchain(ThreadTestEnvironment& env)
     {
         GlobalData& globalData = GetGlobalData();
         std::shared_ptr<IGraphicsPlugin> graphicsPlugin = globalData.GetGraphicsPlugin();
@@ -675,12 +675,12 @@ namespace Conformance
         }
     }
 
-    void Exercise_xrDestroySwapchain(ThreadTestEnvironment& env)
+    static void Exercise_xrDestroySwapchain(ThreadTestEnvironment& env)
     {
         return Exercise_xrCreateSwapchain(env);
     }
 
-    void Exercise_xrEnumerateSwapchainImages(ThreadTestEnvironment& env)
+    static void Exercise_xrEnumerateSwapchainImages(ThreadTestEnvironment& env)
     {
         GlobalData& globalData = GetGlobalData();
         std::shared_ptr<IGraphicsPlugin> graphicsPlugin = globalData.GetGraphicsPlugin();
@@ -709,7 +709,7 @@ namespace Conformance
         }
     }
 
-    void Exercise_xrAcquireSwapchainImage(ThreadTestEnvironment& env)
+    static void Exercise_xrAcquireSwapchainImage(ThreadTestEnvironment& env)
     {
         GlobalData& globalData = GetGlobalData();
         std::shared_ptr<IGraphicsPlugin> graphicsPlugin = globalData.GetGraphicsPlugin();
@@ -750,12 +750,12 @@ namespace Conformance
         }
     }
 
-    void Exercise_xrWaitSwapchainImage(ThreadTestEnvironment& env)
+    static void Exercise_xrWaitSwapchainImage(ThreadTestEnvironment& env)
     {
         return Exercise_xrAcquireSwapchainImage(env);
     }
 
-    void Exercise_xrReleaseSwapchainImage(ThreadTestEnvironment& env)
+    static void Exercise_xrReleaseSwapchainImage(ThreadTestEnvironment& env)
     {
         return Exercise_xrAcquireSwapchainImage(env);
     }
@@ -770,7 +770,7 @@ namespace Conformance
 
     // XrResult xrLocateViews(XrSession session, const XrViewLocateInfo* viewLocateInfo, XrViewState* viewState, uint32_t viewCapacityInput, uint32_t* viewCountOutput, XrView* views);
 
-    void Exercise_xrStringToPath(ThreadTestEnvironment& env)
+    static void Exercise_xrStringToPath(ThreadTestEnvironment& env)
     {
         RandEngine& randEngine = GetGlobalData().GetRandEngine();
 
@@ -798,12 +798,12 @@ namespace Conformance
         }
     }
 
-    void Exercise_xrPathToString(ThreadTestEnvironment& env)
+    static void Exercise_xrPathToString(ThreadTestEnvironment& env)
     {
         return Exercise_xrStringToPath(env);
     }
 
-    void Exercise_xrCreateActionSet(ThreadTestEnvironment& env)
+    static void Exercise_xrCreateActionSet(ThreadTestEnvironment& env)
     {
         const size_t iterationCount = 100;  // To do: Make this configurable.
         std::vector<XrActionSet> actionSetVector;
@@ -831,12 +831,12 @@ namespace Conformance
             XRC_CHECK_THROW_XRCMD(xrDestroyActionSet(a));
     }
 
-    void Exercise_xrDestroyActionSet(ThreadTestEnvironment& env)
+    static void Exercise_xrDestroyActionSet(ThreadTestEnvironment& env)
     {
         return Exercise_xrCreateActionSet(env);
     }
 
-    void Exercise_xrCreateAction(ThreadTestEnvironment& env)
+    static void Exercise_xrCreateAction(ThreadTestEnvironment& env)
     {
         std::string strBase = "actionset_";  // Construct a unique action set name across any threads.
         std::string actionSetName = strBase + std::to_string(reinterpret_cast<uintptr_t>(&strBase));
@@ -874,12 +874,12 @@ namespace Conformance
         XRC_CHECK_THROW_XRCMD(xrDestroyActionSet(actionSet));
     }
 
-    void Exercise_xrDestroyAction(ThreadTestEnvironment& env)
+    static void Exercise_xrDestroyAction(ThreadTestEnvironment& env)
     {
         return Exercise_xrCreateAction(env);
     }
 
-    void Exercise_xrSyncActions(ThreadTestEnvironment& env)
+    static void Exercise_xrSyncActions(ThreadTestEnvironment& env)
     {
         RandEngine& randEngine = GetGlobalData().GetRandEngine();
 
@@ -1014,47 +1014,47 @@ namespace Conformance
         }
     }
 
-    void Exercise_xrSetInteractionProfileSuggestedBindings(ThreadTestEnvironment& env)
+    static void Exercise_xrSetInteractionProfileSuggestedBindings(ThreadTestEnvironment& env)
     {
         return Exercise_xrSyncActions(env);
     }
 
-    void Exercise_xrGetCurrentInteractionProfile(ThreadTestEnvironment& env)
+    static void Exercise_xrGetCurrentInteractionProfile(ThreadTestEnvironment& env)
     {
         return Exercise_xrSyncActions(env);
     }
 
-    void Exercise_xrGetActionStateBoolean(ThreadTestEnvironment& env)
+    static void Exercise_xrGetActionStateBoolean(ThreadTestEnvironment& env)
     {
         return Exercise_xrSyncActions(env);
     }
 
-    void Exercise_xrGetActionStateVector1f(ThreadTestEnvironment& env)
+    static void Exercise_xrGetActionStateVector1f(ThreadTestEnvironment& env)
     {
         return Exercise_xrSyncActions(env);
     }
 
-    void Exercise_xrGetActionStateVector2f(ThreadTestEnvironment& env)
+    static void Exercise_xrGetActionStateVector2f(ThreadTestEnvironment& env)
     {
         return Exercise_xrSyncActions(env);
     }
 
-    void Exercise_xrGetActionStatePose(ThreadTestEnvironment& env)
+    static void Exercise_xrGetActionStatePose(ThreadTestEnvironment& env)
     {
         return Exercise_xrSyncActions(env);
     }
 
-    void Exercise_xrGetBoundSourcesForAction(ThreadTestEnvironment& env)
+    static void Exercise_xrGetBoundSourcesForAction(ThreadTestEnvironment& env)
     {
         return Exercise_xrSyncActions(env);
     }
 
-    void Exercise_xrGetInputSourceLocalizedName(ThreadTestEnvironment& env)
+    static void Exercise_xrGetInputSourceLocalizedName(ThreadTestEnvironment& env)
     {
         return Exercise_xrSyncActions(env);
     }
 
-    void Exercise_xrApplyHapticFeedback(ThreadTestEnvironment& env)
+    static void Exercise_xrApplyHapticFeedback(ThreadTestEnvironment& env)
     {
         XrPath hapticsPath;
         xrStringToPath(env.GetAutoBasicSession().GetInstance(), "/user/hand/right/output/haptic", &hapticsPath);
@@ -1078,7 +1078,7 @@ namespace Conformance
         }
     }
 
-    void Exercise_xrStopHapticFeedback(ThreadTestEnvironment& env)
+    static void Exercise_xrStopHapticFeedback(ThreadTestEnvironment& env)
     {
         return Exercise_xrApplyHapticFeedback(env);
     }

@@ -58,7 +58,7 @@
 namespace Conformance
 {
 
-    const std::map<uint64_t, const char*> GetNumberExtensionMap()
+    static const std::map<uint64_t, const char*> GetNumberExtensionMap()
     {
 #define MAKE_EXTENSION_NUMBER_MAP(NAME, NUM) {NUM, #NAME},
         static const std::map<uint64_t, const char*> myMap = {XR_LIST_EXTENSIONS(MAKE_EXTENSION_NUMBER_MAP)};
@@ -1070,38 +1070,6 @@ namespace Conformance
         }
 
         return true;
-    }
-
-    XrResult GetAvailableAPILayers(std::vector<XrApiLayerProperties>& availableAPILayers)
-    {
-        availableAPILayers.clear();
-
-        uint32_t propertyCount = 0;
-        XrResult result = xrEnumerateApiLayerProperties(0, &propertyCount, nullptr);
-
-        if (XR_FAILED(result))
-            return result;
-
-        availableAPILayers.resize(propertyCount, XrApiLayerProperties{XR_TYPE_API_LAYER_PROPERTIES});
-        result = xrEnumerateApiLayerProperties(propertyCount, &propertyCount, availableAPILayers.data());
-
-        return result;
-    }
-
-    XrResult GetAvailableInstanceExtensions(std::vector<XrExtensionProperties>& availableInstanceExtensions, const char* layerName)
-    {
-        availableInstanceExtensions.clear();
-
-        uint32_t propertyCount = 0;
-        XrResult result = xrEnumerateInstanceExtensionProperties(layerName, 0, &propertyCount, nullptr);
-
-        if (XR_FAILED(result))
-            return result;
-
-        availableInstanceExtensions.resize(propertyCount, XrExtensionProperties{XR_TYPE_EXTENSION_PROPERTIES});
-        result = xrEnumerateInstanceExtensionProperties(layerName, propertyCount, &propertyCount, availableInstanceExtensions.data());
-
-        return result;
     }
 
     bool IsInstanceExtensionEnabled(const char* extensionName)

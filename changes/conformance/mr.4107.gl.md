@@ -1,0 +1,4 @@
+---
+- mr.4107.gl
+---
+- Chore: Fix -Wmissing-prototypes compiler warnings.

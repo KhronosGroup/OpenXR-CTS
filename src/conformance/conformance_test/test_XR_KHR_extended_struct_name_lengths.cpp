@@ -49,7 +49,7 @@ namespace Conformance
         REQUIRE(xrStructureTypeToString2KHR != nullptr);
 
         XrResult result;
-        char buffer[XR_MAX_RESULT_STRING_SIZE];
+        char buffer[XR_MAX_STRUCTURE_NAME_SIZE_EXTENDED_KHR];
 
         // valid structure types
         {

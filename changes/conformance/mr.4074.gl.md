@@ -1,0 +1,4 @@
+---
+- mr.4074.gl
+---
+- Improvement: Add additional test instructions for XR_EXT_spatial_anchor-interactive test.

@@ -22,7 +22,7 @@ __declspec(dllexport) DWORD AmdPowerXpressRequestHighPerformance = 0x00000001;
 
 namespace
 {
-    XRAPI_ATTR void XRAPI_CALL OnTestMessage(MessageType type, const char* message)
+    static XRAPI_ATTR void XRAPI_CALL OnTestMessage(MessageType type, const char* message)
     {
         constexpr const char* ResetColor = "\033[0m";
         switch (type) {

@@ -9,4 +9,8 @@
 #pragma warning(disable : 4189)  // local variable is initialized but not referenced
 #endif                           // defined(_MSC_VER)
 
+#if defined(__clang__)
+#pragma clang diagnostic ignored "-Wmissing-prototypes"
+#endif
+
 #include "cts_tinygltf.h"

@@ -47,7 +47,7 @@
 //#         set handle_type = handle_param.type
 /*{ protect_begin(cur_cmd) }*/
 
-/*{ cur_cmd.cdecl | collapse_whitespace | replace(" xr", " ConformanceLayer_xr") | replace(";", "")
+static /*{ cur_cmd.cdecl | collapse_whitespace | replace(" xr", " ConformanceLayer_xr") | replace(";", "")
 }*/ {
 //#         set first_handle_object_type = gen.genXrObjectType(handle_type)
     try {

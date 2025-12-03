@@ -94,7 +94,7 @@ namespace Conformance
         return vBindingModifsBase;
     }
 
-    XrResult CreateActionSet(XrActionSet* actionSet, const char* actionSetName, uint32_t priority, XrInstance instance)
+    static XrResult CreateActionSet(XrActionSet* actionSet, const char* actionSetName, uint32_t priority, XrInstance instance)
     {
         XrActionSetCreateInfo actionSetInfo{XR_TYPE_ACTION_SET_CREATE_INFO};
         strcpy(actionSetInfo.actionSetName, actionSetName);
@@ -103,7 +103,7 @@ namespace Conformance
         return xrCreateActionSet(instance, &actionSetInfo, actionSet);
     }
 
-    XrResult CreateAction(XrAction* action, const char* actionName, XrActionType actionType, XrActionSet actionSet)
+    static XrResult CreateAction(XrAction* action, const char* actionName, XrActionType actionType, XrActionSet actionSet)
     {
         XrActionCreateInfo actioninfo{XR_TYPE_ACTION_CREATE_INFO};
         strcpy(actioninfo.actionName, actionName);
@@ -112,7 +112,7 @@ namespace Conformance
         return xrCreateAction(actionSet, &actioninfo, action);
     }
 
-    void SetDefaultModifiers(XrInteractionProfileDpadBindingEXT* xrDpadModification, XrActionSet actionSet)
+    static void SetDefaultModifiers(XrInteractionProfileDpadBindingEXT* xrDpadModification, XrActionSet actionSet)
     {
         xrDpadModification->actionSet = actionSet;
         xrDpadModification->centerRegion = 0.25f;
@@ -121,40 +121,9 @@ namespace Conformance
         xrDpadModification->forceThresholdReleased = 0.2f;
     }
 
-    XrResult SuggestBinding(XrInteractionProfileDpadBindingEXT* xrDpadModification, XrActionSuggestedBinding suggestedBinding,
-                            XrInstance instance, const char* interactionProfile)
-    {
-        // Add dpad binding modifiers to binding modifications vector
-        std::vector<XrInteractionProfileDpadBindingEXT> vBindingModifs{{*xrDpadModification}};
-        std::vector<XrBindingModificationBaseHeaderKHR*> vBindingModifsBase = makeBasePointerVec(vBindingModifs);
-
-        XrBindingModificationsKHR xrBindingModifications{XR_TYPE_BINDING_MODIFICATIONS_KHR};
-        xrBindingModifications.bindingModifications = vBindingModifsBase.data();
-        xrBindingModifications.bindingModificationCount = (uint32_t)vBindingModifsBase.size();
-
-        std::vector<XrActionSuggestedBinding> vActionBindings;
-        vActionBindings.push_back(suggestedBinding);
-
-        // Create interaction profile/controller path
-        XrPath xrInteractionProfilePath;
-        xrStringToPath(instance, interactionProfile, &xrInteractionProfilePath);
-
-        // Set suggested binding to interaction profile
-        XrInteractionProfileSuggestedBinding xrInteractionProfileSuggestedBinding{XR_TYPE_INTERACTION_PROFILE_SUGGESTED_BINDING};
-        xrInteractionProfileSuggestedBinding.interactionProfile = xrInteractionProfilePath;
-        xrInteractionProfileSuggestedBinding.suggestedBindings = vActionBindings.data();
-        xrInteractionProfileSuggestedBinding.countSuggestedBindings = (uint32_t)vActionBindings.size();
-
-        // Set binding modifications to interaction profile's suggested binding
-        xrInteractionProfileSuggestedBinding.next = &xrBindingModifications;
-
-        // Finally, suggest interaction profile bindings to runtime
-        return xrSuggestInteractionProfileBindings(instance, &xrInteractionProfileSuggestedBinding);
-    }
-
     // Assemble controller component path
-    void AssembleInputPath(XrPath* outPath, eHand hand, eControllerComponent controllerComponents, eDirection direction,
-                           XrInstance instance)
+    static void AssembleInputPath(XrPath* outPath, eHand hand, eControllerComponent controllerComponents, eDirection direction,
+                                  XrInstance instance)
     {
         static const std::string sLeftHand = "/user/hand/left";
         static const std::string sRightHand = "/user/hand/right";
@@ -239,7 +208,7 @@ namespace Conformance
         pathDpad_Trackpad_Center_L;
     XrPath pathDpad_Trackpad_Up_R, pathDpad_Trackpad_Down_R, pathDpad_Trackpad_Left_R, pathDpad_Trackpad_Right_R,
         pathDpad_Trackpad_Center_R;
-    void InitDpadPaths(XrInstance instance)
+    static void InitDpadPaths(XrInstance instance)
     {
         // Top level user path
         AssembleInputPath(&pathHand_L, eHand::Left_Hand, eControllerComponent::Both, eDirection::Center, instance);
@@ -283,7 +252,7 @@ namespace Conformance
     // Initialize supported controllers
     static XrPath pathDaydream, pathIndex, pathVive, pathGo, pathTouch, pathMS;
     std::vector<ControllerDescription> vSupportedControllers;
-    void InitControllers(XrInstance instance)
+    static void InitControllers(XrInstance instance)
     {
         // Generate handles for the supported controllers
         REQUIRE_RESULT_SUCCEEDED(xrStringToPath(instance, "/interaction_profiles/google/daydream_controller", &pathDaydream));
@@ -305,7 +274,7 @@ namespace Conformance
         // clang-format on
     }
 
-    void InitTestControllersAndDpadPaths(XrInstance instance)
+    static void InitTestControllersAndDpadPaths(XrInstance instance)
     {
         GlobalData& globalData = GetGlobalData();
         if (globalData.IsInstanceExtensionSupported(XR_EXT_DPAD_BINDING_EXTENSION_NAME) ||
@@ -320,7 +289,8 @@ namespace Conformance
         InitDpadPaths(instance);
     }
 
-    void InitInteractiveInteractionProfiles(std::vector<PathPrintnamePair>& vInteractionProfiles, eControllerComponent controllerComponent)
+    static void InitInteractiveInteractionProfiles(std::vector<PathPrintnamePair>& vInteractionProfiles,
+                                                   eControllerComponent controllerComponent)
     {
         // This function will only push one set of actions and shouldn't be called with both.
         XRC_CHECK_THROW(controllerComponent != eControllerComponent::Both);
@@ -341,8 +311,8 @@ namespace Conformance
     }
 
     // Suggest binding
-    void SuggestBinding(XrInstance instance, XrPath interactionProfile, std::vector<XrActionSuggestedBinding>& vActionBindings,
-                        XrBindingModificationsKHR* xrBindingModifications, XrResult expectedResult)
+    static void SuggestBinding(XrInstance instance, XrPath interactionProfile, std::vector<XrActionSuggestedBinding>& vActionBindings,
+                               XrBindingModificationsKHR* xrBindingModifications, XrResult expectedResult)
     {
         // Set suggested binding to interaction profile
         XrInteractionProfileSuggestedBinding xrInteractionProfileSuggestedBinding{XR_TYPE_INTERACTION_PROFILE_SUGGESTED_BINDING};
@@ -357,9 +327,9 @@ namespace Conformance
         REQUIRE_RESULT(expectedResult, xrSuggestInteractionProfileBindings(instance, &xrInteractionProfileSuggestedBinding));
     }
 
-    void CreateBindingModifications(std::vector<XrBindingModificationBaseHeaderKHR*>& vBindingModifsBase,
-                                    std::vector<XrInteractionProfileDpadBindingEXT>& vBindingModifs,
-                                    XrInteractionProfileDpadBindingEXT* xrDpadModification, eControllerComponent controllerComponent)
+    static void CreateBindingModifications(std::vector<XrBindingModificationBaseHeaderKHR*>& vBindingModifsBase,
+                                           std::vector<XrInteractionProfileDpadBindingEXT>& vBindingModifs,
+                                           XrInteractionProfileDpadBindingEXT* xrDpadModification, eControllerComponent controllerComponent)
     {
         if (!xrDpadModification) {
             return;
@@ -389,9 +359,9 @@ namespace Conformance
         vBindingModifsBase = makeBasePointerVec(vBindingModifs);
     }
 
-    void SuggestBindings(XrInstance instance, std::vector<XrActionSuggestedBinding>& vActionBindingsThumbstick,
-                         std::vector<XrActionSuggestedBinding>& vActionBindingsTrackpad,
-                         XrInteractionProfileDpadBindingEXT* xrDpadModification, XrResult expectedResult)
+    static void SuggestBindings(XrInstance instance, std::vector<XrActionSuggestedBinding>& vActionBindingsThumbstick,
+                                std::vector<XrActionSuggestedBinding>& vActionBindingsTrackpad,
+                                XrInteractionProfileDpadBindingEXT* xrDpadModification, XrResult expectedResult)
     {
         // Combine thumbstick and trackpad action bindings
         std::vector<XrActionSuggestedBinding> vActionBindingsCombined = vActionBindingsThumbstick;
@@ -436,14 +406,7 @@ namespace Conformance
                        expectedResult);
     }
 
-    bool EndFrameB(const XrFrameState& frameState, CompositionHelper& compositionHelper, std::vector<XrCompositionLayerBaseHeader*>& layers)
-    {
-        compositionHelper.EndFrame(frameState.predictedDisplayTime, layers);
-        compositionHelper.PollEvents();
-        return true;
-    }
-
-    bool WaitForDpadInput(XrAction action, XrActionsSyncInfo* syncInfo, ActionLayerManager& actionLayerManager, XrSession session)
+    static bool WaitForDpadInput(XrAction action, XrActionsSyncInfo* syncInfo, ActionLayerManager& actionLayerManager, XrSession session)
     {
         XrActionStateBoolean actionStateBoolean{XR_TYPE_ACTION_STATE_BOOLEAN};
         XrActionStateGetInfo getInfo{XR_TYPE_ACTION_STATE_GET_INFO};
@@ -475,7 +438,8 @@ namespace Conformance
         return false;
     }
 
-    bool WaitForStickyDpadInput(XrAction action, XrActionsSyncInfo* syncInfo, ActionLayerManager& actionLayerManager, XrSession session)
+    static bool WaitForStickyDpadInput(XrAction action, XrActionsSyncInfo* syncInfo, ActionLayerManager& actionLayerManager,
+                                       XrSession session)
     {
         XrActionStateBoolean actionStateBoolean{XR_TYPE_ACTION_STATE_BOOLEAN};
         XrActionStateGetInfo getInfo{XR_TYPE_ACTION_STATE_GET_INFO};
@@ -531,7 +495,7 @@ namespace Conformance
     };
 
     XrAction dpadUp_L, dpadDown_L, dpadLeft_L, dpadRight_L, dpadCenter_L, dpadUp_R, dpadDown_R, dpadLeft_R, dpadRight_R, dpadCenter_R;
-    XrActionSet InitInteractiveActions(XrInstance instance)
+    static XrActionSet InitInteractiveActions(XrInstance instance)
     {
         // Create action set
         XrActionSet dpadActionSet = XR_NULL_HANDLE;
@@ -553,7 +517,8 @@ namespace Conformance
         return dpadActionSet;
     }
 
-    void InitInteractiveActionBindings(std::vector<XrActionSuggestedBinding>& vActionBindings, eControllerComponent controllerComponent)
+    static void InitInteractiveActionBindings(std::vector<XrActionSuggestedBinding>& vActionBindings,
+                                              eControllerComponent controllerComponent)
     {
         // This function will only push one set of actions and shouldn't be called with both.
         XRC_CHECK_THROW(controllerComponent != eControllerComponent::Both);
@@ -578,9 +543,9 @@ namespace Conformance
         }
     }
 
-    void CreateStickyBindings(XrInteractionProfileDpadBindingEXT* xrDpadModification_L,
-                              XrInteractionProfileDpadBindingEXT* xrDpadModification_R, XrActionSet dpadActionSet,
-                              eControllerComponent controllerComponent)
+    static void CreateStickyBindings(XrInteractionProfileDpadBindingEXT* xrDpadModification_L,
+                                     XrInteractionProfileDpadBindingEXT* xrDpadModification_R, XrActionSet dpadActionSet,
+                                     eControllerComponent controllerComponent)
     {
         // Set dpad binding modifiers
         SetDefaultModifiers(xrDpadModification_L, dpadActionSet);
@@ -592,7 +557,7 @@ namespace Conformance
         xrDpadModification_R->isSticky = XR_TRUE;
     }
 
-    void GenerateDirectionalTestSet(std::vector<TestSet>& tests, eControllerComponent controllerComponent)
+    static void GenerateDirectionalTestSet(std::vector<TestSet>& tests, eControllerComponent controllerComponent)
     {
         GlobalData& globalData = GetGlobalData();
         bool leftUnderTest = globalData.leftHandUnderTest;
@@ -624,7 +589,7 @@ namespace Conformance
         }
     }
 
-    void GenerateStickyTestSet(std::vector<TestSet>& tests, eControllerComponent controllerComponent)
+    static void GenerateStickyTestSet(std::vector<TestSet>& tests, eControllerComponent controllerComponent)
     {
         std::string sTimeoutError = "Time out waiting for dpad input";
         std::string sComponent = (controllerComponent == eControllerComponent::Thumbstick) ? "thumbstick" : "trackpad";
@@ -640,7 +605,7 @@ namespace Conformance
         }
     }
 
-    XrPath GetDpadPath(XrAction action, std::vector<XrActionSuggestedBinding>& vActionBindings)
+    static XrPath GetDpadPath(XrAction action, std::vector<XrActionSuggestedBinding>& vActionBindings)
     {
         for (auto& actionBinding : vActionBindings) {
             if (actionBinding.action == action) {
@@ -651,7 +616,7 @@ namespace Conformance
         return XR_NULL_PATH;
     }
 
-    XrPath GetTopLevelPath(XrAction action)
+    static XrPath GetTopLevelPath(XrAction action)
     {
         XrPath topLevelPath = XR_NULL_PATH;
         if (action == dpadUp_L || action == dpadDown_L || action == dpadLeft_L || action == dpadRight_L || action == dpadCenter_L) {
@@ -664,9 +629,9 @@ namespace Conformance
         return topLevelPath;
     }
 
-    std::unique_ptr<IInputTestDevice> GetTestDevice(ActionLayerManager& actionLayerManager, CompositionHelper& compositionHelper,
-                                                    XrPath topLevelPath, XrActionSet actionSet,
-                                                    std::vector<XrActionSuggestedBinding>& vActionBindings)
+    static std::unique_ptr<IInputTestDevice> GetTestDevice(ActionLayerManager& actionLayerManager, CompositionHelper& compositionHelper,
+                                                           XrPath topLevelPath, XrActionSet actionSet,
+                                                           std::vector<XrActionSuggestedBinding>& vActionBindings)
     {
         XrInstance instance = compositionHelper.GetInstance();
         XrSession session = compositionHelper.GetSession();
@@ -699,9 +664,9 @@ namespace Conformance
                                 actionSet, (topLevelPath == pathHand_L) ? dpadUp_L : dpadUp_R, actionMap);
     }
 
-    void Test_Interactive(std::vector<TestSet>& tests, XrPath interactionProfile, XrActionSet dpadActionSet,
-                          std::vector<XrActionSuggestedBinding> vActionBindings, XrBindingModificationsKHR* pBindingModifications,
-                          fnWaitForDpadInput fnTest, CompositionHelper& compositionHelper, bool bSkipHumanInteraction = true)
+    static void Test_Interactive(std::vector<TestSet>& tests, XrPath interactionProfile, XrActionSet dpadActionSet,
+                                 std::vector<XrActionSuggestedBinding> vActionBindings, XrBindingModificationsKHR* pBindingModifications,
+                                 fnWaitForDpadInput fnTest, CompositionHelper& compositionHelper, bool bSkipHumanInteraction = true)
     {
         // Get instance
         XrInstance instance = compositionHelper.GetInstance();

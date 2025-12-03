@@ -44,8 +44,8 @@ namespace Pbr
         }
 
         /// Creates a texture and fills all array members with the data in rgba
-        VulkanTextureBundle CreateTextureArray(VulkanResources& pbrResources, const VulkanDebugObjectNamer& namer, const char* name,
-                                               span<const Image::Image*> imageArray, bool cubemap)
+        static VulkanTextureBundle CreateTextureArray(VulkanResources& pbrResources, const VulkanDebugObjectNamer& namer, const char* name,
+                                                      span<const Image::Image*> imageArray, bool cubemap)
         {
             VkDevice device = pbrResources.GetDevice();
             const Conformance::MemoryAllocator& memAllocator = pbrResources.GetMemoryAllocator();

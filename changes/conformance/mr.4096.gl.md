@@ -1,0 +1,4 @@
+---
+- mr.4096.gl
+---
+- Change: Update C++ standard version used from C++14 to C++17.

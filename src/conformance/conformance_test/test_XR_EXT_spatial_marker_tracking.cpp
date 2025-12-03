@@ -27,6 +27,7 @@
 #include "composition_utils.h"
 #include "conformance_framework.h"
 #include "conformance_utils.h"
+#include "matchers.h"
 #include "report.h"
 #include "spatial_conformance_utils.h"
 #include "spatial_test_runner.h"
@@ -122,6 +123,18 @@ namespace Conformance
                 capabilityConfigs.push_back(&mCapabilityConfig);
             }
 
+            void postCreateSpatialContextCompletion(const XrFrameState& /*unused*/) override
+            {
+                xrCreateSpatialEntityFromIdEXT =
+                    GetInstanceExtensionFunction<PFN_xrCreateSpatialEntityFromIdEXT>(instance, "xrCreateSpatialEntityFromIdEXT");
+                xrGetSpatialBufferStringEXT =
+                    GetInstanceExtensionFunction<PFN_xrGetSpatialBufferStringEXT>(instance, "xrGetSpatialBufferStringEXT");
+                xrCreateSpatialUpdateSnapshotEXT =
+                    GetInstanceExtensionFunction<PFN_xrCreateSpatialUpdateSnapshotEXT>(instance, "xrCreateSpatialUpdateSnapshotEXT");
+                xrDestroySpatialSnapshotEXT =
+                    GetInstanceExtensionFunction<PFN_xrDestroySpatialSnapshotEXT>(instance, "xrDestroySpatialSnapshotEXT");
+            }
+
             std::vector<XrSpatialComponentTypeEXT> getQueryComponents() override
             {
                 return mEnabledComponents;
@@ -148,27 +161,87 @@ namespace Conformance
                 return listStructPtrs;
             }
 
+            void postCreateDiscoverySnapshotCompletion(XrSpatialSnapshotEXT snapshot) override
+            {
+                querySnapshot(snapshot);
+
+                for (uint32_t i = 0; i < static_cast<uint32_t>(bounded2Ds.size()); ++i) {
+                    CHECK(markers[i].capability == mCapabilityConfig.capability);
+                    if (markers[i].capability == XR_SPATIAL_CAPABILITY_MARKER_TRACKING_QR_CODE_EXT ||
+                        markers[i].capability == XR_SPATIAL_CAPABILITY_MARKER_TRACKING_MICRO_QR_CODE_EXT) {
+                        CHECK(markers[i].markerId == 0);
+                    }
+                    else {
+                        CHECK(markers[i].data.bufferId == XR_NULL_SPATIAL_BUFFER_ID_EXT);
+                    }
+
+                    if (markers[i].data.bufferId != XR_NULL_SPATIAL_BUFFER_ID_EXT) {
+                        CHECK_THAT(markers[i].data.bufferType,
+                                   In<XrSpatialBufferTypeEXT>({XR_SPATIAL_BUFFER_TYPE_UINT8_EXT, XR_SPATIAL_BUFFER_TYPE_STRING_EXT}));
+                        if (markers[i].data.bufferType == XR_SPATIAL_BUFFER_TYPE_STRING_EXT) {
+                            XrSpatialBufferGetInfoEXT info{XR_TYPE_SPATIAL_BUFFER_GET_INFO_EXT};
+                            info.bufferId = markers[i].data.bufferId;
+                            uint32_t bufferCountOutput;
+                            XRC_CHECK_THROW_XRCMD(xrGetSpatialBufferStringEXT(snapshot, &info, 0, &bufferCountOutput, nullptr));
+                            if (bufferCountOutput > 0) {
+                                std::vector<char> markerData(bufferCountOutput);
+                                XRC_CHECK_THROW_XRCMD(
+                                    xrGetSpatialBufferStringEXT(snapshot, &info, bufferCountOutput, &bufferCountOutput, markerData.data()));
+                                // String data from marker must be null terminated
+                                CHECK_THAT(markerData, NullTerminatedVec());
+                            }
+                        }
+                    }
+                }
+
+                for (uint32_t i = 0; i < static_cast<uint32_t>(entityIds.size()); ++i) {
+                    if (idsForEntityHandles.find(entityIds[i]) == idsForEntityHandles.end()) {
+                        XrSpatialEntityFromIdCreateInfoEXT entityCreateInfo{XR_TYPE_SPATIAL_ENTITY_FROM_ID_CREATE_INFO_EXT};
+                        entityCreateInfo.entityId = entityIds[i];
+
+                        XrSpatialEntityEXT spatialEntity = XR_NULL_HANDLE;
+                        XRC_CHECK_THROW_XRCMD(xrCreateSpatialEntityFromIdEXT(spatialContext, &entityCreateInfo, &spatialEntity));
+                        entityHandles.push_back(spatialEntity);
+                        idsForEntityHandles.insert(entityIds[i]);
+                    }
+                }
+
+                state = DiscoveryState::Idle;
+                XRC_CHECK_THROW_XRCMD(xrDestroySpatialSnapshotEXT(snapshot));
+            }
+
             void render() override
             {
                 renderedCubes.clear();
                 renderedMeshes.clear();
 
                 for (uint32_t i = 0; i < static_cast<uint32_t>(bounded2Ds.size()); ++i) {
-                    REQUIRE(markers[i].capability == mCapabilityConfig.capability);
-                    if (markers[i].capability == XR_SPATIAL_CAPABILITY_MARKER_TRACKING_QR_CODE_EXT ||
-                        markers[i].capability == XR_SPATIAL_CAPABILITY_MARKER_TRACKING_MICRO_QR_CODE_EXT) {
-                        REQUIRE(markers[i].markerId == 0);
-                    }
-                    else {
-                        REQUIRE(markers[i].data.bufferId == XR_NULL_SPATIAL_BUFFER_ID_EXT);
-                    }
-
                     if (markers[i].data.bufferId != XR_NULL_SPATIAL_BUFFER_ID_EXT) {
                         renderBounded2D(bounded2Ds[i], Colors::Magenta);
                     }
                     else {
                         renderBounded2D(bounded2Ds[i], Colors::Yellow);
                     }
+                }
+            }
+
+            void onUpdate(const XrFrameState& frameState) override
+            {
+                if (!entityHandles.empty()) {
+                    XrSpatialSnapshotEXT updateSnapshot;
+                    XrSpatialUpdateSnapshotCreateInfoEXT updateSnapshotCreateInfo{XR_TYPE_SPATIAL_UPDATE_SNAPSHOT_CREATE_INFO_EXT};
+                    updateSnapshotCreateInfo.entityCount = static_cast<uint32_t>(entityHandles.size());
+                    updateSnapshotCreateInfo.entities = entityHandles.data();
+                    updateSnapshotCreateInfo.componentTypeCount = 0;
+                    updateSnapshotCreateInfo.componentTypes = nullptr;
+                    updateSnapshotCreateInfo.baseSpace = localSpace;
+                    updateSnapshotCreateInfo.time = frameState.predictedDisplayTime;
+
+                    XRC_CHECK_THROW_XRCMD(xrCreateSpatialUpdateSnapshotEXT(spatialContext, &updateSnapshotCreateInfo, &updateSnapshot));
+
+                    querySnapshot(updateSnapshot);
+                    render();
+                    XRC_CHECK_THROW_XRCMD(xrDestroySpatialSnapshotEXT(updateSnapshot));
                 }
             }
 
@@ -180,6 +253,14 @@ namespace Conformance
 
             std::vector<XrSpatialBounded2DDataEXT> bounded2Ds;
             std::vector<XrSpatialMarkerDataEXT> markers;
+
+            std::vector<XrSpatialEntityEXT> entityHandles;
+            std::unordered_set<XrSpatialEntityIdEXT> idsForEntityHandles;
+
+            PFN_xrCreateSpatialEntityFromIdEXT xrCreateSpatialEntityFromIdEXT{};
+            PFN_xrGetSpatialBufferStringEXT xrGetSpatialBufferStringEXT{};
+            PFN_xrCreateSpatialUpdateSnapshotEXT xrCreateSpatialUpdateSnapshotEXT{};
+            PFN_xrDestroySpatialSnapshotEXT xrDestroySpatialSnapshotEXT{};
         };
 
         TEST_CASE("XR_EXT_spatial_marker_tracking-qr-code-interactive",
@@ -199,8 +280,7 @@ namespace Conformance
                 .RunTest(XR_EXT_SPATIAL_MARKER_TRACKING_EXTENSION_NAME,
                          "Discovered QR codes should be rendered magenta if their data is "
                          "known,"
-                         "and yellow otherwise. This test only renders the QR code at initial "
-                         "location of discovery, does not update the pose per frame. "
+                         "and yellow otherwise. "
                          "Press the select button on either controller to pass the test.");
         }
 
@@ -220,8 +300,7 @@ namespace Conformance
                 .RunTest(XR_EXT_SPATIAL_MARKER_TRACKING_EXTENSION_NAME,
                          "Discovered Micro QR codes should be rendered magenta if their data is "
                          "known,"
-                         "and yellow otherwise. This test only renders the QR code at initial "
-                         "location of discovery, does not update the pose per frame. "
+                         "and yellow otherwise. "
                          "Press the select button on either controller to pass the test.");
         }
 
@@ -242,8 +321,6 @@ namespace Conformance
             SpatialMarkerTrackingTestRunner(*reinterpret_cast<const XrSpatialCapabilityConfigurationBaseHeaderEXT*>(&arucoConfig))
                 .RunTest(XR_EXT_SPATIAL_MARKER_TRACKING_EXTENSION_NAME,
                          "Discovered Aruco Markers should be rendered yellow. "
-                         "This test only renders the QR code at initial "
-                         "location of discovery, does not update the pose per frame. "
                          "Press the select button on either controller to pass the test.");
         }
 
@@ -263,8 +340,6 @@ namespace Conformance
             SpatialMarkerTrackingTestRunner(*reinterpret_cast<const XrSpatialCapabilityConfigurationBaseHeaderEXT*>(&aprilTagConfig))
                 .RunTest(XR_EXT_SPATIAL_MARKER_TRACKING_EXTENSION_NAME,
                          "Discovered April Tags should be rendered yellow. "
-                         "This test only renders the QR code at initial "
-                         "location of discovery, does not update the pose per frame. "
                          "Press the select button on either controller to pass the test.");
         }
 

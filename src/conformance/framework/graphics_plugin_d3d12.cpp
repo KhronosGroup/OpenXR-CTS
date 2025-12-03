@@ -54,7 +54,7 @@ using namespace DirectX;
 
 namespace Conformance
 {
-    ComPtr<ID3D12Resource> CreateBuffer(ID3D12Device* d3d12Device, uint32_t size, D3D12_HEAP_TYPE heapType)
+    static ComPtr<ID3D12Resource> CreateBuffer(ID3D12Device* d3d12Device, uint32_t size, D3D12_HEAP_TYPE heapType)
     {
         D3D12_RESOURCE_STATES d3d12ResourceState;
         if (heapType == D3D12_HEAP_TYPE_UPLOAD) {

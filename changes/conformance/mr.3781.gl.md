@@ -1,0 +1,1 @@
+- New test: Verify the presence of `VK_KHR_image_format_list` in the Vulkan device extension list when `XR_KHR_vulkan_swapchain_format_list` is enabled if `XR_KHR_vulkan_enable2` is also enabled in `XrApiLayer_runtime_conformance`.
