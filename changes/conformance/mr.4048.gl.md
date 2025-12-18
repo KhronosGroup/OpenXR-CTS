@@ -1,4 +1,0 @@
----
-- mr.4048.gl
----
-- Improvement: Add checks for `XrEventDataSessionStateChanged::time`.

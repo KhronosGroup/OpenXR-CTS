@@ -13,27 +13,30 @@ namespace Conformance
 {
     namespace ColorUtils
     {
-        inline double ToSRGB(double linear)
+        inline float ToSRGB(float linear)
         {
-            if (linear < 0.04045 / 12.92)
-                return linear * 12.92;
-            else
-                return 1.055 * std::pow(linear, (1.0 / 2.4)) - 0.055;
+            if (linear < 0.04045f / 12.92f) {
+                return linear * 12.92f;
+            }
+            else {
+                return 1.055f * std::pow(linear, (1.0f / 2.4f)) - 0.055f;
+            }
         }
         inline XrColor4f ToSRGB(XrColor4f linear)
         {
-            return XrColor4f{(float)ToSRGB(linear.r), (float)ToSRGB(linear.g), (float)ToSRGB(linear.b), (float)ToSRGB(linear.a)};
+            return XrColor4f{ToSRGB(linear.r), ToSRGB(linear.g), ToSRGB(linear.b), linear.a};
         }
 
-        inline double FromSRGB(double srgb)
+        inline float FromSRGB(float srgb)
         {
-            if (srgb < 0.04045)
-                return srgb / 12.92;
-            return std::pow((srgb + .055) / 1.055, 2.4);
+            if (srgb < 0.04045f) {
+                return srgb / 12.92f;
+            }
+            return std::pow((srgb + .055f) / 1.055f, 2.4f);
         }
         inline XrColor4f FromSRGB(XrColor4f srgb)
         {
-            return XrColor4f{(float)FromSRGB(srgb.r), (float)FromSRGB(srgb.g), (float)FromSRGB(srgb.b), (float)FromSRGB(srgb.a)};
+            return XrColor4f{FromSRGB(srgb.r), FromSRGB(srgb.g), FromSRGB(srgb.b), srgb.a};
         }
     }  // namespace ColorUtils
 

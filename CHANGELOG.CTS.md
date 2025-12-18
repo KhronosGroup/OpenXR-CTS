@@ -17,6 +17,47 @@ particular, since it is primarily software, pull requests may be integrated as
 they are accepted even between periodic updates. However, versions that are not
 signed tags on the `approved` branch are not valid for conformance submission.
 
+## OpenXR CTS 1.1.54.0 (2025-12-18)
+
+- Conformance Tests
+  - Change: Update C++ standard version used from C++14 to C++17.
+    ([internal MR 4096](https://gitlab.khronos.org/openxr/openxr/merge_requests/4096))
+  - Fix: Use correct buffer size constant for `xrStructureTypeToString2KHR` test.
+    ([internal MR 4093](https://gitlab.khronos.org/openxr/openxr/merge_requests/4093))
+  - Fix: Alpha channel values are to be propagated unchanged, not affected by
+    conversion between linear and non-linear sRGB representation
+    ([internal MR 4109](https://gitlab.khronos.org/openxr/openxr/merge_requests/4109))
+  - Fix: Remove leading newline from generated include file for shader.
+    ([internal MR 4127](https://gitlab.khronos.org/openxr/openxr/merge_requests/4127))
+  - Improvement: `XR_EXT_spatial_marker_tracking`: If QR code has string data,
+    check that the string ends with a null terminator.
+    ([internal MR 3913](https://gitlab.khronos.org/openxr/openxr/merge_requests/3913))
+  - Improvement: `XR_EXT_spatial_marker_tracking`: Replace "REQUIRE" with "CHECK"
+    for marker component data because we can still continue to render the markers
+    and test the bounded2D component even if the marker component data is invalid.
+    ([internal MR 3913](https://gitlab.khronos.org/openxr/openxr/merge_requests/3913))
+  - Improvement: `XR_EXT_spatial_marker_tracking`: Create "update snapshot" for
+    discovered markers so that we render them at their latest pose.
+    ([internal MR 3913](https://gitlab.khronos.org/openxr/openxr/merge_requests/3913))
+  - Improvement: Add checks for `XrEventDataSessionStateChanged::time`.
+    ([internal MR 4048](https://gitlab.khronos.org/openxr/openxr/merge_requests/4048))
+  - Improvement: Add additional test instructions for `XR_EXT_hand_tracking`
+    interactive test.
+    ([internal MR 4073](https://gitlab.khronos.org/openxr/openxr/merge_requests/4073))
+  - Improvement: Add additional test instructions for `XR_EXT_spatial_anchor`
+    interactive test.
+    ([internal MR 4074](https://gitlab.khronos.org/openxr/openxr/merge_requests/4074))
+  - Improvement: Force all tests to be printed in test XML.
+    ([internal MR 4103](https://gitlab.khronos.org/openxr/openxr/merge_requests/4103))
+  - Improvement: Fix `-Wmissing-prototypes` compiler warnings.
+    ([internal MR 4107](https://gitlab.khronos.org/openxr/openxr/merge_requests/4107))
+  - Improvement: Fix `-Wdeprecated-literal-operator` warnings in CTS.
+    ([internal MR 4108](https://gitlab.khronos.org/openxr/openxr/merge_requests/4108))
+  - New test: Verify the presence of `VK_KHR_image_format_list` in the Vulkan
+    device extension list when `XR_KHR_vulkan_swapchain_format_list` is enabled if
+    `XR_KHR_vulkan_enable2` is also enabled in `XrApiLayer_runtime_conformance`.
+    ([internal MR 3781](https://gitlab.khronos.org/openxr/openxr/merge_requests/3781))
+
 ## OpenXR CTS 1.1.53.0 (2025-11-06)
 
 - Conformance Tests
