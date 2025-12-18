@@ -178,6 +178,10 @@ namespace
     }
 }  // namespace
 
+// forward decl
+extern "C" LAYER_EXPORT XRAPI_ATTR XrResult XRAPI_CALL testLayer_xrNegotiateLoaderApiLayerInterface(
+    const XrNegotiateLoaderInfo* loaderInfo, const char* apiLayerName, XrNegotiateApiLayerRequest* apiLayerRequest);
+
 extern "C" LAYER_EXPORT XRAPI_ATTR XrResult XRAPI_CALL testLayer_xrNegotiateLoaderApiLayerInterface(
     const XrNegotiateLoaderInfo* loaderInfo, const char* apiLayerName, XrNegotiateApiLayerRequest* apiLayerRequest)
 {

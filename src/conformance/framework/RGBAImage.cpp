@@ -334,9 +334,9 @@ namespace Conformance
     {
         assert(!isSrgb);
         for (RGBA8Color& pixel : pixels) {
-            pixel.Channels.R = (uint8_t)(ColorUtils::ToSRGB((double)pixel.Channels.R / 255.0) * 255.0);
-            pixel.Channels.G = (uint8_t)(ColorUtils::ToSRGB((double)pixel.Channels.G / 255.0) * 255.0);
-            pixel.Channels.B = (uint8_t)(ColorUtils::ToSRGB((double)pixel.Channels.B / 255.0) * 255.0);
+            pixel.Channels.R = (uint8_t)(ColorUtils::ToSRGB(pixel.Channels.R / 255.0f) * 255.0f);
+            pixel.Channels.G = (uint8_t)(ColorUtils::ToSRGB(pixel.Channels.G / 255.0f) * 255.0f);
+            pixel.Channels.B = (uint8_t)(ColorUtils::ToSRGB(pixel.Channels.B / 255.0f) * 255.0f);
         }
         isSrgb = true;
     }

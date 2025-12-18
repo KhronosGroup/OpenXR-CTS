@@ -15,10 +15,6 @@
 
 namespace Conformance
 {
-    Microsoft::WRL::ComPtr<ID3D12Resource> D3D12CreateResource(ID3D12Device* d3d12Device, uint32_t width, uint32_t height, uint16_t depth,
-                                                               D3D12_RESOURCE_DIMENSION dimension, DXGI_FORMAT format,
-                                                               D3D12_TEXTURE_LAYOUT layout, D3D12_HEAP_TYPE heapType);
-
     Microsoft::WRL::ComPtr<ID3D12Resource> D3D12CreateBuffer(ID3D12Device* d3d12Device, uint32_t size, D3D12_HEAP_TYPE heapType);
 
     Microsoft::WRL::ComPtr<ID3D12Resource> D3D12CreateImage(ID3D12Device* d3d12Device, uint32_t width, uint32_t height, uint16_t arraySize,

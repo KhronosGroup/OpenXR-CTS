@@ -22,15 +22,6 @@
 
 namespace Conformance
 {
-
-// Graphics Validator factories are forward declared here.
-#ifdef XR_USE_GRAPHICS_API_D3D11
-    std::shared_ptr<IGraphicsValidator> CreateGraphicsValidator_D3D11();
-#endif
-#ifdef XR_USE_GRAPHICS_API_VULKAN
-    std::shared_ptr<IGraphicsValidator> CreateGraphicsValidator_Vulkan(const XrGraphicsBindingVulkanKHR *graphicsBinding);
-#endif
-
     std::shared_ptr<IGraphicsValidator> CreateGraphicsValidator(const XrBaseInStructure *graphicsBinding)
     {
         switch (graphicsBinding->type) {

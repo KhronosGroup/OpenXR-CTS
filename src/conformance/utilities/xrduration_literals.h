@@ -12,7 +12,7 @@ namespace Conformance
     /// ```
     /// XrDuration timeout = 10_xrSeconds;
     /// ```
-    inline constexpr XrDuration operator"" _xrSeconds(unsigned long long value)
+    inline constexpr XrDuration operator""_xrSeconds(unsigned long long value)
     {
         return (static_cast<int64_t>(value) * 1000 * 1000 * 1000);  // Convert seconds to XrDuration nanoseconds.
     }
@@ -21,7 +21,7 @@ namespace Conformance
     /// ```
     /// XrDuration timeout = 10_xrMilliseconds;
     /// ```
-    inline constexpr XrDuration operator"" _xrMilliseconds(unsigned long long value)
+    inline constexpr XrDuration operator""_xrMilliseconds(unsigned long long value)
     {
         return (static_cast<int64_t>(value) * 1000 * 1000);  // Convert milliseconds to XrDuration nanoseconds.
     }
@@ -30,7 +30,7 @@ namespace Conformance
     /// ```
     /// XrDuration timeout = 10_xrMicroseconds;
     /// ```
-    inline constexpr XrDuration operator"" _xrMicroseconds(unsigned long long value)
+    inline constexpr XrDuration operator""_xrMicroseconds(unsigned long long value)
     {
         return (static_cast<int64_t>(value) * 1000);  // Convert microseconds to XrDuration nanoseconds.
     }
@@ -39,7 +39,7 @@ namespace Conformance
     /// ```
     /// XrDuration timeout = 10_xrNanoseconds;
     /// ```
-    inline constexpr XrDuration operator"" _xrNanoseconds(unsigned long long value)
+    inline constexpr XrDuration operator""_xrNanoseconds(unsigned long long value)
     {
         return static_cast<int64_t>(value);  // XrDuration is already in nanoseconds
     }

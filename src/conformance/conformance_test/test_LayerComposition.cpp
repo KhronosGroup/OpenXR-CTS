@@ -551,7 +551,6 @@ namespace Conformance
                     /*
                      * Only on OpenGL and and OpenGL ES:
                      * The OpenXR runtime must interpret the bottom-left corner of the swapchain image as the coordinate origin unless specified otherwise by extension functionality.
-                     * The OpenXR runtime must interpret the swapchain images in a clip space of positive Y pointing up, near Z plane at -1, and far Z plane at 1.
                      *
                      * We render numbers 1-3 in the top row on both APIs, but on OpenGL (ES) we modify the quad layer subrect to select the rows in reverse order from bottom up.
                      */

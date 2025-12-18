@@ -161,7 +161,7 @@ namespace Conformance
 
         // Create the instructional quad layer placed to the left.
         XrCompositionLayerQuad* const instructionsQuad =
-            compositionHelper.CreateQuadLayer(compositionHelper.CreateStaticSwapchainImage(CreateTextImage(1024, 512, instructions, 48)),
+            compositionHelper.CreateQuadLayer(compositionHelper.CreateStaticSwapchainImage(CreateTextImage(1024, 1024, instructions, 48)),
                                               localSpace, 1.0f, instructionsPanelPose);
         instructionsQuad->pose.orientation = Quat::FromAxisAngle(UpVector, DegToRad(10));
 

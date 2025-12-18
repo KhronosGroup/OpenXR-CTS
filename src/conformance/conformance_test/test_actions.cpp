@@ -1838,7 +1838,7 @@ namespace Conformance
         }
     }
 
-    void xrSyncActions_priorityTest(const FeatureSet& featureSet)
+    static void xrSyncActions_priorityTest(const FeatureSet& featureSet)
     {
         GlobalData& globalData = GetGlobalData();
 

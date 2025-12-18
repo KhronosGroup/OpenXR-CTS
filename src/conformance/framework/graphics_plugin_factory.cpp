@@ -28,32 +28,6 @@ namespace Conformance
 {
     struct IPlatformPlugin;
 
-// Graphics API factories are forward declared here.
-#ifdef XR_USE_GRAPHICS_API_OPENGL_ES
-    std::shared_ptr<IGraphicsPlugin> CreateGraphicsPlugin_OpenGLES(std::shared_ptr<IPlatformPlugin> platformPlugin);
-#endif
-
-#ifdef XR_USE_GRAPHICS_API_OPENGL
-    std::shared_ptr<IGraphicsPlugin> CreateGraphicsPlugin_OpenGL(std::shared_ptr<IPlatformPlugin> platformPlugin);
-#endif
-
-#ifdef XR_USE_GRAPHICS_API_VULKAN
-    std::shared_ptr<IGraphicsPlugin> CreateGraphicsPlugin_Vulkan(std::shared_ptr<IPlatformPlugin> platformPlugin);
-    std::shared_ptr<IGraphicsPlugin> CreateGraphicsPlugin_Vulkan2(std::shared_ptr<IPlatformPlugin> platformPlugin);
-#endif
-
-#ifdef XR_USE_GRAPHICS_API_D3D11
-    std::shared_ptr<IGraphicsPlugin> CreateGraphicsPlugin_D3D11(std::shared_ptr<IPlatformPlugin> platformPlugin);
-#endif
-
-#ifdef XR_USE_GRAPHICS_API_D3D12
-    std::shared_ptr<IGraphicsPlugin> CreateGraphicsPlugin_D3D12(std::shared_ptr<IPlatformPlugin> platformPlugin);
-#endif
-
-#ifdef XR_USE_GRAPHICS_API_METAL
-    std::shared_ptr<IGraphicsPlugin> CreateGraphicsPlugin_Metal(std::shared_ptr<IPlatformPlugin> platformPlugin);
-#endif
-
     using GraphicsPluginFactory = std::function<std::shared_ptr<IGraphicsPlugin>(std::shared_ptr<IPlatformPlugin> platformPlugin)>;
 
     const std::map<std::string, GraphicsPluginFactory, IgnoreCaseStringLess> graphicsPluginMap = {

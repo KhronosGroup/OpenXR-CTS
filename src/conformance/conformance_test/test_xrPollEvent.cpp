@@ -27,7 +27,7 @@
 namespace Conformance
 {
 
-    void ValidateEventData(const XrEventDataBuffer* eventData)
+    static void ValidateEventData(const XrEventDataBuffer* eventData)
     {
         const XrEventDataBuffer* chain = reinterpret_cast<const XrEventDataBuffer*>(eventData->next);
 

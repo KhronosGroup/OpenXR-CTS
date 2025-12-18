@@ -100,9 +100,7 @@ if(HAVE_CLASS_MEMACCESS)
     )
 endif()
 if(HAVE_UNDEF)
-    target_compile_options(
-        conformance_framework_basisu PRIVATE -Wno-undef
-    )
+    target_compile_options(conformance_framework_basisu PRIVATE -Wno-undef)
 endif()
 if(HAVE_MAYBE_UNINITIALIZED)
     # This one is actually for zstd, and it's a false positive.
@@ -117,9 +115,12 @@ include(CheckCCompilerFlag)
 # vendors often have stricter compiler settings
 check_c_compiler_flag(-Wimplicit-fallthrough HAVE_IMPLICIT_FALLTHROUGH)
 check_c_compiler_flag(-Wundef HAVE_UNDEF)
-check_c_compiler_flag(-Wtautological-type-limit-compare HAVE_TAUTOLOGICAL_TYPE_LIMIT)
+check_c_compiler_flag(
+    -Wtautological-type-limit-compare HAVE_TAUTOLOGICAL_TYPE_LIMIT
+)
 check_c_compiler_flag(-Wmissing-braces HAVE_MISSING_BRACES)
 check_c_compiler_flag(-Wunreachable-code HAVE_UNREACHABLE_CODE)
+check_c_compiler_flag(-Wmissing-prototypes HAVE_MISSING_PROTOTYPES)
 
 if(HAVE_IMPLICIT_FALLTHROUGH)
     add_compile_options(-Werror=implicit-fallthrough)
@@ -132,6 +133,13 @@ if(HAVE_MISSING_BRACES)
 endif()
 if(HAVE_UNREACHABLE_CODE)
     add_compile_options(-Werror=unreachable-code)
+endif()
+if(NOT ANDROID)
+    if(HAVE_MISSING_PROTOTYPES)
+        add_compile_options(
+            $<IF:$<COMPILE_LANGUAGE:C>,-Werror=missing-prototypes,>
+        )
+    endif()
 endif()
 
 # Cannot use -Werror=undef for utilities

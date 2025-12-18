@@ -75,6 +75,24 @@ namespace session
                                                  to_string(customSessionState->sessionState), to_string(sessionStateChanged->state));
         }
 
+        // When popping session state events from the queue we expect following session states to be associated with a later time than the previous one.
+        // There is no spec to disallow two events being associated with the same timestamp.
+        // The invalid time 0 should never be returned.
+        if (sessionStateChanged->time == 0) {
+            conformanceHooks->ConformanceFailure(
+                XR_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT, "XrEventDataSessionStateChanged",
+                "Invalid session state change event time %" PRId64 " for state %s (transitioning from state %s)", sessionStateChanged->time,
+                to_string(sessionStateChanged->state), to_string(customSessionState->sessionState));
+        }
+        if (sessionStateChanged->time < customSessionState->sessionStateTime) {
+            conformanceHooks->ConformanceFailure(XR_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT, "XrEventDataSessionStateChanged",
+                                                 "Session state change event time %" PRId64
+                                                 " for state %s is smaller than last session state change event time % " PRId64
+                                                 " for state %s",
+                                                 sessionStateChanged->time, to_string(sessionStateChanged->state),
+                                                 customSessionState->sessionStateTime, to_string(customSessionState->sessionState));
+        }
+
         if (sessionStateChanged->state == XR_SESSION_STATE_SYNCHRONIZED && !customSessionState->sessionBegun) {
             conformanceHooks->ConformanceFailure(XR_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT, "XrEventDataSessionStateChanged",
                                                  "Illegal session state transition to %s when session has not been begun.",
@@ -103,6 +121,7 @@ namespace session
         }
 
         customSessionState->sessionState = sessionStateChanged->state;
+        customSessionState->sessionStateTime = sessionStateChanged->time;
     }
 
     void VisibilityMaskChanged(ConformanceHooksBase* conformanceHooks, const XrEventDataVisibilityMaskChangedKHR* visibilityMaskChanged)

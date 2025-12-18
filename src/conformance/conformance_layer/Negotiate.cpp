@@ -70,6 +70,11 @@ namespace
 #define LAYER_EXPORT
 #endif
 
+// forward decl
+extern "C" LAYER_EXPORT XRAPI_ATTR XrResult XRAPI_CALL xrNegotiateLoaderApiLayerInterface(const XrNegotiateLoaderInfo* loaderInfo,
+                                                                                          const char* apiLayerName,
+                                                                                          XrNegotiateApiLayerRequest* apiLayerRequest);
+
 // Function used to negotiate an interface betewen the loader and an API layer.  Each library exposing one or
 // more API layers needs to expose at least this function.
 extern "C" LAYER_EXPORT XRAPI_ATTR XrResult XRAPI_CALL xrNegotiateLoaderApiLayerInterface(const XrNegotiateLoaderInfo* loaderInfo,

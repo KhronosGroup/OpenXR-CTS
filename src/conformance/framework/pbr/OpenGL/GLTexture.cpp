@@ -41,7 +41,7 @@ namespace Pbr
         }
 
         /// Creates a texture and fills all array members with the data in rgba
-        ScopedGLTexture CreateTextureOrCubemapRepeat(const Image::Image& image, bool isCubemap)
+        static ScopedGLTexture CreateTextureOrCubemapRepeat(const Image::Image& image, bool isCubemap)
         {
             GLFormatData glFormat = ToGLFormatData(image.format);
 

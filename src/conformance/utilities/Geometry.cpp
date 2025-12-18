@@ -8,8 +8,7 @@
 
 namespace Geometry
 {
-
-    XrVector3f rotateAxes(XrVector3f input, int axis)
+    static XrVector3f rotateAxes(XrVector3f input, int axis)
     {
         while (axis > 0) {
             auto tmp = input.z;

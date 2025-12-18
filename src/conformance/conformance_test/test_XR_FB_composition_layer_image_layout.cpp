@@ -25,8 +25,8 @@
 
 namespace Conformance
 {
-    void TestImageLayout(CompositionHelper& compositionHelper, InteractiveLayerManager& interactiveLayerManager,
-                         XrCompositionLayerImageLayoutFlagsFB flags)
+    static void TestImageLayout(CompositionHelper& compositionHelper, InteractiveLayerManager& interactiveLayerManager,
+                                XrCompositionLayerImageLayoutFlagsFB flags)
     {
         XrSession session = compositionHelper.GetSession();
         InteractionManager& interactionManager = compositionHelper.GetInteractionManager();

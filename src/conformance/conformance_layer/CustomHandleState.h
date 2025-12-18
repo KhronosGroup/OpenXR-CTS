@@ -54,6 +54,7 @@ namespace session
         std::mutex lock;
         XrSystemId systemId{XR_NULL_SYSTEM_ID};
         XrSessionState sessionState{XR_SESSION_STATE_UNKNOWN};
+        XrTime sessionStateTime{0};
         bool sessionBegun{false};
         bool sessionExitRequested{false};
         bool frameBegun{false};

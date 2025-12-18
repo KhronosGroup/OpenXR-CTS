@@ -273,7 +273,7 @@ namespace Pbr
             }
         };
 
-        void SetupBindings(VulkanDescriptorSetLayout& layoutBuilder)
+        static void SetupBindings(VulkanDescriptorSetLayout& layoutBuilder)
         {
             // constant buffers
             layoutBuilder.SetBindings(SceneConstantBuffer, ShaderSlots::ConstantBuffers::Scene, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
@@ -298,7 +298,7 @@ namespace Pbr
         }
 
         // very basic for now, can grow if needed
-        VkPipelineLayout CreatePipelineLayout(VkDevice device, const VkDescriptorSetLayout& descriptorSetLayout)
+        static VkPipelineLayout CreatePipelineLayout(VkDevice device, const VkDescriptorSetLayout& descriptorSetLayout)
         {
 
             VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo{VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO};

@@ -1,4 +1,0 @@
----
-- mr.4049.gl
----
-- Fix: Correctly define `XR_EXT_dpad_binding` paths for /interaction_profiles/bytedance/pico_ultra_controller_bd in XML.

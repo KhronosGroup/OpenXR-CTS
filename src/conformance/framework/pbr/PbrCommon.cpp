@@ -38,23 +38,6 @@ namespace Pbr
         }
     }  // namespace Internal
 
-    static inline float ChannelFromSRGB(float srgb)
-    {
-        if (srgb < 0.04045f)
-            return srgb / 12.92f;
-        return std::pow((srgb + .055f) / 1.055f, 2.4f);
-    }
-
-    RGBAColor FromSRGB(XrColor4f color)
-    {
-        RGBAColor linearColor{};
-        linearColor.r = ChannelFromSRGB(color.r);
-        linearColor.g = ChannelFromSRGB(color.g);
-        linearColor.b = ChannelFromSRGB(color.b);
-        linearColor.a = color.a;
-        return linearColor;
-    }
-
     // Based on code from DirectXTK
     PrimitiveBuilder& PrimitiveBuilder::AddSphere(float diameter, uint32_t tessellation, Pbr::NodeIndex_t transformIndex,
                                                   RGBAColor vertexColor)

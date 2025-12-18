@@ -44,8 +44,10 @@ namespace Pbr
         }
 
         /// Creates a texture array with support for multiple mip levels and compressed textures
-        Microsoft::WRL::ComPtr<ID3D12Resource> CreateTextureArray(D3D12Resources& pbrResources, ID3D12GraphicsCommandList* copyCommandList,
-                                                                  StagingResources stagingResources, span<const Image::Image*> imageArray)
+        static Microsoft::WRL::ComPtr<ID3D12Resource> CreateTextureArray(D3D12Resources& pbrResources,
+                                                                         ID3D12GraphicsCommandList* copyCommandList,
+                                                                         StagingResources stagingResources,
+                                                                         span<const Image::Image*> imageArray)
         {
             Microsoft::WRL::ComPtr<ID3D12Device> device = pbrResources.GetDevice();
 

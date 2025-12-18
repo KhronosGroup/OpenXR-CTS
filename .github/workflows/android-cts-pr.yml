@@ -14,12 +14,12 @@ jobs:
   build-cts-pr:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
         with:
           lfs: true
 
       - name: Get modern CMake and Ninja
-        uses: "lukka/get-cmake@v4.1.2"
+        uses: "lukka/get-cmake@v4.2.0"
 
       - name: set up JDK
         uses: actions/setup-java@v5

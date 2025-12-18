@@ -35,6 +35,8 @@
 #endif
 #endif
 
+#include "VulkanLayer.h"
+
 struct Device;
 
 struct Instance

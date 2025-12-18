@@ -36,6 +36,7 @@
 #include <catch2/catch_test_case_info.hpp>
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/internal/catch_clara.hpp>                    // for customizing arg parsing
+#include <catch2/internal/catch_stdstreams.hpp>               // for redirecting stdout
 #include <catch2/internal/catch_test_case_registry_impl.hpp>  // for getAllTestCasesSorted
 #include <catch2/reporters/catch_reporter_event_listener.hpp>
 #include <catch2/reporters/catch_reporter_registrars.hpp>
@@ -141,6 +142,9 @@ namespace
 
     TEST_CASE("DescribeGraphicsPlugin", "")
     {
+        // Adding a require here so this appears in XML report.
+        REQUIRE(true);
+
         GlobalData& globalData = GetGlobalData();
         if (globalData.IsGraphicsPluginRequired()) {
             AutoBasicInstance instance(AutoBasicInstance::createSystemId);
@@ -159,6 +163,8 @@ namespace
     // and add a warning that will show in the output
     TEST_CASE("SourceCodeRevision", "")
     {
+        // Adding a require here so this appears in XML report.
+        REQUIRE(true);
 
         CAPTURE(kGitRevisionSucceeded);
         CAPTURE(kGitRevisionString);
@@ -216,6 +222,9 @@ namespace
             return true;
         };
 
+        // Adding a require here so this appears in XML report.
+        REQUIRE(true);
+
         SECTION("OpenXR 1.1")
         {
             GlobalData& globalData = GetGlobalData();
@@ -239,6 +248,9 @@ namespace
                 if (!openxr1_0_supported) {
                     WARN("Runtime supports OpenXR 1.1 but does not support OpenXR 1.0; this is not strictly required but is surprising.");
                 }
+            }
+            else {
+                WARN("Runtime does not support OpenXR 1.1; this is not strictly required but is surprising.");
             }
         }
     }
