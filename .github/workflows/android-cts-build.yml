@@ -42,7 +42,7 @@ jobs:
         run: "cd src/conformance && ./gradlew ${{ inputs.gradleTask }}"
 
       - name: Upload unsigned artifacts
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: android-openxr-cts-unsigned
           path: ${{ inputs.gradleOutputDir }}
