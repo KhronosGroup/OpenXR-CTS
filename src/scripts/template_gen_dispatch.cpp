@@ -34,10 +34,14 @@
         abort(); /* Something went wrong in the layer. */                                                       \
     }
 
-/*% macro checkExtCode(ext_code) %*/(handleState->enabledExtensions->/*{make_ext_variable_name(ext_code.extension)}*/ && result == /*{ ext_code.value }*/)/*% endmacro %*/
-/*% macro checkResult(val) %*/(result == /*{val}*/)/*% endmacro %*/
+//## Generates an expression that is true if result is the given code, and the corresponding extension is enabled.
+/*% macro checkExtCode(ext_code) -%*/
+(handleState->conformanceHooks->enabledExtensions.
+    /*{- ext_code.extension | make_ext_variable_name }*/ && result == /*{ ext_code.value }*/)
+/*%- endmacro %*/
+//## Generates an expression that is true if result is the given code
+/*%- macro checkResult(val) %*/(result == /*{val}*/)/*% endmacro %*/
 
-//# set ext_return_codes = registry.commandextensionsuccesses + registry.commandextensionerrors
 
 //# for cur_cmd in sorted_cmds
 //#     if cur_cmd.name not in skip_hooks and cur_cmd.name != "xrGetInstanceProcAddr"
@@ -81,15 +85,15 @@ static /*{ cur_cmd.cdecl | collapse_whitespace | replace(" xr", " ConformanceLay
 //## TODO: Inspect out structs
 //## Check if the return code is a valid return code.
 //## Leading false allows each generated entry to start with ||
+//#     set chosen_ext_codes = gen.extensionReturnCodesForCommand(cur_cmd)
     bool recognizedReturnCode = (false
 //## Core return codes
                 /*%- for val in cur_cmd.return_values %*/ || /*{ checkResult(val) }*/ /*% endfor -%*/
 
-//## Extension return codes, if any
-//#-            for ext_code in ext_return_codes
-//#                 if ext_code.command == cur_cmd.name
+//## Extension return codes, if any.
+//## (These check that the extension is enabled.)
+//#-            for ext_code in chosen_ext_codes
                 || /*{ checkExtCode(ext_code) }*/
-//#-                endif
 //#-            endfor
                 );
     if (!recognizedReturnCode) {

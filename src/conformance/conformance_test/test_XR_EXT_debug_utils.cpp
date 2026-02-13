@@ -51,7 +51,7 @@ namespace Conformance
                                                        const XrDebugUtilsMessengerCallbackDataEXT*, void* userData)
     {
         REQUIRE(userData == nullptr);
-        FAIL();
+        FAIL_CHECK("This debug callback should not be called");
         return XR_FALSE;
     };
 

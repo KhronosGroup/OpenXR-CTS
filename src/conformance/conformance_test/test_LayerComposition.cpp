@@ -1886,6 +1886,15 @@ namespace Conformance
 
         const std::vector<XrViewConfigurationView> viewProperties = compositionHelper.EnumerateConfigurationViews();
 
+        {
+            // Check early for supported depth swapchain format
+            XrSwapchainCreateInfo depthSwapchainCreateInfo = compositionHelper.DefaultDepthSwapchainCreateInfo(8, 8);
+            if (depthSwapchainCreateInfo.format == -1) {
+                // no depth format available for testing
+                SKIP("Cannot test without a depth swapchain format");
+            }
+        }
+
         std::vector<XrSwapchainCreateInfo> colorSwapchainCreateInfo;
         std::vector<XrSwapchainCreateInfo> depthSwapchainCreateInfo;
         for (auto& view : viewProperties) {

@@ -63,6 +63,7 @@ inline constexpr void operator+=(XrVector3f& a, const XrVector3f& b)
 }
 static_assert(XrVector3f{1, 2, 3} + XrVector3f{1, 2, 3} == XrVector3f{1 + 1, 2 + 2, 3 + 3}, "XrVector3f addition");
 
+// Not using XrVector3f_Sub here so that this can be constexpr
 xr_math_operators_nodiscard inline constexpr XrVector3f operator-(const XrVector3f& a, const XrVector3f& b)
 {
     return XrVector3f{a.x - b.x, a.y - b.y, a.z - b.z};
@@ -73,6 +74,16 @@ inline constexpr void operator-=(XrVector3f& a, const XrVector3f& b)
     a = a - b;
 }
 static_assert(XrVector3f{1, 2, 3} - XrVector3f{1, 2, 3} == XrVector3f{1 - 1, 2 - 2, 3 - 3}, "XrVector3f subtraction");
+
+// Not using XrVector3f_Scale here so that this can be constexpr
+xr_math_operators_nodiscard inline constexpr XrVector3f operator/(const XrVector3f& a, const float& s)
+{
+    return XrVector3f{a.x / s, a.y / s, a.z / s};
+}
+inline constexpr void operator/=(XrVector3f& a, const float& s)
+{
+    a = a / s;
+}
 
 namespace openxr
 {

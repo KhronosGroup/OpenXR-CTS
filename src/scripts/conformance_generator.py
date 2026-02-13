@@ -67,7 +67,7 @@ class ConformanceGenerator(AutomaticSourceOutputGenerator):
                 if x.command == cur_cmd.name)
 
     def allReturnCodesForCommand(self, cur_cmd):
-        return cur_cmd.return_values + list(self.extensionReturnCodesForCommand(cur_cmd))
+        return cur_cmd.return_values + [ext.value for ext in self.extensionReturnCodesForCommand(cur_cmd)]
 
     def beginFeature(self, interface, emit):
         super().beginFeature(interface, emit)

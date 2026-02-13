@@ -470,12 +470,12 @@ namespace Conformance
 
         // Initialize the binding once we have a context
         {
-            XRC_CHECK_THROW(window.display != EGL_NO_DISPLAY);
-            XRC_CHECK_THROW(window.context.context != EGL_NO_CONTEXT);
+            XRC_CHECK_THROW(window.context.dpy != EGL_NO_DISPLAY);
+            XRC_CHECK_THROW(window.context.ctx != EGL_NO_CONTEXT);
             graphicsBinding = {XR_TYPE_GRAPHICS_BINDING_OPENGL_ES_ANDROID_KHR};
-            graphicsBinding.display = window.display;
+            graphicsBinding.display = window.context.dpy;
             graphicsBinding.config = (EGLConfig)0;
-            graphicsBinding.context = window.context.context;
+            graphicsBinding.context = window.context.ctx;
         }
 
         GLenum error = glGetError();

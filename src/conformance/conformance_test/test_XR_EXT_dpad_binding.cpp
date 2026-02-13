@@ -435,7 +435,6 @@ namespace Conformance
         }
 
         FAIL("Time out waiting for session focus on xrSyncActions");
-        return false;
     }
 
     static bool WaitForStickyDpadInput(XrAction action, XrActionsSyncInfo* syncInfo, ActionLayerManager& actionLayerManager,
@@ -482,7 +481,6 @@ namespace Conformance
         }
 
         FAIL("Time out waiting for session focus on xrSyncActions");
-        return false;
     }
 
     using fnWaitForDpadInput = std::function<bool(XrAction, XrActionsSyncInfo*, ActionLayerManager&, XrSession)>;

@@ -244,6 +244,9 @@ conformance_cli "[actions][interactive]" -G d3d11 -I "oculus/touch_controller" -
 
 conformance_cli "[actions][interactive]" -G d3d11 -I "htc/vive_controller" --reporter ctsxml::out=interactive_action_htc_vive_controller.xml --reporter console
 
+# Multiple profiles
+conformance_cli "[actions][interactive]" -G d3d11 -I "khr/simple_controller" -I "microsoft/motion_controller" -I "oculus/touch_controller" --reporter ctsxml::out=interactive_action_controller.xml --reporter console
+
 ----
 ====
 
@@ -298,6 +301,12 @@ adb shell am start-activity -S -n org.khronos.openxr.cts/android.app.NativeActiv
 
 # Wait until tests complete, then retrieve results with
 adb pull /sdcard/Android/data/org.khronos.openxr.cts/files/interactive_action_microsoft_xbox_controller.xml
+
+## Sample multiple profiles
+adb shell am start-activity -S -n org.khronos.openxr.cts/android.app.NativeActivity --esa args "[actions][interactive],-I,khr/simple_controller,-I,microsoft/motion_controller,-I,oculus/touch_controller" -e xmlFilename interactive_action_controller.xml
+
+# Wait until tests complete, then retrieve results with
+adb pull /sdcard/Android/data/org.khronos.openxr.cts/files/interactive_action_controller.xml
 
 ----
 ====

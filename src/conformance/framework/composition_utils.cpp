@@ -278,7 +278,7 @@ namespace Conformance
 
         if (globalData.IsUsingGraphicsPlugin()) {
             m_defaultColorFormat = graphicsPlugin->SelectColorSwapchainFormat(true, swapchainFormats);
-            m_defaultDepthFormat = graphicsPlugin->SelectDepthSwapchainFormat(true, swapchainFormats);
+            m_defaultDepthFormat = graphicsPlugin->SelectDepthSwapchainFormat(false, swapchainFormats);
         }
         else {
             m_defaultColorFormat = static_cast<uint64_t>(-1);

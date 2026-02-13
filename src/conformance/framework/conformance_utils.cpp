@@ -58,7 +58,7 @@
 namespace Conformance
 {
 
-    static const std::map<uint64_t, const char*> GetNumberExtensionMap()
+    static const std::map<uint64_t, const char*>& GetNumberExtensionMap()
     {
 #define MAKE_EXTENSION_NUMBER_MAP(NAME, NUM) {NUM, #NAME},
         static const std::map<uint64_t, const char*> myMap = {XR_LIST_EXTENSIONS(MAKE_EXTENSION_NUMBER_MAP)};
@@ -1086,7 +1086,7 @@ namespace Conformance
 
     bool IsInstanceExtensionEnabled(uint64_t extensionNumber)
     {
-        auto& map = GetNumberExtensionMap();
+        const auto& map = GetNumberExtensionMap();
         auto it = map.find(extensionNumber);
         if (it == map.end()) {
             return false;

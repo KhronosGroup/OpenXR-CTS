@@ -50,12 +50,6 @@
 #include <utility>
 #include <vector>
 
-// Auto-detect C++14 standard version
-#if !defined(TINYGLTF_USE_CPP14) && defined(__cplusplus) && \
-    (__cplusplus >= 201402L)
-#define TINYGLTF_USE_CPP14
-#endif
-
 #ifdef __ANDROID__
 #ifdef TINYGLTF_ANDROID_LOAD_FROM_ASSETS
 #include <android/asset_manager.h>
@@ -834,20 +828,20 @@ struct Accessor {
       maxValues;  // optional. integer value is promoted to double
 
   struct Sparse {
-    int count;
-    bool isSparse;
+    int count{0};
+    bool isSparse{false};
     struct {
-      size_t byteOffset;
-      int bufferView;
-      int componentType;  // a TINYGLTF_COMPONENT_TYPE_ value
+      size_t byteOffset{0};
+      int bufferView{-1};
+      int componentType{-1};  // a TINYGLTF_COMPONENT_TYPE_ value
       Value extras;
       ExtensionMap extensions;
       std::string extras_json_string;
       std::string extensions_json_string;
     } indices;
     struct {
-      int bufferView;
-      size_t byteOffset;
+      int bufferView{-1};
+      size_t byteOffset{0};
       Value extras;
       ExtensionMap extensions;
       std::string extras_json_string;
@@ -898,11 +892,7 @@ struct Accessor {
     // unreachable return 0;
   }
 
-  Accessor()
-
-  {
-    sparse.isSparse = false;
-  }
+  Accessor() = default;
   DEFAULT_METHODS(Accessor)
   bool operator==(const tinygltf::Accessor &) const;
 };
@@ -6453,6 +6443,15 @@ bool TinyGLTF::LoadFromString(Model *model, std::string *err, std::string *warn,
           return false;
         }
         const Buffer &buffer = model->buffers[size_t(bufferView.buffer)];
+        if (bufferView.byteOffset >= buffer.data.size()) {
+          if (err) {
+            std::stringstream ss;
+            ss << "image[" << idx << "] bufferView \"" << image.bufferView
+               << "\" indexed out of bounds of its buffer." << std::endl;
+            (*err) += ss.str();
+          }
+          return false;
+        }
 
         if (LoadImageData == nullptr) {
           if (err) {
@@ -7207,6 +7206,7 @@ static void SerializeGltfBufferData(const std::vector<unsigned char> &data,
 
 static bool SerializeGltfBufferData(const std::vector<unsigned char> &data,
                                     const std::string &binFilename) {
+#ifndef TINYGLTF_NO_FS
 #ifdef _WIN32
 #if defined(__GLIBCXX__)  // mingw
   int file_descriptor = _wopen(UTF8ToWchar(binFilename).c_str(),
@@ -7235,6 +7235,9 @@ static bool SerializeGltfBufferData(const std::vector<unsigned char> &data,
     // write empty file.
   }
   return true;
+#else
+  return false;
+#endif
 }
 
 #if 0  // FIXME(syoyo): not used. will be removed in the future release.
@@ -8456,6 +8459,7 @@ static bool WriteGltfStream(std::ostream &stream, const std::string &content) {
 
 static bool WriteGltfFile(const std::string &output,
                           const std::string &content) {
+#ifndef TINYGLTF_NO_FS
 #ifdef _WIN32
 #if defined(_MSC_VER)
   std::ofstream gltfFile(UTF8ToWchar(output).c_str());
@@ -8475,6 +8479,9 @@ static bool WriteGltfFile(const std::string &output,
   if (!gltfFile.is_open()) return false;
 #endif
   return WriteGltfStream(gltfFile, content);
+#else
+    return false;
+#endif
 }
 
 static bool WriteBinaryGltfStream(std::ostream &stream,
@@ -8541,6 +8548,7 @@ static bool WriteBinaryGltfStream(std::ostream &stream,
 static bool WriteBinaryGltfFile(const std::string &output,
                                 const std::string &content,
                                 const std::vector<unsigned char> &binBuffer) {
+#ifndef TINYGLTF_NO_FS
 #ifdef _WIN32
 #if defined(_MSC_VER)
   std::ofstream gltfFile(UTF8ToWchar(output).c_str(), std::ios::binary);
@@ -8557,6 +8565,9 @@ static bool WriteBinaryGltfFile(const std::string &output,
   std::ofstream gltfFile(output.c_str(), std::ios::binary);
 #endif
   return WriteBinaryGltfStream(gltfFile, content, binBuffer);
+#else
+    return false;
+#endif
 }
 
 bool TinyGLTF::WriteGltfSceneToStream(const Model *model, std::ostream &stream,

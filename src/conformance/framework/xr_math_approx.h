@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 #pragma once
 
+#include <catch2/catch_tostring.hpp>
 #include "utilities/xr_math_operators.h"
 #include <string>
 
@@ -151,3 +152,22 @@ namespace openxr
     }  // namespace math_operators
 
 }  // namespace openxr
+
+namespace Catch
+{
+    template <>
+    struct StringMaker<openxr::math_operators::Vector::Approx>
+    {
+        static std::string convert(openxr::math_operators::Vector::Approx const& value);
+    };
+    template <>
+    struct StringMaker<openxr::math_operators::Quat::Approx>
+    {
+        static std::string convert(openxr::math_operators::Quat::Approx const& value);
+    };
+    template <>
+    struct StringMaker<openxr::math_operators::Pose::Approx>
+    {
+        static std::string convert(openxr::math_operators::Pose::Approx const& value);
+    };
+}  // namespace Catch

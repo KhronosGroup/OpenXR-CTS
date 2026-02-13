@@ -51,6 +51,12 @@ class ConformanceLayerGenerator(AutomaticSourceOutputGenerator):
     def outputGeneratedAuthorNote(self):
         pass
 
+    def extensionReturnCodesForCommand(self, cur_cmd):
+        assert self.registry
+        return [x for x
+                in self.registry.commandextensionerrors + self.registry.commandextensionsuccesses
+                if x.command == cur_cmd.name]
+
     # Override the base class header warning so the comment indicates this file.
     #   self            the AutomaticSourceOutputGenerator object
     def outputGeneratedHeaderWarning(self):
