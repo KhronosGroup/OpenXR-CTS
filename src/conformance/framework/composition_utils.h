@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2025 The Khronos Group Inc.
+// Copyright (c) 2019-2026 The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -225,6 +225,9 @@ namespace Conformance
         /// Usage flags are `XR_SWAPCHAIN_USAGE_SAMPLED_BIT | XR_SWAPCHAIN_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT`
         ///
         /// Some depth format will be chosen if @p format is not specified.
+        ///
+        /// @note On some runtimes, no suitable depth format is found, you **must** check that the @p format field of the
+        /// returned structure is not -1 before using it!
         XrSwapchainCreateInfo DefaultDepthSwapchainCreateInfo(uint32_t width, uint32_t height, XrSwapchainCreateFlags createFlags = 0,
                                                               int64_t format = -1);
 

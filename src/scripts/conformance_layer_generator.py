@@ -1,6 +1,6 @@
 #!/usr/bin/env python3 -i
 #
-# Copyright (c) 2017-2025 The Khronos Group Inc.
+# Copyright (c) 2017-2026 The Khronos Group Inc.
 # Copyright (c) 2017-2019 Valve Corporation
 # Copyright (c) 2017-2019 LunarG, Inc.
 #
@@ -50,6 +50,12 @@ class ConformanceLayerGenerator(AutomaticSourceOutputGenerator):
 
     def outputGeneratedAuthorNote(self):
         pass
+
+    def extensionReturnCodesForCommand(self, cur_cmd):
+        assert self.registry
+        return [x for x
+                in self.registry.commandextensionerrors + self.registry.commandextensionsuccesses
+                if x.command == cur_cmd.name]
 
     # Override the base class header warning so the comment indicates this file.
     #   self            the AutomaticSourceOutputGenerator object

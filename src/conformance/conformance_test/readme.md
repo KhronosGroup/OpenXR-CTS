@@ -1,7 +1,7 @@
 # OpenXR™ Conformance Test Suite (OpenXR-CTS)
 
 <!--
-Copyright (c) 2024-2025 The Khronos Group Inc.
+Copyright (c) 2024-2026 The Khronos Group Inc.
 
 SPDX-License-Identifier: CC-BY-4.0
 -->

@@ -1,0 +1,5 @@
+---
+- issue.2108.gl
+- mr.4007.gl
+---
+- Improvement: Update tiny-gltf library from 2.9.3 to 2.9.6.

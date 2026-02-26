@@ -1,4 +1,4 @@
-# Copyright 2013-2025 The Khronos Group Inc.
+# Copyright 2013-2026 The Khronos Group Inc.
 #
 # SPDX-License-Identifier: Apache-2.0
 
@@ -14,7 +14,7 @@ ADOCOPTS = --doctype book \
            $(ADOC_FAILURE_LEVEL) \
            $(ATTRIBOPTS)
 
-SPECREVISION = 1.1.54
+SPECREVISION = 1.1.57
 
 ifneq (,$(strip $(RELEASE)))
 # No dates or internal commit hashes in release builds for reproducibility

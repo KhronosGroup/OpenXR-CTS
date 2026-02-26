@@ -1,6 +1,6 @@
 #!/usr/bin/env python3 -i
 #
-# Copyright (c) 2017-2025 The Khronos Group Inc.
+# Copyright (c) 2017-2026 The Khronos Group Inc.
 # Copyright (c) 2017-2019 Valve Corporation
 # Copyright (c) 2017-2019 LunarG, Inc.
 #
@@ -75,7 +75,8 @@ class AutomaticSourceGeneratorOptions(GeneratorOptions):
                  indentFuncProto=True,
                  indentFuncPointer=False,
                  alignFuncParam=0,
-                 genEnumBeginEndRange=False):
+                 genEnumBeginEndRange=False,
+                 **kwargs):
         GeneratorOptions.__init__(self,
                                   conventions=conventions,
                                   filename=filename,
@@ -88,7 +89,8 @@ class AutomaticSourceGeneratorOptions(GeneratorOptions):
                                   addExtensions=addExtensions,
                                   removeExtensions=removeExtensions,
                                   emitExtensions=emitExtensions,
-                                  sortProcedure=sortProcedure)
+                                  sortProcedure=sortProcedure,
+                                  **kwargs)
         # Instead of using prefixText, we write our own
         self.prefixText = None
         self.genFuncPointers = genFuncPointers
@@ -584,7 +586,7 @@ class AutomaticSourceOutputGenerator(OutputGenerator):
     #   self            the AutomaticSourceOutputGenerator object
     def outputCopywriteHeader(self):
         # REUSE-IgnoreStart
-        notice = '// Copyright (c) 2017-2025 The Khronos Group Inc.\n'
+        notice = '// Copyright (c) 2017-2026 The Khronos Group Inc.\n'
         notice += '// Copyright (c) 2017-2019 Valve Corporation\n'
         notice += '// Copyright (c) 2017-2019 LunarG, Inc.\n'
         notice += '//\n'

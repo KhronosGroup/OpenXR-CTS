@@ -1,0 +1,4 @@
+---
+- mr.4096.gl
+---
+- Fix: Always verify depth format before using it.

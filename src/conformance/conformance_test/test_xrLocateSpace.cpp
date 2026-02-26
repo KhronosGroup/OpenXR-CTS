@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2025 The Khronos Group Inc.
+// Copyright (c) 2019-2026 The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -21,9 +21,11 @@
 #include "utilities/types_and_constants.h"
 #include "utilities/xrduration_literals.h"
 #include "xr_math_approx.h"
+#include "two_call.h"
 
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/catch_approx.hpp>
+#include <catch2/matchers/catch_matchers_vector.hpp>
 #include <openxr/openxr.h>
 
 #include <algorithm>
@@ -239,6 +241,118 @@ namespace Conformance
 
                     // Note: the actual relation between these spaces can be anything as they are based on different
                     // reference spaces. So "location" can not be checked.
+                }
+            }
+        }
+    }
+
+    static XrVector3f calculateViewCentroid(const std::vector<XrView> views)
+    {
+        XrVector3f centroid{};
+        for (size_t i = 0; i < views.size(); ++i) {
+            centroid += views[i].pose.position;
+        }
+        centroid /= static_cast<float>(views.size());
+        return centroid;
+    }
+
+    TEST_CASE("xrLocateSpace_xrLocateViews", "")
+    {
+        // The VIEW reference space tracks the view origin used to generate view transforms for the
+        // primary viewer (or centroid of view origins if stereo)
+        SECTION("view ref space matches view or centroid of views")
+        {
+            AutoBasicInstance instance(AutoBasicInstance::createSystemId);
+
+            auto viewConfigTypes =
+                REQUIRE_TWO_CALL(XrViewConfigurationType, {}, xrEnumerateViewConfigurations, instance.GetInstance(), instance.systemId);
+
+            for (const auto& vct : viewConfigTypes) {
+                AutoBasicSession session(AutoBasicSession::createInstance | AutoBasicSession::createSession |
+                                             AutoBasicSession::beginSession | AutoBasicSession::createSwapchains |
+                                             AutoBasicSession::createSpaces,
+                                         instance, vct);
+
+                XrSpace viewSpace = XR_NULL_HANDLE_CPP;
+                XrSpace localSpace = XR_NULL_HANDLE_CPP;
+                {
+                    XrReferenceSpaceCreateInfo spaceCreateInfo = {XR_TYPE_REFERENCE_SPACE_CREATE_INFO};
+                    spaceCreateInfo.referenceSpaceType = XR_REFERENCE_SPACE_TYPE_VIEW;
+                    spaceCreateInfo.poseInReferenceSpace = Pose::Identity;
+                    REQUIRE(xrCreateReferenceSpace(session, &spaceCreateInfo, &viewSpace) == XR_SUCCESS);
+
+                    spaceCreateInfo.referenceSpaceType = XR_REFERENCE_SPACE_TYPE_LOCAL;
+                    REQUIRE(xrCreateReferenceSpace(session, &spaceCreateInfo, &localSpace) == XR_SUCCESS);
+                }
+
+                // Get frames iterating to the point of app focused state. This will draw frames along the way.
+                FrameIterator frameIterator(&session);
+                REQUIRE(frameIterator.PrepareSubmitFrame() == FrameIterator::RunResult::Success);
+
+                // It is appealing to use VIEW space as the base space here (so that the centroid is {0,0,0})
+                // but we are using LOCAL so that the calculation cannot be a no-op for the runtime.
+                XrSpace baseSpace = localSpace;
+                XrTime baseTime = frameIterator.frameState.predictedDisplayTime;
+
+                XrViewLocateInfo locateInfo{XR_TYPE_VIEW_LOCATE_INFO};
+                locateInfo.space = baseSpace;
+                locateInfo.viewConfigurationType = vct;
+                locateInfo.displayTime = baseTime;
+
+                XrViewState viewState{XR_TYPE_VIEW_STATE};
+
+                // Note: Cannot use REQUIRE_TWO_CALL for xrLocateViews as it does not support
+                // two-call style for viewCapacityInput.
+                uint32_t viewCount = static_cast<uint32_t>(session.viewConfigurationViewVector.size());
+                std::vector<XrView> views(viewCount, {XR_TYPE_VIEW});
+                REQUIRE(xrLocateViews(session, &locateInfo, &viewState, viewCount, &viewCount, views.data()) == XR_SUCCESS);
+
+                XrSpaceLocation spaceLocation = {XR_TYPE_SPACE_LOCATION};
+                REQUIRE(xrLocateSpace(viewSpace, baseSpace, baseTime, &spaceLocation) == XR_SUCCESS);
+
+                switch (vct) {
+                case XR_VIEW_CONFIGURATION_TYPE_PRIMARY_MONO: {
+                    REQUIRE(views.size() == 1);
+
+                    // spec: tracks the view origin used to generate view transforms for the primary viewer
+                    REQUIRE(calculateViewCentroid(views) == Vector::Approx(spaceLocation.pose.position));
+                    break;
+                }
+                case XR_VIEW_CONFIGURATION_TYPE_PRIMARY_STEREO: {
+                    REQUIRE(views.size() == 2);
+
+                    if (views[0].pose.position == views[1].pose.position) {
+                        WARN("stereo views with same position is surprising");
+                    }
+
+                    // spec: (or centroid of view origins if stereo)
+                    REQUIRE(calculateViewCentroid(views) == Vector::Approx(spaceLocation.pose.position));
+                    break;
+                }
+                case XR_VIEW_CONFIGURATION_TYPE_PRIMARY_STEREO_WITH_FOVEATED_INSET: {
+                    REQUIRE(views.size() == 4);
+
+                    // spec: "View index 0 must represent the left eye and view index 1 must represent the right
+                    //        eye as specified in XR_VIEW_CONFIGURATION_TYPE_PRIMARY_STEREO view configuration"
+
+                    // so I think we can interpret that the two stereo views must behave as STEREO
+                    std::vector<XrView> stereoViews{views[0], views[1]};
+                    REQUIRE(calculateViewCentroid(stereoViews) == spaceLocation.pose.position);
+
+                    // spec does not strictly require the inset views centroid to be equal to VIEW but it would be
+                    // surprising if it wasn't.
+                    if (!Vector::ApproxEqual(calculateViewCentroid(views), spaceLocation.pose.position)) {
+                        WARN("XR_VIEW_CONFIGURATION_TYPE_PRIMARY_STEREO_WITH_FOVEATED_INSET centroid does not match VIEW space");
+                    }
+                    break;
+                }
+                case XR_VIEW_CONFIGURATION_TYPE_SECONDARY_MONO_FIRST_PERSON_OBSERVER_MSFT: {
+                    // nothing to assert here
+                    break;
+                }
+                default:
+                    WARN("Unknown view configuration");
+                    break;
                 }
             }
         }

@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2025 The Khronos Group Inc.
+// Copyright (c) 2019-2026 The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -14,6 +14,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "catch2/catch_config.hpp"
+#include "catch2/interfaces/catch_interfaces_config.hpp"
 #define CATCH_CONFIG_NOSTDOUT
 
 #include "conformance_framework.h"
@@ -669,7 +671,11 @@ XrcResult XRAPI_CALL xrcRunConformanceTests(const ConformanceLaunchSettings* con
 {
     // Reset the state of the catch session since catch session must be reused across multiple calls
     // and cannot be recreated.
-    CreateOrGetCatchSession().useConfigData({});
+    // Force declaration order for easier comparison of results - this does mean the help will be incorrect in what the default is,
+    // but that's acceptable
+    Catch::ConfigData defaultConfigData{};
+    defaultConfigData.runOrder = Catch::TestRunOrder::Declared;
+    CreateOrGetCatchSession().useConfigData(defaultConfigData);
     CreateOrGetCatchSession().cli(Catch::makeCommandLineParser(CreateOrGetCatchSession().configData()));
 
     ResetGlobalData();

@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2025 The Khronos Group Inc.
+// Copyright (c) 2017-2026 The Khronos Group Inc.
 // Copyright (c) 2017-2019 Valve Corporation
 // Copyright (c) 2017-2019 LunarG, Inc.
 //
@@ -51,7 +51,7 @@ namespace Conformance
                                                        const XrDebugUtilsMessengerCallbackDataEXT*, void* userData)
     {
         REQUIRE(userData == nullptr);
-        FAIL();
+        FAIL_CHECK("This debug callback should not be called");
         return XR_FALSE;
     };
 

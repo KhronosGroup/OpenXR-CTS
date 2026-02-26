@@ -1,0 +1,8 @@
+---
+- issue.2108.gl
+- mr.4006.gl
+- mr.4146.gl
+- issue.2659.gl
+- mr.4152.gl
+---
+- Improvement: Update Catch2 test library from 3.7.1 to 3.11.0, making minor test changes as required.

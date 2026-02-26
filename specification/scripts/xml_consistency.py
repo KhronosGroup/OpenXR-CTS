@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 #
 # Copyright (c) 2019 Collabora, Ltd.
-# Copyright (c) 2018-2025 The Khronos Group Inc.
+# Copyright (c) 2018-2026 The Khronos Group Inc.
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -164,7 +164,10 @@ class Checker(XMLChecker):
                 "XR_ERROR_ENVIRONMENT_BLEND_MODE_UNSUPPORTED",
             "XrCompositionLayerBaseHeader": ("XR_ERROR_LAYER_INVALID"),
             "XrPath": ("XR_ERROR_PATH_INVALID", "XR_ERROR_PATH_UNSUPPORTED"),
-            "XrTime": "XR_ERROR_TIME_INVALID"
+            "XrTime": "XR_ERROR_TIME_INVALID",
+            "XrSpatialCapabilityEXT": "XR_ERROR_SPATIAL_CAPABILITY_UNSUPPORTED_EXT",
+            "XrSpatialEntityIdEXT": "XR_ERROR_SPATIAL_ENTITY_ID_INVALID_EXT",
+            "XrSpatialBufferIdEXT": "XR_ERROR_SPATIAL_BUFFER_ID_INVALID_EXT"
         }
         forward_only = {
             # Like the above, but these are only valid in the

@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 #
-# Copyright 2013-2025 The Khronos Group Inc.
+# Copyright 2013-2026 The Khronos Group Inc.
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -100,7 +100,7 @@ def makeGenOpts(args):
     # Copyright text prefixing all headers (list of strings).
     prefixStrings = [
         '/*',
-        '** Copyright (c) 2017-2025 The Khronos Group Inc.',
+        '** Copyright (c) 2017-2026 The Khronos Group Inc.',
         '**',
         '** Licensed under the Apache License, Version 2.0 (the "License");',
         '** you may not use this file except in compliance with the License.',
@@ -189,7 +189,9 @@ def makeGenOpts(args):
                 emitExtensions=emitExtensionsPat,
                 apicall='XRAPI_ATTR ',
                 apientry='XRAPI_CALL ',
-                apientryp='XRAPI_PTR *',)
+                apientryp='XRAPI_PTR *',
+                combineExtendedReturnCodes=False,
+            )
         ]
 
         genOpts['gen_dispatch.h'] = [

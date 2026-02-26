@@ -1,6 +1,6 @@
 #!/usr/bin/env python3 -i
 #
-# Copyright (c) 2017-2025 The Khronos Group Inc.
+# Copyright (c) 2017-2026 The Khronos Group Inc.
 # Copyright (c) 2017-2019 Valve Corporation
 # Copyright (c) 2017-2019 LunarG, Inc.
 #
@@ -67,7 +67,7 @@ class ConformanceGenerator(AutomaticSourceOutputGenerator):
                 if x.command == cur_cmd.name)
 
     def allReturnCodesForCommand(self, cur_cmd):
-        return cur_cmd.return_values + list(self.extensionReturnCodesForCommand(cur_cmd))
+        return cur_cmd.return_values + [ext.value for ext in self.extensionReturnCodesForCommand(cur_cmd)]
 
     def beginFeature(self, interface, emit):
         super().beginFeature(interface, emit)

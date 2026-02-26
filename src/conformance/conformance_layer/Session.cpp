@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2025 The Khronos Group Inc.
+// Copyright (c) 2019-2026 The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -198,7 +198,7 @@ XrResult ConformanceHooks::xrCreateSession(HandleState* const handleState, XrIns
 
         const XrBaseInStructure* graphicsBinding = NULL;
         ForEachExtension(createInfo, [&](const XrBaseInStructure* next) {
-            constexpr std::array<XrStructureType, 9> graphicsBindings{{
+            constexpr std::array<XrStructureType, 10> graphicsBindings{{
                 XR_TYPE_GRAPHICS_BINDING_OPENGL_WIN32_KHR,
                 XR_TYPE_GRAPHICS_BINDING_OPENGL_XLIB_KHR,
                 XR_TYPE_GRAPHICS_BINDING_OPENGL_XCB_KHR,
@@ -208,6 +208,7 @@ XrResult ConformanceHooks::xrCreateSession(HandleState* const handleState, XrIns
                 XR_TYPE_GRAPHICS_BINDING_D3D11_KHR,
                 XR_TYPE_GRAPHICS_BINDING_D3D12_KHR,
                 XR_TYPE_GRAPHICS_BINDING_METAL_KHR,
+                XR_TYPE_GRAPHICS_BINDING_EGL_MNDX,
             }};
 
             const auto it = std::find_if(graphicsBindings.begin(), graphicsBindings.end(),

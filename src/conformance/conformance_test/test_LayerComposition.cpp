@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2025 The Khronos Group Inc.
+// Copyright (c) 2019-2026 The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -1885,6 +1885,15 @@ namespace Conformance
         const XrSpace localSpace = compositionHelper.CreateReferenceSpace(XR_REFERENCE_SPACE_TYPE_LOCAL);
 
         const std::vector<XrViewConfigurationView> viewProperties = compositionHelper.EnumerateConfigurationViews();
+
+        {
+            // Check early for supported depth swapchain format
+            XrSwapchainCreateInfo depthSwapchainCreateInfo = compositionHelper.DefaultDepthSwapchainCreateInfo(8, 8);
+            if (depthSwapchainCreateInfo.format == -1) {
+                // no depth format available for testing
+                SKIP("Cannot test without a depth swapchain format");
+            }
+        }
 
         std::vector<XrSwapchainCreateInfo> colorSwapchainCreateInfo;
         std::vector<XrSwapchainCreateInfo> depthSwapchainCreateInfo;

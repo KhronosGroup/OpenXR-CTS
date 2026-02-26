@@ -1,4 +1,4 @@
-# Copyright (c) 2017-2025 The Khronos Group Inc.
+# Copyright (c) 2017-2026 The Khronos Group Inc.
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -128,7 +128,7 @@ elseif(ANDROID AND INSTALL_TO_ARCHITECTURE_PREFIXES)
         )
     endif()
 
-elseif(NOT ANDROID)
+else()
     include(GNUInstallDirs)
 endif()
 

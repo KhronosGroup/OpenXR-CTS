@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2025 The Khronos Group Inc.
+// Copyright (c) 2019-2026 The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -73,7 +73,7 @@ namespace Conformance
         case XR_VIEW_CONFIGURATION_TYPE_PRIMARY_QUAD_VARJO:
             return 4;
         default:
-            FAIL("Unknown view configuration type, update function");
+            FAIL_CHECK("Unknown view configuration type, update function");
         }
         return 0;
     }
@@ -141,6 +141,7 @@ namespace Conformance
         }
 
         uint32_t viewCount = viewCountForConfiguration(viewConfigurationType);
+        REQUIRE(viewCount != 0);
         const auto twoCallData = getTwoCallStructData<XrVisibilityMaskKHR>();
         XrVisibilityMaskTypeKHR maskType =
             GENERATE(XR_VISIBILITY_MASK_TYPE_HIDDEN_TRIANGLE_MESH_KHR, XR_VISIBILITY_MASK_TYPE_VISIBLE_TRIANGLE_MESH_KHR,
@@ -289,7 +290,6 @@ namespace Conformance
         if (visibilityMask.indexCountOutput == 0) {
             // no mask?
             FAIL("Got zero indices, expected to get the mask");
-            return {mesh, bgColor};
         }
         std::vector<XrVector2f> vertexVector(visibilityMask.vertexCountOutput);
         std::vector<uint32_t> indexVector(visibilityMask.indexCountOutput);
