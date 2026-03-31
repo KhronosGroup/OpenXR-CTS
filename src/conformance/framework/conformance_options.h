@@ -151,27 +151,8 @@ namespace Conformance
         static const char* AvailableViewConfigurations();
         /// @}
 
-        /// @name Environment Blend Mode
-        /// Valid values include "opaque" "additive" "alphablend". See enum XrEnvironmentBlendMode.
-        /// Default is invalid (0), intended to be replaced by @ref PopulateDefaultEnvironmentBlendMode
-        /// @{
-
-        /// String value matching @ref environmentBlendModeValue.
-        /// To assign, call @ref SetEnvironmentBlendMode
-        std::string environmentBlendMode{};
-
-        /// Enumerant value matching @ref environmentBlendMode.
-        /// To assign, call @ref SetEnvironmentBlendMode
         /// @ref PopulateDefaultEnvironmentBlendMode sets to the first enumerated value if still at the (invalid) default of 0.
         XrEnvironmentBlendMode environmentBlendModeValue{(XrEnvironmentBlendMode)0};
-
-        /// Set the value of @ref environmentBlendMode and @ref environmentBlendModeValue
-        /// Valid values include "opaque" "additive" "alphablend". See enum XrEnvironmentBlendMode.
-        /// @return false if a parsing error
-        bool SetEnvironmentBlendMode(const std::string& arg);
-
-        /// The recognized strings accepted by @ref SetEnvironmentBlendMode, delimited by |, for CLI usage help.
-        static const char* AvailableEnvironmentBlendModes();
 
         /// If the environment blend mode was not set, auto-detect.
         ///

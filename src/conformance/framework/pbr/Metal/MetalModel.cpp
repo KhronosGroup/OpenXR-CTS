@@ -25,6 +25,8 @@ namespace Pbr
     MetalModelInstance::MetalModelInstance(Pbr::MetalResources& pbrResources, std::shared_ptr<const Model> model)
         : ModelInstance(std::move(model))
     {
+        // note: ModelToWorld is encoded in the command buffer during MetalResources::Bind, so nothing to do here
+
         const auto& nodes = GetModel().GetNodes();
 
         XrMatrix4x4f identityMatrix;
@@ -39,7 +41,7 @@ namespace Pbr
         m_modelTransformsStructuredBuffer = NS::TransferPtr(pbrResources.GetDevice()->newBuffer(size, MTL::ResourceStorageModeManaged));
     }
 
-    void MetalModelInstance::Render(Pbr::MetalResources const& pbrResources, MTL::RenderCommandEncoder* renderCommandEncoder,
+    void MetalModelInstance::Render(Pbr::MetalResources& pbrResources, MTL::RenderCommandEncoder* renderCommandEncoder,
                                     MTL::PixelFormat colorRenderTargetFormat, MTL::PixelFormat depthRenderTargetFormat)
     {
         renderCommandEncoder->pushDebugGroup(MTLSTR("MetalModel::Render"));

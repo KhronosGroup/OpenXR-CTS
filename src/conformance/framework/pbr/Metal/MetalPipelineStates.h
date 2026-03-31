@@ -35,21 +35,26 @@ namespace Pbr
     {
     public:
         /// Note: Make sure your shaders are global/static!
-        MetalPipelineStates(MTL::Function* vertexFunction, MTL::Function* fragmentFunction, MTL::VertexDescriptor* vertexDescriptor)
-            : m_vertexFunction(NS::RetainPtr(vertexFunction))
-            , m_fragmentFunction(NS::RetainPtr(fragmentFunction))
+        MetalPipelineStates(MTL::Function* vertexFunctionPbr, MTL::Function* fragmentFunctionPbr, MTL::Function* vertexFunctionUnlit,
+                            MTL::Function* fragmentFunctionUnlit, MTL::VertexDescriptor* vertexDescriptor)
+            : m_vertexFunctionPbr(NS::RetainPtr(vertexFunctionPbr))
+            , m_fragmentFunctionPbr(NS::RetainPtr(fragmentFunctionPbr))
+            , m_vertexFunctionUnlit(NS::RetainPtr(vertexFunctionUnlit))
+            , m_fragmentFunctionUnlit(NS::RetainPtr(fragmentFunctionUnlit))
             , m_vertexDescriptor(NS::RetainPtr(vertexDescriptor))
         {
         }
 
         MetalPipelineStateBundle GetOrCreatePipelineState(const MetalResources& pbrResources, MTL::PixelFormat colorRenderTargetFormat,
-                                                          MTL::PixelFormat depthRenderTargetFormat, BlendState blendState,
+                                                          MTL::PixelFormat depthRenderTargetFormat, Shader shader, BlendState blendState,
                                                           DepthDirection depthDirection);
 
     private:
         using PipelineStateKey = std::tuple<MTL::PixelFormat, MTL::PixelFormat, BlendState, DepthDirection>;
-        NS::SharedPtr<MTL::Function> m_vertexFunction;
-        NS::SharedPtr<MTL::Function> m_fragmentFunction;
+        NS::SharedPtr<MTL::Function> m_vertexFunctionPbr;
+        NS::SharedPtr<MTL::Function> m_fragmentFunctionPbr;
+        NS::SharedPtr<MTL::Function> m_vertexFunctionUnlit;
+        NS::SharedPtr<MTL::Function> m_fragmentFunctionUnlit;
         NS::SharedPtr<MTL::VertexDescriptor> m_vertexDescriptor;
 
         std::map<PipelineStateKey, MetalPipelineStateBundle> m_pipelineStates;

@@ -18,6 +18,9 @@
 #include "IGraphicsValidator.h"
 #include "VulkanLayer.h"
 
+#include <map>
+#include <thread>
+
 #if defined(XR_USE_GRAPHICS_API_VULKAN)
 
 namespace Conformance
@@ -29,7 +32,7 @@ namespace Conformance
         VkDevice device;
         uint32_t queueFamilyIndex;
         uint32_t queueIndex;
-        bool allowAccessVkQueue;
+        std::map<std::thread::id, bool> allowAccessVkQueue;
 
         VulkanGraphicsValidator(const XrGraphicsBindingVulkanKHR* graphicsBinding)
             : instance(graphicsBinding->instance)
@@ -56,6 +59,25 @@ namespace Conformance
             (void)swapchainFormat;
             (void)count;
             (void)images;
+
+            const VkFormat expectedFormat = (VkFormat)swapchainFormat;
+
+            const XrSwapchainImageVulkanKHR* const vkImages = reinterpret_cast<const XrSwapchainImageVulkanKHR*>(images);
+            for (uint32_t i = 0; i < count; ++i) {
+                if (vkImages[i].type != XR_TYPE_SWAPCHAIN_IMAGE_VULKAN_KHR) {
+                    conformanceHooks->ConformanceFailure(XR_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT, "xrEnumerateSwapchainImages",
+                                                         "xrEnumerateSwapchainImages failed due to image header structure not Vulkan: %d",
+                                                         vkImages[i].type);
+                }
+
+                const VkFormat imgFormat = GetVkImageFormat(vkImages[i].image);
+                if (imgFormat != expectedFormat) {
+                    conformanceHooks->ConformanceFailure(
+                        XR_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT, "xrEnumerateSwapchainImages",
+                        "xrEnumerateSwapchainImages failed: VkImage format is not expected format %d: Swapchain : %d", expectedFormat,
+                        imgFormat);
+                }
+            }
         }
         void ValidateUsageFlags(ConformanceHooksBase* conformanceHooks, uint64_t usageFlags, uint32_t count,
                                 XrSwapchainImageBaseHeader* images) const override
@@ -69,20 +91,22 @@ namespace Conformance
 
         void AllowVkQueueAccess(bool allowed) override
         {
-            allowAccessVkQueue = allowed;
+            allowAccessVkQueue[std::this_thread::get_id()] = allowed;
             ResetVkQueueAccess(device, queueFamilyIndex, queueIndex);
         }
 
         bool CheckState() const override
         {
-            bool ret = true;
-            if (allowAccessVkQueue) {
-                // VkQueue access is allowed, no need to check further
-                return true;
+            const bool checkAccess = !allowAccessVkQueue.at(std::this_thread::get_id());
+            if (checkAccess) {
+                bool accessed = CheckVkQueueAccess(device, queueFamilyIndex, queueIndex);
+                ResetVkQueueAccess(device, queueFamilyIndex, queueIndex);
+                if (accessed) {
+                    return false;
+                }
             }
-            ret = !CheckVkQueueAccess(device, queueFamilyIndex, queueIndex);
-            ResetVkQueueAccess(device, queueFamilyIndex, queueIndex);
-            return ret;
+
+            return true;
         }
     };
 

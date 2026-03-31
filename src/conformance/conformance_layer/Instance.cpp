@@ -25,6 +25,7 @@
 #include <openxr/openxr_reflection_parent_structs.h>
 #include <atomic>
 #include <cstdint>
+#include <map>
 
 namespace instance
 {
@@ -191,6 +192,7 @@ bool ConformanceHooks::checkTwoCallIdiomFunc(const char* function, XrResult resu
 #define VALIDATE_EVENT_QUATERNION(value) ValidateXrQuaternion(this, value, #value, "xrPollEvent")
 #define VALIDATE_EVENT_VECTOR3F(value) ValidateXrVector3f(this, value, #value, "xrPollEvent")
 #define VALIDATE_EVENT_XRENUM(value) ValidateXrEnum(this, value, #value, "xrPollEvent")
+#define VALIDATE_EVENT_XRSYSTEMID(value) ValidateXrSystemId(this, value, #value, "xrPollEvent")
 
 void ConformanceHooks::checkEventPayload(const XrEventDataEventsLost* data)
 {
@@ -248,6 +250,26 @@ void ConformanceHooks::checkEventPayload(const XrEventDataSpatialAnchorCreateCom
 void ConformanceHooks::checkEventPayload(const XrEventDataUserPresenceChangedEXT* data)
 {
     VALIDATE_EVENT_XRBOOL32(data->isUserPresent);
+}
+
+void ConformanceHooks::checkEventPayload(const XrEventDataViewConfigurationViewsChangedEXT* data)
+{
+    VALIDATE_EVENT_XRSYSTEMID(data->systemId);
+    VALIDATE_EVENT_XRENUM(data->viewConfigurationType);
+
+    using namespace std::chrono;
+    static std::map<XrViewConfigurationType, time_point<steady_clock>> lastUpdateTimeMap{};
+    auto& lastUpdateTime = lastUpdateTimeMap[data->viewConfigurationType];
+
+    if (lastUpdateTime.time_since_epoch().count() != 0) {
+        // Ensure that this event is not raised at a rate faster than 1Hz, as per the spec.
+        auto now = steady_clock::now();
+        auto duration = duration_cast<seconds>(now - lastUpdateTime);
+        NONCONFORMANT_IF(duration <= seconds(1),
+                         "XrEventDataViewConfigurationViewsChangedEXT raised faster than 1Hz for a single view configuration");
+    }
+
+    lastUpdateTime = steady_clock::now();
 }
 
 XrResult ConformanceHooks::xrGetSystemProperties(HandleState* const handleState, XrInstance instance, XrSystemId systemId,

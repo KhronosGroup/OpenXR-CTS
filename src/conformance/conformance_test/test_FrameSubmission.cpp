@@ -27,6 +27,7 @@
 #include <openxr/openxr_reflection.h>
 
 #include <algorithm>
+#include <atomic>
 #include <condition_variable>
 #include <queue>
 #include <thread>
@@ -332,7 +333,7 @@ namespace Conformance
         ns totalFrameDisplayPeriod(0), totalWaitTime(0), totalBeginTime(0);
         Stopwatch frameLoopTimer;
 
-        XrResult appThreadResult = XR_SUCCESS;
+        std::atomic<XrResult> appThreadResult{XR_SUCCESS};
 
         auto appThread = std::thread([&]() {
             ATTACH_THREAD;

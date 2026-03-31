@@ -31,7 +31,7 @@ namespace Pbr
         MetalModelInstance(Pbr::MetalResources& pbrResources, std::shared_ptr<const Model> model);
 
         /// Render the model.
-        void Render(Pbr::MetalResources const& pbrResources, MTL::RenderCommandEncoder* renderCommandEncoder,
+        void Render(Pbr::MetalResources& pbrResources, MTL::RenderCommandEncoder* renderCommandEncoder,
                     MTL::PixelFormat colorRenderTargetFormat, MTL::PixelFormat depthRenderTargetFormat);
 
     private:

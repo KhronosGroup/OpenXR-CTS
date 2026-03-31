@@ -94,13 +94,17 @@ float microfacetDistribution(float NdotH, float alphaRoughness)
 
 float4 main(PSInputPbr input, bool isFrontFace : SV_IsFrontFace) : SV_TARGET
 {
-    // Roughness is stored in the 'g' channel, metallic is stored in the 'b' channel.
-    // This layout intentionally reserves the 'r' channel for (optional) occlusion map data
-    const float3 mrSample = MetallicRoughnessTexture.Sample(MetallicRoughnessSampler, input.TexCoord0);
     const float4 baseColor = BaseColorTexture.Sample(BaseColorSampler, input.TexCoord0) * input.Color0 * BaseColorFactor;
 
     // Discard if below alpha cutoff.
     clip(baseColor.a - AlphaCutoff);
+
+#ifdef UNLIT
+    float3 color = baseColor;
+#else  // UNLIT
+    // Roughness is stored in the 'g' channel, metallic is stored in the 'b' channel.
+    // This layout intentionally reserves the 'r' channel for (optional) occlusion map data
+    const float3 mrSample = MetallicRoughnessTexture.Sample(MetallicRoughnessSampler, input.TexCoord0);
 
     const float metallic = saturate(mrSample.b * MetallicFactor);
     const float perceptualRoughness = clamp(mrSample.g * RoughnessFactor, MinRoughness, 1.0);
@@ -158,6 +162,7 @@ float4 main(PSInputPbr input, bool isFrontFace : SV_IsFrontFace) : SV_TARGET
 
     const float3 emissive = EmissiveTexture.Sample(EmissiveSampler, input.TexCoord0) * EmissiveFactor;
     color += emissive;
+#endif // UNLIT
 
     return float4(color, baseColor.a);
 }

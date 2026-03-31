@@ -24,6 +24,7 @@
 #include "RGBAImage.h"
 #include "pbr/GltfLoader.h"
 #include "pbr/PbrModel.h"
+#include "pbr/PbrMaterial.h"
 #include "utilities/xr_math_operators.h"
 
 #include <openxr/openxr.h>
@@ -169,21 +170,6 @@ namespace Conformance
         bool visible;
     };
 
-    /// A drawable GLTF model, consisting of a reference to plugin-specific data for a glTF (PBR) model instance, pose, scale, and node/parameter pairs.
-    struct GLTFDrawable
-    {
-        GLTFModelInstanceHandle handle;
-        DrawableParams params;
-
-        // or unordered_map, probably not significant
-        std::map<NodeHandle, NodeParams> nodesAndParams;
-
-        explicit GLTFDrawable(GLTFModelInstanceHandle handle, XrPosef pose = Pose::Identity, XrVector3f scale = {1.0, 1.0, 1.0})
-            : handle(handle), params(pose, scale)
-        {
-        }
-    };
-
     // Forward-declare
     struct SwapchainCreateTestParameters;
 
@@ -202,7 +188,7 @@ namespace Conformance
             return *this;
         }
 
-        RenderParams& Draw(span<const GLTFDrawable> glTFs_)
+        RenderParams& Draw(span<const GLTFModelInstanceHandle> glTFs_)
         {
             glTFs = glTFs_;
             return *this;
@@ -210,7 +196,7 @@ namespace Conformance
 
         span<const Cube> cubes{};
         span<const MeshDrawable> meshes{};
-        span<const GLTFDrawable> glTFs{};
+        span<const GLTFModelInstanceHandle> glTFs{};
     };
 
 #define IGRAPHICSPLUGIN_UNIMPLEMENTED_METHOD() \
@@ -371,7 +357,17 @@ namespace Conformance
         {
             return LoadGLTF(Gltf::ModelBuilder(tinygltfModel));
         }
-        virtual GLTFModelHandle LoadGLTF(Gltf::ModelBuilder&& modelBuilder) = 0;
+        GLTFModelHandle LoadGLTF(Gltf::ModelBuilder&& modelBuilder)
+        {
+            std::shared_ptr<Pbr::Model> model;
+            WithGltfBuilder([&](Pbr::IGltfBuilder& gltfBuilder) { model = modelBuilder.Build(gltfBuilder); });
+            return RegisterPbrModel(std::move(model));
+        }
+        /// Lower-level function to create and access an IGltfBuilder directly. Not thread-safe.
+        virtual void WithGltfBuilder(const std::function<void(Pbr::IGltfBuilder&)>& func) = 0;
+        /// Lower-level function to register a created Pbr::Model with the plugin for later use,
+        /// and to avoid accidentally holding onto it after shutdown of the plugin.
+        virtual GLTFModelHandle RegisterPbrModel(std::shared_ptr<Pbr::Model> model) = 0;
 
         /// Get the underlying Pbr::Model associated with the supplied handle.
         virtual std::shared_ptr<Pbr::Model> GetPbrModel(GLTFModelHandle handle) const = 0;
@@ -380,6 +376,52 @@ namespace Conformance
 
         /// Get a reference to the base interface for a given ModelInstance from its handle
         virtual Pbr::ModelInstance& GetModelInstance(GLTFModelInstanceHandle handle) = 0;
+
+        /// Helper for transforming a Geometry::Vertex to a Pbr::Vertex that will render the same under the unlit shader
+        static Pbr::Vertex SimpleVertexToUnlit(const Geometry::Vertex& v)
+        {
+            return Pbr::Vertex{
+                v.Position, XrVector3f{}, XrVector4f{}, XrColor4f{v.Color.x, v.Color.y, v.Color.z, 1.0f}, XrVector2f{}, Pbr::RootNodeIndex,
+            };
+        }
+
+        /// Convenience function to make a model that will render using the PBR backend's unlit shader.
+        GLTFModelHandle MakeUnlitMeshPbr(std::vector<uint32_t> idx, std::vector<Pbr::Vertex> vtx,
+                                         Pbr::FillMode fillMode = Pbr::FillMode::Solid)
+        {
+            std::shared_ptr<Pbr::Model> pbrModel = std::make_shared<Pbr::Model>();
+            WithGltfBuilder([&](Pbr::IGltfBuilder& gltfBuilder) {
+                auto pbrMaterial = gltfBuilder.CreateFlatMaterial({1.0f, 1.0f, 1.0f, 1.0f}, 0.0f, 0.0f, {0.0f, 0.0f, 0.0f});
+                pbrMaterial->Name = "MakeUnlitMeshPbr material";
+                pbrMaterial->SetShader(Pbr::Shader::Unlit);
+                pbrMaterial->SetFillMode(fillMode);
+
+                std::set<Pbr::NodeIndex_t> nodeIndices = {Pbr::RootNodeIndex};
+
+                Pbr::PrimitiveHandle primitive =
+                    gltfBuilder.MakePrimitive(Pbr::PrimitiveBuilder{std::move(vtx), std::move(idx), std::move(nodeIndices)}, pbrMaterial);
+                pbrModel->AddPrimitive(primitive);
+            });
+
+            return RegisterPbrModel(std::move(pbrModel));
+        }
+
+        /// Convenience function to update the only primitive in a model. (Throws if there is not exactly one.)
+        void UpdateUnlitMeshPbr(GLTFModelHandle handle, std::vector<uint32_t> idx, std::vector<Pbr::Vertex> vtx)
+        {
+            std::shared_ptr<Pbr::Model> model = GetPbrModel(handle);
+            if (model->GetPrimitiveCount() != 1) {
+                throw std::logic_error("unexpected primitive count in call to UpdateUnlitMeshPbr: " +
+                                       std::to_string(model->GetPrimitiveCount()));
+            }
+            Pbr::PrimitiveHandle primitiveHandle = model->GetPrimitiveHandles()[0];
+
+            if (model->GetNodeCount() != 1) {
+                throw std::logic_error("unexpected node count in call to UpdateUnlitMeshPbr: " + std::to_string(model->GetNodeCount()));
+            }
+
+            WithGltfBuilder([&](Pbr::IGltfBuilder& gltfBuilder) { gltfBuilder.UpdatePrimitive(primitiveHandle, idx, vtx); });
+        }
 
         /// Convenience helper function to make a mesh that is our standard cube (with R, G, B faces along X, Y, Z, respectively)
         MeshHandle MakeCubeMesh()

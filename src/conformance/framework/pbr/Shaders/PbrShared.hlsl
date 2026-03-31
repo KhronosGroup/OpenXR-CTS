@@ -9,8 +9,10 @@
 struct PSInputPbr
 {
     float4 PositionProj : SV_POSITION;
+#ifndef UNLIT
     float3 PositionWorld: POSITION1;
     float3x3 TBN        : TANGENT;
+#endif // not UNLIT
     float2 TexCoord0    : TEXCOORD0;
     float4 Color0       : COLOR0;
 };

@@ -42,7 +42,7 @@ namespace Pbr
                         std::shared_ptr<ScopedGLSampler> sampler = nullptr);
 
         /// Bind this material to current context.
-        void Bind(const GLResources& pbrResources) const;
+        void Bind(GLResources& pbrResources) const;
 
         std::string Name;
         bool Hidden{false};

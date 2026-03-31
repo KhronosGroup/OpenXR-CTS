@@ -44,7 +44,7 @@ namespace Pbr
                         _In_opt_ ID3D11SamplerState* sampler = nullptr);
 
         /// Bind this material to current context.
-        void Bind(_In_ ID3D11DeviceContext* context, const D3D11Resources& pbrResources) const;
+        void Bind(_In_ ID3D11DeviceContext* context, D3D11Resources& pbrResources) const;
 
         std::string Name;
         bool Hidden{false};

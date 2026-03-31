@@ -12,6 +12,7 @@
 #include "PbrCommon.h"
 #include "utilities/vulkan_utils.h"
 
+#include <nonstd/span.hpp>
 #include <vulkan/vulkan_core.h>
 
 #include <cstdint>
@@ -21,6 +22,8 @@
 
 namespace Pbr
 {
+    using nonstd::span;
+
     struct VulkanMaterial;
     struct VulkanResources;
 
@@ -34,6 +37,8 @@ namespace Pbr
                         std::vector<NodeIndex_t> nodeIndices);
         VulkanPrimitive(Pbr::VulkanResources const& pbrResources, const Pbr::PrimitiveBuilder& primitiveBuilder,
                         const std::shared_ptr<Pbr::VulkanMaterial>& material);
+
+        void UpdateBuffers(span<const uint32_t> idx, span<const Pbr::Vertex> vtx);
 
         /// Get the material for the primitive.
         const std::shared_ptr<VulkanMaterial>& GetMaterial() const
@@ -63,7 +68,7 @@ namespace Pbr
         VulkanPrimitive Clone(Pbr::VulkanResources const& pbrResources) const;
 
     private:
-        Conformance::VertexBuffer<Vertex, uint32_t> m_vertexAndIndexBuffer;
+        Conformance::VertexBuffer<Vertex, uint32_t> m_vertexAndIndexBuffer{};
         std::shared_ptr<VulkanMaterial> m_material;
         std::vector<NodeIndex_t> m_nodeIndices;
     };

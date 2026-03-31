@@ -18,6 +18,8 @@
 
 using namespace DirectX;
 
+using nonstd::span;
+
 namespace
 {
     UINT GetPbrVertexByteSize(size_t size)
@@ -29,13 +31,12 @@ namespace
         return (UINT)(sizeof(decltype(Pbr::PrimitiveBuilder::Indices)::value_type) * size);
     }
 
-    Microsoft::WRL::ComPtr<ID3D11Buffer> CreateVertexBuffer(_In_ ID3D11Device* device, const Pbr::PrimitiveBuilder& primitiveBuilder,
-                                                            bool updatableBuffers)
+    Microsoft::WRL::ComPtr<ID3D11Buffer> CreateVertexBuffer(_In_ ID3D11Device* device, span<const Pbr::Vertex> vtx, bool updatableBuffers)
     {
         // Create Vertex Buffer
         D3D11_BUFFER_DESC desc{};
         desc.Usage = D3D11_USAGE_DEFAULT;
-        desc.ByteWidth = GetPbrVertexByteSize(primitiveBuilder.Vertices.size());
+        desc.ByteWidth = GetPbrVertexByteSize(vtx.size());
         desc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
 
         if (updatableBuffers) {
@@ -44,20 +45,19 @@ namespace
         }
 
         D3D11_SUBRESOURCE_DATA initData{};
-        initData.pSysMem = primitiveBuilder.Vertices.data();
+        initData.pSysMem = vtx.data();
 
         Microsoft::WRL::ComPtr<ID3D11Buffer> vertexBuffer;
         XRC_CHECK_THROW_HRCMD(device->CreateBuffer(&desc, &initData, vertexBuffer.ReleaseAndGetAddressOf()));
         return vertexBuffer;
     }
 
-    Microsoft::WRL::ComPtr<ID3D11Buffer> CreateIndexBuffer(_In_ ID3D11Device* device, const Pbr::PrimitiveBuilder& primitiveBuilder,
-                                                           bool updatableBuffers)
+    Microsoft::WRL::ComPtr<ID3D11Buffer> CreateIndexBuffer(_In_ ID3D11Device* device, span<const uint32_t> idx, bool updatableBuffers)
     {
         // Create Index Buffer
         D3D11_BUFFER_DESC desc{};
         desc.Usage = D3D11_USAGE_DEFAULT;
-        desc.ByteWidth = GetPbrIndexByteSize(primitiveBuilder.Indices.size());
+        desc.ByteWidth = GetPbrIndexByteSize(idx.size());
         desc.BindFlags = D3D11_BIND_INDEX_BUFFER;
 
         if (updatableBuffers) {
@@ -66,7 +66,7 @@ namespace
         }
 
         D3D11_SUBRESOURCE_DATA initData{};
-        initData.pSysMem = primitiveBuilder.Indices.data();
+        initData.pSysMem = idx.data();
 
         Microsoft::WRL::ComPtr<ID3D11Buffer> indexBuffer;
         XRC_CHECK_THROW_HRCMD(device->CreateBuffer(&desc, &initData, indexBuffer.ReleaseAndGetAddressOf()));
@@ -90,10 +90,15 @@ namespace Pbr
     D3D11Primitive::D3D11Primitive(Pbr::D3D11Resources const& pbrResources, const Pbr::PrimitiveBuilder& primitiveBuilder,
                                    const std::shared_ptr<Pbr::D3D11Material>& material, bool updatableBuffers)
         : D3D11Primitive((UINT)primitiveBuilder.Indices.size(),
-                         CreateIndexBuffer(pbrResources.GetDevice().Get(), primitiveBuilder, updatableBuffers),
-                         CreateVertexBuffer(pbrResources.GetDevice().Get(), primitiveBuilder, updatableBuffers), std::move(material),
-                         primitiveBuilder.NodeIndicesVector())
+                         primitiveBuilder.Indices.empty()
+                             ? nullptr
+                             : CreateIndexBuffer(pbrResources.GetDevice().Get(), primitiveBuilder.Indices, updatableBuffers),
+                         primitiveBuilder.Indices.empty()
+                             ? nullptr
+                             : CreateVertexBuffer(pbrResources.GetDevice().Get(), primitiveBuilder.Vertices, updatableBuffers),
+                         std::move(material), primitiveBuilder.NodeIndicesVector())
     {
+        m_updatable = updatableBuffers;
     }
 
     D3D11Primitive D3D11Primitive::Clone(Pbr::D3D11Resources const& pbrResources) const
@@ -101,42 +106,72 @@ namespace Pbr
         return D3D11Primitive(m_indexCount, m_indexBuffer, m_vertexBuffer, m_material->Clone(pbrResources), m_nodeIndices);
     }
 
-    void D3D11Primitive::UpdateBuffers(_In_ ID3D11Device* device, _In_ ID3D11DeviceContext* context,
-                                       const Pbr::PrimitiveBuilder& primitiveBuilder)
+    void D3D11Primitive::UpdateBuffers(_In_ ID3D11Device* device, _In_ ID3D11DeviceContext* context, span<const uint32_t> idx,
+                                       span<const Pbr::Vertex> vtx)
     {
+        if (idx.empty()) {
+            m_vertexBuffer.Reset();
+            m_indexBuffer.Reset();
+            m_indexCount = 0;
+            return;
+        }
+
         // Update vertex buffer.
         {
-            D3D11_BUFFER_DESC vertDesc;
-            m_vertexBuffer->GetDesc(&vertDesc);
+            bool reusedOldBuffer = false;
 
-            UINT requiredSize = GetPbrVertexByteSize(primitiveBuilder.Vertices.size());
-            if (vertDesc.ByteWidth >= requiredSize) {
-                context->UpdateSubresource(m_vertexBuffer.Get(), 0, nullptr, primitiveBuilder.Vertices.data(), requiredSize, requiredSize);
+            if (m_vertexBuffer != nullptr && m_updatable) {
+                D3D11_BUFFER_DESC vertDesc;
+                m_vertexBuffer->GetDesc(&vertDesc);
+                UINT requiredSize = GetPbrVertexByteSize(vtx.size());
+
+                if (vertDesc.ByteWidth >= requiredSize) {
+                    D3D11_MAPPED_SUBRESOURCE mappedResource = {};
+                    context->Map(m_vertexBuffer.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedResource);
+                    memcpy(mappedResource.pData, vtx.data(), requiredSize);
+                    context->Unmap(m_vertexBuffer.Get(), 0);
+                    reusedOldBuffer = true;
+                }
             }
-            else {
-                m_vertexBuffer = CreateVertexBuffer(device, primitiveBuilder, true);
+
+            if (!reusedOldBuffer) {
+                m_vertexBuffer = CreateVertexBuffer(device, vtx, true);
             }
         }
 
         // Update index buffer.
         {
-            D3D11_BUFFER_DESC idxDesc;
-            m_indexBuffer->GetDesc(&idxDesc);
+            bool reusedOldBuffer = false;
 
-            UINT requiredSize = GetPbrIndexByteSize(primitiveBuilder.Indices.size());
-            if (idxDesc.ByteWidth >= requiredSize) {
-                context->UpdateSubresource(m_indexBuffer.Get(), 0, nullptr, primitiveBuilder.Indices.data(), requiredSize, requiredSize);
-            }
-            else {
-                m_indexBuffer = CreateIndexBuffer(device, primitiveBuilder, true);
+            if (m_indexBuffer != nullptr && m_updatable) {
+                D3D11_BUFFER_DESC idxDesc;
+                m_indexBuffer->GetDesc(&idxDesc);
+                UINT requiredSize = GetPbrIndexByteSize(idx.size());
+
+                if (idxDesc.ByteWidth >= requiredSize) {
+                    D3D11_MAPPED_SUBRESOURCE mappedResource = {};
+                    context->Map(m_indexBuffer.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedResource);
+                    memcpy(mappedResource.pData, idx.data(), requiredSize);
+                    context->Unmap(m_indexBuffer.Get(), 0);
+                    reusedOldBuffer = true;
+                }
             }
 
-            m_indexCount = (UINT)primitiveBuilder.Indices.size();
+            if (!reusedOldBuffer) {
+                m_indexBuffer = CreateIndexBuffer(device, idx, true);
+            }
+
+            m_indexCount = (UINT)idx.size();
         }
+
+        m_updatable = true;
     }
 
     void D3D11Primitive::Render(_In_ ID3D11DeviceContext* context) const
     {
+        if (m_indexCount == 0) {
+            return;
+        }
         const UINT stride = sizeof(Pbr::Vertex);
         const UINT offset = 0;
         ID3D11Buffer* const vertexBuffers[] = {m_vertexBuffer.Get()};

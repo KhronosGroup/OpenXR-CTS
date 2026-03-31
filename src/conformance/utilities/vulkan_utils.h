@@ -686,11 +686,9 @@ namespace Conformance
 
         void Reset()
         {
-            idx.Reset(m_vkDevice);
-            vtx.Reset(m_vkDevice);
+            Deallocate();
             bindDesc = {};
             attrDesc.clear();
-            count = {0, 0};
             m_vkDevice = nullptr;
         }
 
@@ -723,14 +721,21 @@ namespace Conformance
         /// Create and bind the index and vertex buffers.
         /// @pre Call Init()
         template <typename VertexType, typename IndexType>
-        bool Create(uint32_t idxCount, uint32_t vtxCount)
+        void Create(uint32_t idxCount, uint32_t vtxCount)
         {
             idx.Create<IndexType>(m_vkDevice, *m_memAllocator, idxCount, VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
             vtx.Create<VertexType>(m_vkDevice, *m_memAllocator, vtxCount, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
 
             count = {idxCount, vtxCount};
+        }
 
-            return true;
+        /// Deallocate the vertex and index buffers, reverting Create.
+        void Deallocate()
+        {
+            idx.Reset(m_vkDevice);
+            vtx.Reset(m_vkDevice);
+
+            count = {0, 0};
         }
 
         /// Swap the internals with another object.
@@ -784,10 +789,17 @@ namespace Conformance
 
         /// Create and bind the index and vertex buffers.
         /// @pre Call Init()
-        bool Create(uint32_t idxCount, uint32_t vtxCount)
+        void Create(uint32_t idxCount, uint32_t vtxCount)
         {
             bindDesc = c_bindingDesc;
-            return VertexBufferBase::Create<VertexType, IndexType>(idxCount, vtxCount);
+            VertexBufferBase::Create<VertexType, IndexType>(idxCount, vtxCount);
+        }
+
+        /// Deallocate the vertex and index buffers if they exist.
+        void Deallocate()
+        {
+            VertexBufferBase::Deallocate();
+            bindDesc = {};
         }
 
         /// Update the elements of the index buffer using vkMapMemory

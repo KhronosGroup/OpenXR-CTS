@@ -14,6 +14,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "catch2/catch_message.hpp"
 #include "common/xr_linear.h"
 #include "composition_utils.h"
 #include "conformance_framework.h"
@@ -79,25 +80,36 @@ namespace Conformance
         XrSession session = compositionHelper.GetSession();
         InteractionManager& interactionManager = compositionHelper.GetInteractionManager();
         interactionManager.AttachActionSets();
-        compositionHelper.BeginSession();
 
-        const XrSwapchain greenSwapchain = compositionHelper.CreateStaticSwapchainSolidColor(Colors::Green);
-        const XrSwapchain blueSwapchain = compositionHelper.CreateStaticSwapchainSolidColor(Colors::Blue);
-        const XrSwapchain redSwapchain = compositionHelper.CreateStaticSwapchainSolidColor(Colors::Red);
+        for (auto blendMode : compositionHelper.EnumerateEnvironmentBlendModes()) {
+            DYNAMIC_SECTION("QuadOcclusion: " << enum_to_string(blendMode))
+            {
+                compositionHelper.ChangeEnvironmentBlendMode(blendMode);
 
-        const XrSpace viewSpace = compositionHelper.CreateReferenceSpace(XR_REFERENCE_SPACE_TYPE_VIEW);
+                compositionHelper.BeginSession();
 
-        // Each quad is rotated on Y axis by 45 degrees to form an X.
-        // Green is added second so it should draw over the blue quad.
-        const XrQuaternionf blueRot = Quat::FromAxisAngle({0, 1, 0}, DegToRad(-45));
-        interactiveLayerManager.AddLayer(compositionHelper.CreateQuadLayer(blueSwapchain, viewSpace, 1.0f, XrPosef{blueRot, {0, 0, -2}}));
-        const XrQuaternionf greenRot = Quat::FromAxisAngle({0, 1, 0}, DegToRad(45));
-        interactiveLayerManager.AddLayer(compositionHelper.CreateQuadLayer(greenSwapchain, viewSpace, 1.0f, XrPosef{greenRot, {0, 0, -2}}));
-        // Red quad is rotated away from the viewer and should not be visible.
-        const XrQuaternionf redRot = Quat::FromAxisAngle({0, 1, 0}, DegToRad(180));
-        interactiveLayerManager.AddLayer(compositionHelper.CreateQuadLayer(redSwapchain, viewSpace, 1.0f, XrPosef{redRot, {0, 0, -1}}));
+                const XrSwapchain greenSwapchain = compositionHelper.CreateStaticSwapchainSolidColor(Colors::Green);
+                const XrSwapchain blueSwapchain = compositionHelper.CreateStaticSwapchainSolidColor(Colors::Blue);
+                const XrSwapchain redSwapchain = compositionHelper.CreateStaticSwapchainSolidColor(Colors::Red);
 
-        RenderLoop(session, [&](const XrFrameState& frameState) { return interactiveLayerManager.EndFrame(frameState); }).Loop();
+                const XrSpace viewSpace = compositionHelper.CreateReferenceSpace(XR_REFERENCE_SPACE_TYPE_VIEW);
+
+                // Each quad is rotated on Y axis by 45 degrees to form an X.
+                // Green is added second so it should draw over the blue quad.
+                const XrQuaternionf blueRot = Quat::FromAxisAngle({0, 1, 0}, DegToRad(-45));
+                interactiveLayerManager.AddLayer(
+                    compositionHelper.CreateQuadLayer(blueSwapchain, viewSpace, 1.0f, XrPosef{blueRot, {0, 0, -2}}));
+                const XrQuaternionf greenRot = Quat::FromAxisAngle({0, 1, 0}, DegToRad(45));
+                interactiveLayerManager.AddLayer(
+                    compositionHelper.CreateQuadLayer(greenSwapchain, viewSpace, 1.0f, XrPosef{greenRot, {0, 0, -2}}));
+                // Red quad is rotated away from the viewer and should not be visible.
+                const XrQuaternionf redRot = Quat::FromAxisAngle({0, 1, 0}, DegToRad(180));
+                interactiveLayerManager.AddLayer(
+                    compositionHelper.CreateQuadLayer(redSwapchain, viewSpace, 1.0f, XrPosef{redRot, {0, 0, -1}}));
+
+                RenderLoop(session, [&](const XrFrameState& frameState) { return interactiveLayerManager.EndFrame(frameState); }).Loop();
+            }
+        }
     }
 
     namespace SimpleTestLayers
@@ -333,7 +345,7 @@ namespace Conformance
             compositionHelper, "quad_poses.png",
             "Render pairs of quads using similar poses to validate order of operations. The blue/green quads apply a"
             " rotation around the Z axis on an XrSpace and then translate the quad out on the Z axis through the quad"
-            " layer's pose. The purple/yellow quads apply the same translation on the XrSpace and the rotation on the"
+            " layer's pose. The orange/yellow quads apply the same translation on the XrSpace and the rotation on the"
             " quad layer's pose.");
         XrSession session = compositionHelper.GetSession();
         InteractionManager& interactionManager = compositionHelper.GetInteractionManager();
@@ -367,6 +379,143 @@ namespace Conformance
         }
 
         RenderLoop(session, [&](const XrFrameState& frameState) { return interactiveLayerManager.EndFrame(frameState); }).Loop();
+    }
+
+    TEST_CASE("MultipleMutableProjections", "[composition][interactive]")
+    {
+        GlobalData& globalData = GetGlobalData();
+        if (!globalData.IsUsingGraphicsPlugin()) {
+            SKIP("Cannot test without a graphics plugin");
+        }
+
+        CompositionHelper compositionHelper("Layered Mutable FoVs");
+        if (!compositionHelper.GetViewConfigurationProperties().fovMutable) {
+            SKIP("View configuration does not support mutable FoV");
+        }
+
+        XrSession session = compositionHelper.GetSession();
+        InteractionManager& interactionManager = compositionHelper.GetInteractionManager();
+        InteractiveLayerManager interactiveLayerManager(
+            compositionHelper, "projection_mutable_projections.png",
+            "Uses mutable field-of-views to display four different colored squares in quadrants of the display. The colored squares should be laid out in the same order as shown in the image");
+        interactionManager.AttachActionSets();
+        compositionHelper.BeginSession();
+
+        const XrSpace viewSpace = compositionHelper.CreateReferenceSpace(XR_REFERENCE_SPACE_TYPE_VIEW);
+
+        const std::vector<XrViewConfigurationView> viewProperties = compositionHelper.EnumerateConfigurationViews();
+
+        const auto maxRecommendedWidth = std::max_element(viewProperties.begin(), viewProperties.end(),
+                                                          [](const XrViewConfigurationView& l, const XrViewConfigurationView& r) {
+                                                              return l.recommendedImageRectWidth < r.recommendedImageRectWidth;
+                                                          })
+                                             ->recommendedImageRectWidth;
+        const auto maxRecommendedHeight = std::max_element(viewProperties.begin(), viewProperties.end(),
+                                                           [](const XrViewConfigurationView& l, const XrViewConfigurationView& r) {
+                                                               return l.recommendedImageRectHeight < r.recommendedImageRectHeight;
+                                                           })
+                                              ->recommendedImageRectHeight;
+
+        struct LayerInfo
+        {
+            // In screen space
+            XrOffset2Df centerPosition;
+            float scale;
+            XrColor4f color;
+        };
+
+        std::vector<LayerInfo> layerInfos = {{
+            {{.50f, .50f}, 1.f, Colors::Gray},  //base
+            {{.75f, .25f}, .25f, Colors::Black},
+            {{.25f, .25f}, .25f, Colors::Blue},
+            {{.25f, .75f}, .25f, Colors::Yellow},
+            {{.75f, .75f}, .25f, Colors::Green},
+        }};
+
+        struct LayerData
+        {
+            LayerInfo info;
+
+            XrSwapchain swapchain;
+            XrExtent2Di swapchainExtent;
+
+            XrCompositionLayerProjection* projLayer;
+        };
+        std::vector<LayerData> layerDatas = {};
+
+        for (const auto& layerInfo : layerInfos) {
+            layerDatas.push_back({layerInfo});
+            LayerData& layerData = layerDatas.back();
+
+            layerData.swapchainExtent = {
+                static_cast<int32_t>(maxRecommendedWidth),
+                static_cast<int32_t>(maxRecommendedHeight),
+            };
+            layerData.swapchain = compositionHelper.CreateStaticSwapchainSolidColor(layerInfo.color, layerData.swapchainExtent);
+
+            layerData.projLayer = compositionHelper.CreateProjectionLayer(viewSpace);
+            for (uint32_t j = 0; j < layerData.projLayer->viewCount; j++) {
+                // views field is pointer to const, but views haven't been populated yet
+                auto& view = const_cast<XrCompositionLayerProjectionView&>(layerData.projLayer->views[j]);
+                view.subImage = compositionHelper.MakeDefaultSubImage(layerData.swapchain, 0);
+            }
+        }
+
+        auto updateLayers = [&](const XrFrameState& frameState) {
+            auto viewData = compositionHelper.LocateViews(viewSpace, frameState.predictedDisplayTime);
+            const auto& viewState = std::get<XrViewState>(viewData);
+
+            std::vector<XrCompositionLayerBaseHeader*> layers;
+            if (viewState.viewStateFlags & XR_VIEW_STATE_POSITION_VALID_BIT &&
+                viewState.viewStateFlags & XR_VIEW_STATE_ORIENTATION_VALID_BIT) {
+                const auto& views = std::get<std::vector<XrView>>(viewData);
+
+                for (const auto& layerData : layerDatas) {
+                    XrCompositionLayerProjection* projLayer = layerData.projLayer;
+                    for (size_t viewIndex = 0; viewIndex < views.size(); viewIndex++) {
+                        auto& projView = const_cast<XrCompositionLayerProjectionView&>(projLayer->views[viewIndex]);
+                        projView.pose = views[viewIndex].pose;
+
+                        const XrFovf& baseFov = views[viewIndex].fov;
+
+                        const float pxPanelWidth = static_cast<float>(layerData.swapchainExtent.width);
+                        const float pxPanelHeight = static_cast<float>(layerData.swapchainExtent.height);
+
+                        const float pxLayerWidth = pxPanelWidth * layerData.info.scale;
+                        const float pxLayerHeight = pxPanelHeight * layerData.info.scale;
+
+                        const float pxLayerCenterX = layerData.info.centerPosition.x * pxPanelWidth;
+                        const float pxLayerCenterY = layerData.info.centerPosition.y * pxPanelHeight;
+
+                        const float pxLayerOffsetTop = pxLayerCenterY - (pxLayerHeight / 2);
+                        const float pxLayerOffsetLeft = pxLayerCenterX - (pxLayerWidth / 2);
+
+                        float tanLeft = tanf(baseFov.angleLeft);
+                        float tanRight = tanf(baseFov.angleRight);
+                        float tanDown = tanf(baseFov.angleDown);
+                        float tanUp = tanf(baseFov.angleUp);
+
+                        float tanWidth = tanRight - tanLeft;
+                        float tanHeight = tanUp - tanDown;
+
+                        float offsetTanX = ((pxLayerOffsetLeft + pxLayerWidth / 2) / pxPanelWidth - 0.5f) * tanWidth;
+                        float offsetTanY = ((pxLayerOffsetTop + pxLayerHeight / 2) / pxPanelHeight - 0.5f) * tanHeight;
+
+                        float scaledTanWidth = tanWidth * layerData.info.scale;
+                        float scaledTanHeight = tanHeight * layerData.info.scale;
+
+                        projView.fov.angleLeft = atanf(offsetTanX - scaledTanWidth / 2);
+                        projView.fov.angleRight = atanf(offsetTanX + scaledTanWidth / 2);
+                        projView.fov.angleDown = atanf(offsetTanY - scaledTanHeight / 2);
+                        projView.fov.angleUp = atanf(offsetTanY + scaledTanHeight / 2);
+                    }
+                    layers.push_back(reinterpret_cast<XrCompositionLayerBaseHeader*>(projLayer));
+                }
+            }
+            return interactiveLayerManager.EndFrame(frameState, layers);
+        };
+
+        RenderLoop(session, updateLayers).Loop();
     }
 
     // Purpose: Validates alpha blending (both premultiplied and unpremultiplied).
@@ -459,6 +608,86 @@ namespace Conformance
         createGradientTest(false, 1.02f, 0);  // Test unpremultiplied (right of center "answer")
 
         RenderLoop(session, [&](const XrFrameState& frameState) { return interactiveLayerManager.EndFrame(frameState); }).Loop();
+    }
+
+    // Purpose: Validates alpha blending (both premultiplied and unpremultiplied) with all supported blend modes.
+    TEST_CASE("SourceAlphaBlendingWithEnvironment", "[composition][interactive]")
+    {
+        GlobalData& globalData = GetGlobalData();
+        if (!globalData.IsUsingGraphicsPlugin()) {
+            SKIP("Cannot test SourceAlphaBlendingWithEnvironment without a graphics plugin");
+        }
+
+        CompositionHelper compositionHelper("Environment Blend Mode Blending");
+        InteractiveLayerManager interactiveLayerManager(
+            compositionHelper, "environment_alpha_blending.png",
+            "Left column: Opaque Black and White squares. Right column: Semi transparent Black and white squares. Note that on black background the black square is not visible. Red should never be visible");
+        XrSession session = compositionHelper.GetSession();
+        InteractionManager& interactionManager = compositionHelper.GetInteractionManager();
+        interactionManager.AttachActionSets();
+        compositionHelper.BeginSession();
+
+        const XrSpace viewSpace = compositionHelper.CreateReferenceSpace(XR_REFERENCE_SPACE_TYPE_VIEW);
+
+        auto createTestQuad = [&](bool premultiplied, XrColor4f& color, float x, float y, float quadWidth, float quadZ) {
+            // Create gradient of blue lines from 0.0 to 1.0.
+            {
+                Conformance::RGBAImage colorImage(256, 256);
+                for (int row = 0; row < colorImage.height; row++) {
+                    if (premultiplied) {
+                        XrColor4f colorPma = XrColor4f{color.r * color.a, color.g * color.a, color.b * color.a, color.a};
+                        colorImage.DrawRect(0, row, colorImage.width, 1, colorPma);
+                    }
+                    else {
+                        colorImage.DrawRect(0, row, colorImage.width, 1, color);
+                    }
+                }
+
+                const XrSwapchain gradientSwapchain = compositionHelper.CreateStaticSwapchainImage(colorImage);
+                XrCompositionLayerQuad* gradientQuad =
+                    compositionHelper.CreateQuadLayer(gradientSwapchain, viewSpace, quadWidth, XrPosef{Quat::Identity, {x, y, quadZ}});
+
+                gradientQuad->layerFlags |= XR_COMPOSITION_LAYER_BLEND_TEXTURE_SOURCE_ALPHA_BIT;
+                if (!premultiplied) {
+                    gradientQuad->layerFlags |= XR_COMPOSITION_LAYER_UNPREMULTIPLIED_ALPHA_BIT;
+                }
+
+                interactiveLayerManager.AddLayer(gradientQuad);
+            }
+        };
+
+        //XrColor4f grayOpaque{.75, .75, .75, 1.0};
+
+        XrColor4f blackOpaque{.0f, .0f, .0f, 1.0f};
+        XrColor4f whiteOpaque{1.0f, 1.0f, 1.0f, 1.0f};
+
+        XrColor4f blackSemi{.0f, .0f, .0f, .33f};
+        XrColor4f whiteSemi{1.0f, 1.0f, 1.0f, .33f};
+
+        XrColor4f redTrans{1.0f, 0.0f, 0.0f, 0.0f};
+
+        createTestQuad(true, blackOpaque, -.5f, .5f, 1.0f, -3.0f);
+        createTestQuad(false, whiteOpaque, -.5f, -.5f, 1.0f, -3.0f);
+
+        createTestQuad(true, blackSemi, .5f, .5f, 1.0f, -3.0f);
+        createTestQuad(false, whiteSemi, .5f, -.5f, 1.0f, -3.0f);
+
+        // large red transparent quad sandwich covering all other layers and the outside, blending should never result in it being visible
+        createTestQuad(true, redTrans, .0f, .0f, 3.0f, -2.0f);
+        createTestQuad(false, redTrans, 0.f, .0f, 3.0f, -2.0f);
+
+        createTestQuad(true, redTrans, .0f, .0f, 3.0f, -4.0f);
+        createTestQuad(false, redTrans, .0f, .0f, 3.0f, -4.0f);
+
+        std::vector<XrEnvironmentBlendMode> ebms = compositionHelper.EnumerateEnvironmentBlendModes();
+        for (auto ebm : ebms) {
+            DYNAMIC_SECTION("SourceAlphaBlendingWithEnvironment: " << enum_to_string(ebm))
+            {
+                compositionHelper.ChangeEnvironmentBlendMode(ebm);
+
+                RenderLoop(session, [&](const XrFrameState& frameState) { return interactiveLayerManager.EndFrame(frameState); }).Loop();
+            }
+        }
     }
 
     // Purpose: Validate eye visibility flags.

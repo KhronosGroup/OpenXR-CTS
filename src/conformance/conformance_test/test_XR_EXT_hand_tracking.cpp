@@ -41,10 +41,16 @@ namespace Conformance
     TEST_CASE("XR_EXT_hand_tracking-create-destroy", "[XR_EXT_hand_tracking]")
     {
         GlobalData& globalData = GetGlobalData();
+
         if (!globalData.IsInstanceExtensionSupported(XR_EXT_HAND_TRACKING_EXTENSION_NAME)) {
-            // Runtime does not support extension - it should not be possible to get function pointers.
-            AutoBasicInstance instance;
-            ValidateInstanceExtensionFunctionNotSupported(instance, "xrCreateHandTrackerEXT");
+            SECTION("Not supported")
+            {
+                // Runtime does not support extension - it should not be possible to get function pointers.
+                AutoBasicInstance instance;
+                ValidateInstanceExtensionFunctionNotSupported(instance, "xrCreateHandTrackerEXT");
+            }
+
+            // Skip all following tests.
             SKIP(XR_EXT_HAND_TRACKING_EXTENSION_NAME " not supported");
         }
 
@@ -308,6 +314,7 @@ namespace Conformance
             "Bring index finger of both hands together to complete the validation. \n\n"
             "If your hands cannot be detected for 20 seconds, the test will marked as failure.";
 
+        static constexpr float kTipDistanceRequired = 0.01f;  // 1cm
         static constexpr std::chrono::nanoseconds kHandTrackingLostTimeout = 20s;
         static constexpr std::chrono::nanoseconds kHandTrackingGainedTime = 1s;
 
@@ -316,7 +323,8 @@ namespace Conformance
             SKIP(XR_EXT_HAND_TRACKING_EXTENSION_NAME " not supported");
         }
 
-        CompositionHelper compositionHelper("XR_EXT_hand_tracking", {"XR_EXT_hand_tracking"});
+        CompositionHelper compositionHelper("XR_EXT_hand_tracking", {"XR_EXT_hand_tracking"},
+                                            CompositionHelper::EnvironmentBlendModePreference::PreferPassthrough);
 
         if (!SystemSupportsHandTracking(compositionHelper.GetInstance(), compositionHelper.GetSystemId())) {
             // This runtime does support hand tracking, but this headset does not
@@ -494,7 +502,7 @@ namespace Conformance
                     float len = Vector::Length(distance);
                     // bring center of index fingers to within 1cm. Probably fine for most humans, unless
                     // they have huge fingers.
-                    if (len < 0.01f) {
+                    if (len < kTipDistanceRequired) {
                         return false;
                     }
                 }

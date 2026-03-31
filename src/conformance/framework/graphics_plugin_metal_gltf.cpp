@@ -15,13 +15,13 @@
 
 namespace Conformance
 {
-    void MetalGLTF::Render(MTL::RenderCommandEncoder* renderCommandEncoder, Pbr::MetalResources& resources, XrMatrix4x4f& modelToWorld,
+    void MetalGLTF::Render(MTL::RenderCommandEncoder* renderCommandEncoder, Pbr::MetalResources& resources,
                            MTL::PixelFormat colorRenderTargetFormat, MTL::PixelFormat depthRenderTargetFormat)
     {
         renderCommandEncoder->pushDebugGroup(MTLSTR("MetalGLTF::Render"));
 
         resources.SetFillMode(GetFillMode());
-        resources.SetModelToWorld(modelToWorld);
+        resources.SetModelToWorld(GetModelInstance().GetModelToWorld());
 
         // modelToWorld is set as an inline buffer inside the command buffer
         resources.Bind(renderCommandEncoder);

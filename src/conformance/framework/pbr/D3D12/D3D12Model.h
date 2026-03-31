@@ -37,7 +37,7 @@ namespace Pbr
 
         /// Render the model.
         void Render(Pbr::D3D12Resources& pbrResources, _In_ ID3D12GraphicsCommandList* directCommandList,
-                    DXGI_FORMAT colorRenderTargetFormat, DXGI_FORMAT depthRenderTargetFormat, DirectX::FXMMATRIX modelToWorld);
+                    DXGI_FORMAT colorRenderTargetFormat, DXGI_FORMAT depthRenderTargetFormat);
 
     private:
         /// Update the transforms used to render the model. This needs to be called any time a node transform is changed.

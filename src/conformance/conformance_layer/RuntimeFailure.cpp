@@ -174,3 +174,11 @@ void ValidateXrFovf(ConformanceHooksBase* conformanceHook, const XrFovf& fov, co
                                             fov.angleUp, fov.angleDown);
     }
 }
+
+void ValidateXrSystemId(ConformanceHooksBase* conformanceHook, XrSystemId value, const char* valueName, const char* xrFunctionName)
+{
+    if (value == XR_NULL_SYSTEM_ID) {
+        conformanceHook->ConformanceFailure(XR_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT, xrFunctionName,
+                                            "%s is not a valid XrSystemId: %d", valueName, value);
+    }
+}

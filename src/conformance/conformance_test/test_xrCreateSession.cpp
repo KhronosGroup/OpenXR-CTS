@@ -158,12 +158,20 @@ namespace Conformance
 
         SECTION("destroy on a different thread to create")
         {
+            GlobalData& globalData = GetGlobalData();
+
             for (int i = 0; i < 2; ++i) {
                 CAPTURE(i);
 
                 // Using skipDebugMessenger to avoid leaking a debug messenger during AutoBasicInstance shutdown.
                 AutoBasicInstance instance(AutoBasicInstance::skipDebugMessenger);
                 AutoBasicSession session(AutoBasicSession::createSession, instance);
+
+                auto graphicsPlugin = globalData.GetGraphicsPlugin();
+                if (graphicsPlugin) {
+                    graphicsPlugin->MakeCurrent(false);
+                }
+
                 XrResult destroySessionResult = XR_ERROR_RUNTIME_FAILURE;
                 XrResult destroyInstanceResult = XR_ERROR_RUNTIME_FAILURE;
                 std::thread t([&destroySessionResult, &destroyInstanceResult, &session, &instance] {

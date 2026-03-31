@@ -18,6 +18,7 @@
 #pragma once
 
 #include "utilities/types_and_constants.h"
+#include "conformance_options.h"
 
 #include <openxr/openxr.h>
 #include <array>

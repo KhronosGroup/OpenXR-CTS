@@ -130,10 +130,6 @@ namespace Conformance
             .writeAttribute("string", options.viewConfiguration)
             .writeAttribute("value", enum_to_string(options.viewConfigurationValue));
 
-        xml.scopedElement(CTS_XML_NS_PREFIX_QUALIFIER "environmentBlendMode")
-            .writeAttribute("string", options.environmentBlendMode)
-            .writeAttribute("value", enum_to_string(options.environmentBlendModeValue));
-
         {
             auto e2 = xml.scopedElement(CTS_XML_NS_PREFIX_QUALIFIER "enabledAPILayers");
             for (const auto& name : options.enabledAPILayers) {

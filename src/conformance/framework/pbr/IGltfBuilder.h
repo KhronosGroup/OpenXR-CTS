@@ -12,6 +12,8 @@
 #include "PbrHandles.h"
 #include "PbrSharedState.h"
 
+#include <nonstd/span.hpp>
+
 #include <memory>
 
 namespace tinygltf
@@ -22,6 +24,7 @@ namespace tinygltf
 
 namespace Pbr
 {
+    using nonstd::span;
 
     struct Material;
 
@@ -46,6 +49,8 @@ namespace Pbr
 
         virtual PrimitiveHandle MakePrimitive(const Pbr::PrimitiveBuilder& primitiveBuilder,
                                               const std::shared_ptr<Pbr::Material>& material) = 0;
+
+        virtual void UpdatePrimitive(PrimitiveHandle p, span<const uint32_t> idx, span<const Pbr::Vertex> vtx) = 0;
 
         /// Optional optimization, can call at the end of loading a model to drop per-model caches.
         // If IGltfBuilder is ever one-per-model on all backends, this can be replaced with a destructor.

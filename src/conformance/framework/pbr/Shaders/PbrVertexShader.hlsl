@@ -46,12 +46,15 @@ VSOutputPbr main(VSInputPbr input)
     const float4x4 modelTransform = mul(Transforms[input.ModelTransformIndex], ModelToWorld);
     const float4 transformedPosWorld = mul(input.Position, modelTransform);
     output.PositionProj = mul(transformedPosWorld, ViewProjection);
+
+#ifndef UNLIT
     output.PositionWorld = transformedPosWorld.xyz / transformedPosWorld.w;
 
     const float3 normalW = normalize(mul(float4(input.Normal, 0.0), modelTransform).xyz);
     const float3 tangentW = normalize(mul(float4(input.Tangent.xyz, 0.0), modelTransform).xyz);
     const float3 bitangentW = cross(normalW, tangentW) * input.Tangent.w;
     output.TBN = float3x3(tangentW, bitangentW, normalW);
+#endif // not UNLIT
 
     output.TexCoord0 = input.TexCoord0;
     output.Color0 = input.Color0;

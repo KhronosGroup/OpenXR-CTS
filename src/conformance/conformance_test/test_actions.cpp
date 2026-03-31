@@ -3094,7 +3094,8 @@ namespace Conformance
 
             // for ownership and auto-destruction.
             AutoBasicInstance autoInstance(instance, 0);
-            CompositionHelper compositionHelper("Input device state query", instance);
+            CompositionHelper compositionHelper("Input device state query", instance, (XrViewConfigurationType)0, false,
+                                                CompositionHelper::EnvironmentBlendModePreference::PreferPassthrough);
             XrSession session = compositionHelper.GetSession();
             compositionHelper.BeginSession();
             ActionLayerManager actionLayerManager(compositionHelper);

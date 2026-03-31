@@ -34,8 +34,6 @@ avoid conflicting with the underlying Catch2 options.
                                             right, or both. Default is both.
   -V, --viewConfiguration <Stereo|Mono>     Specify view configuration.
                                             Default is Stereo.
-  -B, --environmentBlendMode <Opaque        Specify blend mode. Default is
-  |Additive|AlphaBlend>                     Opaque.
   -L, --enabledAPILayer <API layer name>    Specify API layer. May repeat for
                                             multiple layers. Default is none.
   -E, --enabledInstanceExtension            Specify instance extension. May

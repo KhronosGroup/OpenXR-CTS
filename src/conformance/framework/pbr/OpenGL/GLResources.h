@@ -63,6 +63,7 @@ namespace Pbr
                          const tinygltf::Sampler* sampler, bool sRGB, Pbr::RGBAColor defaultRGBA) override;
         PrimitiveHandle MakePrimitive(const Pbr::PrimitiveBuilder& primitiveBuilder,
                                       const std::shared_ptr<Pbr::Material>& material) override;
+        void UpdatePrimitive(PrimitiveHandle p, span<const uint32_t> idx, span<const Pbr::Vertex> vtx) override;
         void DropLoaderCaches() override;
 
         /// Sets the Bidirectional Reflectance Distribution Function Lookup Table texture, required by the shader to compute surface
@@ -103,6 +104,7 @@ namespace Pbr
         void SetDepthDirection(DepthDirection depthDirection);
 
     private:
+        void SetShader(Shader shader) const;
         void SetBlendState(bool enabled) const;
         void SetRasterizerState(bool doubleSided) const;
         void SetDepthStencilState(bool disableDepthWrite) const;

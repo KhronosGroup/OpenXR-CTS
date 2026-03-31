@@ -25,20 +25,24 @@
 
 namespace Pbr
 {
-    Conformance::Pipeline& VulkanPipelines::GetOrCreatePipeline(VkRenderPass renderPass, VkSampleCountFlagBits sampleCount,
+    Conformance::Pipeline& VulkanPipelines::GetOrCreatePipeline(VkRenderPass renderPass, VkSampleCountFlagBits sampleCount, Shader shader,
                                                                 FillMode fillMode, FrontFaceWindingOrder frontFaceWindingOrder,
                                                                 BlendState blendState, DoubleSided doubleSided,
                                                                 DepthDirection depthDirection)
     {
-        const PipelineStateKey state{renderPass, sampleCount, fillMode, frontFaceWindingOrder, blendState, doubleSided, depthDirection};
+        const PipelineStateKey state{renderPass, sampleCount, shader,        fillMode, frontFaceWindingOrder,
+                                     blendState, doubleSided, depthDirection};
         auto iter = m_pipelines.find(state);
         if (iter != m_pipelines.end()) {
             return iter->second;
         }
 
-        static_assert(std::is_same<PipelineStateKey, std::tuple<VkRenderPass, VkSampleCountFlagBits, FillMode, FrontFaceWindingOrder,
-                                                                BlendState, DoubleSided, DepthDirection>>::value,
+        static_assert(std::is_same<PipelineStateKey, std::tuple<VkRenderPass, VkSampleCountFlagBits, Shader, FillMode,
+                                                                FrontFaceWindingOrder, BlendState, DoubleSided, DepthDirection>>::value,
                       "This function copies all fields to the desc and must be updated if the fieldset is changed");
+
+        assert(shader == Shader::Pbr || shader == Shader::Unlit);  // Should be updated/refactored for new shaders.
+        Conformance::ShaderProgram& shaderProgram = shader == Shader::Pbr ? m_pbrShader : m_unlitShader;
 
         VkDynamicState dynamicStates[] = {VK_DYNAMIC_STATE_SCISSOR, VK_DYNAMIC_STATE_VIEWPORT};
         VkPipelineDynamicStateCreateInfo dynamicState{VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO};
@@ -112,7 +116,7 @@ namespace Pbr
         VkPipelineDepthStencilStateCreateInfo ds{VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO};
         ds.depthTestEnable = VK_TRUE;
         ds.depthWriteEnable = blendState != BlendState::AlphaBlended;
-        ds.depthCompareOp = (depthDirection == DepthDirection::Reversed) ? VK_COMPARE_OP_GREATER : VK_COMPARE_OP_LESS;
+        ds.depthCompareOp = (depthDirection == DepthDirection::Reversed) ? VK_COMPARE_OP_GREATER_OR_EQUAL : VK_COMPARE_OP_LESS_OR_EQUAL;
         ds.depthBoundsTestEnable = VK_FALSE;
         ds.stencilTestEnable = VK_FALSE;
         ds.front.failOp = VK_STENCIL_OP_KEEP;
@@ -128,8 +132,8 @@ namespace Pbr
 
         VkGraphicsPipelineCreateInfo pipeInfo{VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO};
 
-        pipeInfo.stageCount = (uint32_t)m_pbrShader.shaderInfo.size();
-        pipeInfo.pStages = m_pbrShader.shaderInfo.data();
+        pipeInfo.stageCount = (uint32_t)shaderProgram.shaderInfo.size();
+        pipeInfo.pStages = shaderProgram.shaderInfo.data();
 
         pipeInfo.pVertexInputState = &vi;
         pipeInfo.pInputAssemblyState = &ia;

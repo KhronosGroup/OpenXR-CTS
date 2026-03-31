@@ -74,6 +74,8 @@ namespace Pbr
                          const tinygltf::Sampler* sampler, bool sRGB, Pbr::RGBAColor defaultRGBA);
         PrimitiveHandle MakePrimitive(ID3D12GraphicsCommandList* copyCommandList, const Pbr::PrimitiveBuilder& primitiveBuilder,
                                       const std::shared_ptr<Pbr::Material>& material);
+        void UpdatePrimitive(ID3D12GraphicsCommandList* copyCommandList, PrimitiveHandle p, span<const uint32_t> idx,
+                             span<const Pbr::Vertex> vtx);
         void DropLoaderCaches();
 
         /// Sets the Bidirectional Reflectance Distribution Function Lookup Table texture, required by the shader to compute surface
@@ -91,8 +93,8 @@ namespace Pbr
 
         /// Get a pipeline state matching some parameters as well as the current settings inside D3D12Resources.
         Microsoft::WRL::ComPtr<ID3D12PipelineState> GetOrCreatePipelineState(DXGI_FORMAT colorRenderTargetFormat,
-                                                                             DXGI_FORMAT depthRenderTargetFormat, BlendState blendState,
-                                                                             DoubleSided doubleSided);
+                                                                             DXGI_FORMAT depthRenderTargetFormat, Shader shader,
+                                                                             BlendState blendState, DoubleSided doubleSided);
 
         /// Set the directional light.
         void SetLight(DirectX::XMFLOAT3 direction, RGBColor diffuseColor);
@@ -163,6 +165,7 @@ namespace Pbr
                          const tinygltf::Sampler* sampler, bool sRGB, Pbr::RGBAColor defaultRGBA) override;
         PrimitiveHandle MakePrimitive(const Pbr::PrimitiveBuilder& primitiveBuilder,
                                       const std::shared_ptr<Pbr::Material>& material) override;
+        void UpdatePrimitive(PrimitiveHandle p, span<const uint32_t> idx, span<const Pbr::Vertex> vtx) override;
         void DropLoaderCaches() override;
 
         std::vector<Microsoft::WRL::ComPtr<ID3D12Resource>> TakeStagingResources();

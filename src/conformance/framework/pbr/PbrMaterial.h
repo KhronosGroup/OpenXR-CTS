@@ -71,11 +71,14 @@ namespace Pbr
         // Need at least one virtual function to trigger a vtable and things like dynamic_pointer_cast
         virtual ~Material() = default;
 
+        void SetShader(Shader shader);
         void SetDoubleSided(DoubleSided doubleSided);
+        void SetFillMode(FillMode fillMode);
         void SetAlphaBlended(BlendState alphaBlended);
 
+        Shader GetShader() const;
         DoubleSided GetDoubleSided() const;
-        FillMode GetWireframe() const;
+        FillMode GetFillMode() const;
         BlendState GetAlphaBlended() const;
 
         ConstantBufferData& Parameters();
@@ -94,7 +97,9 @@ namespace Pbr
 
         ConstantBufferData m_parameters{};
 
+        Shader m_shader{Shader::Pbr};
         BlendState m_alphaBlended{BlendState::NotAlphaBlended};
         DoubleSided m_doubleSided{DoubleSided::NotDoubleSided};
+        FillMode m_fillMode{FillMode::Solid};
     };
 }  // namespace Pbr

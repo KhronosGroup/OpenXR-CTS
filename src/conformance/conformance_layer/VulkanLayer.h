@@ -27,3 +27,6 @@ void ResetVkQueueAccess(VkDevice device, uint32_t queueFamilyIndex, uint32_t que
 
 // Checks if a VkQueue has been accessed
 bool CheckVkQueueAccess(VkDevice device, uint32_t queueFamilyIndex, uint32_t queueIndex);
+
+// Returns the VkFormat of a VkImage
+VkFormat GetVkImageFormat(VkImage image);

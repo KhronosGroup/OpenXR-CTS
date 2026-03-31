@@ -285,7 +285,8 @@ namespace Conformance
 
         SECTION("Localize eye gaze paths")
         {
-            CompositionHelper compositionHelper("XR_EXT_eye_gaze_interaction localization", {XR_EXT_EYE_GAZE_INTERACTION_EXTENSION_NAME});
+            CompositionHelper compositionHelper("XR_EXT_eye_gaze_interaction localization", {XR_EXT_EYE_GAZE_INTERACTION_EXTENSION_NAME},
+                                                CompositionHelper::EnvironmentBlendModePreference::PreferPassthrough);
             const XrInstance instance = compositionHelper.GetInstance();
             const XrSession session = compositionHelper.GetSession();
 
@@ -381,7 +382,8 @@ namespace Conformance
         }
 
         CompositionHelper compositionHelper("XR_EXT_eye_gaze_interaction interactive gaze only",
-                                            {XR_EXT_EYE_GAZE_INTERACTION_EXTENSION_NAME});
+                                            {XR_EXT_EYE_GAZE_INTERACTION_EXTENSION_NAME},
+                                            CompositionHelper::EnvironmentBlendModePreference::PreferPassthrough);
 
         const XrInstance instance = compositionHelper.GetInstance();
         const XrSession session = compositionHelper.GetSession();

@@ -80,7 +80,7 @@ namespace Pbr
         }
     }
 
-    void MetalMaterial::Bind(MTL::RenderCommandEncoder* renderCommandEncoder, const MetalResources& pbrResources) const
+    void MetalMaterial::Bind(MTL::RenderCommandEncoder* renderCommandEncoder, MetalResources& pbrResources) const
     {
         renderCommandEncoder->pushDebugGroup(MTLSTR("MetalMaterial::Bind"));
 
@@ -92,6 +92,8 @@ namespace Pbr
         }
         renderCommandEncoder->setFragmentBuffer(m_constantBuffer.get(), 0, Pbr::ShaderSlots::ConstantBuffers::Material);
         static_assert(Pbr::ShaderSlots::BaseColor == 0, "BaseColor must be the first slot");
+
+        pbrResources.SetFillMode(m_fillMode);
 
         MTL::TriangleFillMode mtlFillMode =
             (pbrResources.GetFillMode() == FillMode::Solid) ? MTL::TriangleFillModeFill : MTL::TriangleFillModeLines;

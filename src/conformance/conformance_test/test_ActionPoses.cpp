@@ -56,7 +56,7 @@ namespace Conformance
             "Press menu to swap hands and ensure the reverse hands are good too. "
             "Press select to complete the validation. Press select while holding menu to fail the validation.";
 
-        CompositionHelper compositionHelper("Grip and Aim Pose");
+        CompositionHelper compositionHelper("Grip and Aim Pose", CompositionHelper::EnvironmentBlendModePreference::PreferPassthrough);
         XrInstance instance = compositionHelper.GetInstance();
         XrSystemId systemId = compositionHelper.GetSystemId();
         XrSession session = compositionHelper.GetSession();

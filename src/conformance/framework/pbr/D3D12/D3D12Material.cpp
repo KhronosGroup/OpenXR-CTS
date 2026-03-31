@@ -115,7 +115,7 @@ namespace Pbr
                                       m_samplerHeap->GetCPUDescriptorHandleForHeapStart(), D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER);
     }
 
-    void D3D12Material::Bind(_In_ ID3D12GraphicsCommandList* directCommandList, D3D12Resources& /* pbrResources */)
+    void D3D12Material::Bind(_In_ ID3D12GraphicsCommandList* directCommandList, D3D12Resources& pbrResources)
     {
         // If the parameters of the constant buffer have changed, update the constant buffer.
         if (m_parametersChanged) {
@@ -125,6 +125,8 @@ namespace Pbr
                                                                 D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
             directCommandList->ResourceBarrier(1, &barrier);
         }
+
+        pbrResources.SetFillMode(m_fillMode);
 
         directCommandList->SetGraphicsRootConstantBufferView(Pbr::ShaderSlots::ConstantBuffers::Material,
                                                              m_constantBuffer.GetResource()->GetGPUVirtualAddress());

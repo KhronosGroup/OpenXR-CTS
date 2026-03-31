@@ -1,0 +1,6 @@
+---
+- issue.2561.gl
+- issue.2562.gl
+- mr.3921.gl
+---
+- Improvement: PBR: Add support for non-glTF meshes, wireframe rendering, updating meshes in-place, and unlit shading

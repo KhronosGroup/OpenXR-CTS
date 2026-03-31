@@ -53,6 +53,7 @@ void ValidateXrTime(ConformanceHooksBase* conformanceHook, XrTime time, const ch
 void ValidateXrQuaternion(ConformanceHooksBase* conformanceHook, const XrQuaternionf& q, const char* valueName, const char* xrFunctionName);
 void ValidateXrVector3f(ConformanceHooksBase* conformanceHook, const XrVector3f& v, const char* valueName, const char* xrFunctionName);
 void ValidateXrFovf(ConformanceHooksBase* conformanceHook, const XrFovf& fov, const char* valueName, const char* xrFunctionName);
+void ValidateXrSystemId(ConformanceHooksBase* conformanceHook, XrSystemId value, const char* valueName, const char* xrFunctionName);
 
 // clang-format off
 #define ENUM_CASE_BOOL(name, val) case name:
@@ -118,3 +119,4 @@ void ValidateXrEnum(ConformanceHooksBase* conformanceHook, TEnum value, const ch
 #define VALIDATE_VECTOR3F(value) ValidateXrVector3f(this, value, #value, __func__)
 #define VALIDATE_FOVF(value) ValidateXrFovf(this, value, #value, __func__)
 #define VALIDATE_XRENUM(value) ValidateXrEnum(this, value, #value, __func__)
+#define VALIDATE_XRSYSTEMID(value) ValidateXrSystemId(this, value, #value, __func__)

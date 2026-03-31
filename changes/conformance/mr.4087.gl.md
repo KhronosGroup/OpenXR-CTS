@@ -1,0 +1,6 @@
+---
+- issue.2593.gl
+- issue.2594.gl
+---
+- Improvement: Remove `--environmentBlendMode` argument and select an appropriate supported environment blend mode on a per-test basis.
+- New test: Test blending with all supported environment blend modes.

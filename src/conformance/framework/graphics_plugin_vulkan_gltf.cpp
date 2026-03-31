@@ -14,11 +14,11 @@ namespace Conformance
 {
     struct CmdBuffer;
 
-    void VulkanGLTF::Render(CmdBuffer& directCommandBuffer, Pbr::VulkanResources& resources, const XrMatrix4x4f& modelToWorld,
-                            VkRenderPass renderPass, VkSampleCountFlagBits sampleCount)
+    void VulkanGLTF::Render(CmdBuffer& directCommandBuffer, Pbr::VulkanResources& resources, VkRenderPass renderPass,
+                            VkSampleCountFlagBits sampleCount)
     {
         resources.SetFillMode(GetFillMode());
-        GetModelInstance().Render(resources, directCommandBuffer, renderPass, sampleCount, modelToWorld);
+        GetModelInstance().Render(resources, directCommandBuffer, renderPass, sampleCount);
     }
 
 }  // namespace Conformance

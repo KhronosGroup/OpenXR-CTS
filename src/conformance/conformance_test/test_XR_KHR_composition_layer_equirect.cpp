@@ -289,7 +289,8 @@ namespace Conformance
         {
             INFO("Test condition description: " << testCase.description);
             std::string testTitle = SubtestTitle("Equirect layer", testCaseIdx, equirectTestCases);
-            CompositionHelper compositionHelper(testTitle.c_str(), {XR_KHR_COMPOSITION_LAYER_EQUIRECT_EXTENSION_NAME});
+            CompositionHelper compositionHelper(testTitle.c_str(), {XR_KHR_COMPOSITION_LAYER_EQUIRECT_EXTENSION_NAME},
+                                                CompositionHelper::EnvironmentBlendModePreference::PreferOpaque);
             XrSession session = compositionHelper.GetSession();
 
             std::ostringstream oss;

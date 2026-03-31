@@ -235,7 +235,7 @@ namespace Conformance
             }
 
             std::vector<Cube> renderedCubes;
-            std::vector<GLTFDrawable> renderedGLTFs;
+            std::vector<GLTFModelInstanceHandle> renderedGLTFs;
 
             for (size_t i = 0; i < gltfModelInstances.size(); ++i) {
                 const auto& space = gripSpaces[i];
@@ -246,8 +246,10 @@ namespace Conformance
 
                         if (gltfModelInstances[i] != GLTFModelInstanceHandle{}) {
                             XrPosef adjustedPose = location.pose * testCase.poseInGripSpace;
-                            renderedGLTFs.push_back(
-                                GLTFDrawable{gltfModelInstances[i], adjustedPose, {testCase.scale, testCase.scale, testCase.scale}});
+                            GetGlobalData()
+                                .graphicsPlugin->GetModelInstance(gltfModelInstances[i])
+                                .SetModelToWorld(adjustedPose, {testCase.scale, testCase.scale, testCase.scale});
+                            renderedGLTFs.push_back(gltfModelInstances[i]);
                         }
                         else {
                             // loading spinner

@@ -327,7 +327,8 @@ namespace Conformance
             "Press select to complete the validation. Press select while holding menu to fail the validation.";
 
         FeatureSet additionalFeatures = FeatureSet{FeatureBitIndex::BIT_XR_MSFT_controller_model};
-        CompositionHelper compositionHelper("XR_MSFT_controller_model_inte...", additionalFeatures);
+        CompositionHelper compositionHelper("XR_MSFT_controller_model_inte...", additionalFeatures,
+                                            CompositionHelper::EnvironmentBlendModePreference::PreferPassthrough);
 
         XrInstance instance = compositionHelper.GetInstance();
         XrSession session = compositionHelper.GetSession();
@@ -438,7 +439,7 @@ namespace Conformance
 
         auto update = [&](const XrFrameState& frameState) {
             std::vector<Cube> renderedCubes;
-            std::vector<GLTFDrawable> renderedGLTFs;
+            std::vector<GLTFModelInstanceHandle> renderedGLTFs;
 
             const std::array<XrActiveActionSet, 1> activeActionSets = {{{actionSet, XR_NULL_PATH}}};
             XrActionsSyncInfo syncInfo{XR_TYPE_ACTIONS_SYNC_INFO};
@@ -517,10 +518,10 @@ namespace Conformance
                         modelState.nodeStates = nodeStateBuffer.data();
                         REQUIRE_RESULT_UNQUALIFIED_SUCCESS(ext.xrGetControllerModelStateMSFT_(session, hand.modelKey, &modelState));
 
-                        hand.animationHandler.UpdateControllerParts(nodeStateBuffer,
-                                                                    graphicsPlugin->GetModelInstance(hand.controllerModelInstance));
-
-                        renderedGLTFs.push_back(GLTFDrawable{hand.controllerModelInstance, spaceLocation.pose});
+                        Pbr::ModelInstance& modelInstance = graphicsPlugin->GetModelInstance(hand.controllerModelInstance);
+                        hand.animationHandler.UpdateControllerParts(nodeStateBuffer, modelInstance);
+                        modelInstance.SetModelToWorld(spaceLocation.pose);
+                        renderedGLTFs.push_back(hand.controllerModelInstance);
                     }
                 }
             }

@@ -60,6 +60,11 @@ namespace Conformance
             *this = D3D12BufferWithUpload(device, maxCapacity);
         }
 
+        bool Allocated()
+        {
+            return resource != nullptr;
+        }
+
         /// Would an array of @p count elements of this type fit in the resource?
         bool Fits(size_t count) const
         {

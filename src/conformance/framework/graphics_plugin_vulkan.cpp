@@ -691,7 +691,8 @@ namespace Conformance
 
         MeshHandle MakeSimpleMesh(span<const uint16_t> idx, span<const Geometry::Vertex> vtx) override;
 
-        GLTFModelHandle LoadGLTF(Gltf::ModelBuilder&& modelBuilder) override;
+        void WithGltfBuilder(const std::function<void(Pbr::IGltfBuilder&)>& func) override;
+        GLTFModelHandle RegisterPbrModel(std::shared_ptr<Pbr::Model>) override;
         std::shared_ptr<Pbr::Model> GetPbrModel(GLTFModelHandle handle) const override;
         GLTFModelInstanceHandle CreateGLTFModelInstance(GLTFModelHandle handle) override;
         Pbr::ModelInstance& GetModelInstance(GLTFModelInstanceHandle handle) override;
@@ -2131,9 +2132,14 @@ namespace Conformance
         return handle;
     }
 
-    GLTFModelHandle VulkanGraphicsPlugin::LoadGLTF(Gltf::ModelBuilder&& modelBuilder)
+    void VulkanGraphicsPlugin::WithGltfBuilder(const std::function<void(Pbr::IGltfBuilder&)>& func)
     {
-        auto handle = m_gltfModels.emplace_back(modelBuilder.Build(*m_pbrResources));
+        func(*m_pbrResources);
+    }
+
+    GLTFModelHandle VulkanGraphicsPlugin::RegisterPbrModel(std::shared_ptr<Pbr::Model> model)
+    {
+        auto handle = m_gltfModels.emplace_back(std::move(model));
         return handle;
     }
 
@@ -2246,17 +2252,14 @@ namespace Conformance
         }
 
         // Render each gltf
-        for (const auto& gltfDrawable : params.glTFs) {
-            VulkanGLTF& gltf = m_gltfInstances[gltfDrawable.handle];
-            // Compute and update the model transform.
+        for (const auto& gltfInstanceHandle : params.glTFs) {
+            VulkanGLTF& gltf = m_gltfInstances[gltfInstanceHandle];
 
-            XrMatrix4x4f modelToWorld = Matrix::FromTranslationRotationScale(
-                gltfDrawable.params.pose.position, gltfDrawable.params.pose.orientation, gltfDrawable.params.scale);
             // XrMatrix4x4f viewMatrix = Matrix::FromPose(layerView.pose);
             // XrMatrix4x4f viewMatrixInverse = Matrix::InvertRigidBody(viewMatrix);
             m_pbrResources->SetViewProjection(view, proj);
 
-            gltf.Render(m_cmdBuffer, *m_pbrResources, modelToWorld, renderPassBeginInfo.renderPass,
+            gltf.Render(m_cmdBuffer, *m_pbrResources, renderPassBeginInfo.renderPass,
                         (VkSampleCountFlagBits)swapchainData->GetCreateInfo().sampleCount);
         }
 

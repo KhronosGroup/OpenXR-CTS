@@ -34,6 +34,7 @@ namespace Pbr
     using Duration = std::chrono::high_resolution_clock::duration;
     struct D3D11Primitive;
     struct D3D11Material;
+    struct D3D11GltfBuilder;
 
     struct D3D11TextureAndSampler : public ITexture
     {
@@ -46,21 +47,25 @@ namespace Pbr
     };
 
     // Global PBR resources required for rendering a scene.
-    struct D3D11Resources final : public IGltfBuilder
+    struct D3D11Resources final
     {
         explicit D3D11Resources(_In_ ID3D11Device* d3dDevice);
         D3D11Resources(D3D11Resources&&);
 
-        ~D3D11Resources() override;
+        ~D3D11Resources();
+
+        /// D3D12Resources does not implement IGltfBuilder directly, but uses a wrapper type, D3D12GltfBuilder,
+        /// which also holds a copy command list that is passed to the underlying APIs.
+        D3D11GltfBuilder MakeGltfBuilder(ID3D11DeviceContext* context);
 
         std::shared_ptr<Material> CreateFlatMaterial(RGBAColor baseColorFactor, float roughnessFactor = 1.0f, float metallicFactor = 0.0f,
-                                                     RGBColor emissiveFactor = RGB::Black) override;
-        std::shared_ptr<Material> CreateMaterial() override;
+                                                     RGBColor emissiveFactor = RGB::Black);
+        std::shared_ptr<Material> CreateMaterial();
         void LoadTexture(const std::shared_ptr<Material>& pbrMaterial, Pbr::ShaderSlots::PSMaterial slot, const tinygltf::Image* image,
-                         const tinygltf::Sampler* sampler, bool sRGB, Pbr::RGBAColor defaultRGBA) override;
-        PrimitiveHandle MakePrimitive(const Pbr::PrimitiveBuilder& primitiveBuilder,
-                                      const std::shared_ptr<Pbr::Material>& material) override;
-        void DropLoaderCaches() override;
+                         const tinygltf::Sampler* sampler, bool sRGB, Pbr::RGBAColor defaultRGBA);
+        PrimitiveHandle MakePrimitive(const Pbr::PrimitiveBuilder& primitiveBuilder, const std::shared_ptr<Pbr::Material>& material);
+        void UpdatePrimitive(ID3D11DeviceContext* context, PrimitiveHandle p, span<const uint32_t> idx, span<const Pbr::Vertex> vtx);
+        void DropLoaderCaches();
 
         /// Sets the Bidirectional Reflectance Distribution Function Lookup Table texture, required by the shader to compute surface
         /// reflectance from the IBL.
@@ -108,6 +113,7 @@ namespace Pbr
         void SetDepthDirection(DepthDirection depthDirection);
 
     private:
+        void SetShader(_In_ ID3D11DeviceContext* context, Shader shader) const;
         void SetBlendState(_In_ ID3D11DeviceContext* context, bool enabled) const;
         void SetRasterizerState(_In_ ID3D11DeviceContext* context, bool doubleSided) const;
         void SetDepthStencilState(_In_ ID3D11DeviceContext* context, bool disableDepthWrite) const;
@@ -122,6 +128,29 @@ namespace Pbr
         std::unique_ptr<Impl> m_impl;
 
         SharedState m_sharedState;
+    };
+
+    struct D3D11GltfBuilder : IGltfBuilder
+    {
+        D3D11GltfBuilder(D3D11Resources& pbrResources, ID3D11DeviceContext* copyCommandList);
+        ~D3D11GltfBuilder() override;
+
+        std::shared_ptr<Material> CreateFlatMaterial(RGBAColor baseColorFactor, float roughnessFactor = 1.0f, float metallicFactor = 0.0f,
+                                                     RGBColor emissiveFactor = RGB::Black) override;
+        std::shared_ptr<Material> CreateMaterial() override;
+
+        void LoadTexture(const std::shared_ptr<Material>& pbrMaterial, Pbr::ShaderSlots::PSMaterial slot, const tinygltf::Image* image,
+                         const tinygltf::Sampler* sampler, bool sRGB, Pbr::RGBAColor defaultRGBA) override;
+        PrimitiveHandle MakePrimitive(const Pbr::PrimitiveBuilder& primitiveBuilder,
+                                      const std::shared_ptr<Pbr::Material>& material) override;
+        void UpdatePrimitive(PrimitiveHandle p, span<const uint32_t> idx, span<const Pbr::Vertex> vtx) override;
+        void DropLoaderCaches() override;
+
+        std::vector<Microsoft::WRL::ComPtr<ID3D11Resource>> TakeStagingResources();
+
+    private:
+        D3D11Resources& m_pbrResources;
+        ID3D11DeviceContext* m_context;
     };
 }  // namespace Pbr
 

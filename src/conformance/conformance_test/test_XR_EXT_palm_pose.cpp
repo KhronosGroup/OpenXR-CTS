@@ -74,7 +74,8 @@ namespace Conformance
             instructions << "Press menu to swap hands. Press select to complete the validation. ";
             instructions << "Press select while holding menu to fail the validation.";
 
-            CompositionHelper compositionHelper(spaceName, featureSet);
+            CompositionHelper compositionHelper(spaceName, featureSet,
+                                                CompositionHelper::EnvironmentBlendModePreference::PreferPassthrough);
             XrInstance instance = compositionHelper.GetInstance();
             XrSession session = compositionHelper.GetSession();
 

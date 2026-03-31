@@ -65,10 +65,44 @@ if(XR_USE_GRAPHICS_API_D3D11 OR XR_USE_GRAPHICS_API_D3D12)
         "${CMAKE_CURRENT_SOURCE_DIR}/Shaders/PbrShared.hlsl"
     )
 
+    fxc_shader(
+        INPUT
+        "${CMAKE_CURRENT_SOURCE_DIR}/Shaders/PbrPixelShader.hlsl"
+        OUTPUT
+        "${CMAKE_CURRENT_BINARY_DIR}/UnlitPixelShader_hlsl.h"
+        PROFILE
+        ps_5_0
+        DEFINES
+        "UNLIT"
+        VARIABLE
+        g_UnlitPixelShader
+        EXTRA_DEPENDS
+        "${CMAKE_CURRENT_SOURCE_DIR}/Shaders/Shared.hlsl"
+        "${CMAKE_CURRENT_SOURCE_DIR}/Shaders/PbrShared.hlsl"
+    )
+
+    fxc_shader(
+        INPUT
+        "${CMAKE_CURRENT_SOURCE_DIR}/Shaders/PbrVertexShader.hlsl"
+        OUTPUT
+        "${CMAKE_CURRENT_BINARY_DIR}/UnlitVertexShader_hlsl.h"
+        PROFILE
+        vs_5_0
+        DEFINES
+        "UNLIT"
+        VARIABLE
+        g_UnlitVertexShader
+        EXTRA_DEPENDS
+        "${CMAKE_CURRENT_SOURCE_DIR}/Shaders/Shared.hlsl"
+        "${CMAKE_CURRENT_SOURCE_DIR}/Shaders/PbrShared.hlsl"
+    )
+
     target_sources(
         conformance_framework_pbr
         PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/PbrPixelShader_hlsl.h"
                 "${CMAKE_CURRENT_BINARY_DIR}/PbrVertexShader_hlsl.h"
+                "${CMAKE_CURRENT_BINARY_DIR}/UnlitPixelShader_hlsl.h"
+                "${CMAKE_CURRENT_BINARY_DIR}/UnlitVertexShader_hlsl.h"
     )
 endif()
 
@@ -107,6 +141,8 @@ endif()
 if(XR_USE_GRAPHICS_API_OPENGL OR XR_USE_GRAPHICS_API_OPENGL_ES)
     include(make_includable)
 
+    set(version_directive "^(#version [0-9]+)")
+    set(defines_location "// DEFINES REPLACEMENT LOCATION //")
     make_includable(
         "${CMAKE_CURRENT_SOURCE_DIR}/Shaders/PbrVertexShader_glsl.vert"
         "${CMAKE_CURRENT_BINARY_DIR}/PbrVertexShader_glsl_src.h"
@@ -115,22 +151,53 @@ if(XR_USE_GRAPHICS_API_OPENGL OR XR_USE_GRAPHICS_API_OPENGL_ES)
         "${CMAKE_CURRENT_SOURCE_DIR}/Shaders/PbrPixelShader_glsl.frag"
         "${CMAKE_CURRENT_BINARY_DIR}/PbrPixelShader_glsl_src.h"
     )
+    make_includable(
+        "${CMAKE_CURRENT_SOURCE_DIR}/Shaders/PbrVertexShader_glsl.vert"
+        "${CMAKE_CURRENT_BINARY_DIR}/UnlitVertexShader_glsl_src.h"
+        REPLACE
+        "${defines_location}"
+        "#define UNLIT"
+    )
+    make_includable(
+        "${CMAKE_CURRENT_SOURCE_DIR}/Shaders/PbrPixelShader_glsl.frag"
+        "${CMAKE_CURRENT_BINARY_DIR}/UnlitPixelShader_glsl_src.h"
+        REPLACE
+        "${defines_location}"
+        "#define UNLIT"
+    )
 
-    set(from_gl "^#version [0-9]+")
-    set(to_gles "#version 320 es")
+    set(gles_version_directive "#version 320 es")
     make_includable(
         "${CMAKE_CURRENT_SOURCE_DIR}/Shaders/PbrVertexShader_glsl.vert"
         "${CMAKE_CURRENT_BINARY_DIR}/PbrVertexShader_glsl_src_es.h"
         REPLACE
-        "${from_gl}"
-        "${to_gles}"
+        "${version_directive}"
+        "${gles_version_directive}"
     )
     make_includable(
         "${CMAKE_CURRENT_SOURCE_DIR}/Shaders/PbrPixelShader_glsl.frag"
         "${CMAKE_CURRENT_BINARY_DIR}/PbrPixelShader_glsl_src_es.h"
         REPLACE
-        "${from_gl}"
-        "${to_gles}"
+        "${version_directive}"
+        "${gles_version_directive}"
+    )
+    make_includable(
+        "${CMAKE_CURRENT_SOURCE_DIR}/Shaders/PbrVertexShader_glsl.vert"
+        "${CMAKE_CURRENT_BINARY_DIR}/UnlitVertexShader_glsl_src_es.h"
+        REPLACE
+        "${version_directive}"
+        "${gles_version_directive}"
+        "${defines_location}"
+        "#define UNLIT"
+    )
+    make_includable(
+        "${CMAKE_CURRENT_SOURCE_DIR}/Shaders/PbrPixelShader_glsl.frag"
+        "${CMAKE_CURRENT_BINARY_DIR}/UnlitPixelShader_glsl_src_es.h"
+        REPLACE
+        "${version_directive}"
+        "${gles_version_directive}"
+        "${defines_location}"
+        "#define UNLIT"
     )
 
     target_sources(
@@ -186,6 +253,34 @@ if(XR_USE_GRAPHICS_API_VULKAN)
         TARGET_ENV
         vulkan1.0
     )
+    glsl_spv_shader(
+        INPUT
+        "${CMAKE_CURRENT_SOURCE_DIR}/Shaders/PbrVertexShader_glsl.vert"
+        OUTPUT
+        "${CMAKE_CURRENT_BINARY_DIR}/UnlitVertexShader_glsl_spv.h"
+        STAGE
+        vert
+        DEFINES
+        "UNLIT"
+        VARIABLE
+        g_UnlitVertexShader_vulkan
+        TARGET_ENV
+        vulkan1.0
+    )
+    glsl_spv_shader(
+        INPUT
+        "${CMAKE_CURRENT_SOURCE_DIR}/Shaders/PbrPixelShader_glsl.frag"
+        OUTPUT
+        "${CMAKE_CURRENT_BINARY_DIR}/UnlitPixelShader_glsl_spv.h"
+        STAGE
+        frag
+        DEFINES
+        "UNLIT"
+        VARIABLE
+        g_UnlitPixelShader_vulkan
+        TARGET_ENV
+        vulkan1.0
+    )
 
     if(GLSLANG_VALIDATOR AND NOT GLSL_COMPILER)
         target_compile_definitions(
@@ -198,6 +293,8 @@ if(XR_USE_GRAPHICS_API_VULKAN)
         PRIVATE
             "${CMAKE_CURRENT_BINARY_DIR}/PbrPixelShader_glsl_spv.h"
             "${CMAKE_CURRENT_BINARY_DIR}/PbrVertexShader_glsl_spv.h"
+            "${CMAKE_CURRENT_BINARY_DIR}/UnlitPixelShader_glsl_spv.h"
+            "${CMAKE_CURRENT_BINARY_DIR}/UnlitVertexShader_glsl_spv.h"
             Vulkan/VkPipelineStates.cpp
             Vulkan/VkResources.cpp
             Vulkan/VkFormats.cpp
@@ -247,29 +344,53 @@ if(XR_USE_GRAPHICS_API_METAL)
     source_group("Shaders" FILES Shaders/PbrShader.metal)
 
     # Create Metal library, with optional debug information
-    set(SHADER_INPUT "${CMAKE_CURRENT_SOURCE_DIR}/Shaders/PbrShader.metal")
-    set(SHADER_IR "${CMAKE_CURRENT_BINARY_DIR}/PbrShader.air")
-    set(SHADER_OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/PbrShader.metallib")
-    add_custom_command(
-        DEPENDS "${SHADER_INPUT}"
-        OUTPUT "${SHADER_IR}"
-        COMMAND
-            "${MetalTools_METAL_EXECUTABLE}" #
-            ARGS "$<$<CONFIG:Debug>:-gline-tables-only>"
-            "$<$<CONFIG:Debug>:-frecord-sources>" #
-            -c "${SHADER_INPUT}" -o "${SHADER_IR}"
-    )
-    add_custom_command(
-        DEPENDS "${SHADER_IR}"
-        OUTPUT "${SHADER_OUTPUT}"
-        COMMAND
-            "${MetalTools_METALLIB_EXECUTABLE}" #
-            ARGS "${SHADER_IR}" -o "${SHADER_OUTPUT}"
-    )
+    function(metal_shader)
+        set(options)
+        set(oneValueArgs INPUT IR OUTPUT)
+        set(multiValueArgs DEFINES)
+        cmake_parse_arguments(_metal "${options}" "${oneValueArgs}"
+                            "${multiValueArgs}" ${ARGN})
+
+        set(defineArgList)
+        foreach(define IN LISTS _metal_DEFINES)
+            list(APPEND defineArgList "-D${define}")
+        endforeach()
+
+        add_custom_command(
+            DEPENDS "${_metal_INPUT}"
+            OUTPUT "${_metal_IR}"
+            COMMAND
+                "${MetalTools_METAL_EXECUTABLE}" #
+                ARGS "$<$<CONFIG:Debug>:-gline-tables-only>"
+                "$<$<CONFIG:Debug>:-frecord-sources>" #
+                ${defineArgList} #
+                -c "${_metal_INPUT}" -o "${_metal_IR}"
+        )
+        add_custom_command(
+            DEPENDS "${_metal_IR}"
+            OUTPUT "${_metal_OUTPUT}"
+            COMMAND
+                "${MetalTools_METALLIB_EXECUTABLE}" #
+                ARGS "${_metal_IR}" -o "${_metal_OUTPUT}"
+        )
+    endfunction()
+
+    metal_shader(
+        INPUT "${CMAKE_CURRENT_SOURCE_DIR}/Shaders/PbrShader.metal"
+        IR "${CMAKE_CURRENT_BINARY_DIR}/PbrShader.air"
+        OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/PbrShader.metallib")
+    target_sources(conformance_framework_pbr PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/PbrShader.metallib")
+
+    metal_shader(
+        INPUT "${CMAKE_CURRENT_SOURCE_DIR}/Shaders/PbrShader.metal"
+        IR "${CMAKE_CURRENT_BINARY_DIR}/UnlitShader.air"
+        OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/UnlitShader.metallib"
+        DEFINES "UNLIT")
+    target_sources(conformance_framework_pbr PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/UnlitShader.metallib")
+
     set_source_files_properties(
         Shaders/PbrShader.metal PROPERTIES HEADER_FILE_ONLY TRUE
     )
-    target_sources(conformance_framework_pbr PRIVATE "${SHADER_OUTPUT}")
 
     target_include_directories(
         conformance_framework_pbr

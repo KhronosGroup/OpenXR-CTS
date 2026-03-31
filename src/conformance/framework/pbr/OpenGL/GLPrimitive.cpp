@@ -54,25 +54,23 @@ namespace
         return (GLsizei)(sizeof(decltype(Pbr::PrimitiveBuilder::Indices)::value_type) * size);
     }
 
-    Pbr::ScopedGLBuffer CreateVertexBuffer(const Pbr::PrimitiveBuilder& primitiveBuilder)
+    Pbr::ScopedGLBuffer CreateVertexBuffer(nonstd::span<const Pbr::Vertex> vtx)
     {
         // Create Vertex Buffer
         auto buffer = Pbr::ScopedGLBuffer{};
         XRC_CHECK_THROW_GLCMD(glGenBuffers(1, buffer.resetAndPut()));
         XRC_CHECK_THROW_GLCMD(glBindBuffer(GL_ARRAY_BUFFER, buffer.get()));
-        XRC_CHECK_THROW_GLCMD(glBufferData(GL_ARRAY_BUFFER, GetPbrVertexByteSize(primitiveBuilder.Vertices.size()),
-                                           primitiveBuilder.Vertices.data(), GL_STATIC_DRAW));
+        XRC_CHECK_THROW_GLCMD(glBufferData(GL_ARRAY_BUFFER, GetPbrVertexByteSize(vtx.size()), vtx.data(), GL_STATIC_DRAW));
         return buffer;
     }
 
-    Pbr::ScopedGLBuffer CreateIndexBuffer(const Pbr::PrimitiveBuilder& primitiveBuilder)
+    Pbr::ScopedGLBuffer CreateIndexBuffer(nonstd::span<const uint32_t> idx)
     {
         // Create Index Buffer
         auto buffer = Pbr::ScopedGLBuffer{};
         XRC_CHECK_THROW_GLCMD(glGenBuffers(1, buffer.resetAndPut()));
         XRC_CHECK_THROW_GLCMD(glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, buffer.get()));
-        XRC_CHECK_THROW_GLCMD(glBufferData(GL_ELEMENT_ARRAY_BUFFER, GetPbrIndexByteSize(primitiveBuilder.Indices.size()),
-                                           primitiveBuilder.Indices.data(), GL_STATIC_DRAW));
+        XRC_CHECK_THROW_GLCMD(glBufferData(GL_ELEMENT_ARRAY_BUFFER, GetPbrIndexByteSize(idx.size()), idx.data(), GL_STATIC_DRAW));
         return buffer;
     }
 
@@ -116,42 +114,56 @@ namespace Pbr
     }
 
     GLPrimitive::GLPrimitive(const Pbr::PrimitiveBuilder& primitiveBuilder, const std::shared_ptr<Pbr::GLMaterial>& material)
-        : GLPrimitive((GLsizei)primitiveBuilder.Indices.size(), CreateIndexBuffer(primitiveBuilder), CreateVertexBuffer(primitiveBuilder),
+        : GLPrimitive((GLsizei)primitiveBuilder.Indices.size(),                                                             //
+                      primitiveBuilder.Indices.empty() ? ScopedGLBuffer{} : CreateIndexBuffer(primitiveBuilder.Indices),    //
+                      primitiveBuilder.Indices.empty() ? ScopedGLBuffer{} : CreateVertexBuffer(primitiveBuilder.Vertices),  //
                       ScopedGLVertexArray{}, std::move(material), primitiveBuilder.NodeIndicesVector())
     {
-        m_vao = CreateVAO(m_vertexBuffer, m_indexBuffer);
+        if (primitiveBuilder.Indices.size() > 0) {
+            m_vao = CreateVAO(m_vertexBuffer, m_indexBuffer);
+        }
     }
 
-    void GLPrimitive::UpdateBuffers(const Pbr::PrimitiveBuilder& primitiveBuilder)
+    void GLPrimitive::UpdateBuffers(span<const uint32_t> idx, span<const Pbr::Vertex> vtx)
     {
+        if (idx.empty()) {
+            m_indexBuffer.reset();
+            m_vertexBuffer.reset();
+            m_indexCount = 0;
+            m_vertexCount = 0;
+            return;
+        }
+
         bool vaoNeedsUpdate = false;
 
         // Update vertex buffer.
         {
-            GLsizei requiredSize = GetPbrVertexByteSize(primitiveBuilder.Vertices.size());
+            GLsizei requiredSize = GetPbrVertexByteSize(vtx.size());
             if (m_vertexCount >= requiredSize) {
                 XRC_CHECK_THROW_GLCMD(glBindBuffer(GL_ARRAY_BUFFER, m_vertexBuffer.get()));
-                XRC_CHECK_THROW_GLCMD(glBufferSubData(GL_ARRAY_BUFFER, 0, requiredSize, primitiveBuilder.Vertices.data()));
+                XRC_CHECK_THROW_GLCMD(glBufferSubData(GL_ARRAY_BUFFER, 0, requiredSize, vtx.data()));
             }
             else {
-                m_vertexBuffer = CreateVertexBuffer(primitiveBuilder);
+                m_vertexBuffer = CreateVertexBuffer(vtx);
                 vaoNeedsUpdate = true;
             }
+
+            m_vertexCount = (GLsizei)vtx.size();
         }
 
         // Update index buffer.
         {
-            GLsizei requiredSize = GetPbrIndexByteSize(primitiveBuilder.Indices.size());
+            GLsizei requiredSize = GetPbrIndexByteSize(idx.size());
             if (m_indexCount >= requiredSize) {
                 XRC_CHECK_THROW_GLCMD(glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_indexBuffer.get()));
-                XRC_CHECK_THROW_GLCMD(glBufferSubData(GL_ELEMENT_ARRAY_BUFFER, 0, requiredSize, primitiveBuilder.Indices.data()));
+                XRC_CHECK_THROW_GLCMD(glBufferSubData(GL_ELEMENT_ARRAY_BUFFER, 0, requiredSize, idx.data()));
             }
             else {
-                m_indexBuffer = CreateIndexBuffer(primitiveBuilder);
+                m_indexBuffer = CreateIndexBuffer(idx);
                 vaoNeedsUpdate = true;
             }
 
-            m_indexCount = (GLsizei)primitiveBuilder.Indices.size();
+            m_indexCount = (GLsizei)idx.size();
         }
 
         if (vaoNeedsUpdate) {
@@ -161,6 +173,10 @@ namespace Pbr
 
     void GLPrimitive::Render(FillMode fillMode) const
     {
+        if (m_indexCount == 0) {
+            return;
+        }
+
         (void)fillMode;  // suppress unused warning under GL
         GLenum drawMode =
 #if defined(XR_USE_GRAPHICS_API_OPENGL)

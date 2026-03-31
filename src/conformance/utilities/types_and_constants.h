@@ -72,16 +72,6 @@ namespace Conformance
 
     /// @}
 
-    /// Implements an auto-initializing XrPosef via C++ construction.
-    /// @ingroup cts_framework
-    struct XrPosefCPP : public XrPosef
-    {
-        explicit XrPosefCPP(const XrPosef& pose) : XrPosef(pose)
-        {
-        }
-    };
-    bool operator==(const XrPosefCPP& lhs, const XrPosefCPP& rhs);
-
     /**
      * @defgroup cts_handle_helpers Handle-type utilities
      * @ingroup cts_framework
