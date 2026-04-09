@@ -21,11 +21,11 @@ using namespace DirectX;
 
 namespace Conformance
 {
-    void D3D11GLTF::Render(ComPtr<ID3D11DeviceContext> deviceContext, Pbr::D3D11Resources& resources, XrMatrix4x4f& modelToWorld)
+    void D3D11GLTF::Render(ComPtr<ID3D11DeviceContext> deviceContext, Pbr::D3D11Resources& resources)
     {
         resources.SetFillMode(GetFillMode());
         resources.Bind(deviceContext.Get());
-        GetModelInstance().Render(resources, deviceContext.Get(), LoadXrMatrix(modelToWorld));
+        GetModelInstance().Render(resources, deviceContext.Get());
     }
 
 }  // namespace Conformance

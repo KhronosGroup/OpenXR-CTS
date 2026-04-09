@@ -108,6 +108,7 @@ namespace Pbr
                          const tinygltf::Sampler* sampler, bool sRGB, Pbr::RGBAColor defaultRGBA) override;
         PrimitiveHandle MakePrimitive(const Pbr::PrimitiveBuilder& primitiveBuilder,
                                       const std::shared_ptr<Pbr::Material>& material) override;
+        void UpdatePrimitive(PrimitiveHandle p, span<const uint32_t> idx, span<const Pbr::Vertex> vtx) override;
         void DropLoaderCaches() override;
 
         /// Sets the Bidirectional Reflectance Distribution Function Lookup Table texture, required by the shader to compute surface
@@ -115,8 +116,8 @@ namespace Pbr
         void SetBrdfLut(std::shared_ptr<VulkanTextureBundle> brdfLut);
 
         /// Get a pipeline state matching some parameters as well as the current settings inside VkResources
-        Conformance::Pipeline& GetOrCreatePipeline(VkRenderPass renderPass, VkSampleCountFlagBits sampleCount, BlendState blendState,
-                                                   DoubleSided doubleSided);
+        Conformance::Pipeline& GetOrCreatePipeline(VkRenderPass renderPass, VkSampleCountFlagBits sampleCount, Shader shader,
+                                                   BlendState blendState, DoubleSided doubleSided);
 
         /// Set the directional light.
         void SetLight(XrVector3f direction, RGBColor diffuseColor);

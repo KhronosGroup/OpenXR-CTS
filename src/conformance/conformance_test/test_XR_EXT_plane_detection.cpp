@@ -136,7 +136,8 @@ namespace Conformance
             SKIP("Not using graphics, which the test requires");
         }
 
-        CompositionHelper compositionHelper("XR_EXT_plane_detection", {XR_EXT_PLANE_DETECTION_EXTENSION_NAME});
+        CompositionHelper compositionHelper("XR_EXT_plane_detection", {XR_EXT_PLANE_DETECTION_EXTENSION_NAME},
+                                            CompositionHelper::EnvironmentBlendModePreference::PreferPassthrough);
         XrSession session = compositionHelper.GetSession();
         XrPlaneDetectionCapabilityFlagsEXT flags =
             SystemPlaneDetectionCapabilities(compositionHelper.GetInstance(), compositionHelper.GetSystemId());

@@ -1,4 +1,0 @@
----
-- mr.4041.gl
----
-- New test: Add validation that `XR_REFERENCE_SPACE_TYPE_VIEW` matches views returned from `xrLocateViews`.

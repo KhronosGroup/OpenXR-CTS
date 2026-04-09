@@ -17,6 +17,83 @@ particular, since it is primarily software, pull requests may be integrated as
 they are accepted even between periodic updates. However, versions that are not
 signed tags on the `approved` branch are not valid for conformance submission.
 
+## OpenXR CTS 1.1.58.0 (2026-04-09)
+
+- Conformance Tests
+  - Change: Update conformance layer generation to properly support extending
+    allowable return codes from extensions.
+    ([internal MR 4009](https://gitlab.khronos.org/openxr/openxr/merge_requests/4009),
+    [internal issue 2494](https://gitlab.khronos.org/openxr/openxr/issues/2494))
+  - Fix: Always verify depth format before using it.
+    ([internal MR 4135](https://gitlab.khronos.org/openxr/openxr/merge_requests/4135),
+    [internal MR 4096](https://gitlab.khronos.org/openxr/openxr/merge_requests/4096))
+  - Fix: Ensure OpenGL context is only bound on current thread during
+    `xrDestroySession`, per the OpenXR spec threading requirements.
+    ([internal MR 4139](https://gitlab.khronos.org/openxr/openxr/merge_requests/4139))
+  - Fix: Resolve thread sanitizer error in `test_FrameSubmission.cpp`.
+    ([internal MR 4194](https://gitlab.khronos.org/openxr/openxr/merge_requests/4194),
+    [internal MR 4139](https://gitlab.khronos.org/openxr/openxr/merge_requests/4139))
+  - Fix: Correct some incorrect renders in the PBR self-tests on some Android
+    devices by increasing float precision.
+    ([internal MR 4202](https://gitlab.khronos.org/openxr/openxr/merge_requests/4202))
+  - Fix: Update instructions for `QuadPoses` test to reflect correct colors.
+    ([internal MR 4213](https://gitlab.khronos.org/openxr/openxr/merge_requests/4213))
+  - Improvement: Deduplicate code in internal "gfxwrapper" library used in the CTS
+    (among other uses) for OpenGL/OpenGL ES. Add an explicit always-EGL path.
+    ([internal MR 2942](https://gitlab.khronos.org/openxr/openxr/merge_requests/2942),
+    [internal issue 1911](https://gitlab.khronos.org/openxr/openxr/issues/1911))
+  - Improvement: PBR: Add support for non-glTF meshes, wireframe rendering,
+    updating meshes in-place, and unlit shading
+    ([internal MR 3921](https://gitlab.khronos.org/openxr/openxr/merge_requests/3921),
+    [internal issue 2561](https://gitlab.khronos.org/openxr/openxr/issues/2561),
+    [internal issue 2562](https://gitlab.khronos.org/openxr/openxr/issues/2562))
+  - Improvement: implement `ValidateSwapchainImageStructs` for
+    `VulkanGraphicsValidator`
+    ([internal MR 3995](https://gitlab.khronos.org/openxr/openxr/merge_requests/3995))
+  - Improvement: Update Catch2 test library from 3.7.1 to 3.11.0, making minor test
+    changes as required.
+    ([internal MR 4006](https://gitlab.khronos.org/openxr/openxr/merge_requests/4006),
+    [internal issue 2108](https://gitlab.khronos.org/openxr/openxr/issues/2108),
+    [internal MR 4146](https://gitlab.khronos.org/openxr/openxr/merge_requests/4146),
+    [internal issue 2659](https://gitlab.khronos.org/openxr/openxr/issues/2659),
+    [internal MR 4152](https://gitlab.khronos.org/openxr/openxr/merge_requests/4152))
+  - Improvement: Update tiny-gltf library from 2.9.3 to 2.9.6.
+    ([internal MR 4007](https://gitlab.khronos.org/openxr/openxr/merge_requests/4007),
+    [internal issue 2108](https://gitlab.khronos.org/openxr/openxr/issues/2108))
+  - Improvement: Update basis_universal library from 1.16.4 to 1.50.0.
+    ([internal MR 4008](https://gitlab.khronos.org/openxr/openxr/merge_requests/4008),
+    [internal issue 2108](https://gitlab.khronos.org/openxr/openxr/issues/2108))
+  - Improvement: Remove `--environmentBlendMode` argument and select an appropriate
+    supported environment blend mode on a per-test basis.
+    ([internal MR 4087](https://gitlab.khronos.org/openxr/openxr/merge_requests/4087),
+    [internal issue 2593](https://gitlab.khronos.org/openxr/openxr/issues/2593),
+    [internal issue 2594](https://gitlab.khronos.org/openxr/openxr/issues/2594))
+  - Improvement: Enable `-Werror=missing-prototypes` more widely.
+    ([internal MR 4120](https://gitlab.khronos.org/openxr/openxr/merge_requests/4120))
+  - Improvement: Code cleanup for performance improvement.
+    ([internal MR 4123](https://gitlab.khronos.org/openxr/openxr/merge_requests/4123))
+  - Improvement: Add example of specifying multiple interaction profiles for
+    interactive actions tests to the usage document.
+    ([internal MR 4138](https://gitlab.khronos.org/openxr/openxr/merge_requests/4138),
+    [internal MR 4127](https://gitlab.khronos.org/openxr/openxr/merge_requests/4127))
+  - New test: `XR_EXT_view_configuration_views_change` extension.
+    ([internal MR 711](https://gitlab.khronos.org/openxr/openxr/merge_requests/711),
+    [internal issue 619](https://gitlab.khronos.org/openxr/openxr/issues/619),
+    [internal MR 4120](https://gitlab.khronos.org/openxr/openxr/merge_requests/4120),
+    [internal MR 4234](https://gitlab.khronos.org/openxr/openxr/merge_requests/4234))
+  - New test: Verify behavior of overlapping projection layers with those on top
+    being limited in their FoV.
+    ([internal MR 3935](https://gitlab.khronos.org/openxr/openxr/merge_requests/3935))
+  - New test: Add tests for mesh supplied by `XR_FB_hand_tracking_mesh`.
+    ([internal MR 4012](https://gitlab.khronos.org/openxr/openxr/merge_requests/4012))
+  - New test: Add validation that `XR_REFERENCE_SPACE_TYPE_VIEW` matches views
+    returned from `xrLocateViews`.
+    ([internal MR 4041](https://gitlab.khronos.org/openxr/openxr/merge_requests/4041))
+  - New test: Test blending with all supported environment blend modes.
+    ([internal MR 4087](https://gitlab.khronos.org/openxr/openxr/merge_requests/4087),
+    [internal issue 2593](https://gitlab.khronos.org/openxr/openxr/issues/2593),
+    [internal issue 2594](https://gitlab.khronos.org/openxr/openxr/issues/2594))
+
 ## OpenXR CTS 1.1.57.0 (2026-02-26)
 
 - Conformance Tests

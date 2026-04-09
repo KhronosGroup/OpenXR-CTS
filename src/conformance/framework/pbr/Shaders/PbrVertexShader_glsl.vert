@@ -1,5 +1,6 @@
 #version 450
-precision mediump float;
+// DEFINES REPLACEMENT LOCATION //
+precision highp float;
 precision highp int;
 // Copyright (c) 2016 - 2017 Mohamad Moneimne and Contributors
 // Copyright (C) Microsoft Corporation.  All Rights Reserved
@@ -36,7 +37,7 @@ layout(binding = 3, std430) readonly buffer type_StructuredBuffer_mat4v4float
 Transforms;
 
 
-layout(location = 0) in vec4 in_var_POSITION;
+layout(location = 0) in highp vec4 in_var_POSITION;
 layout(location = 1) in vec3 in_var_NORMAL;
 layout(location = 2) in vec4 in_var_TANGENT;
 layout(location = 3) in vec4 in_var_COLOR0;
@@ -44,29 +45,36 @@ layout(location = 4) in vec2 in_var_TEXCOORD0;
 layout(location = 5) in mediump uint in_var_TRANSFORMINDEX;
 
 // output of vertex shader, input to fragment shader
+#ifdef UNLIT
+layout(location = 0) out vec2 varying_TEXCOORD0;
+layout(location = 1) out vec4 varying_COLOR0;
+#else //UNLIT
 layout(location = 0) out vec3 varying_POSITION1;
 layout(location = 1) out mat3 varying_TANGENT;
 layout(location = 4) out vec2 varying_TEXCOORD0;
 layout(location = 5) out vec4 varying_COLOR0;
+#endif //UNLIT
 
 out gl_PerVertex
 {
-    vec4 gl_Position;
+    highp vec4 gl_Position;
 };
 
 void main()
 {
     mat4 modelTransform = ModelConstantBuffer.ModelToWorld * Transforms._m0[(in_var_TRANSFORMINDEX)];
-    vec4 transformedPosWorld = modelTransform * in_var_POSITION;
-    vec3 normalW = normalize((modelTransform * vec4(in_var_NORMAL, 0.0)).xyz);
-    vec3 tangentW = normalize((modelTransform * vec4(in_var_TANGENT.xyz, 0.0)).xyz);
+    highp vec4 transformedPosWorld = modelTransform * in_var_POSITION;
     // aka output.PositionProj
     gl_Position = SceneBuffer.ViewProjection * transformedPosWorld;
+
+#ifndef UNLIT
+    vec3 normalW = normalize((modelTransform * vec4(in_var_NORMAL, 0.0)).xyz);
+    vec3 tangentW = normalize((modelTransform * vec4(in_var_TANGENT.xyz, 0.0)).xyz);
     // aka output.PositionWorld
     varying_POSITION1 = transformedPosWorld.xyz / vec3(transformedPosWorld.w);
-
     vec3 bitangentW = cross(normalW, tangentW) * in_var_TANGENT.w;
     varying_TANGENT = mat3(tangentW, bitangentW, normalW);
+#endif //not UNLIT
 
     varying_TEXCOORD0 = in_var_TEXCOORD0;
     varying_COLOR0 = in_var_COLOR0;

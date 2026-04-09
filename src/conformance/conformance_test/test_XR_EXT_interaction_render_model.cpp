@@ -253,7 +253,8 @@ namespace Conformance
 
         CompositionHelper compositionHelper(
             "XR_EXT_interaction_render_model",
-            {XR_EXT_UUID_EXTENSION_NAME, XR_EXT_RENDER_MODEL_EXTENSION_NAME, XR_EXT_INTERACTION_RENDER_MODEL_EXTENSION_NAME});
+            {XR_EXT_UUID_EXTENSION_NAME, XR_EXT_RENDER_MODEL_EXTENSION_NAME, XR_EXT_INTERACTION_RENDER_MODEL_EXTENSION_NAME},
+            CompositionHelper::EnvironmentBlendModePreference::PreferPassthrough);
         XrInstance instance = compositionHelper.GetInstance();
         XrSession session = compositionHelper.GetSession();
 
@@ -330,7 +331,7 @@ namespace Conformance
 
             // want our standard action sets on all subaction paths
 
-            std::vector<GLTFDrawable> renderedGLTFs;
+            std::vector<GLTFModelInstanceHandle> renderedGLTFs;
 
             // Use xrLocateSpace to locate the model's space
             XrSpaceLocation location{XR_TYPE_SPACE_LOCATION};
@@ -366,9 +367,10 @@ namespace Conformance
                 // determined by xrGetRenderModelPropertiesEXT.
                 CHECK_RESULT_UNQUALIFIED_SUCCESS(ext.xrGetRenderModelStateEXT_(testModel, &stateGetInfo, &state));
 
-                animationHandler.UpdateNodes(std::move(nodeStates),
-                                             GetGlobalData().graphicsPlugin->GetModelInstance(modelData.glTFModelInstanceHandle));
-                renderedGLTFs.emplace_back(modelData.glTFModelInstanceHandle, location.pose);
+                Pbr::ModelInstance& modelInstance = GetGlobalData().graphicsPlugin->GetModelInstance(modelData.glTFModelInstanceHandle);
+                animationHandler.UpdateNodes(std::move(nodeStates), modelInstance);
+                modelInstance.SetModelToWorld(location.pose);
+                renderedGLTFs.push_back(modelData.glTFModelInstanceHandle);
             }
 
             std::vector<XrCompositionLayerBaseHeader*> layers;
@@ -412,7 +414,8 @@ namespace Conformance
 
         CompositionHelper compositionHelper(
             "XR_EXT_interaction_render_model",
-            {XR_EXT_UUID_EXTENSION_NAME, XR_EXT_RENDER_MODEL_EXTENSION_NAME, XR_EXT_INTERACTION_RENDER_MODEL_EXTENSION_NAME});
+            {XR_EXT_UUID_EXTENSION_NAME, XR_EXT_RENDER_MODEL_EXTENSION_NAME, XR_EXT_INTERACTION_RENDER_MODEL_EXTENSION_NAME},
+            CompositionHelper::EnvironmentBlendModePreference::PreferPassthrough);
         XrInstance instance = compositionHelper.GetInstance();
         XrSession session = compositionHelper.GetSession();
 

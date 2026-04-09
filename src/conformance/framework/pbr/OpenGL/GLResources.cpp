@@ -59,6 +59,22 @@ static const char* g_PbrPixelShader =
 #include <PbrPixelShader_glsl_src_es.h>
 #endif
     ;
+
+static const char* g_UnlitVertexShader =
+#ifdef XR_USE_GRAPHICS_API_OPENGL
+#include <UnlitVertexShader_glsl_src.h>
+#elif XR_USE_GRAPHICS_API_OPENGL_ES
+#include <UnlitVertexShader_glsl_src_es.h>
+#endif
+    ;
+
+static const char* g_UnlitPixelShader =
+#ifdef XR_USE_GRAPHICS_API_OPENGL
+#include <UnlitPixelShader_glsl_src.h>
+#elif XR_USE_GRAPHICS_API_OPENGL_ES
+#include <UnlitPixelShader_glsl_src_es.h>
+#endif
+    ;
 // IWYU pragma: end_keep
 
 using namespace openxr::math_operators;
@@ -132,6 +148,7 @@ namespace Pbr
         void Initialize()
         {
             Resources.PbrProgram = Program(&g_PbrVertexShader, &g_PbrPixelShader);
+            Resources.UnlitProgram = Program(&g_UnlitVertexShader, &g_UnlitPixelShader);
 
             // Set up the constant buffers.
             XRC_CHECK_THROW_GLCMD(glGenBuffers(1, Resources.SceneConstantBuffer.resetAndPut()));
@@ -148,6 +165,7 @@ namespace Pbr
         struct DeviceResources
         {
             Program PbrProgram{};
+            Program UnlitProgram{};
             ScopedGLSampler BrdfSampler;
             ScopedGLSampler EnvironmentMapSampler;
             ScopedGLBuffer SceneConstantBuffer;
@@ -359,6 +377,11 @@ namespace Pbr
         return m_impl->Primitives.emplace_back(primitiveBuilder, typedMaterial);
     }
 
+    void GLResources::UpdatePrimitive(PrimitiveHandle p, span<const uint32_t> idx, span<const Pbr::Vertex> vtx)
+    {
+        m_impl->Primitives[p].UpdateBuffers(idx, vtx);
+    }
+
     GLPrimitive& GLResources::GetPrimitive(PrimitiveHandle p)
     {
         return m_impl->Primitives[p];
@@ -394,6 +417,20 @@ namespace Pbr
         m_sharedState.SetDepthDirection(depthDirection);
     }
 
+    void GLResources::SetShader(Shader shader) const
+    {
+        switch (shader) {
+        case Shader::Pbr:
+            m_impl->Resources.PbrProgram.Bind();
+            break;
+        case Shader::Unlit:
+            m_impl->Resources.UnlitProgram.Bind();
+            break;
+        default:
+            throw std::logic_error("Unhandled shader in GLResources::SetShader");
+        }
+    }
+
     void GLResources::SetBlendState(bool enabled) const
     {
         if (enabled) {
@@ -426,7 +463,7 @@ namespace Pbr
 
     void GLResources::SetDepthStencilState(bool disableDepthWrite) const
     {
-        XRC_CHECK_THROW_GLCMD(glDepthFunc(m_sharedState.GetDepthDirection() == DepthDirection::Reversed ? GL_GREATER : GL_LESS));
+        XRC_CHECK_THROW_GLCMD(glDepthFunc(m_sharedState.GetDepthDirection() == DepthDirection::Reversed ? GL_GEQUAL : GL_LEQUAL));
         XRC_CHECK_THROW_GLCMD(glDepthMask(disableDepthWrite ? GL_FALSE : GL_TRUE));
     }
 }  // namespace Pbr

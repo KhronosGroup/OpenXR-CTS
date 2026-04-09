@@ -57,6 +57,14 @@ const uint32_t g_PbrVertexShader[] = SPV_PREFIX
 const uint32_t g_PbrPixelShader[] = SPV_PREFIX
 #include <PbrPixelShader_glsl_spv.h>
     SPV_SUFFIX;
+
+const uint32_t g_UnlitVertexShader[] = SPV_PREFIX
+#include <UnlitVertexShader_glsl_spv.h>
+    SPV_SUFFIX;
+
+const uint32_t g_UnlitPixelShader[] = SPV_PREFIX
+#include <UnlitPixelShader_glsl_spv.h>
+    SPV_SUFFIX;
 // IWYU pragma: end_keep
 
 using namespace openxr::math_operators;
@@ -330,8 +338,9 @@ namespace Pbr
             Resources.PipelineLayout = std::make_shared<Conformance::ScopedVkPipelineLayout>(
                 PipelineLayout::CreatePipelineLayout(device, Resources.DescriptorSetLayout->get()), device);
 
-            Resources.Pipelines = std::make_unique<VulkanPipelines>(device, Resources.PipelineLayout, c_attrDesc, c_bindingDesc,
-                                                                    g_PbrVertexShader, g_PbrPixelShader);
+            Resources.Pipelines =
+                std::make_unique<VulkanPipelines>(device, Resources.PipelineLayout, c_attrDesc, c_bindingDesc, g_PbrVertexShader,
+                                                  g_PbrPixelShader, g_UnlitVertexShader, g_UnlitPixelShader);
 
             // Set up the scene constant buffer.
             Resources.SceneBuffer.Init(device, allocator);
@@ -569,10 +578,10 @@ namespace Pbr
         return builder.Build();
     }
 
-    Conformance::Pipeline& VulkanResources::GetOrCreatePipeline(VkRenderPass renderPass, VkSampleCountFlagBits sampleCount,
+    Conformance::Pipeline& VulkanResources::GetOrCreatePipeline(VkRenderPass renderPass, VkSampleCountFlagBits sampleCount, Shader shader,
                                                                 BlendState blendState, DoubleSided doubleSided)
     {
-        return m_impl->Resources.Pipelines->GetOrCreatePipeline(renderPass, sampleCount, m_sharedState.GetFillMode(),
+        return m_impl->Resources.Pipelines->GetOrCreatePipeline(renderPass, sampleCount, shader, m_sharedState.GetFillMode(),
                                                                 m_sharedState.GetFrontFaceWindingOrder(), blendState, doubleSided,
                                                                 m_sharedState.GetDepthDirection());
     }
@@ -630,6 +639,11 @@ namespace Pbr
     VulkanPrimitive& VulkanResources::GetPrimitive(PrimitiveHandle p)
     {
         return m_impl->Primitives[p];
+    }
+
+    void VulkanResources::UpdatePrimitive(PrimitiveHandle p, span<const uint32_t> idx, span<const Pbr::Vertex> vtx)
+    {
+        m_impl->Primitives[p].UpdateBuffers(idx, vtx);
     }
 
     const VulkanPrimitive& VulkanResources::GetPrimitive(PrimitiveHandle p) const

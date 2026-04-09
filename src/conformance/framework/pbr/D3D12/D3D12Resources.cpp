@@ -30,6 +30,8 @@
 
 #include <PbrPixelShader_hlsl.h>
 #include <PbrVertexShader_hlsl.h>
+#include <UnlitPixelShader_hlsl.h>
+#include <UnlitVertexShader_hlsl.h>
 
 #include <type_traits>
 
@@ -160,8 +162,9 @@ namespace Pbr
             Resources.Device = device;
 
             Resources.RootSignature = RootSig::CreateRootSig(device);
-            Resources.PipelineStates = std::make_unique<D3D12PipelineStates>(Resources.RootSignature, basePipelineStateDesc, s_vertexDesc,
-                                                                             g_PbrVertexShader, g_PbrPixelShader);
+            Resources.PipelineStates =
+                std::make_unique<D3D12PipelineStates>(Resources.RootSignature, basePipelineStateDesc, s_vertexDesc, g_PbrVertexShader,
+                                                      g_PbrPixelShader, g_UnlitVertexShader, g_UnlitPixelShader);
 
             // Set up the scene constant buffer.
             static_assert((sizeof(SceneConstantBuffer) % 16) == 0, "Constant Buffer must be divisible by 16 bytes");
@@ -429,11 +432,11 @@ namespace Pbr
     }
 
     Microsoft::WRL::ComPtr<ID3D12PipelineState> D3D12Resources::GetOrCreatePipelineState(DXGI_FORMAT colorRenderTargetFormat,
-                                                                                         DXGI_FORMAT depthRenderTargetFormat,
+                                                                                         DXGI_FORMAT depthRenderTargetFormat, Shader shader,
                                                                                          BlendState blendState, DoubleSided doubleSided)
     {
         return m_impl->Resources.PipelineStates->GetOrCreatePipelineState(
-            colorRenderTargetFormat, depthRenderTargetFormat, m_sharedState.GetFillMode(), m_sharedState.GetFrontFaceWindingOrder(),
+            colorRenderTargetFormat, depthRenderTargetFormat, shader, m_sharedState.GetFillMode(), m_sharedState.GetFrontFaceWindingOrder(),
             blendState, doubleSided, m_sharedState.GetDepthDirection());
     }
 
@@ -537,6 +540,12 @@ namespace Pbr
         return m_impl->Primitives.emplace_back(*this, copyCommandList, primitiveBuilder, typedMaterial);
     }
 
+    void D3D12Resources::UpdatePrimitive(ID3D12GraphicsCommandList* copyCommandList, PrimitiveHandle p, span<const uint32_t> idx,
+                                         span<const Pbr::Vertex> vtx)
+    {
+        m_impl->Primitives[p].UpdateBuffers(*this, copyCommandList, idx, vtx);
+    }
+
     D3D12Primitive& D3D12Resources::GetPrimitive(PrimitiveHandle p)
     {
         return m_impl->Primitives[p];
@@ -607,6 +616,10 @@ namespace Pbr
                                                     const std::shared_ptr<Pbr::Material>& material)
     {
         return m_pbrResources.MakePrimitive(m_copyCmdList, primitiveBuilder, material);
+    }
+    void D3D12GltfBuilder::UpdatePrimitive(PrimitiveHandle p, span<const uint32_t> idx, span<const Pbr::Vertex> vtx)
+    {
+        return m_pbrResources.UpdatePrimitive(m_copyCmdList, p, idx, vtx);
     }
     void D3D12GltfBuilder::DropLoaderCaches()
     {

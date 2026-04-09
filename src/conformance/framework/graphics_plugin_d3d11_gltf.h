@@ -33,7 +33,7 @@ namespace Conformance
     public:
         using RenderableGltfModelInstanceBase::RenderableGltfModelInstanceBase;
 
-        void Render(ComPtr<ID3D11DeviceContext> deviceContext, Pbr::D3D11Resources& resources, XrMatrix4x4f& modelToWorld);
+        void Render(ComPtr<ID3D11DeviceContext> deviceContext, Pbr::D3D11Resources& resources);
     };
 }  // namespace Conformance
 #endif

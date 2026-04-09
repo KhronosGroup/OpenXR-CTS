@@ -94,6 +94,7 @@ namespace Pbr
                          const tinygltf::Sampler* sampler, bool sRGB, Pbr::RGBAColor defaultRGBA) override;
         PrimitiveHandle MakePrimitive(const Pbr::PrimitiveBuilder& primitiveBuilder,
                                       const std::shared_ptr<Pbr::Material>& material) override;
+        void UpdatePrimitive(PrimitiveHandle p, span<const uint32_t> idx, span<const Pbr::Vertex> vtx) override;
         void DropLoaderCaches() override;
 
         /// Sets the Bidirectional Reflectance Distribution Function Lookup Table texture, required by the shader to compute surface
@@ -111,7 +112,8 @@ namespace Pbr
 
         /// Get a pipeline state matching some parameters as well as the current settings inside MetalResources.
         MetalPipelineStateBundle GetOrCreatePipelineState(MTL::PixelFormat colorRenderTargetFormat,
-                                                          MTL::PixelFormat depthRenderTargetFormat, BlendState blendState) const;
+                                                          MTL::PixelFormat depthRenderTargetFormat, Shader shader,
+                                                          BlendState blendState) const;
 
         /// Set the directional light.
         void SetLight(const XrVector3f& direction, RGBColor diffuseColor);
@@ -163,6 +165,8 @@ namespace Pbr
             NS::SharedPtr<MTL::VertexDescriptor> VertexDescriptor;
             NS::SharedPtr<MTL::Function> PbrVertexShader;
             NS::SharedPtr<MTL::Function> PbrPixelShader;
+            NS::SharedPtr<MTL::Function> UnlitVertexShader;
+            NS::SharedPtr<MTL::Function> UnlitPixelShader;
             NS::SharedPtr<MTL::Texture> BrdfLut;
             NS::SharedPtr<MTL::Texture> SpecularEnvironmentMap;
             NS::SharedPtr<MTL::Texture> DiffuseEnvironmentMap;

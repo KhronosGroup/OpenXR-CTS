@@ -176,26 +176,35 @@ namespace Pbr
 
     void MetalResources::CreateDeviceDependentResources(MTL::Device* device)
     {
-        NS::String* libraryPath = MTLSTR("../framework/pbr/PbrShader.metallib");
-        NS::URL* libraryUrl = NS::URL::fileURLWithPath(libraryPath);  // autorelease
-        NS::Error* error = nullptr;
-        NS::SharedPtr<MTL::Library> shaderLibrary = NS::TransferPtr(device->newLibrary(libraryUrl, &error));
-        if (!shaderLibrary) {
-            Conformance::ReportF("Load shader library from %s, error: %s", libraryUrl->fileSystemRepresentation(),
-                                 error->localizedDescription()->utf8String());
-            throw std::logic_error("Unable to load shader library");
-        }
-        m_Resources.PbrVertexShader = NS::TransferPtr(shaderLibrary->newFunction(MTLSTR("VertexShaderPbr")));
-        if (!m_Resources.PbrVertexShader) {
-            throw std::logic_error("Invalid vertex function (VertexShaderPbr)");
-        }
-        m_Resources.PbrVertexShader->setLabel(MTLSTR("PbrVertexShader"));
+        auto loadMetalShaders = [&device](NS::String* libraryPath, NS::SharedPtr<MTL::Function>& vertexShader,
+                                          NS::SharedPtr<MTL::Function>& pixelShader) {
+            NS::URL* libraryUrl = NS::URL::fileURLWithPath(libraryPath);  // autorelease
+            NS::Error* error = nullptr;
+            NS::SharedPtr<MTL::Library> shaderLibrary = NS::TransferPtr(device->newLibrary(libraryUrl, &error));
+            if (!shaderLibrary) {
+                Conformance::ReportF("Load shader library from %s, error: %s", libraryUrl->fileSystemRepresentation(),
+                                     error->localizedDescription()->utf8String());
+                throw std::logic_error("Unable to load shader library");
+            }
 
-        m_Resources.PbrPixelShader = NS::TransferPtr(shaderLibrary->newFunction(MTLSTR("FragmentShaderPbr")));
-        if (!m_Resources.PbrPixelShader) {
-            throw std::logic_error("Invalid fragment function (FragmentShaderPbr)");
-        }
+            vertexShader = NS::TransferPtr(shaderLibrary->newFunction(MTLSTR("VertexShaderPbr")));
+            if (!vertexShader) {
+                throw std::logic_error(std::string("Invalid vertex function (VertexShaderPbr in ") +
+                                       libraryPath->cString(NS::ASCIIStringEncoding) + ")");
+            }
+
+            pixelShader = NS::TransferPtr(shaderLibrary->newFunction(MTLSTR("FragmentShaderPbr")));
+            if (!pixelShader) {
+                throw std::logic_error(std::string("Invalid fragment function (FragmentShaderPbr in ") +
+                                       libraryPath->cString(NS::ASCIIStringEncoding) + ")");
+            }
+        };
+        loadMetalShaders(MTLSTR("../framework/pbr/PbrShader.metallib"), m_Resources.PbrVertexShader, m_Resources.PbrPixelShader);
+        m_Resources.PbrVertexShader->setLabel(MTLSTR("PbrVertexShader"));
         m_Resources.PbrPixelShader->setLabel(MTLSTR("PbrPixelShader"));
+        loadMetalShaders(MTLSTR("../framework/pbr/UnlitShader.metallib"), m_Resources.UnlitVertexShader, m_Resources.UnlitPixelShader);
+        m_Resources.UnlitVertexShader->setLabel(MTLSTR("UnlitVertexShader"));
+        m_Resources.UnlitPixelShader->setLabel(MTLSTR("UnlitPixelShader"));
 
         static_assert(sizeof(Vertex) == 17 * 4, "Unexpected Vertex size");
 
@@ -234,7 +243,8 @@ namespace Pbr
         m_Resources.BrdfSampler = MetalTexture::CreateSampler(device);
 
         m_Resources.PipelineStates = std::make_unique<MetalPipelineStates>(
-            m_Resources.PbrVertexShader.get(), m_Resources.PbrPixelShader.get(), m_Resources.VertexDescriptor.get());
+            m_Resources.PbrVertexShader.get(), m_Resources.PbrPixelShader.get(), m_Resources.UnlitVertexShader.get(),
+            m_Resources.UnlitPixelShader.get(), m_Resources.VertexDescriptor.get());
 
         m_Resources.SolidColorTextureCache = MetalTextureCache(device);
 
@@ -254,11 +264,12 @@ namespace Pbr
     }
 
     MetalPipelineStateBundle MetalResources::GetOrCreatePipelineState(MTL::PixelFormat colorRenderTargetFormat,
-                                                                      MTL::PixelFormat depthRenderTargetFormat, BlendState blendState) const
+                                                                      MTL::PixelFormat depthRenderTargetFormat, Shader shader,
+                                                                      BlendState blendState) const
     {
         DepthDirection depthDirection = m_sharedState.GetDepthDirection();
         MetalPipelineStateBundle bundle = m_Resources.PipelineStates->GetOrCreatePipelineState(
-            *this, colorRenderTargetFormat, depthRenderTargetFormat, blendState, depthDirection);
+            *this, colorRenderTargetFormat, depthRenderTargetFormat, shader, blendState, depthDirection);
         return bundle;
     }
 
@@ -340,7 +351,12 @@ namespace Pbr
         if (!typedMaterial) {
             throw std::logic_error("Got the wrong type of material");
         }
-        return m_Primitives.emplace_back(*this, primitiveBuilder, typedMaterial, false);
+        return m_Primitives.emplace_back(*this, primitiveBuilder, typedMaterial);
+    }
+
+    void MetalResources::UpdatePrimitive(PrimitiveHandle p, span<const uint32_t> idx, span<const Pbr::Vertex> vtx)
+    {
+        m_Primitives[p].UpdateBuffers(GetDevice().get(), idx, vtx);
     }
 
     MetalPrimitive& MetalResources::GetPrimitive(PrimitiveHandle p)

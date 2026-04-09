@@ -24,6 +24,8 @@
 
 #include <PbrPixelShader_hlsl.h>
 #include <PbrVertexShader_hlsl.h>
+#include <UnlitPixelShader_hlsl.h>
+#include <UnlitVertexShader_hlsl.h>
 
 #include <type_traits>
 
@@ -91,12 +93,17 @@ namespace Pbr
             XRC_CHECK_THROW_HRCMD(device->CreateInputLayout(s_vertexDesc, ARRAYSIZE(s_vertexDesc), g_PbrVertexShader,
                                                             sizeof(g_PbrVertexShader), Resources.InputLayout.ReleaseAndGetAddressOf()));
 
-            // Set up pixel shader.
             XRC_CHECK_THROW_HRCMD(device->CreatePixelShader(g_PbrPixelShader, sizeof(g_PbrPixelShader), nullptr,
                                                             Resources.PbrPixelShader.ReleaseAndGetAddressOf()));
 
             XRC_CHECK_THROW_HRCMD(device->CreateVertexShader(g_PbrVertexShader, sizeof(g_PbrVertexShader), nullptr,
                                                              Resources.PbrVertexShader.ReleaseAndGetAddressOf()));
+
+            XRC_CHECK_THROW_HRCMD(device->CreatePixelShader(g_UnlitPixelShader, sizeof(g_UnlitPixelShader), nullptr,
+                                                            Resources.UnlitPixelShader.ReleaseAndGetAddressOf()));
+
+            XRC_CHECK_THROW_HRCMD(device->CreateVertexShader(g_UnlitVertexShader, sizeof(g_UnlitVertexShader), nullptr,
+                                                             Resources.UnlitVertexShader.ReleaseAndGetAddressOf()));
 
             // Set up the scene constant buffer.
             const CD3D11_BUFFER_DESC pbrConstantBufferDesc(sizeof(SceneConstantBuffer), D3D11_BIND_CONSTANT_BUFFER);
@@ -141,7 +148,7 @@ namespace Pbr
             for (bool reverseZ : {false, true}) {
                 for (bool noWrite : {false, true}) {
                     CD3D11_DEPTH_STENCIL_DESC depthStencilDesc(CD3D11_DEFAULT{});
-                    depthStencilDesc.DepthFunc = reverseZ ? D3D11_COMPARISON_GREATER : D3D11_COMPARISON_LESS;
+                    depthStencilDesc.DepthFunc = reverseZ ? D3D11_COMPARISON_GREATER_EQUAL : D3D11_COMPARISON_LESS_EQUAL;
                     depthStencilDesc.DepthWriteMask = noWrite ? D3D11_DEPTH_WRITE_MASK_ZERO : D3D11_DEPTH_WRITE_MASK_ALL;
                     XRC_CHECK_THROW_HRCMD(device->CreateDepthStencilState(
                         &depthStencilDesc, Resources.DepthStencilStates[reverseZ][noWrite].ReleaseAndGetAddressOf()));
@@ -158,6 +165,8 @@ namespace Pbr
             Microsoft::WRL::ComPtr<ID3D11InputLayout> InputLayout;
             Microsoft::WRL::ComPtr<ID3D11VertexShader> PbrVertexShader;
             Microsoft::WRL::ComPtr<ID3D11PixelShader> PbrPixelShader;
+            Microsoft::WRL::ComPtr<ID3D11VertexShader> UnlitVertexShader;
+            Microsoft::WRL::ComPtr<ID3D11PixelShader> UnlitPixelShader;
             Microsoft::WRL::ComPtr<ID3D11Buffer> SceneConstantBuffer;
             Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> BrdfLut;
             Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> SpecularEnvironmentMap;
@@ -369,9 +378,6 @@ namespace Pbr
     {
         context->UpdateSubresource(m_impl->Resources.SceneConstantBuffer.Get(), 0, nullptr, &m_impl->SceneBuffer, 0, 0);
 
-        context->VSSetShader(m_impl->Resources.PbrVertexShader.Get(), nullptr, 0);
-        context->PSSetShader(m_impl->Resources.PbrPixelShader.Get(), nullptr, 0);
-
         ID3D11Buffer* psBuffers[] = {m_impl->Resources.SceneConstantBuffer.Get()};
         context->PSSetConstantBuffers(Pbr::ShaderSlots::ConstantBuffers::Scene, _countof(psBuffers), psBuffers);
 
@@ -400,7 +406,14 @@ namespace Pbr
         if (!typedMaterial) {
             throw std::logic_error("Got the wrong type of material");
         }
+        // note: buffer will switch to updatable on first update, so no need to expose here
         return m_impl->Primitives.emplace_back(*this, primitiveBuilder, typedMaterial, false);
+    }
+
+    void D3D11Resources::UpdatePrimitive(ID3D11DeviceContext* context, PrimitiveHandle p, span<const uint32_t> idx,
+                                         span<const Pbr::Vertex> vtx)
+    {
+        m_impl->Primitives[p].UpdateBuffers(GetDevice().Get(), context, idx, vtx);
     }
 
     D3D11Primitive& D3D11Resources::GetPrimitive(PrimitiveHandle p)
@@ -438,6 +451,17 @@ namespace Pbr
         m_sharedState.SetDepthDirection(depthDirection);
     }
 
+    void D3D11Resources::SetShader(_In_ ID3D11DeviceContext* context, Shader shader) const
+    {
+        assert(shader == Shader::Pbr || shader == Shader::Unlit);
+        const Microsoft::WRL::ComPtr<ID3D11VertexShader>& vertexShader =
+            shader == Shader::Pbr ? m_impl->Resources.PbrVertexShader : m_impl->Resources.UnlitVertexShader;
+        context->VSSetShader(vertexShader.Get(), nullptr, 0);
+        const Microsoft::WRL::ComPtr<ID3D11PixelShader>& pixelShader =
+            shader == Shader::Pbr ? m_impl->Resources.PbrPixelShader : m_impl->Resources.UnlitPixelShader;
+        context->PSSetShader(pixelShader.Get(), nullptr, 0);
+    }
+
     void D3D11Resources::SetBlendState(_In_ ID3D11DeviceContext* context, bool enabled) const
     {
         context->OMSetBlendState(enabled ? m_impl->Resources.AlphaBlendState.Get() : m_impl->Resources.DefaultBlendState.Get(), nullptr,
@@ -460,6 +484,49 @@ namespace Pbr
                 .DepthStencilStates[m_sharedState.GetDepthDirection() == DepthDirection::Reversed ? 1 : 0][disableDepthWrite ? 1 : 0]
                 .Get(),
             1);
+    }
+
+    D3D11GltfBuilder D3D11Resources::MakeGltfBuilder(ID3D11DeviceContext* context)
+    {
+        return D3D11GltfBuilder{*this, context};
+    }
+
+    D3D11GltfBuilder::D3D11GltfBuilder(D3D11Resources& pbrResources, ID3D11DeviceContext* context)
+        : m_pbrResources(pbrResources), m_context(context)
+    {
+    }
+    D3D11GltfBuilder::~D3D11GltfBuilder()
+    {
+    }
+
+    std::shared_ptr<Material> D3D11GltfBuilder::CreateFlatMaterial(RGBAColor baseColorFactor, float roughnessFactor, float metallicFactor,
+                                                                   RGBColor emissiveFactor)
+    {
+        return m_pbrResources.CreateFlatMaterial(baseColorFactor, roughnessFactor, metallicFactor, emissiveFactor);
+    }
+    std::shared_ptr<Material> D3D11GltfBuilder::CreateMaterial()
+    {
+        return m_pbrResources.CreateMaterial();
+    }
+
+    void D3D11GltfBuilder::LoadTexture(const std::shared_ptr<Material>& pbrMaterial, Pbr::ShaderSlots::PSMaterial slot,
+                                       const tinygltf::Image* image, const tinygltf::Sampler* sampler, bool sRGB,
+                                       Pbr::RGBAColor defaultRGBA)
+    {
+        return m_pbrResources.LoadTexture(pbrMaterial, slot, image, sampler, sRGB, defaultRGBA);
+    }
+    PrimitiveHandle D3D11GltfBuilder::MakePrimitive(const Pbr::PrimitiveBuilder& primitiveBuilder,
+                                                    const std::shared_ptr<Pbr::Material>& material)
+    {
+        return m_pbrResources.MakePrimitive(primitiveBuilder, material);
+    }
+    void D3D11GltfBuilder::UpdatePrimitive(PrimitiveHandle p, span<const uint32_t> idx, span<const Pbr::Vertex> vtx)
+    {
+        return m_pbrResources.UpdatePrimitive(m_context, p, idx, vtx);
+    }
+    void D3D11GltfBuilder::DropLoaderCaches()
+    {
+        return m_pbrResources.DropLoaderCaches();
     }
 }  // namespace Pbr
 

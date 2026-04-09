@@ -76,6 +76,19 @@ namespace Pbr
         }
     }  // namespace ShaderSlots
 
+    // For now, at least, all shaders take the same signature,
+    // but some inputs may be used in a different way or ignored altogether
+    enum class Shader : uint32_t
+    {
+        // Standard PBR - uses BaseColor, MetallicRoughness, Normal, Occlusion,
+        // Emissive, and the environment textures in a typical glTF PBR fashion.
+        Pbr,
+        // Aligns with the behaviour specified by KHR_materials_unlit:
+        // Only uses BaseColor (multiplied by per-vertex Color0, as with PBR)
+        // and does no lighting calculations, treating it effectively as emissive.
+        Unlit,
+    };
+
     enum class FillMode : uint32_t
     {
         Solid,

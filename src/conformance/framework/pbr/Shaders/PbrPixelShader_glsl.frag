@@ -1,5 +1,6 @@
 #version 450
-precision mediump float;
+// DEFINES REPLACEMENT LOCATION //
+precision highp float;
 precision highp int;
 // Copyright (c) 2016 - 2017 Mohamad Moneimne and Contributors
 // Copyright (C) Microsoft Corporation.  All Rights Reserved
@@ -46,10 +47,15 @@ layout(binding = 10) uniform samplerCube SpecularTextureIBLSampler;
 layout(binding = 11) uniform samplerCube DiffuseTextureIBLSampler;
 
 // input to fragment shader, output of vertex shader
+#ifdef UNLIT
+layout(location = 0) in vec2 varying_TEXCOORD0;
+layout(location = 1) in vec4 varying_COLOR0;
+#else //UNLIT
 layout(location = 0) in vec3 varying_POSITION1;
 layout(location = 1) in mat3 varying_TANGENT;
 layout(location = 4) in vec2 varying_TEXCOORD0;
 layout(location = 5) in vec4 varying_COLOR0;
+#endif //UNLIT
 
 layout(location = 0) out vec4 out_var_SV_TARGET;
 
@@ -60,6 +66,8 @@ layout(location = 0) out vec4 out_var_SV_TARGET;
 const float M_PI = 3.141592653589793;
 const float c_MinRoughness = 0.04;
 const vec3 c_f0 = vec3(0.04, 0.04, 0.04);
+
+#ifndef UNLIT
 
 vec4 SRGBtoLINEAR(vec4 srgbIn)
 {
@@ -151,17 +159,23 @@ highp float microfacetDistribution(highp float NdotH, float alphaRoughness)
     return roughnessSq / (M_PI * f * f);
 }
 
+#endif //not UNLIT
+
 void main()
 {
-    // Roughness is stored in the 'g' channel, metallic is stored in the 'b' channel.
-    // This layout intentionally reserves the 'r' channel for (optional) occlusion map data
-    vec4 mrSample = texture(MetallicRoughnessSampler, varying_TEXCOORD0);
     vec4 baseColor = (texture(BaseColorSampler, varying_TEXCOORD0) * varying_COLOR0) * MaterialConstantBuffer.BaseColorFactor;
-
     // Discard if below alpha cutoff.
     if ((baseColor.w - MaterialConstantBuffer.AlphaCutoff) < 0.0) {
         discard;
     }
+
+#ifdef UNLIT
+    vec3 outColor = baseColor.rgb;
+#else //UNLIT
+    // Roughness is stored in the 'g' channel, metallic is stored in the 'b' channel.
+    // This layout intentionally reserves the 'r' channel for (optional) occlusion map data
+    vec4 mrSample = texture(MetallicRoughnessSampler, varying_TEXCOORD0);
+
     float metallic = clamp(mrSample.z * MaterialConstantBuffer.MetallicFactor, 0.0, 1.0);
     float perceptualRoughness = clamp(mrSample.y * MaterialConstantBuffer.RoughnessFactor, c_MinRoughness, 1.0);
 
@@ -221,5 +235,8 @@ void main()
 
     vec3 emissive = texture(EmissiveTextureEmissiveSampler, varying_TEXCOORD0).xyz * MaterialConstantBuffer.EmissiveFactor;
 
-    out_var_SV_TARGET = vec4(colorWithIBLandAO + emissive, baseColor.w);
+    vec3 outColor = colorWithIBLandAO + emissive;
+#endif //UNLIT
+
+    out_var_SV_TARGET = vec4(outColor, baseColor.w);
 }

@@ -26,8 +26,8 @@ namespace Conformance
     public:
         using RenderableGltfModelInstanceBase::RenderableGltfModelInstanceBase;
 
-        void Render(CmdBuffer& directCommandBuffer, Pbr::VulkanResources& resources, const XrMatrix4x4f& modelToWorld,
-                    VkRenderPass renderPass, VkSampleCountFlagBits sampleCount);
+        void Render(CmdBuffer& directCommandBuffer, Pbr::VulkanResources& resources, VkRenderPass renderPass,
+                    VkSampleCountFlagBits sampleCount);
     };
 }  // namespace Conformance
 #endif

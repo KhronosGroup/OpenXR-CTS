@@ -14,6 +14,7 @@
 
 #include <d3d11.h>
 #include <d3d11_2.h>
+#include <nonstd/span.hpp>
 #include <wrl/client.h>  // For Microsoft::WRL::ComPtr
 
 #include <memory>
@@ -21,6 +22,7 @@
 
 namespace Pbr
 {
+    using nonstd::span;
     /// A primitive holds a vertex buffer, index buffer, and a pointer to a PBR material.
     struct D3D11Primitive final
     {
@@ -32,7 +34,8 @@ namespace Pbr
         D3D11Primitive(Pbr::D3D11Resources const& pbrResources, const Pbr::PrimitiveBuilder& primitiveBuilder,
                        const std::shared_ptr<D3D11Material>& material, bool updatableBuffers = false);
 
-        void UpdateBuffers(_In_ ID3D11Device* device, _In_ ID3D11DeviceContext* context, const Pbr::PrimitiveBuilder& primitiveBuilder);
+        void UpdateBuffers(_In_ ID3D11Device* device, _In_ ID3D11DeviceContext* context, span<const uint32_t> idx,
+                           span<const Pbr::Vertex> vtx);
 
         /// Get the material for the primitive.
         const std::shared_ptr<D3D11Material>& GetMaterial() const
@@ -58,9 +61,10 @@ namespace Pbr
         D3D11Primitive Clone(Pbr::D3D11Resources const& pbrResources) const;
 
     private:
-        UINT m_indexCount;
-        Microsoft::WRL::ComPtr<ID3D11Buffer> m_indexBuffer;
-        Microsoft::WRL::ComPtr<ID3D11Buffer> m_vertexBuffer;
+        UINT m_indexCount{0};
+        Microsoft::WRL::ComPtr<ID3D11Buffer> m_indexBuffer{};
+        Microsoft::WRL::ComPtr<ID3D11Buffer> m_vertexBuffer{};
+        bool m_updatable;
         std::shared_ptr<D3D11Material> m_material;
         std::vector<NodeIndex_t> m_nodeIndices;
     };

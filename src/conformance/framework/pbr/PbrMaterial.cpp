@@ -30,8 +30,15 @@ namespace Pbr
         Hidden = from.Hidden;
         m_parameters = from.m_parameters;
         m_parametersChanged = true;
+        // (unsure why these are commented...)
+        // m_shader = from.m_shader;
         // m_alphaBlended = from.m_alphaBlended;
         // m_doubleSided = from.m_doubleSided;
+    }
+
+    void Material::SetShader(Shader shader)
+    {
+        m_shader = shader;
     }
 
     void Material::SetDoubleSided(DoubleSided doubleSided)
@@ -44,6 +51,16 @@ namespace Pbr
         m_alphaBlended = alphaBlended;
     }
 
+    void Material::SetFillMode(FillMode fillMode)
+    {
+        m_fillMode = fillMode;
+    }
+
+    Shader Material::GetShader() const
+    {
+        return m_shader;
+    }
+
     DoubleSided Material::GetDoubleSided() const
     {
         return m_doubleSided;
@@ -52,6 +69,11 @@ namespace Pbr
     BlendState Material::GetAlphaBlended() const
     {
         return m_alphaBlended;
+    }
+
+    FillMode Material::GetFillMode() const
+    {
+        return m_fillMode;
     }
 
     Material::ConstantBufferData& Material::Parameters()

@@ -41,7 +41,7 @@ namespace Pbr
         void SetTexture(ShaderSlots::PSMaterial slot, MTL::Texture* texture, MTL::SamplerState* sampler = nullptr);
 
         /// Bind this material to current context.
-        void Bind(MTL::RenderCommandEncoder* renderCommandEncoder, const MetalResources& pbrResources) const;
+        void Bind(MTL::RenderCommandEncoder* renderCommandEncoder, MetalResources& pbrResources) const;
 
         std::string Name;
         bool Hidden{false};

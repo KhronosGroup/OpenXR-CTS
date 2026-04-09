@@ -21,8 +21,10 @@
 #include <cassert>
 #include <cstring>
 #include <list>
+#include <map>
 #include <mutex>
 #include <string>
+#include <thread>
 #include <vector>
 
 #if !defined(VK_LAYER_EXPORT)
@@ -64,19 +66,20 @@ struct Queue
 
     Device *device = nullptr;
 
-    std::atomic_bool accessed{false};
+    std::map<std::thread::id, bool> accessed;
 
     Queue(VkQueue queue, uint32_t queueFamilyIndex, uint32_t queueIndex, Device *device)
         : handle(queue), queueFamilyIndex(queueFamilyIndex), queueIndex(queueIndex), device(device)
     {
     }
+};
 
-    Queue(const Queue &other)
-        : handle(other.handle)
-        , queueFamilyIndex(other.queueFamilyIndex)
-        , queueIndex(other.queueIndex)
-        , device(other.device)
-        , accessed(other.accessed.load(std::memory_order_seq_cst))
+struct Swapchain
+{
+    VkSwapchainKHR handle{};
+    VkSwapchainCreateInfoKHR createInfo{};
+
+    Swapchain(VkSwapchainKHR swapchain, const VkSwapchainCreateInfoKHR *pCreateInfo) : handle(swapchain), createInfo(*pCreateInfo)
     {
     }
 };
@@ -89,9 +92,15 @@ struct Device
     PFN_vkGetDeviceQueue vkGetDeviceQueue{};
     PFN_vkQueueSubmit vkQueueSubmit{};
     PFN_vkQueueWaitIdle vkQueueWaitIdle{};
+    PFN_vkCreateImage vkCreateImage{};
+    PFN_vkDestroyImage vkDestroyImage{};
+    PFN_vkCreateSwapchainKHR vkCreateSwapchainKHR{};
+    PFN_vkDestroySwapchainKHR vkDestroySwapchainKHR{};
+    PFN_vkGetSwapchainImagesKHR vkGetSwapchainImagesKHR{};
 
     std::vector<std::string> enabled_extensions{};
     std::list<Queue> queues;
+    std::list<Swapchain> swapchains;
 
     Device(VkDevice device, PFN_vkGetDeviceProcAddr getDeviceProcAddr) : handle(device), vkGetDeviceProcAddr(getDeviceProcAddr)
     {
@@ -100,7 +109,36 @@ struct Device
         PFN_LOAD(vkGetDeviceQueue);
         PFN_LOAD(vkQueueSubmit);
         PFN_LOAD(vkQueueWaitIdle);
+        PFN_LOAD(vkCreateImage);
+        PFN_LOAD(vkDestroyImage);
+        PFN_LOAD(vkCreateSwapchainKHR);
+        PFN_LOAD(vkDestroySwapchainKHR);
+        PFN_LOAD(vkGetSwapchainImagesKHR);
 #undef PFN_LOAD
+    }
+
+    Swapchain *getSwapchain(VkSwapchainKHR swapchain)
+    {
+        auto it = std::find_if(swapchains.begin(), swapchains.end(), [&swapchain](const auto &s) { return s.handle == swapchain; });
+        if (it != swapchains.end()) {
+            return &(*it);
+        }
+
+        return NULL;
+    }
+};
+
+struct Image
+{
+    VkImage handle{};
+    VkFormat format{};
+
+    Image(VkImage image, const VkImageCreateInfo *pCreateInfo) : handle(image), format(pCreateInfo->format)
+    {
+    }
+
+    Image(VkImage image, const VkSwapchainCreateInfoKHR *pCreateInfo) : handle(image), format(pCreateInfo->imageFormat)
+    {
     }
 };
 
@@ -122,6 +160,13 @@ static std::list<Device> &GetDeviceListLocked()
 {
     static std::list<Device> devices{};
     return devices;
+}
+
+/// Must only call and use return value while holding the lock from @ref GetLayerMutex()
+static std::list<Image> &GetImageListLocked()
+{
+    static std::list<Image> images{};
+    return images;
 }
 
 static Instance *getInstance(VkInstance instance)
@@ -160,6 +205,17 @@ static Queue *getQueue(VkQueue queue)
     return NULL;
 }
 
+static Image *getImage(VkImage image)
+{
+    const std::lock_guard<std::mutex> lock(GetLayerMutex());
+    std::list<Image> &images = GetImageListLocked();
+    auto it = std::find_if(images.begin(), images.end(), [&image](const auto &i) { return i.handle == image; });
+    if (it != images.end()) {
+        return &(*it);
+    }
+    return NULL;
+}
+
 bool InstanceVkExtensionEnabled(VkInstance instance, const char *extension)
 {
     Instance *i = getInstance(instance);
@@ -184,7 +240,7 @@ void ResetVkQueueAccess(VkDevice device, uint32_t queueFamilyIndex, uint32_t que
     const std::lock_guard<std::mutex> lock(GetLayerMutex());
     for (Queue &q : d->queues) {
         if (q.queueFamilyIndex == queueFamilyIndex && q.queueIndex == queueIndex) {
-            q.accessed.store(false);
+            q.accessed[std::this_thread::get_id()] = false;
             return;
         }
     }
@@ -198,11 +254,19 @@ bool CheckVkQueueAccess(VkDevice device, uint32_t queueFamilyIndex, uint32_t que
     const std::lock_guard<std::mutex> lock(GetLayerMutex());
     for (Queue &q : d->queues) {
         if (q.queueFamilyIndex == queueFamilyIndex && q.queueIndex == queueIndex) {
-            return q.accessed.load();
+            return q.accessed.at(std::this_thread::get_id());
         }
     }
 
     return false;
+}
+
+VkFormat GetVkImageFormat(VkImage image)
+{
+    Image *i = getImage(image);
+    assert(i);
+
+    return i->format;
 }
 
 static VKAPI_ATTR VkResult VKAPI_CALL createInstance(const VkInstanceCreateInfo *pCreateInfo, const VkAllocationCallbacks *pAllocator,
@@ -319,23 +383,6 @@ static VKAPI_ATTR VkResult VKAPI_CALL createDevice(VkPhysicalDevice physicalDevi
     return VK_SUCCESS;
 }
 
-static VKAPI_ATTR PFN_vkVoidFunction VKAPI_CALL getInstanceProcAddr(VkInstance instance, const char *pName)
-{
-    const std::string pfn(pName);
-
-    if (pfn == "vkCreateInstance") {
-        return (PFN_vkVoidFunction)createInstance;
-    }
-    if (pfn == "vkDestroyInstance") {
-        return (PFN_vkVoidFunction)destroyInstance;
-    }
-    if (pfn == "vkCreateDevice") {
-        return (PFN_vkVoidFunction)createDevice;
-    }
-
-    return getInstance(instance)->vkGetInstanceProcAddr(instance, pName);
-}
-
 static VKAPI_ATTR void VKAPI_CALL destroyDevice(VkDevice device, const VkAllocationCallbacks *pAllocator)
 {
     const std::lock_guard<std::mutex> lock(GetLayerMutex());
@@ -360,7 +407,9 @@ static VKAPI_ATTR VkResult VKAPI_CALL queueSubmit(VkQueue queue, uint32_t submit
 {
     Queue *q = getQueue(queue);
     VkResult res = q->device->vkQueueSubmit(queue, submitCount, pSubmits, fence);
-    q->accessed.store(true);
+
+    const std::lock_guard<std::mutex> lock(GetLayerMutex());
+    q->accessed[std::this_thread::get_id()] = true;
     return res;
 }
 
@@ -368,7 +417,90 @@ static VKAPI_ATTR VkResult VKAPI_CALL queueWaitIdle(VkQueue queue)
 {
     Queue *q = getQueue(queue);
     VkResult res = q->device->vkQueueWaitIdle(queue);
-    q->accessed.store(true);
+
+    const std::lock_guard<std::mutex> lock(GetLayerMutex());
+    q->accessed[std::this_thread::get_id()] = true;
+    return res;
+}
+
+static VKAPI_ATTR VkResult VKAPI_CALL createImage(VkDevice device, const VkImageCreateInfo *pCreateInfo,
+                                                  const VkAllocationCallbacks *pAllocator, VkImage *pImage)
+{
+    Device *d = getDevice(device);
+    assert(d);
+
+    VkResult res = d->vkCreateImage(device, pCreateInfo, pAllocator, pImage);
+    {
+        const std::lock_guard<std::mutex> lock(GetLayerMutex());
+        std::list<Image> &images = GetImageListLocked();
+        images.emplace_back(*pImage, pCreateInfo);
+    }
+
+    return res;
+}
+
+static VKAPI_ATTR void VKAPI_CALL destroyImage(VkDevice device, VkImage image, const VkAllocationCallbacks *pAllocator)
+{
+    Device *d = getDevice(device);
+    assert(d);
+
+    const std::lock_guard<std::mutex> lock(GetLayerMutex());
+    std::list<Image> &images = GetImageListLocked();
+    auto it = std::find_if(images.begin(), images.end(), [&image](const auto &i) { return i.handle == image; });
+    images.erase(it);
+
+    d->vkDestroyImage(device, image, pAllocator);
+}
+
+static VKAPI_ATTR VkResult VKAPI_CALL createSwapchainKHR(VkDevice device, const VkSwapchainCreateInfoKHR *pCreateInfo,
+                                                         const VkAllocationCallbacks *pAllocator, VkSwapchainKHR *pSwapchain)
+{
+    Device *d = getDevice(device);
+    assert(d);
+
+    VkResult res = d->vkCreateSwapchainKHR(device, pCreateInfo, pAllocator, pSwapchain);
+    {
+        const std::lock_guard<std::mutex> lock(GetLayerMutex());
+        d->swapchains.emplace_back(*pSwapchain, pCreateInfo);
+    }
+
+    return res;
+}
+
+static VKAPI_ATTR void VKAPI_CALL destroySwapchainKHR(VkDevice device, VkSwapchainKHR swapchain, const VkAllocationCallbacks *pAllocator)
+{
+    Device *d = getDevice(device);
+    assert(d);
+
+    {
+        const std::lock_guard<std::mutex> lock(GetLayerMutex());
+        auto it = std::find_if(d->swapchains.begin(), d->swapchains.end(), [&swapchain](const auto &s) { return s.handle == swapchain; });
+        d->swapchains.erase(it);
+    }
+
+    d->vkDestroySwapchainKHR(device, swapchain, pAllocator);
+}
+
+static VKAPI_ATTR VkResult VKAPI_CALL getSwapchainImagesKHR(VkDevice device, VkSwapchainKHR swapchain, uint32_t *pSwapchainImageCount,
+                                                            VkImage *pSwapchainImages)
+{
+    Device *d = getDevice(device);
+    assert(d);
+
+    Swapchain *s = d->getSwapchain(swapchain);
+    assert(s);
+
+    VkResult res = d->vkGetSwapchainImagesKHR(device, swapchain, pSwapchainImageCount, pSwapchainImages);
+
+    if (*pSwapchainImageCount > 0) {
+        const std::lock_guard<std::mutex> lock(GetLayerMutex());
+        std::list<Image> &images = GetImageListLocked();
+
+        for (uint32_t i = 0; i < *pSwapchainImageCount; ++i) {
+            images.emplace_back(pSwapchainImages[i], &s->createInfo);
+        }
+    }
+
     return res;
 }
 
@@ -376,6 +508,9 @@ static VKAPI_ATTR PFN_vkVoidFunction VKAPI_CALL getDeviceProcAddr(VkDevice devic
 {
     const std::string pfn(pName);
 
+    if (pfn == "vkGetDeviceProcAddr") {
+        return (PFN_vkVoidFunction)getDeviceProcAddr;
+    }
     if (pfn == "vkDestroyDevice") {
         return (PFN_vkVoidFunction)destroyDevice;
     }
@@ -388,8 +523,46 @@ static VKAPI_ATTR PFN_vkVoidFunction VKAPI_CALL getDeviceProcAddr(VkDevice devic
     if (pfn == "vkQueueWaitIdle") {
         return (PFN_vkVoidFunction)queueWaitIdle;
     }
+    if (pfn == "vkCreateImage") {
+        return (PFN_vkVoidFunction)createImage;
+    }
+    if (pfn == "vkDestroyImage") {
+        return (PFN_vkVoidFunction)destroyImage;
+    }
+    if (pfn == "vkCreateSwapchainKHR") {
+        return (PFN_vkVoidFunction)createSwapchainKHR;
+    }
+    if (pfn == "vkDestroySwapchainKHR") {
+        return (PFN_vkVoidFunction)destroySwapchainKHR;
+    }
+    if (pfn == "vkGetSwapchainImagesKHR") {
+        return (PFN_vkVoidFunction)getSwapchainImagesKHR;
+    }
 
     return getDevice(device)->vkGetDeviceProcAddr(device, pName);
+}
+
+static VKAPI_ATTR PFN_vkVoidFunction VKAPI_CALL getInstanceProcAddr(VkInstance instance, const char *pName)
+{
+    const std::string pfn(pName);
+
+    if (pfn == "vkGetInstanceProcAddr") {
+        return (PFN_vkVoidFunction)getInstanceProcAddr;
+    }
+    if (pfn == "vkGetDeviceProcAddr") {
+        return (PFN_vkVoidFunction)getDeviceProcAddr;
+    }
+    if (pfn == "vkCreateInstance") {
+        return (PFN_vkVoidFunction)createInstance;
+    }
+    if (pfn == "vkDestroyInstance") {
+        return (PFN_vkVoidFunction)destroyInstance;
+    }
+    if (pfn == "vkCreateDevice") {
+        return (PFN_vkVoidFunction)createDevice;
+    }
+
+    return getInstance(instance)->vkGetInstanceProcAddr(instance, pName);
 }
 
 VK_LAYER_EXPORT VKAPI_ATTR VkResult VKAPI_CALL vkNegotiateLoaderLayerInterfaceVersion(VkNegotiateLayerInterface *pVersionStruct)

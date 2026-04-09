@@ -345,7 +345,8 @@ namespace Conformance
             SKIP(XR_KHR_VISIBILITY_MASK_EXTENSION_NAME " not supported");
         }
 
-        CompositionHelper compositionHelper("Visibility Mask", {XR_KHR_VISIBILITY_MASK_EXTENSION_NAME});
+        CompositionHelper compositionHelper("Visibility Mask", {XR_KHR_VISIBILITY_MASK_EXTENSION_NAME},
+                                            CompositionHelper::EnvironmentBlendModePreference::PreferOpaque);
         XrSession session = compositionHelper.GetSession();
 
         // Verify that we can acquire the function.

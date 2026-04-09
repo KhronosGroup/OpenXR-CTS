@@ -23,8 +23,8 @@ namespace Pbr
 
     MetalPipelineStateBundle MetalPipelineStates::GetOrCreatePipelineState(const MetalResources& pbrResources,
                                                                            MTL::PixelFormat colorRenderTargetFormat,
-                                                                           MTL::PixelFormat depthRenderTargetFormat, BlendState blendState,
-                                                                           DepthDirection depthDirection)
+                                                                           MTL::PixelFormat depthRenderTargetFormat, Shader shader,
+                                                                           BlendState blendState, DepthDirection depthDirection)
     {
         const PipelineStateKey state{colorRenderTargetFormat, depthRenderTargetFormat, blendState, depthDirection};
         auto iter = m_pipelineStates.find(state);
@@ -34,8 +34,8 @@ namespace Pbr
         auto renderingPipelineDesc = NS::TransferPtr(MTL::RenderPipelineDescriptor::alloc()->init());
         auto depthStencilDesc = NS::TransferPtr(MTL::DepthStencilDescriptor::alloc()->init());
 
-        renderingPipelineDesc->setVertexFunction(m_vertexFunction.get());
-        renderingPipelineDesc->setFragmentFunction(m_fragmentFunction.get());
+        renderingPipelineDesc->setVertexFunction(shader == Shader::Pbr ? m_vertexFunctionPbr.get() : m_vertexFunctionUnlit.get());
+        renderingPipelineDesc->setFragmentFunction(shader == Shader::Pbr ? m_fragmentFunctionPbr.get() : m_fragmentFunctionUnlit.get());
         renderingPipelineDesc->setVertexDescriptor(m_vertexDescriptor.get());
 
         renderingPipelineDesc->colorAttachments()->object(0)->setPixelFormat(colorRenderTargetFormat);
@@ -68,7 +68,7 @@ namespace Pbr
         }
 
         MTL::CompareFunction depthCompareFunction =
-            (depthDirection == DepthDirection::Forward) ? MTL::CompareFunctionLess : MTL::CompareFunctionGreater;
+            (depthDirection == DepthDirection::Forward) ? MTL::CompareFunctionLessEqual : MTL::CompareFunctionGreaterEqual;
         depthStencilDesc->setDepthCompareFunction(depthCompareFunction);
 
         MetalPipelineStateBundle bundle;

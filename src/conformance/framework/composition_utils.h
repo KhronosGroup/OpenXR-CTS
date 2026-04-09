@@ -148,15 +148,30 @@ namespace Conformance
     /// Displays the usual title box.
     struct CompositionHelper
     {
+        enum class EnvironmentBlendModePreference
+        {
+            PreferRuntimeDefault,
+            PreferOpaque,
+            PreferPassthrough,
+        };
+
         /// Constructor
         ///
         /// Note that "testName" is the title that will be shown on the device: it is limited in size and often cannot show the entire actual test name.
-        CompositionHelper(const char* testName, const std::vector<const char*>& additionalEnabledExtensions = std::vector<const char*>());
-        CompositionHelper(const char* testName, const FeatureSet& featureSet);
+        CompositionHelper(const char* testName, EnvironmentBlendModePreference environmentBlendModePreference);
+
+        CompositionHelper(
+            const char* testName, const std::vector<const char*>& additionalEnabledExtensions = std::vector<const char*>(),
+            EnvironmentBlendModePreference environmentBlendModePreference = EnvironmentBlendModePreference::PreferRuntimeDefault);
+        CompositionHelper(
+            const char* testName, const FeatureSet& featureSet,
+            EnvironmentBlendModePreference environmentBlendModePreference = EnvironmentBlendModePreference::PreferRuntimeDefault);
 
         /// Constructor for when you already have an instance, and maybe know your view config type you want to use.
-        CompositionHelper(const char* testName, XrInstance instance, XrViewConfigurationType viewConfigType = (XrViewConfigurationType)0,
-                          bool skipOnUnsupportedViewType = false);
+        CompositionHelper(
+            const char* testName, XrInstance instance, XrViewConfigurationType viewConfigType = (XrViewConfigurationType)0,
+            bool skipOnUnsupportedViewType = false,
+            EnvironmentBlendModePreference environmentBlendModePreference = EnvironmentBlendModePreference::PreferRuntimeDefault);
 
         ~CompositionHelper();
 
@@ -179,6 +194,14 @@ namespace Conformance
         ///
         /// @note Do not destroy the handle returned from this method through OpenXR. It is cleaned up on object destruction.
         XrSession GetSession() const;
+
+        std::vector<XrEnvironmentBlendMode> EnumerateEnvironmentBlendModes();
+
+        /// Takes effect on the next EndFrame call
+        void ChangeEnvironmentBlendMode(XrEnvironmentBlendMode environmentBlendMode);
+
+        /// Takes effect on the next EndFrame call
+        void SetDefaultEnvironmentBlendMode(EnvironmentBlendModePreference preference);
 
         std::vector<XrViewConfigurationView> EnumerateConfigurationViews();
 
@@ -328,7 +351,8 @@ namespace Conformance
         }
 
     private:
-        void SharedInit(const char* testName, bool skipOnUnsupportedViewType = false);
+        void SharedInit(const char* testName, EnvironmentBlendModePreference environmentBlendModePreference,
+                        bool skipOnUnsupportedViewType = false);
         std::mutex m_mutex;
 
         XrInstance m_instance;
@@ -359,6 +383,9 @@ namespace Conformance
         XrSpace m_viewSpace{XR_NULL_HANDLE};
 
         XrCompositionLayerQuad m_testNameQuad{XR_TYPE_COMPOSITION_LAYER_QUAD};
+
+        // Initialized to a default value, but can be changed before each EndFrame
+        XrEnvironmentBlendMode currentEnvironmentBlendMode;
     };
 
     /// Helper class to provide projection layer rendering. Each view of the projection is a separate swapchain.

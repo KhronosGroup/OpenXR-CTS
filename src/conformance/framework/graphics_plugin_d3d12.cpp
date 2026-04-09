@@ -359,7 +359,8 @@ namespace Conformance
 
         MeshHandle MakeSimpleMesh(span<const uint16_t> idx, span<const Geometry::Vertex> vtx) override;
 
-        GLTFModelHandle LoadGLTF(Gltf::ModelBuilder&& modelBuilder) override;
+        void WithGltfBuilder(const std::function<void(Pbr::IGltfBuilder&)>& func) override;
+        GLTFModelHandle RegisterPbrModel(std::shared_ptr<Pbr::Model>) override;
         std::shared_ptr<Pbr::Model> GetPbrModel(GLTFModelHandle handle) const override;
         GLTFModelInstanceHandle CreateGLTFModelInstance(GLTFModelHandle handle) override;
         Pbr::ModelInstance& GetModelInstance(GLTFModelInstanceHandle handle) override;
@@ -1004,7 +1005,7 @@ namespace Conformance
         return handle;
     }
 
-    GLTFModelHandle D3D12GraphicsPlugin::LoadGLTF(Gltf::ModelBuilder&& modelBuilder)
+    void D3D12GraphicsPlugin::WithGltfBuilder(const std::function<void(Pbr::IGltfBuilder&)>& func)
     {
         ComPtr<ID3D12CommandAllocator> commandAllocator;
 
@@ -1019,7 +1020,9 @@ namespace Conformance
         XRC_CHECK_THROW_HRCMD(cmdList->SetName(L"LoadGLTF command list"));
 
         auto builder = m_pbrResources->MakeGltfBuilder(cmdList.Get());
-        auto handle = m_gltfModels.emplace_back(modelBuilder.Build(builder));
+
+        func(builder);
+
         m_commandAllocatorDestructionQueue.PushResource(m_queueWrapper->GetSignaledFenceValue(), std::move(commandAllocator));
         m_resourceDestructionQueue.PushResources(m_queueWrapper->GetSignaledFenceValue(), builder.TakeStagingResources());
 
@@ -1028,7 +1031,11 @@ namespace Conformance
         // in that case, the destruction queue should be changed to track that queue.
         XRC_CHECK_THROW_HRCMD(cmdList->Close());
         XRC_CHECK_THROW(m_queueWrapper->ExecuteCommandList(cmdList.Get()));
+    }
 
+    GLTFModelHandle D3D12GraphicsPlugin::RegisterPbrModel(std::shared_ptr<Pbr::Model> model)
+    {
+        auto handle = m_gltfModels.emplace_back(std::move(model));
         return handle;
     }
 
@@ -1185,19 +1192,16 @@ namespace Conformance
         }
 
         // Render each gltf
-        for (const auto& gltfDrawable : params.glTFs) {
-            D3D12GLTF& gltf = m_gltfInstances[gltfDrawable.handle];
-            // Compute and update the model transform.
+        for (const auto& gltfInstanceHandle : params.glTFs) {
+            D3D12GLTF& gltf = m_gltfInstances[gltfInstanceHandle];
 
-            XrMatrix4x4f modelToWorld = Matrix::FromTranslationRotationScale(
-                gltfDrawable.params.pose.position, gltfDrawable.params.pose.orientation, gltfDrawable.params.scale);
             XrMatrix4x4f viewMatrix = Matrix::FromPose(layerView.pose);
             XrMatrix4x4f viewMatrixInverse = Matrix::InvertRigidBody(viewMatrix);
             m_pbrResources->SetViewProjection(LoadXrMatrix(viewMatrixInverse), LoadXrMatrix(projectionMatrix));
 
             DXGI_FORMAT depthSwapchainFormatDX = GetDepthStencilFormatOrDefault(depthCreateInfo);
 
-            gltf.Render(cmdList, *m_pbrResources, modelToWorld, (DXGI_FORMAT)swapchainData->GetCreateInfo().format, depthSwapchainFormatDX);
+            gltf.Render(cmdList, *m_pbrResources, (DXGI_FORMAT)swapchainData->GetCreateInfo().format, depthSwapchainFormatDX);
         }
 
         XRC_CHECK_THROW_HRCMD(cmdList->Close());

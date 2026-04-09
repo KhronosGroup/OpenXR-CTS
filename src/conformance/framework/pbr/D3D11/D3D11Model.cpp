@@ -17,17 +17,21 @@
 #include "PbrHandles.h"
 #include "PbrModel.h"
 
+#include "utilities/d3d_common.h"
 #include "utilities/throw_helpers.h"
 
 #include <numeric>
 
 namespace Pbr
 {
-    void D3D11ModelInstance::Render(Pbr::D3D11Resources const& pbrResources, _In_ ID3D11DeviceContext* context,
-                                    DirectX::FXMMATRIX modelToWorld)
+    void D3D11ModelInstance::Render(Pbr::D3D11Resources& pbrResources, _In_ ID3D11DeviceContext* context)
     {
-        XMStoreFloat4x4(&m_modelBuffer.ModelToWorld, XMMatrixTranspose(modelToWorld));
-        context->UpdateSubresource(m_modelConstantBuffer.Get(), 0, nullptr, &m_modelBuffer, 0, 0);
+        if (ModelToWorldNeedsUpdate()) {
+            // Update model buffer
+            XMStoreFloat4x4(&m_modelBuffer.ModelToWorld, XMMatrixTranspose(Conformance::LoadXrMatrix(GetModelToWorld())));
+            context->UpdateSubresource(m_modelConstantBuffer.Get(), 0, nullptr, &m_modelBuffer, 0, 0);
+            MarkModelToWorldUpdated();
+        }
         pbrResources.BindConstantBuffers(context, m_modelConstantBuffer.Get());
 
         UpdateTransforms(pbrResources, context);

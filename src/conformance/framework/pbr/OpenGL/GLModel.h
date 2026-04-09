@@ -27,7 +27,7 @@ namespace Pbr
         GLModelInstance(Pbr::GLResources& pbrResources, std::shared_ptr<const Model> model);
 
         /// Render the model.
-        void Render(Pbr::GLResources const& pbrResources, XrMatrix4x4f modelToWorld);
+        void Render(Pbr::GLResources& pbrResources);
 
     private:
         /// Update the transforms used to render the model. This needs to be called any time a node transform is changed.

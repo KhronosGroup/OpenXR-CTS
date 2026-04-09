@@ -94,20 +94,24 @@ struct VertexDataPbr
 struct VertexOutputPbr
 {
     float4 PositionProj [[position]];
+#ifndef UNLIT
     float3 PositionWorld;
 
     // float3x3 TBN;
     float3 tangentW;
     float3 bitangentW;
     float3 normalW;
+#endif // not UNLIT
 
     float2 TexCoord0;
     float4 Color0;
 };
 
+#ifndef UNLIT
 constant float3 f0 = float3(0.04, 0.04, 0.04);
 constant float MinRoughness = 0.04;
 constant float PI = 3.141592653589793;
+#endif
 
 VertexOutputPbr vertex VertexShaderPbr(VertexDataPbr input [[stage_in]],
                                        device const SceneBuffer* sceneBuffer [[buffer(ConstantBuffers::Scene)]],
@@ -118,7 +122,10 @@ VertexOutputPbr vertex VertexShaderPbr(VertexDataPbr input [[stage_in]],
 
     const float4x4 modelTransform = modelConstantBuffer->ModelToWorld * transforms[input.ModelTransformIndex];
     float4 transformedPosWorld = modelTransform * input.Position;
+
     output.PositionProj = sceneBuffer->ViewProjection * transformedPosWorld;
+
+#ifndef UNLIT
     output.PositionWorld = transformedPosWorld.xyz / transformedPosWorld.w;
 
     const float3 normalW = normalize((modelTransform * float4(input.Normal, 0.0)).xyz);
@@ -127,6 +134,7 @@ VertexOutputPbr vertex VertexShaderPbr(VertexDataPbr input [[stage_in]],
     output.tangentW = tangentW;
     output.bitangentW = bitangentW;
     output.normalW = normalW;
+#endif // not UNLIT
 
     output.TexCoord0 = input.TexCoord0;
     output.Color0 = input.Color0;
@@ -134,6 +142,7 @@ VertexOutputPbr vertex VertexShaderPbr(VertexDataPbr input [[stage_in]],
     return output;
 }
 
+#ifndef UNLIT
 float3 getIBLContribution(float perceptualRoughness,
                           float NdotV,
                           float3 diffuseColor,
@@ -183,6 +192,7 @@ float microfacetDistribution(float NdotH, float alphaRoughness)
     const float f = (NdotH * roughnessSq - NdotH) * NdotH + 1.0;
     return roughnessSq / (PI * f * f);
 }
+#endif // UNLIT
 
 float4 fragment FragmentShaderPbr(VertexOutputPbr input [[stage_in]],
                                   bool isFrontFace [[front_facing]],
@@ -204,15 +214,19 @@ float4 fragment FragmentShaderPbr(VertexOutputPbr input [[stage_in]],
                                   sampler BRDFSampler [[sampler(PSMaterial::Brdf)]],
                                   sampler IBLSampler [[sampler(PSMaterial::EnvironmentMapSampler)]])
 {
-    // Roughness is stored in the 'g' channel, metallic is stored in the 'b' channel.
-    // This layout intentionally reserves the 'r' channel for (optional) occlusion map data
-    const float3 mrSample = MetallicRoughnessTexture.sample(MetallicRoughnessSampler, input.TexCoord0).rgb;
     const float4 baseColor = BaseColorTexture.sample(BaseColorSampler, input.TexCoord0) * input.Color0 * materialConstantBuffer->BaseColorFactor;
 
     // Discard if below alpha cutoff.
     if (baseColor.a < materialConstantBuffer->AlphaCutoff) {
         discard_fragment();
     }
+
+#ifdef UNLIT
+    const float3 color = float3(baseColor);
+#else  // UNLIT
+    // Roughness is stored in the 'g' channel, metallic is stored in the 'b' channel.
+    // This layout intentionally reserves the 'r' channel for (optional) occlusion map data
+    const float3 mrSample = MetallicRoughnessTexture.sample(MetallicRoughnessSampler, input.TexCoord0).rgb;
 
     const float metallic = saturate(mrSample.b * materialConstantBuffer->MetallicFactor);
     const float perceptualRoughness = clamp(mrSample.g * materialConstantBuffer->RoughnessFactor, MinRoughness, 1.0);
@@ -270,6 +284,7 @@ float4 fragment FragmentShaderPbr(VertexOutputPbr input [[stage_in]],
 
     const float3 emissive = EmissiveTexture.sample(EmissiveSampler, input.TexCoord0).rgb * materialConstantBuffer->EmissiveFactor;
     color += emissive;
+#endif // UNLIT
 
     return float4(color, baseColor.a);
 }

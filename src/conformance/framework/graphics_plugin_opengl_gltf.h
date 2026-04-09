@@ -23,7 +23,7 @@ namespace Conformance
     public:
         using RenderableGltfModelInstanceBase::RenderableGltfModelInstanceBase;
 
-        void Render(Pbr::GLResources& resources, XrMatrix4x4f& modelToWorld);
+        void Render(Pbr::GLResources& resources);
     };
 }  // namespace Conformance
 #endif

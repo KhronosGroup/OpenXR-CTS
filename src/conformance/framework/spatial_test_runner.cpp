@@ -71,7 +71,9 @@ namespace Conformance
             SKIP("Not using graphics, which the test requires");
         }
 
-        CompositionHelper compositionHelper(testName, requiredExtensions);
+        // most spatial tests should benefit from preferring passthrough
+        CompositionHelper compositionHelper(testName, requiredExtensions,
+                                            CompositionHelper::EnvironmentBlendModePreference::PreferPassthrough);
 
         instance = compositionHelper.GetInstance();
         XrSystemId systemId = compositionHelper.GetSystemId();
@@ -110,6 +112,7 @@ namespace Conformance
         // view).
         std::vector<XrSwapchain> swapchains;
         XrCompositionLayerProjection* const projLayer = compositionHelper.CreateProjectionLayer(localSpace);
+        // https://gitlab.khronos.org/openxr/openxr/-/issues/2593
         projLayer->layerFlags |= (Options::Get().environmentBlendModeValue == XR_ENVIRONMENT_BLEND_MODE_ALPHA_BLEND)
                                      ? XR_COMPOSITION_LAYER_BLEND_TEXTURE_SOURCE_ALPHA_BIT
                                      : 0;

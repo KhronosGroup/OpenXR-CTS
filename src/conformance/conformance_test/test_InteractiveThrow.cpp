@@ -47,7 +47,7 @@ namespace Conformance
             "The velocity should match the lever-arm effect of the controller. "
             "Hit the three target cubes to complete the test. Press the menu button to fail the test. ";
 
-        CompositionHelper compositionHelper("Interactive Throw");
+        CompositionHelper compositionHelper("Interactive Throw", CompositionHelper::EnvironmentBlendModePreference::PreferOpaque);
 
         XrInstance instance = compositionHelper.GetInstance();
         XrSystemId systemId = compositionHelper.GetSystemId();

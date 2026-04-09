@@ -16,6 +16,7 @@
 #include "PbrHandles.h"
 #include "PbrModel.h"
 
+#include "utilities/d3d_common.h"
 #include "utilities/d3d12_utils.h"
 #include "utilities/throw_helpers.h"
 
@@ -27,14 +28,17 @@ namespace Pbr
 {
 
     void D3D12ModelInstance::Render(Pbr::D3D12Resources& pbrResources, _In_ ID3D12GraphicsCommandList* directCommandList,
-                                    DXGI_FORMAT colorRenderTargetFormat, DXGI_FORMAT depthRenderTargetFormat,
-                                    DirectX::FXMMATRIX modelToWorld)
+                                    DXGI_FORMAT colorRenderTargetFormat, DXGI_FORMAT depthRenderTargetFormat)
     {
-        XMStoreFloat4x4(&m_modelBuffer.ModelToWorld, XMMatrixTranspose(modelToWorld));
-        m_modelConstantBuffer.AsyncUpload(directCommandList, &m_modelBuffer);
-        auto barrier = CD3DX12_RESOURCE_BARRIER::Transition(m_modelConstantBuffer.GetResource(), D3D12_RESOURCE_STATE_COPY_DEST,
-                                                            D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
-        directCommandList->ResourceBarrier(1, &barrier);
+        if (ModelToWorldNeedsUpdate()) {
+            // Update model buffer
+            XMStoreFloat4x4(&m_modelBuffer.ModelToWorld, XMMatrixTranspose(Conformance::LoadXrMatrix(GetModelToWorld())));
+            m_modelConstantBuffer.AsyncUpload(directCommandList, &m_modelBuffer);
+            auto barrier = CD3DX12_RESOURCE_BARRIER::Transition(m_modelConstantBuffer.GetResource(), D3D12_RESOURCE_STATE_COPY_DEST,
+                                                                D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+            directCommandList->ResourceBarrier(1, &barrier);
+            MarkModelToWorldUpdated();
+        }
         // xxx: why do we copy the transform descriptor to a separate heap, again? is that relevant here?
         pbrResources.BindConstantBufferViews(directCommandList, m_modelConstantBuffer.GetResource()->GetGPUVirtualAddress());
 

@@ -12,11 +12,11 @@
 
 namespace Conformance
 {
-    void GLGLTF::Render(Pbr::GLResources& resources, XrMatrix4x4f& modelToWorld)
+    void GLGLTF::Render(Pbr::GLResources& resources)
     {
         resources.SetFillMode(GetFillMode());
         resources.Bind();
-        GetModelInstance().Render(resources, modelToWorld);
+        GetModelInstance().Render(resources);
     }
 
 }  // namespace Conformance

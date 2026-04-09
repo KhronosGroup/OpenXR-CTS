@@ -40,14 +40,16 @@ namespace Pbr
     }
 
     MetalPrimitive::MetalPrimitive(const MetalResources& pbrResources, const Pbr::PrimitiveBuilder& primitiveBuilder,
-                                   const std::shared_ptr<MetalMaterial>& material, bool /*updatableBuffers*/)
+                                   const std::shared_ptr<MetalMaterial>& material)
         : MetalPrimitive((uint32_t)primitiveBuilder.Indices.size(), nullptr, nullptr, std::move(material),
                          primitiveBuilder.NodeIndicesVector())
     {
-        m_indexBuffer = NS::TransferPtr(pbrResources.GetDevice()->newBuffer(
-            primitiveBuilder.Indices.data(), GetPbrIndexByteSize(primitiveBuilder.Indices.size()), MTL::ResourceStorageModeManaged));
-        m_vertexBuffer = NS::TransferPtr(pbrResources.GetDevice()->newBuffer(
-            primitiveBuilder.Vertices.data(), GetPbrVertexByteSize(primitiveBuilder.Vertices.size()), MTL::ResourceStorageModeManaged));
+        if (!primitiveBuilder.Indices.empty()) {
+            m_indexBuffer = NS::TransferPtr(pbrResources.GetDevice()->newBuffer(
+                primitiveBuilder.Indices.data(), GetPbrIndexByteSize(primitiveBuilder.Indices.size()), MTL::ResourceStorageModeManaged));
+            m_vertexBuffer = NS::TransferPtr(pbrResources.GetDevice()->newBuffer(
+                primitiveBuilder.Vertices.data(), GetPbrVertexByteSize(primitiveBuilder.Vertices.size()), MTL::ResourceStorageModeManaged));
+        }
     }
 
     MetalPrimitive MetalPrimitive::Clone(const MetalResources& pbrResources) const
@@ -55,45 +57,55 @@ namespace Pbr
         return MetalPrimitive(m_indexCount, m_indexBuffer.get(), m_vertexBuffer.get(), m_material->Clone(pbrResources), m_nodeIndices);
     }
 
-    void MetalPrimitive::UpdateBuffers(MTL::Device* device, const Pbr::PrimitiveBuilder& primitiveBuilder)
+    void MetalPrimitive::UpdateBuffers(MTL::Device* device, span<const uint32_t> idx, span<const Pbr::Vertex> vtx)
     {
+        if (idx.empty()) {
+            m_vertexBuffer.reset();
+            m_indexBuffer.reset();
+            m_indexCount = 0;
+            return;
+        }
+
         // Update vertex buffer.
         {
-            uint32_t required_vb_size = GetPbrVertexByteSize(primitiveBuilder.Vertices.size());
+            uint32_t required_vb_size = GetPbrVertexByteSize(vtx.size());
             if (required_vb_size <= m_vertexBuffer->length()) {
-                memcpy(m_vertexBuffer->contents(), primitiveBuilder.Vertices.data(), required_vb_size);
+                memcpy(m_vertexBuffer->contents(), vtx.data(), required_vb_size);
                 m_vertexBuffer->didModifyRange(NS::Range(0, required_vb_size));
             }
             else {
-                m_vertexBuffer =
-                    NS::TransferPtr(device->newBuffer(primitiveBuilder.Vertices.data(), required_vb_size, MTL::ResourceStorageModeManaged));
+                m_vertexBuffer = NS::TransferPtr(device->newBuffer(vtx.data(), required_vb_size, MTL::ResourceStorageModeManaged));
             }
         }
 
         // Update index buffer.
         {
-            uint32_t required_ib_size = GetPbrIndexByteSize(primitiveBuilder.Indices.size());
+            uint32_t required_ib_size = GetPbrIndexByteSize(idx.size());
             if (required_ib_size <= m_indexBuffer->length()) {
-                memcpy(m_indexBuffer->contents(), primitiveBuilder.Indices.data(), required_ib_size);
+                memcpy(m_indexBuffer->contents(), idx.data(), required_ib_size);
                 m_indexBuffer->didModifyRange(NS::Range(0, required_ib_size));
             }
             else {
-                m_indexBuffer =
-                    NS::TransferPtr(device->newBuffer(primitiveBuilder.Indices.data(), required_ib_size, MTL::ResourceStorageModeManaged));
+                m_indexBuffer = NS::TransferPtr(device->newBuffer(idx.data(), required_ib_size, MTL::ResourceStorageModeManaged));
             }
-        }
 
-        m_indexCount = (uint32_t)primitiveBuilder.Indices.size();
+            m_indexCount = (uint32_t)idx.size();
+        }
     }
 
-    void MetalPrimitive::Render(Pbr::MetalResources const& pbrResources, MTL::RenderCommandEncoder* renderCommandEncoder,
+    void MetalPrimitive::Render(Pbr::MetalResources& pbrResources, MTL::RenderCommandEncoder* renderCommandEncoder,
                                 MTL::PixelFormat colorRenderTargetFormat, MTL::PixelFormat depthRenderTargetFormat) const
     {
+        if (m_indexCount == 0) {
+            return;
+        }
+
         renderCommandEncoder->pushDebugGroup(MTLSTR("MetalPrimitive::Render"));
 
+        Shader shader = GetMaterial()->GetShader();
         BlendState blendState = GetMaterial()->GetAlphaBlended();
         MetalPipelineStateBundle pipelineStateBundle =
-            pbrResources.GetOrCreatePipelineState(colorRenderTargetFormat, depthRenderTargetFormat, blendState);
+            pbrResources.GetOrCreatePipelineState(colorRenderTargetFormat, depthRenderTargetFormat, shader, blendState);
         renderCommandEncoder->setRenderPipelineState(pipelineStateBundle.m_renderPipelineState.get());
         renderCommandEncoder->setDepthStencilState(pipelineStateBundle.m_depthStencilState.get());
         m_material->Bind(renderCommandEncoder, pbrResources);

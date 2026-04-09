@@ -247,7 +247,7 @@ set_tests_properties(
     conformance_cli
     PROPERTIES
         TIMEOUT 60
-        ENVIRONMENT XR_RUNTIME_JSON=${PROJECT_BINARY_DIR}/src/conformance/conformance_cli/test_runtime.json
+        ENVIRONMENT XR_RUNTIME_JSON=${PROJECT_BINARY_DIR}/src/tests/test_runtimes/openxr/1/active_runtime.json
 )
 
 add_dependencies(conformance_cli test_runtime)

@@ -32,7 +32,7 @@ namespace Conformance
     public:
         using RenderableGltfModelInstanceBase::RenderableGltfModelInstanceBase;
 
-        void Render(ComPtr<ID3D12GraphicsCommandList> directCommandList, Pbr::D3D12Resources& resources, XrMatrix4x4f& modelToWorld,
+        void Render(ComPtr<ID3D12GraphicsCommandList> directCommandList, Pbr::D3D12Resources& resources,
                     DXGI_FORMAT colorRenderTargetFormat, DXGI_FORMAT depthRenderTargetFormat);
     };
 }  // namespace Conformance

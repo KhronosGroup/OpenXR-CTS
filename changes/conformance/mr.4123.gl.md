@@ -1,4 +1,0 @@
----
-- mr.4123.gl
----
-- Improvement: Code cleanup for performance improvement.

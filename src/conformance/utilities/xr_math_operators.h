@@ -47,9 +47,29 @@ xr_math_operators_nodiscard inline XrMatrix4x4f operator*(const XrMatrix4x4f& a,
     return result;
 }
 
+xr_math_operators_nodiscard inline constexpr bool operator==(const XrVector2f& lhs, const XrVector2f& rhs)
+{
+    return lhs.x == rhs.x && lhs.y == rhs.y;
+}
 xr_math_operators_nodiscard inline constexpr bool operator==(const XrVector3f& lhs, const XrVector3f& rhs)
 {
     return lhs.x == rhs.x && lhs.y == rhs.y && lhs.z == rhs.z;
+}
+xr_math_operators_nodiscard inline constexpr bool operator==(const XrVector4f& lhs, const XrVector4f& rhs)
+{
+    return lhs.x == rhs.x && lhs.y == rhs.y && lhs.z == rhs.z && lhs.w == rhs.w;
+}
+xr_math_operators_nodiscard inline constexpr bool operator==(const XrVector4sFB& lhs, const XrVector4sFB& rhs)
+{
+    return lhs.x == rhs.x && lhs.y == rhs.y && lhs.z == rhs.z && lhs.w == rhs.w;
+}
+xr_math_operators_nodiscard inline constexpr bool operator==(const XrQuaternionf& lhs, const XrQuaternionf& rhs)
+{
+    return lhs.x == rhs.x && lhs.y == rhs.y && lhs.z == rhs.z && lhs.w == rhs.w;
+}
+xr_math_operators_nodiscard inline constexpr bool operator==(const XrPosef& lhs, const XrPosef& rhs)
+{
+    return lhs.position == rhs.position && lhs.orientation == rhs.orientation;
 }
 
 // Not using XrVector3f_Add here so that this can be constexpr
@@ -165,6 +185,12 @@ namespace openxr
             {
                 return Vector::ApproxEqual(a.position, b.position, positionTolerance) &&
                        Quat::ApproxEqual(a.orientation, b.orientation, angularTolerance);
+            }
+            xr_math_operators_nodiscard inline XrPosef Invert(const XrPosef& p)
+            {
+                XrPosef inv;
+                XrPosef_Invert(&inv, &p);
+                return inv;
             }
         }  // namespace Pose
 

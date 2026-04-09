@@ -180,5 +180,6 @@ private:
     void checkEventPayload(const XrEventDataVisibilityMaskChangedKHR* data);
     void checkEventPayload(const XrEventDataPerfSettingsEXT* data);
     void checkEventPayload(const XrEventDataSpatialAnchorCreateCompleteFB* data);
+    void checkEventPayload(const XrEventDataViewConfigurationViewsChangedEXT* data);
     void checkEventPayload(const XrEventDataUserPresenceChangedEXT* data);
 };

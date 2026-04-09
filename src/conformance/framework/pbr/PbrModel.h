@@ -161,6 +161,20 @@ namespace Pbr
         }
 
     public:
+        void SetModelToWorld(const XrMatrix4x4f& modelToWorld)
+        {
+            m_modelToWorld = modelToWorld;
+            m_modelToWorldNeedsUpdate = true;
+        }
+        void SetModelToWorld(XrPosef pose = Pose::Identity, XrVector3f scale = {1.0, 1.0, 1.0})
+        {
+            SetModelToWorld(Matrix::FromTranslationRotationScale(pose.position, pose.orientation, scale));
+        }
+        const XrMatrix4x4f& GetModelToWorld() const noexcept
+        {
+            return m_modelToWorld;
+        }
+
         /// Sets the visibility of a node. Nodes otherwise inherit
         void SetNodeVisibility(NodeIndex_t nodeIndex, NodeVisibility visibility)
         {
@@ -186,6 +200,15 @@ namespace Pbr
         }
 
     protected:
+        bool ModelToWorldNeedsUpdate() const noexcept
+        {
+            return m_modelToWorldNeedsUpdate;
+        }
+        void MarkModelToWorldUpdated() noexcept
+        {
+            m_modelToWorldNeedsUpdate = false;
+        }
+
         bool ResolvedTransformsNeedUpdate() const noexcept
         {
             return m_resolvedTransformsNeedUpdate;
@@ -254,10 +277,12 @@ namespace Pbr
         }
 
     private:
+        bool m_modelToWorldNeedsUpdate{true};
         bool m_resolvedTransformsNeedUpdate{true};
 
         // Derived classes may depend on this being immutable.
         std::shared_ptr<const Model> m_model;
+        XrMatrix4x4f m_modelToWorld;
         std::vector<NodeVisibility> m_nodeLocalVisibilities;
         std::vector<bool> m_resolvedVisibilities;
         // This is initialized to the local transform of every node,

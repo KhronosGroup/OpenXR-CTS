@@ -16,13 +16,12 @@ using namespace DirectX;
 
 namespace Conformance
 {
-    void D3D12GLTF::Render(ComPtr<ID3D12GraphicsCommandList> directCommandList, Pbr::D3D12Resources& resources, XrMatrix4x4f& modelToWorld,
+    void D3D12GLTF::Render(ComPtr<ID3D12GraphicsCommandList> directCommandList, Pbr::D3D12Resources& resources,
                            DXGI_FORMAT colorRenderTargetFormat, DXGI_FORMAT depthRenderTargetFormat)
     {
         resources.SetFillMode(GetFillMode());
         resources.Bind(directCommandList.Get());
-        GetModelInstance().Render(resources, directCommandList.Get(), colorRenderTargetFormat, depthRenderTargetFormat,
-                                  LoadXrMatrix(modelToWorld));
+        GetModelInstance().Render(resources, directCommandList.Get(), colorRenderTargetFormat, depthRenderTargetFormat);
     }
 
 }  // namespace Conformance

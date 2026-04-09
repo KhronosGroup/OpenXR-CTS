@@ -33,21 +33,26 @@ namespace Pbr
         /// Note: Make sure your shaders are global/static!
         VulkanPipelines(VkDevice device, std::shared_ptr<Conformance::ScopedVkPipelineLayout> layout,
                         span<const VkVertexInputAttributeDescription> vertexAttrDesc,
-                        span<const VkVertexInputBindingDescription> vertexInputBindDesc, span<const uint32_t> pbrVS,
-                        span<const uint32_t> pbrPS)
+                        span<const VkVertexInputBindingDescription> vertexInputBindDesc,  //
+                        span<const uint32_t> pbrVS, span<const uint32_t> pbrPS,           //
+                        span<const uint32_t> unlitVS, span<const uint32_t> unlitPS)
             : m_device(device)
             , m_layout(layout)
             , m_vertexAttrDesc(vertexAttrDesc)
             , m_vertexInputBindDesc(vertexInputBindDesc)
             , m_pbrShader(Conformance::SHADER_PROGRAM_TYPE_GRAPHICS)
+            , m_unlitShader(Conformance::SHADER_PROGRAM_TYPE_GRAPHICS)
         {
             m_pbrShader.Init(m_device);
             m_pbrShader.LoadVertexShader(pbrVS);
             m_pbrShader.LoadFragmentShader(pbrPS);
+            m_unlitShader.Init(m_device);
+            m_unlitShader.LoadVertexShader(unlitVS);
+            m_unlitShader.LoadFragmentShader(unlitPS);
         }
 
-        Conformance::Pipeline& GetOrCreatePipeline(VkRenderPass renderPass, VkSampleCountFlagBits sampleCount, FillMode fillMode,
-                                                   FrontFaceWindingOrder frontFaceWindingOrder, BlendState blendState,
+        Conformance::Pipeline& GetOrCreatePipeline(VkRenderPass renderPass, VkSampleCountFlagBits sampleCount, Shader shader,
+                                                   FillMode fillMode, FrontFaceWindingOrder frontFaceWindingOrder, BlendState blendState,
                                                    DoubleSided doubleSided, DepthDirection depthDirection);
 
         void DropStates()
@@ -57,12 +62,13 @@ namespace Pbr
 
     private:
         VkDevice m_device;
-        using PipelineStateKey =
-            std::tuple<VkRenderPass, VkSampleCountFlagBits, FillMode, FrontFaceWindingOrder, BlendState, DoubleSided, DepthDirection>;
+        using PipelineStateKey = std::tuple<VkRenderPass, VkSampleCountFlagBits, Shader, FillMode, FrontFaceWindingOrder, BlendState,
+                                            DoubleSided, DepthDirection>;
         std::shared_ptr<Conformance::ScopedVkPipelineLayout> m_layout;
         span<const VkVertexInputAttributeDescription> m_vertexAttrDesc;
         span<const VkVertexInputBindingDescription> m_vertexInputBindDesc;
         Conformance::ShaderProgram m_pbrShader;
+        Conformance::ShaderProgram m_unlitShader;
 
         std::map<PipelineStateKey, Conformance::Pipeline> m_pipelines;
     };

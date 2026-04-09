@@ -299,7 +299,8 @@ namespace Conformance
 
         MeshHandle MakeSimpleMesh(span<const uint16_t> idx, span<const Geometry::Vertex> vtx) override;
 
-        GLTFModelHandle LoadGLTF(Gltf::ModelBuilder&& modelBuilder) override;
+        void WithGltfBuilder(const std::function<void(Pbr::IGltfBuilder&)>& func) override;
+        GLTFModelHandle RegisterPbrModel(std::shared_ptr<Pbr::Model>) override;
         std::shared_ptr<Pbr::Model> GetPbrModel(GLTFModelHandle handle) const override;
         GLTFModelInstanceHandle CreateGLTFModelInstance(GLTFModelHandle handle) override;
         Pbr::ModelInstance& GetModelInstance(GLTFModelInstanceHandle handle) override;
@@ -1212,6 +1213,7 @@ namespace Conformance
         GL(glEnable(GL_SCISSOR_TEST));
 
         // Clear swapchain and depth buffer.
+        GL(glDepthMask(GL_TRUE));
         GL(glClearColor(color.r, color.g, color.b, color.a));
         GL(glClearDepthf(1.0f));
         GL(glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT));
@@ -1227,9 +1229,14 @@ namespace Conformance
         return handle;
     }
 
-    GLTFModelHandle OpenGLESGraphicsPlugin::LoadGLTF(Gltf::ModelBuilder&& modelBuilder)
+    void OpenGLESGraphicsPlugin::WithGltfBuilder(const std::function<void(Pbr::IGltfBuilder&)>& func)
     {
-        auto handle = m_gltfModels.emplace_back(modelBuilder.Build(*m_pbrResources));
+        func(*m_pbrResources);
+    }
+
+    GLTFModelHandle OpenGLESGraphicsPlugin::RegisterPbrModel(std::shared_ptr<Pbr::Model> model)
+    {
+        auto handle = m_gltfModels.emplace_back(std::move(model));
         return handle;
     }
 
@@ -1277,9 +1284,12 @@ namespace Conformance
 
         GL(glEnable(GL_SCISSOR_TEST));
         GL(glEnable(GL_DEPTH_TEST));
+        GL(glDepthFunc(GL_LESS));
+        GL(glDepthMask(GL_TRUE));
         GL(glEnable(GL_CULL_FACE));
         GL(glFrontFace(GL_CW));
         GL(glCullFace(GL_BACK));
+        GL(glDisable(GL_BLEND));
 
         if (isArray) {
             GL(glFramebufferTextureLayer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, colorTexture, 0, layerView.subImage.imageArrayIndex));
@@ -1335,16 +1345,12 @@ namespace Conformance
         }
 
         // Render each gltf
-        for (const auto& gltfDrawable : params.glTFs) {
-            GLGLTF& gltf = m_gltfInstances[gltfDrawable.handle];
-            // Compute and update the model transform.
-
-            XrMatrix4x4f modelToWorld = Matrix::FromTranslationRotationScale(
-                gltfDrawable.params.pose.position, gltfDrawable.params.pose.orientation, gltfDrawable.params.scale);
+        for (const auto& gltfInstanceHandle : params.glTFs) {
+            GLGLTF& gltf = m_gltfInstances[gltfInstanceHandle];
 
             m_pbrResources->SetViewProjection(view, proj);
 
-            gltf.Render(*m_pbrResources, modelToWorld);
+            gltf.Render(*m_pbrResources);
         }
 
         GL(glBindVertexArray(0));

@@ -208,7 +208,8 @@ namespace Conformance
 
         MeshHandle MakeSimpleMesh(span<const uint16_t> idx, span<const Geometry::Vertex> vtx) override;
 
-        GLTFModelHandle LoadGLTF(Gltf::ModelBuilder&& modelBuilder) override;
+        void WithGltfBuilder(const std::function<void(Pbr::IGltfBuilder&)>& func) override;
+        GLTFModelHandle RegisterPbrModel(std::shared_ptr<Pbr::Model>) override;
         std::shared_ptr<Pbr::Model> GetPbrModel(GLTFModelHandle handle) const override;
         GLTFModelInstanceHandle CreateGLTFModelInstance(GLTFModelHandle handle) override;
         Pbr::ModelInstance& GetModelInstance(GLTFModelInstanceHandle handle) override;
@@ -726,9 +727,16 @@ namespace Conformance
         return handle;
     }
 
-    GLTFModelHandle D3D11GraphicsPlugin::LoadGLTF(Gltf::ModelBuilder&& modelBuilder)
+    void D3D11GraphicsPlugin::WithGltfBuilder(const std::function<void(Pbr::IGltfBuilder&)>& func)
     {
-        auto handle = m_gltfModels.emplace_back(modelBuilder.Build(*m_pbrResources));
+        auto builder = m_pbrResources->MakeGltfBuilder(d3d11DeviceContext.Get());
+
+        func(builder);
+    }
+
+    GLTFModelHandle D3D11GraphicsPlugin::RegisterPbrModel(std::shared_ptr<Pbr::Model> model)
+    {
+        auto handle = m_gltfModels.emplace_back(std::move(model));
         return handle;
     }
 
@@ -787,6 +795,11 @@ namespace Conformance
         // Set cube primitive data.
         d3d11DeviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
         d3d11DeviceContext->IASetInputLayout(inputLayout.Get());
+
+        // Reset state clobbered by PBR rendering
+        d3d11DeviceContext->RSSetState(nullptr);
+        d3d11DeviceContext->OMSetDepthStencilState(nullptr, 1);
+
         MeshHandle lastMeshHandle;
 
         const auto drawMesh = [&, this](const MeshDrawable mesh) {
@@ -826,18 +839,14 @@ namespace Conformance
         }
 
         // Render each gltf
-        for (const auto& gltfDrawable : params.glTFs) {
-            D3D11GLTF& gltf = m_gltfInstances[gltfDrawable.handle];
-            // Compute and update the model transform.
-
-            XrMatrix4x4f modelToWorld = Matrix::FromTranslationRotationScale(
-                gltfDrawable.params.pose.position, gltfDrawable.params.pose.orientation, gltfDrawable.params.scale);
+        for (const auto& gltfInstanceHandle : params.glTFs) {
+            D3D11GLTF& gltf = m_gltfInstances[gltfInstanceHandle];
 
             XrMatrix4x4f viewMatrix = Matrix::FromPose(layerView.pose);
             XrMatrix4x4f viewMatrixInverse = Matrix::InvertRigidBody(viewMatrix);
             m_pbrResources->SetViewProjection(LoadXrMatrix(viewMatrixInverse), LoadXrMatrix(projectionMatrix));
 
-            gltf.Render(d3d11DeviceContext, *m_pbrResources, modelToWorld);
+            gltf.Render(d3d11DeviceContext, *m_pbrResources);
         }
     }
 

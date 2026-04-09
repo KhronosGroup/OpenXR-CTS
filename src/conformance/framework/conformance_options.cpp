@@ -39,7 +39,6 @@ namespace Conformance
         AppendSprintf(reportString, "Tested form factor: %s\n", formFactor.c_str());
         AppendSprintf(reportString, "Tested hands: %s\n", enabledHands.c_str());
         AppendSprintf(reportString, "Tested view configuration: %s\n", viewConfiguration.c_str());
-        AppendSprintf(reportString, "Tested environment blend mode: %s\n", environmentBlendMode.c_str());
         AppendSprintf(reportString, "Handle invalidation tested: %s\n", invalidHandleValidation ? "yes" : "no");
         AppendSprintf(reportString, "Type invalidation tested: %s\n", invalidTypeValidation ? "yes" : "no");
         AppendSprintf(reportString, "Non-disconnectable devices: %s\n", nonDisconnectableDevices ? "yes" : "no");
@@ -56,8 +55,6 @@ namespace Conformance
         AppendSprintf(result, "   formFactor: %s\n", formFactor.c_str());
 
         AppendSprintf(result, "   hands: %s\n", enabledHands.c_str());
-
-        AppendSprintf(result, "   environmentBlendMode: %s\n", environmentBlendMode.c_str());
 
         AppendSprintf(result, "   viewConfiguration: %s\n", viewConfiguration.c_str());
 
@@ -182,22 +179,6 @@ namespace Conformance
         return "Stereo|StereoFoveated|Mono";
     }
 
-    bool Options::SetEnvironmentBlendMode(const std::string& arg)
-    {
-        return ParseEnumFromString(
-            {
-                {"opaque", XR_ENVIRONMENT_BLEND_MODE_OPAQUE},
-                {"additive", XR_ENVIRONMENT_BLEND_MODE_ADDITIVE},
-                {"alphablend", XR_ENVIRONMENT_BLEND_MODE_ALPHA_BLEND},
-            },
-            arg.c_str(), environmentBlendModeValue, environmentBlendMode);
-    }
-
-    const char* Options::AvailableEnvironmentBlendModes()
-    {
-        return "Opaque|Additive|AlphaBlend";
-    }
-
     void Options::PopulateDefaultEnvironmentBlendMode(XrInstance instance, XrSystemId systemId)
     {
         if (environmentBlendModeValue != (XrEnvironmentBlendMode)0) {
@@ -211,24 +192,9 @@ namespace Conformance
             doTwoCallInPlace(availableBlendModes, xrEnumerateEnvironmentBlendModes, instance, systemId, viewConfigurationValue);
         XRC_CHECK_THROW_XRRESULT(result, "xrEnumerateEnvironmentBlendModes");
 
-        if (environmentBlendMode.empty()) {
+        if (environmentBlendModeValue == 0) {
             // Default to the first enumerated blend mode
             environmentBlendModeValue = availableBlendModes.front();
-            // convert to string, indicating auto selection
-            switch (environmentBlendModeValue) {
-            case XR_ENVIRONMENT_BLEND_MODE_OPAQUE:
-                environmentBlendMode = "opaque (auto-selected)";
-                break;
-            case XR_ENVIRONMENT_BLEND_MODE_ADDITIVE:
-                environmentBlendMode = "additive (auto-selected)";
-                break;
-            case XR_ENVIRONMENT_BLEND_MODE_ALPHA_BLEND:
-                environmentBlendMode = "alphablend (auto-selected)";
-                break;
-            default:
-                XRC_THROW("Got unrecognized environment blend mode value as the front of the enumerated list.");
-                break;
-            }
         }
     }
 }  // namespace Conformance

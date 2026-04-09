@@ -332,7 +332,7 @@ namespace Conformance
 
         SkipIfNotSatisfiable("Local floor", globalData, featureSet);
 
-        CompositionHelper compositionHelper(testName, featureSet);
+        CompositionHelper compositionHelper(testName, featureSet, CompositionHelper::EnvironmentBlendModePreference::PreferPassthrough);
 
         XrSession session = compositionHelper.GetSession();
 

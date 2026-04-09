@@ -30,7 +30,7 @@ namespace Conformance
     public:
         using RenderableGltfModelInstanceBase::RenderableGltfModelInstanceBase;
 
-        void Render(MTL::RenderCommandEncoder* renderCommandEncoder, Pbr::MetalResources& resources, XrMatrix4x4f& modelToWorld,
+        void Render(MTL::RenderCommandEncoder* renderCommandEncoder, Pbr::MetalResources& resources,
                     MTL::PixelFormat colorRenderTargetFormat, MTL::PixelFormat depthRenderTargetFormat);
     };
 }  // namespace Conformance

@@ -83,7 +83,7 @@ namespace Pbr
         }
     }
 
-    void D3D11Material::Bind(_In_ ID3D11DeviceContext* context, const D3D11Resources& pbrResources) const
+    void D3D11Material::Bind(_In_ ID3D11DeviceContext* context, D3D11Resources& pbrResources) const
     {
         // If the parameters of the constant buffer have changed, update the constant buffer.
         if (m_parametersChanged) {
@@ -91,8 +91,10 @@ namespace Pbr
             context->UpdateSubresource(m_constantBuffer.Get(), 0, nullptr, &m_parameters, 0, 0);
         }
 
+        pbrResources.SetShader(context, m_shader);
         pbrResources.SetBlendState(context, m_alphaBlended == BlendState::AlphaBlended);
         pbrResources.SetDepthStencilState(context, m_alphaBlended == BlendState::AlphaBlended);
+        pbrResources.SetFillMode(m_fillMode);
         pbrResources.SetRasterizerState(context, m_doubleSided == DoubleSided::DoubleSided);
 
         ID3D11Buffer* psConstantBuffers[] = {m_constantBuffer.Get()};

@@ -20,11 +20,12 @@
 namespace Pbr
 {
     Microsoft::WRL::ComPtr<ID3D12PipelineState> D3D12PipelineStates::GetOrCreatePipelineState(
-        DXGI_FORMAT colorRenderTargetFormat, DXGI_FORMAT depthRenderTargetFormat, FillMode fillMode,
+        DXGI_FORMAT colorRenderTargetFormat, DXGI_FORMAT depthRenderTargetFormat, Shader shader, FillMode fillMode,
         FrontFaceWindingOrder frontFaceWindingOrder, BlendState blendState, DoubleSided doubleSided, DepthDirection depthDirection)
     {
         const PipelineStateKey state{
-            colorRenderTargetFormat, depthRenderTargetFormat, fillMode, frontFaceWindingOrder, blendState, doubleSided, depthDirection};
+            colorRenderTargetFormat, depthRenderTargetFormat, shader, fillMode, frontFaceWindingOrder, blendState, doubleSided,
+            depthDirection};
         auto iter = m_pipelineStates.find(state);
         if (iter != m_pipelineStates.end()) {
             return iter->second;
@@ -33,14 +34,17 @@ namespace Pbr
         XRC_CHECK_THROW_HRCMD(
             m_rootSignature->GetDevice(__uuidof(ID3D12Device), reinterpret_cast<void**>(device.ReleaseAndGetAddressOf())));
 
-        static_assert(std::is_same<PipelineStateKey, std::tuple<DXGI_FORMAT, DXGI_FORMAT, FillMode, FrontFaceWindingOrder, BlendState,
-                                                                DoubleSided, DepthDirection>>::value,
+        static_assert(std::is_same<PipelineStateKey, std::tuple<DXGI_FORMAT, DXGI_FORMAT, Shader, FillMode, FrontFaceWindingOrder,
+                                                                BlendState, DoubleSided, DepthDirection>>::value,
                       "This function copies all fields to the desc and must be updated if the fieldset is changed");
 
         D3D12_GRAPHICS_PIPELINE_STATE_DESC pipelineStateDesc = m_basePipelineStateDesc;
 
-        pipelineStateDesc.VS = {m_pbrVS.data(), m_pbrVS.size()};
-        pipelineStateDesc.PS = {m_pbrPS.data(), m_pbrPS.size()};
+        span<const unsigned char> vs = shader == Shader::Pbr ? m_pbrVS : m_unlitVS;
+        span<const unsigned char> ps = shader == Shader::Pbr ? m_pbrPS : m_unlitPS;
+
+        pipelineStateDesc.VS = {vs.data(), vs.size()};
+        pipelineStateDesc.PS = {ps.data(), ps.size()};
 
         for (UINT i = 0; i < pipelineStateDesc.NumRenderTargets; ++i) {
             pipelineStateDesc.RTVFormats[i] = colorRenderTargetFormat;
@@ -56,7 +60,7 @@ namespace Pbr
         pipelineStateDesc.RasterizerState.FrontCounterClockwise = (frontFaceWindingOrder == FrontFaceWindingOrder::CounterClockWise);
 
         pipelineStateDesc.DepthStencilState.DepthFunc =
-            (depthDirection == DepthDirection::Reversed) ? D3D12_COMPARISON_FUNC_GREATER : D3D12_COMPARISON_FUNC_LESS;
+            (depthDirection == DepthDirection::Reversed) ? D3D12_COMPARISON_FUNC_GREATER_EQUAL : D3D12_COMPARISON_FUNC_LESS_EQUAL;
 
         if (blendState == BlendState::AlphaBlended) {
             D3D12_RENDER_TARGET_BLEND_DESC rtBlendDesc{};

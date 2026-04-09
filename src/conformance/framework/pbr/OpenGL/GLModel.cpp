@@ -31,12 +31,15 @@
 namespace Pbr
 {
 
-    void GLModelInstance::Render(Pbr::GLResources const& pbrResources, XrMatrix4x4f modelToWorld)
+    void GLModelInstance::Render(Pbr::GLResources& pbrResources)
     {
-        // Update model buffer
-        m_modelBuffer.ModelToWorld = modelToWorld;
-        XRC_CHECK_THROW_GLCMD(glBindBuffer(GL_UNIFORM_BUFFER, m_modelConstantBuffer.get()));
-        XRC_CHECK_THROW_GLCMD(glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(Glsl::ModelConstantBuffer), &m_modelBuffer));
+        if (ModelToWorldNeedsUpdate()) {
+            // Update model buffer
+            m_modelBuffer.ModelToWorld = GetModelToWorld();
+            XRC_CHECK_THROW_GLCMD(glBindBuffer(GL_UNIFORM_BUFFER, m_modelConstantBuffer.get()));
+            XRC_CHECK_THROW_GLCMD(glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(Glsl::ModelConstantBuffer), &m_modelBuffer));
+            MarkModelToWorldUpdated();
+        }
         // Bind model buffer
         XRC_CHECK_THROW_GLCMD(glBindBufferBase(GL_UNIFORM_BUFFER, ShaderSlots::ConstantBuffers::Model, m_modelConstantBuffer.get()));
 

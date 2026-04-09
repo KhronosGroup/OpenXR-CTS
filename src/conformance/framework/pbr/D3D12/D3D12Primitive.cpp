@@ -40,9 +40,11 @@ namespace Pbr
         : D3D12Primitive((UINT)primitiveBuilder.Indices.size(), {}, (UINT)primitiveBuilder.Vertices.size(), {}, std::move(material),
                          primitiveBuilder.NodeIndicesVector())
     {
-        m_indexBuffer.Allocate(pbrResources.GetDevice().Get(), primitiveBuilder.Indices.size());
-        m_vertexBuffer.Allocate(pbrResources.GetDevice().Get(), primitiveBuilder.Vertices.size());
-        UpdateBuffers(pbrResources, copyCommandList, primitiveBuilder);
+        if (!primitiveBuilder.Indices.empty()) {
+            m_indexBuffer.Allocate(pbrResources.GetDevice().Get(), primitiveBuilder.Indices.size());
+            m_vertexBuffer.Allocate(pbrResources.GetDevice().Get(), primitiveBuilder.Vertices.size());
+            UpdateBuffers(pbrResources, copyCommandList, primitiveBuilder.Indices, primitiveBuilder.Vertices);
+        }
 
         D3D12_DESCRIPTOR_HEAP_DESC srvHeapDesc;
         srvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
@@ -65,36 +67,46 @@ namespace Pbr
     }
 
     void D3D12Primitive::UpdateBuffers(Pbr::D3D12Resources& pbrResources, ID3D12GraphicsCommandList* copyCommandList,
-                                       const Pbr::PrimitiveBuilder& primitiveBuilder)
+                                       span<const uint32_t> idx, span<const Pbr::Vertex> vtx)
     {
+        if (idx.empty()) {
+            m_indexBuffer = {};
+            m_vertexBuffer = {};
+            m_indexCount = 0;
+            m_vertexCount = 0;
+            return;
+        }
+
         // Update vertex buffer.
         {
-            size_t elemCount = primitiveBuilder.Vertices.size();
-            if (m_vertexBuffer.Fits(elemCount)) {
-                m_vertexBuffer.AsyncUpload(copyCommandList, primitiveBuilder.Vertices.data(), elemCount);
-            }
-            else {
+            size_t elemCount = vtx.size();
+            if (!m_vertexBuffer.Allocated() || !m_vertexBuffer.Fits(elemCount)) {
                 m_vertexBuffer.Allocate(pbrResources.GetDevice().Get(), elemCount);
             }
+            m_vertexBuffer.AsyncUpload(copyCommandList, vtx.data(), elemCount);
+
+            m_vertexCount = (UINT)vtx.size();
         }
 
         // Update index buffer.
         {
-            size_t elemCount = primitiveBuilder.Indices.size();
-            if (m_indexBuffer.Fits(elemCount)) {
-                m_indexBuffer.AsyncUpload(copyCommandList, primitiveBuilder.Indices.data(), elemCount);
-            }
-            else {
+            size_t elemCount = idx.size();
+            if (!m_indexBuffer.Allocated() || !m_indexBuffer.Fits(elemCount)) {
                 m_indexBuffer.Allocate(pbrResources.GetDevice().Get(), elemCount);
             }
+            m_indexBuffer.AsyncUpload(copyCommandList, idx.data(), elemCount);
 
-            m_indexCount = (UINT)primitiveBuilder.Indices.size();
+            m_indexCount = (UINT)idx.size();
         }
     }
 
     void D3D12Primitive::Render(_In_ ID3D12GraphicsCommandList* directCommandList, D3D12Resources& pbrResources,
                                 DXGI_FORMAT colorRenderTargetFormat, DXGI_FORMAT depthRenderTargetFormat) const
     {
+        if (m_indexCount == 0) {
+            return;
+        }
+
         GetMaterial()->Bind(directCommandList, pbrResources);
         pbrResources.BindDescriptorHeaps(directCommandList, m_srvHeap.Get(), m_samplerHeap.Get());
 
@@ -114,11 +126,12 @@ namespace Pbr
 
         pbrResources.GetGlobalTexturesAndSamplers(srvHandle, samplerHandle);
 
+        Shader shader = GetMaterial()->GetShader();
         BlendState blendState = GetMaterial()->GetAlphaBlended();
         DoubleSided doubleSided = GetMaterial()->GetDoubleSided();
 
         Microsoft::WRL::ComPtr<ID3D12PipelineState> pipelineState =
-            pbrResources.GetOrCreatePipelineState(colorRenderTargetFormat, depthRenderTargetFormat, blendState, doubleSided);
+            pbrResources.GetOrCreatePipelineState(colorRenderTargetFormat, depthRenderTargetFormat, shader, blendState, doubleSided);
 
         const UINT vertexStride = sizeof(Pbr::Vertex);
         const UINT indexStride = sizeof(uint32_t);

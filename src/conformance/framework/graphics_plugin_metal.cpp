@@ -259,7 +259,8 @@ namespace Conformance
 
         MeshHandle MakeSimpleMesh(span<const uint16_t> idx, span<const Geometry::Vertex> vtx) override;
 
-        GLTFModelHandle LoadGLTF(Gltf::ModelBuilder&& modelBuilder) override;
+        void WithGltfBuilder(const std::function<void(Pbr::IGltfBuilder&)>& func) override;
+        GLTFModelHandle RegisterPbrModel(std::shared_ptr<Pbr::Model>) override;
         std::shared_ptr<Pbr::Model> GetPbrModel(GLTFModelHandle handle) const override;
         GLTFModelInstanceHandle CreateGLTFModelInstance(GLTFModelHandle handle) override;
         Pbr::ModelInstance& GetModelInstance(GLTFModelInstanceHandle handle) override;
@@ -791,9 +792,14 @@ namespace Conformance
         return handle;
     }
 
-    GLTFModelHandle MetalGraphicsPlugin::LoadGLTF(Gltf::ModelBuilder&& modelBuilder)
+    void MetalGraphicsPlugin::WithGltfBuilder(const std::function<void(Pbr::IGltfBuilder&)>& func)
     {
-        auto handle = m_gltfModels.emplace_back(modelBuilder.Build(*pbrResources));
+        func(*pbrResources);
+    }
+
+    GLTFModelHandle MetalGraphicsPlugin::RegisterPbrModel(std::shared_ptr<Pbr::Model> model)
+    {
+        auto handle = m_gltfModels.emplace_back(std::move(model));
         return handle;
     }
 
@@ -906,13 +912,8 @@ namespace Conformance
 
         // Render each gltf
         pEnc->pushDebugGroup(MTLSTR("glTFs"));
-        for (const auto& gltfDrawable : params.glTFs) {
-            MetalGLTF& gltf = m_gltfInstances[gltfDrawable.handle];
-            // Compute and update the model transform.
-
-            XrMatrix4x4f modelToWorld;
-            XrMatrix4x4f_CreateTranslationRotationScale(&modelToWorld, &gltfDrawable.params.pose.position,
-                                                        &gltfDrawable.params.pose.orientation, &gltfDrawable.params.scale);
+        for (const auto& gltfInstanceHandle : params.glTFs) {
+            MetalGLTF& gltf = m_gltfInstances[gltfInstanceHandle];
 
             pbrResources->SetViewProjection(view, proj);
 
@@ -921,7 +922,7 @@ namespace Conformance
                                                ? (MTL::PixelFormat)swapchainData->GetDepthCreateInfo()->format
                                                : MetalFallbackDepthTexture::GetDefaultDepthFormat();
 
-            gltf.Render(pEnc, *pbrResources, modelToWorld, colorFormat, depthFormat);
+            gltf.Render(pEnc, *pbrResources, colorFormat, depthFormat);
         }
         pEnc->popDebugGroup();
 

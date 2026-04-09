@@ -198,7 +198,9 @@ namespace Conformance
         XRC_CHECK_THROW_XRCMD(xrSyncActions(m_session, &syncInfo));
     }
 
-    CompositionHelper::CompositionHelper(const char* testName, const FeatureSet& featureSet)
+    CompositionHelper::CompositionHelper(
+        const char* testName, const FeatureSet& featureSet,
+        EnvironmentBlendModePreference environmentBlendModePreference /* = EnvironmentBlendModePreference::PreferRuntimeDefault */)
     {
         m_primaryViewType = Options::Get().viewConfigurationValue;
 
@@ -206,10 +208,25 @@ namespace Conformance
         XRC_CHECK_THROW_XRCMD(CreateBasicInstance(&instanceRaw, featureSet, true));
         m_instanceOwned.adopt(instanceRaw);
         m_instance = instanceRaw;
-        SharedInit(testName);
+        SharedInit(testName, environmentBlendModePreference);
     }
 
-    CompositionHelper::CompositionHelper(const char* testName, const std::vector<const char*>& additionalEnabledExtensions)
+    CompositionHelper::CompositionHelper(const char* testName, EnvironmentBlendModePreference environmentBlendModePreference)
+    {
+        m_primaryViewType = Options::Get().viewConfigurationValue;
+
+        const std::vector<const char*> additionalEnabledExtensions;
+
+        XrInstance instanceRaw{XR_NULL_HANDLE_CPP};
+        XRC_CHECK_THROW_XRCMD(CreateBasicInstance(&instanceRaw, true, additionalEnabledExtensions));
+        m_instanceOwned.adopt(instanceRaw);
+        m_instance = instanceRaw;
+        SharedInit(testName, environmentBlendModePreference);
+    }
+
+    CompositionHelper::CompositionHelper(
+        const char* testName, const std::vector<const char*>& additionalEnabledExtensions,
+        EnvironmentBlendModePreference environmentBlendModePreference /* = EnvironmentBlendModePreference::PreferRuntimeDefault */)
     {
         m_primaryViewType = Options::Get().viewConfigurationValue;
 
@@ -217,20 +234,22 @@ namespace Conformance
         XRC_CHECK_THROW_XRCMD(CreateBasicInstance(&instanceRaw, true, additionalEnabledExtensions));
         m_instanceOwned.adopt(instanceRaw);
         m_instance = instanceRaw;
-        SharedInit(testName);
+        SharedInit(testName, environmentBlendModePreference);
     }
 
-    CompositionHelper::CompositionHelper(const char* testName, XrInstance instance, XrViewConfigurationType viewConfigType,
-                                         bool skipOnUnsupportedViewType /* = false */)
+    CompositionHelper::CompositionHelper(
+        const char* testName, XrInstance instance, XrViewConfigurationType viewConfigType, bool skipOnUnsupportedViewType /* = false */,
+        EnvironmentBlendModePreference environmentBlendModePreference /* = EnvironmentBlendModePreference::PreferRuntimeDefault */)
         : m_instance(instance), m_primaryViewType(viewConfigType)
     {
         if (viewConfigType == 0) {
             m_primaryViewType = Options::Get().viewConfigurationValue;
         }
-        SharedInit(testName, skipOnUnsupportedViewType);
+        SharedInit(testName, environmentBlendModePreference, skipOnUnsupportedViewType);
     }
 
-    void CompositionHelper::SharedInit(const char* testName, bool skipOnUnsupportedViewType /* = false */)
+    void CompositionHelper::SharedInit(const char* testName, EnvironmentBlendModePreference environmentBlendModePreference,
+                                       bool skipOnUnsupportedViewType /* = false */)
     {
 
         m_eventQueue = std::unique_ptr<EventQueue>(new EventQueue(m_instance));
@@ -299,6 +318,9 @@ namespace Conformance
             m_testNameQuad.subImage = MakeDefaultSubImage(CreateStaticSwapchainImage(image));
         }
 
+        // Set the environment blend mode initially according to the caller's preference.
+        SetDefaultEnvironmentBlendMode(environmentBlendModePreference);
+
         // Leave the graphics plugin running if we make it to the end.
         pluginShutdown.Release();
     }
@@ -339,6 +361,22 @@ namespace Conformance
     XrSession CompositionHelper::GetSession() const
     {
         return m_session;
+    }
+
+    std::vector<XrEnvironmentBlendMode> CompositionHelper::EnumerateEnvironmentBlendModes()
+    {
+        std::vector<XrEnvironmentBlendMode> environmentBlendModes;
+
+        uint32_t countOutput;
+        XRC_CHECK_THROW_XRCMD(xrEnumerateEnvironmentBlendModes(m_instance, m_systemId, m_primaryViewType, 0, &countOutput, nullptr));
+        if (countOutput != 0) {
+            environmentBlendModes.resize(countOutput, XR_ENVIRONMENT_BLEND_MODE_MAX_ENUM);
+            XRC_CHECK_THROW_XRCMD(xrEnumerateEnvironmentBlendModes(m_instance, m_systemId, m_primaryViewType,
+                                                                   (uint32_t)environmentBlendModes.size(), &countOutput,
+                                                                   environmentBlendModes.data()));
+        }
+
+        return environmentBlendModes;
     }
 
     std::vector<XrViewConfigurationView> CompositionHelper::EnumerateConfigurationViews()
@@ -399,6 +437,43 @@ namespace Conformance
         return std::make_tuple(viewState, std::move(views));
     }
 
+    void CompositionHelper::ChangeEnvironmentBlendMode(XrEnvironmentBlendMode environmentBlendMode)
+    {
+        auto supported = EnumerateEnvironmentBlendModes();
+        if (std::find(supported.begin(), supported.end(), environmentBlendMode) == supported.end()) {
+            Throw("Blend mode is not supported");
+        }
+        currentEnvironmentBlendMode = environmentBlendMode;
+    }
+
+    void CompositionHelper::SetDefaultEnvironmentBlendMode(EnvironmentBlendModePreference preference)
+    {
+        auto supportedBlendModes = EnumerateEnvironmentBlendModes();
+
+        auto getPreferredAndSupportedMode = [&preference](XrEnvironmentBlendMode supportedBlendMode) {
+            if (preference == EnvironmentBlendModePreference::PreferOpaque) {
+                return supportedBlendMode == XR_ENVIRONMENT_BLEND_MODE_OPAQUE;
+            }
+            else if (preference == EnvironmentBlendModePreference::PreferPassthrough) {
+                return supportedBlendMode == XR_ENVIRONMENT_BLEND_MODE_ALPHA_BLEND ||
+                       supportedBlendMode == XR_ENVIRONMENT_BLEND_MODE_ADDITIVE;
+            }
+            // Either PreferRuntimeDefault case, or the runtime does not support any environmentBlendMode of the given preference
+            return false;
+        };
+
+        // Iterate in runtime preference over supported environmentBlendModes and find the first one that matches the given preference
+        auto it = std::find_if(supportedBlendModes.begin(), supportedBlendModes.end(), getPreferredAndSupportedMode);
+
+        if (it != supportedBlendModes.end()) {
+            currentEnvironmentBlendMode = *it;
+        }
+        else {
+            // No preference, or the runtime does not support any environmentBlendMode of the given preference
+            currentEnvironmentBlendMode = supportedBlendModes[0];
+        }
+    }
+
     void CompositionHelper::EndFrame(XrTime predictedDisplayTime, std::vector<XrCompositionLayerBaseHeader*> layers,
                                      bool showTestNameQuad /* = true */)
     {
@@ -407,7 +482,7 @@ namespace Conformance
         }
 
         XrFrameEndInfo frameEndInfo{XR_TYPE_FRAME_END_INFO};
-        frameEndInfo.environmentBlendMode = Options::Get().environmentBlendModeValue;
+        frameEndInfo.environmentBlendMode = currentEnvironmentBlendMode;
         frameEndInfo.displayTime = predictedDisplayTime;
         frameEndInfo.layerCount = (uint32_t)layers.size();
         frameEndInfo.layers = layers.data();

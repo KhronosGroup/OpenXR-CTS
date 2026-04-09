@@ -32,7 +32,7 @@ namespace Pbr
 
         /// Render the model.
         void Render(Pbr::VulkanResources& pbrResources, Conformance::CmdBuffer& directCommandBuffer, VkRenderPass renderPass,
-                    VkSampleCountFlagBits sampleCount, XrMatrix4x4f modelToWorld);
+                    VkSampleCountFlagBits sampleCount);
 
     private:
         void AllocateDescriptorSets(Pbr::VulkanResources& pbrResources, uint32_t numSets);

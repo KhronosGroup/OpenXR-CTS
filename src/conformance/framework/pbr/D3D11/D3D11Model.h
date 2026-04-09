@@ -35,7 +35,7 @@ namespace Pbr
         D3D11ModelInstance(Pbr::D3D11Resources& pbrResources, std::shared_ptr<const Model> model);
 
         /// Render the model.
-        void Render(Pbr::D3D11Resources const& pbrResources, _In_ ID3D11DeviceContext* context, DirectX::FXMMATRIX modelToWorld);
+        void Render(Pbr::D3D11Resources& pbrResources, _In_ ID3D11DeviceContext* context);
 
     private:
         void AllocateDescriptorSets(Pbr::D3D11Resources& pbrResources, uint32_t numSets);

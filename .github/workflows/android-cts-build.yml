@@ -1,4 +1,4 @@
-# Copyright 2021-2025, Collabora, Ltd.
+# Copyright 2021-2026, Collabora, Ltd.
 # SPDX-License-Identifier: CC0-1.0
 
 name: Android OpenXR-CTS - Android Build
@@ -26,7 +26,7 @@ jobs:
           fetch-depth: "${{ github.event.release && '0' || '1'}}"
 
       - name: Get modern CMake and Ninja
-        uses: "lukka/get-cmake@v4.2.0"
+        uses: "lukka/get-cmake@v4.2.3"
 
       - name: set up JDK
         uses: actions/setup-java@v5
@@ -42,7 +42,7 @@ jobs:
         run: "cd src/conformance && ./gradlew ${{ inputs.gradleTask }}"
 
       - name: Upload unsigned artifacts
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: android-openxr-cts-unsigned
           path: ${{ inputs.gradleOutputDir }}

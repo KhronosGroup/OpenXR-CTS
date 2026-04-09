@@ -128,7 +128,7 @@ namespace Conformance
                 REQUIRE(views[eye + 2].fov.angleRight <= views[eye].fov.angleRight);
                 REQUIRE(views[eye + 2].fov.angleUp <= views[eye].fov.angleUp);
                 // Assert bitwise equality of poses, because the spec says "equal"
-                REQUIRE(XrPosefCPP{views[eye + 2].pose} == XrPosefCPP{views[eye].pose});
+                REQUIRE(views[eye + 2].pose == views[eye].pose);
             }
         }
 

@@ -79,7 +79,7 @@ namespace Pbr
         }
     }
 
-    void GLMaterial::Bind(const GLResources& pbrResources) const
+    void GLMaterial::Bind(GLResources& pbrResources) const
     {
         // If the parameters of the constant buffer have changed, update the constant buffer.
         if (m_parametersChanged) {
@@ -88,8 +88,10 @@ namespace Pbr
             XRC_CHECK_THROW_GLCMD(glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(ConstantBufferData), &m_parameters));
         }
 
+        pbrResources.SetShader(m_shader);
         pbrResources.SetBlendState(m_alphaBlended == BlendState::AlphaBlended);
         pbrResources.SetDepthStencilState(m_alphaBlended == BlendState::AlphaBlended);
+        pbrResources.SetFillMode(m_fillMode);
         pbrResources.SetRasterizerState(m_doubleSided == DoubleSided::DoubleSided);
 
         XRC_CHECK_THROW_GLCMD(glBindBufferBase(GL_UNIFORM_BUFFER, Pbr::ShaderSlots::ConstantBuffers::Material, m_constantBuffer.get()));

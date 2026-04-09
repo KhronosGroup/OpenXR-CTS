@@ -391,15 +391,6 @@ namespace
             return ParserResult::runtimeError("invalid view config '" + arg + "' passed on command line");
         };
 
-        /// Handle blend mode arg
-        auto const parseBlendMode = [&](std::string const& arg) {
-            if (options.SetEnvironmentBlendMode(arg)) {
-                return ParserResult::ok(ParseResultType::Matched);
-            }
-            ReportConsoleOnlyF("invalid arg: %s", arg.c_str());
-            return ParserResult::runtimeError("invalid environment blend mode '" + arg + "' passed on command line");
-        };
-
         /// Handle auto skip timeout
         auto const parseAutoSkipTimeout = [&](std::string const& arg) {
             uint64_t skipTimeoutValue = std::strtoull(arg.c_str(), nullptr, 0);
@@ -446,11 +437,6 @@ namespace
             | Opt(parseViewConfig, Options::AvailableViewConfigurations())  // view configuration
                   ["-V"]["--viewConfiguration"]                             //
               ("Specify view configuration. Default is Stereo.")
-                  .optional()
-
-            | Opt(parseBlendMode, Options::AvailableEnvironmentBlendModes())  // blend mode
-                  ["-B"]["--environmentBlendMode"]                            //
-              ("Specify blend mode. Default is Opaque.")
                   .optional()
 
             | Opt(options.enabledAPILayers, "API layer name")  // API layers

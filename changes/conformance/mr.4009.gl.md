@@ -1,4 +1,0 @@
----
-- issue.2494.gl
----
-- Change: Update conformance layer generation to properly support extending allowable return codes from extensions.

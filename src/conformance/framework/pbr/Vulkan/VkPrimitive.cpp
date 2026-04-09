@@ -25,17 +25,28 @@
 
 namespace
 {
+    void UpdateVertexBuffer(Conformance::VertexBuffer<Pbr::Vertex, uint32_t>& buffer, nonstd::span<const uint32_t> idx,
+                            nonstd::span<const Pbr::Vertex> vtx)
+    {
+        if (buffer.count.idx < idx.size() || buffer.count.vtx < vtx.size()) {
+            buffer.Deallocate();
+            buffer.Create((uint32_t)idx.size(), (uint32_t)vtx.size());
+        }
+        buffer.UpdateIndices(idx);
+        buffer.UpdateVertices(vtx);
+    }
     Conformance::VertexBuffer<Pbr::Vertex, uint32_t> CreateVertexBuffer(VkDevice device,
                                                                         const Conformance::MemoryAllocator& memoryAllocator,
-                                                                        const Pbr::PrimitiveBuilder& primitiveBuilder)
+                                                                        nonstd::span<const uint32_t> idx,
+                                                                        nonstd::span<const Pbr::Vertex> vtx)
     {
         // Create Vertex Buffer
         Conformance::VertexBuffer<Pbr::Vertex, uint32_t> buffer;
-        std::vector<VkVertexInputAttributeDescription> attr{};
+        std::vector<VkVertexInputAttributeDescription> attr{};  // unsure why this is empty
         buffer.Init(device, &memoryAllocator, attr);
-        buffer.Create((uint32_t)primitiveBuilder.Indices.size(), (uint32_t)primitiveBuilder.Vertices.size());
-        buffer.UpdateIndices(primitiveBuilder.Indices);
-        buffer.UpdateVertices(primitiveBuilder.Vertices);
+        if (!idx.empty()) {
+            UpdateVertexBuffer(buffer, idx, vtx);
+        }
         return buffer;
     }
 }  // namespace
@@ -50,15 +61,30 @@ namespace Pbr
 
     VulkanPrimitive::VulkanPrimitive(Pbr::VulkanResources const& pbrResources, const Pbr::PrimitiveBuilder& primitiveBuilder,
                                      const std::shared_ptr<Pbr::VulkanMaterial>& material)
-        : VulkanPrimitive(CreateVertexBuffer(pbrResources.GetDevice(), pbrResources.GetMemoryAllocator(), primitiveBuilder),
+        : VulkanPrimitive(CreateVertexBuffer(pbrResources.GetDevice(), pbrResources.GetMemoryAllocator(),  //
+                                             primitiveBuilder.Indices, primitiveBuilder.Vertices),
                           std::move(material), primitiveBuilder.NodeIndicesVector())
     {
+    }
+
+    void VulkanPrimitive::UpdateBuffers(span<const uint32_t> idx, span<const Pbr::Vertex> vtx)
+    {
+        if (idx.empty()) {
+            m_vertexAndIndexBuffer.Deallocate();
+            return;
+        }
+
+        UpdateVertexBuffer(m_vertexAndIndexBuffer, idx, vtx);
     }
 
     void VulkanPrimitive::Render(Conformance::CmdBuffer& directCommandBuffer, VulkanResources& pbrResources, VkDescriptorSet descriptorSet,
                                  VkRenderPass renderPass, VkSampleCountFlagBits sampleCount, VkDescriptorBufferInfo modelConstantBuffer,
                                  VkDescriptorBufferInfo transformBuffer) const
     {
+        if (m_vertexAndIndexBuffer.count.idx == 0) {
+            return;
+        }
+
         GetMaterial()->UpdateBuffer();
 
         auto materialConstantBuffer = GetMaterial()->GetMaterialConstantBuffer();
@@ -69,10 +95,12 @@ namespace Pbr
         vkUpdateDescriptorSets(pbrResources.GetDevice(), static_cast<uint32_t>(wds->writeDescriptorSets.size()),
                                wds->writeDescriptorSets.data(), 0, NULL);
 
+        Shader shader = GetMaterial()->GetShader();
         BlendState blendState = GetMaterial()->GetAlphaBlended();
         DoubleSided doubleSided = GetMaterial()->GetDoubleSided();
 
-        Conformance::Pipeline& pipeline = pbrResources.GetOrCreatePipeline(renderPass, sampleCount, blendState, doubleSided);
+        pbrResources.SetFillMode(GetMaterial()->GetFillMode());
+        Conformance::Pipeline& pipeline = pbrResources.GetOrCreatePipeline(renderPass, sampleCount, shader, blendState, doubleSided);
 
         vkCmdBindDescriptorSets(directCommandBuffer.buf, VK_PIPELINE_BIND_POINT_GRAPHICS, pbrResources.GetPipelineLayout(), 0, 1,
                                 &descriptorSet, 0, nullptr);

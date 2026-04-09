@@ -156,8 +156,6 @@ class Checker(XMLChecker):
             "XrInstance": ("XR_ERROR_INSTANCE_LOST"),
             "XrSession":
                 ("XR_ERROR_SESSION_LOST", "XR_SESSION_LOSS_PENDING"),
-            "XrPosef":
-                "XR_ERROR_POSE_INVALID",
             "XrViewConfigurationType":
                 "XR_ERROR_VIEW_CONFIGURATION_TYPE_UNSUPPORTED",
             "XrEnvironmentBlendMode":
@@ -172,6 +170,10 @@ class Checker(XMLChecker):
         forward_only = {
             # Like the above, but these are only valid in the
             # "type implies return code" direction
+            "XrPosef":
+                "XR_ERROR_POSE_INVALID",
+            "XrQuaternionf":
+                "XR_ERROR_POSE_INVALID",
         }
         reverse_only = {
             # like the above, but these are only valid in the

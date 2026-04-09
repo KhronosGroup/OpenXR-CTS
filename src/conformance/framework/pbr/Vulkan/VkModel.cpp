@@ -28,11 +28,16 @@ namespace Pbr
 {
 
     void VulkanModelInstance::Render(Pbr::VulkanResources& pbrResources, Conformance::CmdBuffer& directCommandBuffer,
-                                     VkRenderPass renderPass, VkSampleCountFlagBits sampleCount, XrMatrix4x4f modelToWorld)
+                                     VkRenderPass renderPass, VkSampleCountFlagBits sampleCount)
     {
         pbrResources.UpdateBuffer();
-        m_modelBuffer.ModelToWorld = modelToWorld;
-        m_modelConstantBuffer.Update({&m_modelBuffer, 1});
+
+        if (ModelToWorldNeedsUpdate()) {
+            // Update model buffer
+            m_modelBuffer.ModelToWorld = GetModelToWorld();
+            m_modelConstantBuffer.Update({&m_modelBuffer, 1});
+            MarkModelToWorldUpdated();
+        }
         UpdateTransforms(pbrResources);
 
         auto& primitiveHandles = GetModel().GetPrimitiveHandles();

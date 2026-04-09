@@ -136,9 +136,15 @@ if(HAVE_UNREACHABLE_CODE)
 endif()
 if(NOT ANDROID)
     if(HAVE_MISSING_PROTOTYPES)
-        add_compile_options(
-            $<IF:$<COMPILE_LANGUAGE:C>,-Werror=missing-prototypes,>
-        )
+        # https://gitlab.khronos.org/openxr/openxr/-/merge_requests/4120
+        # Limit check to clang until this is supported more widely.
+        if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+            add_compile_options(-Werror=missing-prototypes)
+        else()
+            add_compile_options(
+                $<IF:$<COMPILE_LANGUAGE:C>,-Werror=missing-prototypes,>
+            )
+        endif()
     endif()
 endif()
 
