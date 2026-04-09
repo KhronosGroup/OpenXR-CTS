@@ -1,1 +1,0 @@
-- Improvement: implement `ValidateSwapchainImageStructs` for `VulkanGraphicsValidator`

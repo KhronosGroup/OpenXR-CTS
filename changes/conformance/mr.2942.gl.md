@@ -1,5 +1,0 @@
----
-- mr.2942.gl
-- issue.1911.gl
----
-- Improvement: Deduplicate code in internal "gfxwrapper" library used in the CTS (among other uses) for OpenGL/OpenGL ES. Add an explicit always-EGL path.

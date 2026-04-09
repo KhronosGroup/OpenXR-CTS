@@ -1,4 +1,0 @@
----
-- mr.3935.gl
----
-- New test: Verify behavior of overlapping projection layers with those on top being limited in their FoV.

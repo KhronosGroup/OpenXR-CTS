@@ -1,4 +1,0 @@
----
-- mr.4202.gl
----
-- Fix: Correct some incorrect renders in the PBR self-tests on some Android devices by increasing float precision.

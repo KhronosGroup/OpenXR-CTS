@@ -213,8 +213,7 @@ namespace Conformance
             }
         }
 
-        FAIL("Test timed out. Press trigger to complete.");
-        return false;
+        FAIL("Test timed out.");
     }
 
     static void SleepWithSinusoidalDelay()

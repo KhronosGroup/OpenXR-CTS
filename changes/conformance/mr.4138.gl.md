@@ -1,4 +1,0 @@
----
-- mr.4127.gl
----
-- Improvement: Add example of specifying multiple interaction profiles for interactive actions tests to the usage document.
