@@ -178,23 +178,4 @@ namespace Conformance
     {
         return "Stereo|StereoFoveated|Mono";
     }
-
-    void Options::PopulateDefaultEnvironmentBlendMode(XrInstance instance, XrSystemId systemId)
-    {
-        if (environmentBlendModeValue != (XrEnvironmentBlendMode)0) {
-            // explicitly specified
-            return;
-        }
-
-        // Find available blend modes
-        std::vector<XrEnvironmentBlendMode> availableBlendModes;
-        XrResult result =
-            doTwoCallInPlace(availableBlendModes, xrEnumerateEnvironmentBlendModes, instance, systemId, viewConfigurationValue);
-        XRC_CHECK_THROW_XRRESULT(result, "xrEnumerateEnvironmentBlendModes");
-
-        if (environmentBlendModeValue == 0) {
-            // Default to the first enumerated blend mode
-            environmentBlendModeValue = availableBlendModes.front();
-        }
-    }
 }  // namespace Conformance

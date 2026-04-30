@@ -43,8 +43,8 @@ namespace
 
         ~MeshViewRenderer() override = default;
         void RenderView(const BaseProjectionLayerHelper& /* projectionLayerHelper */, uint32_t viewIndex,
-                        const XrViewState& /* viewState */, const XrView& view, XrCompositionLayerProjectionView& projectionView,
-                        const XrSwapchainImageBaseHeader* swapchainImage) override
+                        const XrViewState& /* viewState */, const XrView& view, XrEnvironmentBlendMode /*ebm*/,
+                        XrCompositionLayerProjectionView& projectionView, const XrSwapchainImageBaseHeader* swapchainImage) override
         {
             // Clear to customized background color
             GetGlobalData().graphicsPlugin->ClearImageSlice(swapchainImage, 0, m_bgColors[viewIndex]);
@@ -84,11 +84,12 @@ namespace Conformance
         m_bgColors = std::move(bgColors);
     }
 
-    XrCompositionLayerBaseHeader* MeshProjectionLayerHelper::TryGetUpdatedProjectionLayer(const XrFrameState& frameState)
+    XrCompositionLayerBaseHeader* MeshProjectionLayerHelper::TryGetUpdatedProjectionLayer(XrEnvironmentBlendMode ebm,
+                                                                                          const XrFrameState& frameState)
     {
         if (HasMeshes()) {
             MeshViewRenderer renderer{m_meshes, m_bgColors};
-            return m_baseHelper.TryGetUpdatedProjectionLayer(frameState, renderer);
+            return m_baseHelper.TryGetUpdatedProjectionLayer(ebm, frameState, renderer);
         }
         // no meshes to render
         return nullptr;

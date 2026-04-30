@@ -446,6 +446,11 @@ namespace Conformance
         currentEnvironmentBlendMode = environmentBlendMode;
     }
 
+    XrEnvironmentBlendMode CompositionHelper::GetEnvironmentBlendMode() const noexcept
+    {
+        return currentEnvironmentBlendMode;
+    }
+
     void CompositionHelper::SetDefaultEnvironmentBlendMode(EnvironmentBlendModePreference preference)
     {
         auto supportedBlendModes = EnumerateEnvironmentBlendModes();
@@ -756,6 +761,8 @@ namespace Conformance
         projection.space = space;
         projection.viewCount = (uint32_t)m_projectionViews.back().size();
         projection.views = m_projectionViews.back().data();
+        projection.layerFlags =
+            currentEnvironmentBlendMode == XR_ENVIRONMENT_BLEND_MODE_ALPHA_BLEND ? XR_COMPOSITION_LAYER_BLEND_TEXTURE_SOURCE_ALPHA_BIT : 0;
         m_projections.push_back(projection);
 
         return &m_projections.back();
@@ -778,10 +785,17 @@ namespace Conformance
     // out of line to provide key function
     BaseProjectionLayerHelper::ViewRenderer::~ViewRenderer() = default;
 
-    XrCompositionLayerBaseHeader* BaseProjectionLayerHelper::TryGetUpdatedProjectionLayer(const XrFrameState& frameState,
-                                                                                          ViewRenderer& renderer)
+    XrCompositionLayerBaseHeader* BaseProjectionLayerHelper::TryGetUpdatedProjectionLayer(
+        XrEnvironmentBlendMode ebm, const XrFrameState& frameState, ViewRenderer& renderer,
+        const std::tuple<XrViewState, std::vector<XrView>>* viewDataIn /* = nullptr */)
     {
-        auto viewData = m_compositionHelper.LocateViews(m_localSpace, frameState.predictedDisplayTime);
+        std::tuple<XrViewState, std::vector<XrView>> viewData;
+        if (viewDataIn != nullptr) {
+            viewData = *viewDataIn;
+        }
+        else {
+            viewData = m_compositionHelper.LocateViews(m_localSpace, frameState.predictedDisplayTime);
+        }
         const auto& viewState = std::get<XrViewState>(viewData);
 
         if (viewState.viewStateFlags & XR_VIEW_STATE_POSITION_VALID_BIT && viewState.viewStateFlags & XR_VIEW_STATE_ORIENTATION_VALID_BIT) {
@@ -794,7 +808,7 @@ namespace Conformance
                     auto& view = views[viewIndex];
                     projectionView.fov = view.fov;
                     projectionView.pose = view.pose;
-                    renderer.RenderView(*this, viewIndex, viewState, view, projectionView, swapchainImage);
+                    renderer.RenderView(*this, viewIndex, viewState, view, ebm, projectionView, swapchainImage);
                 });
             }
 

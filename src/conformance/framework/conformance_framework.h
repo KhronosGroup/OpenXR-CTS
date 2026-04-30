@@ -313,7 +313,7 @@ namespace Conformance
         void PushSwapchainFormat(int64_t format, const std::string& name);
 
         /// Calculate the clear color to use for the background based on the XrEnvironmentBlendMode in use.
-        XrColor4f GetClearColorForBackground() const;
+        XrColor4f GetClearColorForEnvironmentBlendMode(XrEnvironmentBlendMode ebm) const;
 
         /// Populate a FeatureSet with the max supported core version and all *available* extensions.
         void PopulateMaxSupportedVersionAndAvailableExtensions(FeatureSet& out) const;

@@ -347,10 +347,6 @@ namespace Conformance
             }
         }
 
-        if (minVersion) {
-            options.PopulateDefaultEnvironmentBlendMode(ownedInstance.get(), systemId);
-        }
-
         this->support = VersionSupportState::SupportedByRuntime;
         return true;
     }
@@ -484,10 +480,9 @@ namespace Conformance
         conformanceReport.swapchainFormats.emplace_back(format, name);
     }
 
-    XrColor4f GlobalData::GetClearColorForBackground() const
+    XrColor4f GlobalData::GetClearColorForEnvironmentBlendMode(XrEnvironmentBlendMode ebm) const
     {
-        // TODO move over to Options?
-        switch (Options::Get().environmentBlendModeValue) {
+        switch (ebm) {
         case XR_ENVIRONMENT_BLEND_MODE_OPAQUE:
             return DarkSlateGrey;
         case XR_ENVIRONMENT_BLEND_MODE_ADDITIVE:

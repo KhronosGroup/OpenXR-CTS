@@ -1269,7 +1269,7 @@ namespace Conformance
 
                         XrFrameEndInfo end_frame_info{XR_TYPE_FRAME_END_INFO};
                         end_frame_info.displayTime = frame_state.predictedDisplayTime;
-                        end_frame_info.environmentBlendMode = Options::Get().environmentBlendModeValue;
+                        end_frame_info.environmentBlendMode = session.PreferredEnvironmentBlendMode();
                         CHK_XR(xrEndFrame(session, &end_frame_info));
                     }
 

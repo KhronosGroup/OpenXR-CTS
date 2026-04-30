@@ -1,0 +1,4 @@
+---
+- mr.4274.gl
+---
+- Update: Include khr/generic_controller in the list of generic profiles in the usage document.

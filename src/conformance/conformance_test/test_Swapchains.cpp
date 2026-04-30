@@ -49,8 +49,8 @@ namespace Conformance
         };
     }
 
-    static void DoRenderTest(ISwapchainImageData* swapchainImages, uint32_t colorImageCount, const XrSwapchainCreateInfo& colorCreateInfo,
-                             XrSwapchain colorSwapchain, RenderTestRoutine renderRoutine)
+    static void DoRenderTest(ISwapchainImageData* swapchainImages, XrEnvironmentBlendMode ebm, uint32_t colorImageCount,
+                             const XrSwapchainCreateInfo& colorCreateInfo, XrSwapchain colorSwapchain, RenderTestRoutine renderRoutine)
     {
 
         XrCompositionLayerProjectionView projectionView{XR_TYPE_COMPOSITION_LAYER_PROJECTION_VIEW};
@@ -91,7 +91,7 @@ namespace Conformance
                 case RenderTestRoutine::ClearAndRender:
                     for (uint32_t arrayIndex = 0; arrayIndex < colorCreateInfo.arraySize; ++arrayIndex) {
                         projectionView.subImage.imageArrayIndex = arrayIndex;
-                        GetGlobalData().graphicsPlugin->ClearImageSlice(image, arrayIndex);
+                        GetGlobalData().graphicsPlugin->ClearImageSlice(image, arrayIndex, ebm);
                         GetGlobalData().graphicsPlugin->RenderView(projectionView, image, {});
                         projectionView.subImage.imageArrayIndex = 0;
                     }
@@ -638,7 +638,8 @@ namespace Conformance
                         XRC_CHECK_THROW_XRCMD(xrEnumerateSwapchainImages(colorSwapchain.get(), colorImageCount, &colorImageCount,
                                                                          swapchainImages->GetColorImageArray()));
 
-                        DoRenderTest(swapchainImages, colorImageCount, colorCreateInfo, colorSwapchain.get(), renderRoutine);
+                        DoRenderTest(swapchainImages, session.PreferredEnvironmentBlendMode(), colorImageCount, colorCreateInfo,
+                                     colorSwapchain.get(), renderRoutine);
                         GetGlobalData().graphicsPlugin->Flush();
                     }
 

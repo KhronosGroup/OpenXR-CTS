@@ -200,6 +200,8 @@ namespace Conformance
         /// Takes effect on the next EndFrame call
         void ChangeEnvironmentBlendMode(XrEnvironmentBlendMode environmentBlendMode);
 
+        XrEnvironmentBlendMode GetEnvironmentBlendMode() const noexcept;
+
         /// Takes effect on the next EndFrame call
         void SetDefaultEnvironmentBlendMode(EnvironmentBlendModePreference preference);
 
@@ -406,13 +408,15 @@ namespace Conformance
             /// Projection view pose/fov fields are preset to match the corresponding view fields.
             /// Views are located relative to GetLocalSpace()
             virtual void RenderView(const BaseProjectionLayerHelper& projectionLayerHelper, uint32_t viewIndex,
-                                    const XrViewState& viewState, const XrView& view, XrCompositionLayerProjectionView& projectionView,
-                                    const XrSwapchainImageBaseHeader* swapchainImage) = 0;
+                                    const XrViewState& viewState, const XrView& view, XrEnvironmentBlendMode ebm,
+                                    XrCompositionLayerProjectionView& projectionView, const XrSwapchainImageBaseHeader* swapchainImage) = 0;
         };
 
         /// Gets view state/location, then for each view, calls your ViewRenderer from within
         /// CompositionHelper::AcquireWaitReleaseImage after clearing the image slice for you.
-        XrCompositionLayerBaseHeader* TryGetUpdatedProjectionLayer(const XrFrameState& frameState, ViewRenderer& renderer);
+        XrCompositionLayerBaseHeader* TryGetUpdatedProjectionLayer(XrEnvironmentBlendMode ebm, const XrFrameState& frameState,
+                                                                   ViewRenderer& renderer,
+                                                                   const std::tuple<XrViewState, std::vector<XrView>>* viewData = nullptr);
 
         XrSpace GetLocalSpace() const
         {
@@ -439,13 +443,14 @@ namespace Conformance
         {
         }
 
-        XrCompositionLayerBaseHeader* TryGetUpdatedProjectionLayer(const XrFrameState& frameState,
+        XrCompositionLayerBaseHeader* TryGetUpdatedProjectionLayer(XrEnvironmentBlendMode ebm, const XrFrameState& frameState,
+                                                                   const std::tuple<XrViewState, std::vector<XrView>>* viewDataIn = nullptr,
                                                                    const std::vector<Cube>& cubes = {
                                                                        Cube::Make({-1, 0, -2}), Cube::Make({1, 0, -2}),
                                                                        Cube::Make({0, -1, -2}), Cube::Make({0, 1, -2})})
         {
             ViewRenderer renderer(cubes);
-            return m_baseHelper.TryGetUpdatedProjectionLayer(frameState, renderer);
+            return m_baseHelper.TryGetUpdatedProjectionLayer(ebm, frameState, renderer, viewDataIn);
         }
 
         XrSpace GetLocalSpace() const
@@ -464,10 +469,10 @@ namespace Conformance
 
             ~ViewRenderer() override = default;
             void RenderView(const BaseProjectionLayerHelper& /* projectionLayerHelper */, uint32_t /* viewIndex */,
-                            const XrViewState& /* viewState */, const XrView& /* view */, XrCompositionLayerProjectionView& projectionView,
-                            const XrSwapchainImageBaseHeader* swapchainImage) override
+                            const XrViewState& /* viewState */, const XrView& /* view */, XrEnvironmentBlendMode ebm,
+                            XrCompositionLayerProjectionView& projectionView, const XrSwapchainImageBaseHeader* swapchainImage) override
             {
-                GetGlobalData().graphicsPlugin->ClearImageSlice(swapchainImage);
+                GetGlobalData().graphicsPlugin->ClearImageSlice(swapchainImage, ebm);
                 GetGlobalData().graphicsPlugin->RenderView(projectionView, swapchainImage, RenderParams{}.Draw(m_cubes));
             }
 

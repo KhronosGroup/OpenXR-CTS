@@ -1,0 +1,4 @@
+---
+- mr.4235.gl
+---
+- Improvement: Better errors from vulkan instance / device creation.

@@ -151,19 +151,6 @@ namespace Conformance
         static const char* AvailableViewConfigurations();
         /// @}
 
-        /// @ref PopulateDefaultEnvironmentBlendMode sets to the first enumerated value if still at the (invalid) default of 0.
-        XrEnvironmentBlendMode environmentBlendModeValue{(XrEnvironmentBlendMode)0};
-
-        /// If the environment blend mode was not set, auto-detect.
-        ///
-        /// If @ref environmentBlendModeValue == 0 (the default and an invalid value),
-        /// assigns the value of @ref environmentBlendMode and @ref environmentBlendModeValue
-        /// based on the first blend mode enumerated by the runtime (preferred).
-        ///
-        /// Throws on error.
-        void PopulateDefaultEnvironmentBlendMode(XrInstance instance, XrSystemId systemId);
-        /// @}
-
         /// Options can vary depending on their platform availability. If a requested API layer is
         /// not supported then the test fails.
         /// Default is empty.

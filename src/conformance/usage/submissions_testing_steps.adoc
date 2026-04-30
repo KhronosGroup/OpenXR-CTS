@@ -218,6 +218,7 @@ To clarify, if you support providing input for all components of one of the
 following interaction profiles, specify them as well.
 
 * `/interaction_profiles/khr/simple_controller`
+* `/interaction_profiles/khr/generic_controller`
 * `/interaction_profiles/ext/hand_interaction_ext`
 * `/interaction_profiles/ext/eye_gaze_interaction`
 
@@ -245,7 +246,7 @@ conformance_cli "[actions][interactive]" -G d3d11 -I "oculus/touch_controller" -
 conformance_cli "[actions][interactive]" -G d3d11 -I "htc/vive_controller" --reporter ctsxml::out=interactive_action_htc_vive_controller.xml --reporter console
 
 # Multiple profiles
-conformance_cli "[actions][interactive]" -G d3d11 -I "khr/simple_controller" -I "microsoft/motion_controller" -I "oculus/touch_controller" --reporter ctsxml::out=interactive_action_controller.xml --reporter console
+conformance_cli "[actions][interactive]" -G d3d11 -I "khr/simple_controller" -I "khr/generic_controller" -I "microsoft/motion_controller" -I "oculus/touch_controller" --reporter ctsxml::out=interactive_action_controller.xml --reporter console
 
 ----
 ====
@@ -303,7 +304,7 @@ adb shell am start-activity -S -n org.khronos.openxr.cts/android.app.NativeActiv
 adb pull /sdcard/Android/data/org.khronos.openxr.cts/files/interactive_action_microsoft_xbox_controller.xml
 
 ## Sample multiple profiles
-adb shell am start-activity -S -n org.khronos.openxr.cts/android.app.NativeActivity --esa args "[actions][interactive],-I,khr/simple_controller,-I,microsoft/motion_controller,-I,oculus/touch_controller" -e xmlFilename interactive_action_controller.xml
+adb shell am start-activity -S -n org.khronos.openxr.cts/android.app.NativeActivity --esa args "[actions][interactive],-I,khr/simple_controller,-I,khr/generic_controller,-I,microsoft/motion_controller,-I,oculus/touch_controller" -e xmlFilename interactive_action_controller.xml
 
 # Wait until tests complete, then retrieve results with
 adb pull /sdcard/Android/data/org.khronos.openxr.cts/files/interactive_action_controller.xml

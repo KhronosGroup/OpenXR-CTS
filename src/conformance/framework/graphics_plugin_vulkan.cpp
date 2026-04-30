@@ -1306,8 +1306,11 @@ namespace Conformance
             createInfo.pfnGetInstanceProcAddr = &vkGetInstanceProcAddr;
             createInfo.vulkanCreateInfo = &instInfo;
             createInfo.vulkanAllocator = nullptr;
-            XRC_CHECK_THROW_XRCMD(CreateVulkanInstanceKHR(instance, &createInfo, &m_vkInstance, &err));
+            // Check the Vulkan result before the XR result: if Vulkan instance creation
+            // failed, the VkResult carries the more specific error information.
+            XrResult res = CreateVulkanInstanceKHR(instance, &createInfo, &m_vkInstance, &err);
             XRC_CHECK_THROW_VKCMD(err);
+            XRC_CHECK_THROW_XRCMD(res);
         }
 
         // Now we have a Vulkan instance created, so we need to tear down stuff if we fail before the end of this method.
@@ -1373,8 +1376,13 @@ namespace Conformance
         deviceCreateInfo.vulkanCreateInfo = &deviceInfo;
         deviceCreateInfo.vulkanPhysicalDevice = m_vkPhysicalDevice;
         deviceCreateInfo.vulkanAllocator = nullptr;
-        XRC_CHECK_THROW_XRCMD(CreateVulkanDeviceKHR(instance, &deviceCreateInfo, &m_vkDevice, &err));
-        XRC_CHECK_THROW_VKCMD(err);
+
+        {
+            // Check the Vulkan result before the XR result (same rationale as instance creation).
+            XrResult res = CreateVulkanDeviceKHR(instance, &deviceCreateInfo, &m_vkDevice, &err);
+            XRC_CHECK_THROW_VKCMD(err);
+            XRC_CHECK_THROW_XRCMD(res);
+        }
 
         m_namer.Init(m_vkInstance, m_vkDevice);
 

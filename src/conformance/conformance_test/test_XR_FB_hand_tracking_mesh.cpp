@@ -428,10 +428,6 @@ namespace Conformance
         auto viewConfigurationViews = compositionHelper.EnumerateConfigurationViews();
         std::vector<XrSwapchain> swapchains;
         XrCompositionLayerProjection* const projLayer = compositionHelper.CreateProjectionLayer(localSpace);
-        // https://gitlab.khronos.org/openxr/openxr/-/issues/2593
-        projLayer->layerFlags |= (Options::Get().environmentBlendModeValue == XR_ENVIRONMENT_BLEND_MODE_ALPHA_BLEND)
-                                     ? XR_COMPOSITION_LAYER_BLEND_TEXTURE_SOURCE_ALPHA_BIT
-                                     : 0;
 
         for (uint32_t j = 0; j < projLayer->viewCount; j++) {
             const XrSwapchainCreateInfo& colorSwapchainCreateInfo = compositionHelper.DefaultColorSwapchainCreateInfo(
@@ -577,7 +573,7 @@ namespace Conformance
 
                 for (size_t view = 0; view < views.size(); view++) {
                     compositionHelper.AcquireWaitReleaseImage(swapchains[view], [&](const XrSwapchainImageBaseHeader* swapchainImage) {
-                        GetGlobalData().graphicsPlugin->ClearImageSlice(swapchainImage);
+                        GetGlobalData().graphicsPlugin->ClearImageSlice(swapchainImage, compositionHelper.GetEnvironmentBlendMode());
                         const_cast<XrFovf&>(projLayer->views[view].fov) = views[view].fov;
                         const_cast<XrPosef&>(projLayer->views[view].pose) = views[view].pose;
                         GetGlobalData().graphicsPlugin->RenderView(projLayer->views[view], swapchainImage,
