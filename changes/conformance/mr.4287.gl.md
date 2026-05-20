@@ -1,0 +1,4 @@
+---
+- mr.4287.gl
+---
+- Fix: Resolve "warning X3206: implicit truncation of vector type?" in `PbrPixelShader.hlsl`

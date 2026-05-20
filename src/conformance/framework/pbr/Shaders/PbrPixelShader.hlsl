@@ -100,11 +100,11 @@ float4 main(PSInputPbr input, bool isFrontFace : SV_IsFrontFace) : SV_TARGET
     clip(baseColor.a - AlphaCutoff);
 
 #ifdef UNLIT
-    float3 color = baseColor;
+    float3 color = baseColor.rgb;
 #else  // UNLIT
     // Roughness is stored in the 'g' channel, metallic is stored in the 'b' channel.
     // This layout intentionally reserves the 'r' channel for (optional) occlusion map data
-    const float3 mrSample = MetallicRoughnessTexture.Sample(MetallicRoughnessSampler, input.TexCoord0);
+    const float3 mrSample = MetallicRoughnessTexture.Sample(MetallicRoughnessSampler, input.TexCoord0).rgb;
 
     const float metallic = saturate(mrSample.b * MetallicFactor);
     const float perceptualRoughness = clamp(mrSample.g * RoughnessFactor, MinRoughness, 1.0);
@@ -126,7 +126,7 @@ float4 main(PSInputPbr input, bool isFrontFace : SV_IsFrontFace) : SV_TARGET
     const float3 specularEnvironmentR90 = float3(1.0, 1.0, 1.0) * reflectance90;
 
     // normal at surface point
-    float3 n = 2.0 * NormalTexture.Sample(NormalSampler, input.TexCoord0) - 1.0;
+    float3 n = 2.0 * NormalTexture.Sample(NormalSampler, input.TexCoord0).rgb - 1.0;
     n = isFrontFace ? n : -n;
     n = normalize(mul(n * float3(NormalScale, NormalScale, 1.0), input.TBN));
 
@@ -160,7 +160,7 @@ float4 main(PSInputPbr input, bool isFrontFace : SV_IsFrontFace) : SV_TARGET
 
     color += ibl;
 
-    const float3 emissive = EmissiveTexture.Sample(EmissiveSampler, input.TexCoord0) * EmissiveFactor;
+    const float3 emissive = EmissiveTexture.Sample(EmissiveSampler, input.TexCoord0).rgb * EmissiveFactor;
     color += emissive;
 #endif // UNLIT
 

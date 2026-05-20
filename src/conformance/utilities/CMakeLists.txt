@@ -106,6 +106,7 @@ if(XR_USE_GRAPHICS_API_VULKAN)
     target_link_libraries(conformance_utilities PUBLIC ${Vulkan_LIBRARY})
 endif()
 
+add_sanitizers(conformance_utilities)
 set_target_properties(
     conformance_utilities PROPERTIES FOLDER ${CONFORMANCE_TESTS_FOLDER}
 )

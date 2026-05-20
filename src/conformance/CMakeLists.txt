@@ -18,6 +18,7 @@ add_library(
     conformance_framework_mikktspace STATIC
     ${PROJECT_SOURCE_DIR}/src/external/mikktspace/mikktspace.c
 )
+add_sanitizers(conformance_framework_mikktspace)
 
 set_source_files_properties(
     ${PROJECT_SOURCE_DIR}/src/external/mikktspace/mikktspace.c
@@ -46,6 +47,7 @@ set_source_files_properties(
 # cmake-format: on
 
 add_library(conformance_framework_basisu STATIC ${basisu_sources})
+add_sanitizers(conformance_framework_basisu)
 
 target_include_directories(
     conformance_framework_basisu
@@ -121,6 +123,7 @@ check_c_compiler_flag(
 check_c_compiler_flag(-Wmissing-braces HAVE_MISSING_BRACES)
 check_c_compiler_flag(-Wunreachable-code HAVE_UNREACHABLE_CODE)
 check_c_compiler_flag(-Wmissing-prototypes HAVE_MISSING_PROTOTYPES)
+check_c_compiler_flag(-Wc++20-extensions HAVE_CPP20_EXTENSIONS)
 
 if(HAVE_IMPLICIT_FALLTHROUGH)
     add_compile_options(-Werror=implicit-fallthrough)
@@ -146,6 +149,9 @@ if(NOT ANDROID)
             )
         endif()
     endif()
+endif()
+if(HAVE_CPP20_EXTENSIONS)
+    add_compile_options(-Werror=c++20-extensions)
 endif()
 
 # Cannot use -Werror=undef for utilities

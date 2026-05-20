@@ -229,6 +229,7 @@ namespace Conformance
         Catch::Totals totals{};
         TimedSubmissionResults timedSubmission;
         std::vector<std::pair<int64_t, std::string>> swapchainFormats;
+        std::vector<std::pair<std::string, bool>> gltfModels;
     };
 
     enum class VersionSupportState
@@ -311,6 +312,9 @@ namespace Conformance
 
         /// Record a swapchain format as being supported and tested.
         void PushSwapchainFormat(int64_t format, const std::string& name);
+
+        /// Record a glTF (GLB) model needing testing.
+        void PushGltfModel(const std::string& filename, bool written);
 
         /// Calculate the clear color to use for the background based on the XrEnvironmentBlendMode in use.
         XrColor4f GetClearColorForEnvironmentBlendMode(XrEnvironmentBlendMode ebm) const;

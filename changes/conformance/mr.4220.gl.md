@@ -1,0 +1,4 @@
+---
+- mr.4041.gl
+---
+- New test: Add test for `XR_EXT_interaction_profile_battery_state_display`.

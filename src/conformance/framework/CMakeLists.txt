@@ -5,6 +5,7 @@
 # tinygltf
 
 add_library(conformance_framework_tinygltf STATIC cts_tinygltf.cpp)
+add_sanitizers(conformance_framework_tinygltf)
 
 target_include_directories(
     conformance_framework_tinygltf
@@ -151,6 +152,7 @@ target_include_directories(
         ${PROJECT_SOURCE_DIR}/src/external
 )
 
+add_sanitizers(conformance_framework)
 set_target_properties(
     conformance_framework PROPERTIES FOLDER ${CONFORMANCE_TESTS_FOLDER}
 )

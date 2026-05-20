@@ -1,0 +1,4 @@
+---
+- mr.4308.gl
+---
+- Fix: Incorrect usage of pose and haptic actions in `test_actions.cpp`.

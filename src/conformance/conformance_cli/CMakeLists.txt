@@ -251,3 +251,99 @@ set_tests_properties(
 )
 
 add_dependencies(conformance_cli test_runtime)
+
+# Run the CTS with api_dump layer enabled to verify layer compatibility if the layer is
+# available. Note: Layer is not part of OpenXR-CTS repo.
+if(TARGET XrApiLayer_api_dump)
+    gen_xr_layer_json(
+        "${CMAKE_CURRENT_BINARY_DIR}/XrApiLayer_api_dump.json"
+        LUNARG_api_dump
+        "$<TARGET_FILE:XrApiLayer_api_dump>"
+        1
+        "API Layer to record api calls as they occur"
+        ""
+    )
+
+    add_custom_command(
+        TARGET conformance_cli
+        POST_BUILD
+        COMMAND
+            "${CMAKE_COMMAND}" -E copy
+            "${CMAKE_CURRENT_BINARY_DIR}/XrApiLayer_api_dump.json"
+            "$<TARGET_FILE_DIR:conformance_cli>"
+        VERBATIM
+        COMMENT
+            "Copying conformance api_dump layer manifest XrApiLayer_api_dump.json"
+    )
+
+    # Add generated file to our sources so we depend on it, and thus trigger generation.
+    target_sources(
+        conformance_cli
+        PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/XrApiLayer_api_dump.json"
+    )
+
+    add_test(
+        NAME conformance_cli_api_dump
+        COMMAND conformance_cli -E XR_MND_headless exclude:[interactive]
+        WORKING_DIRECTORY "$<TARGET_FILE_DIR:conformance_cli>"
+    )
+
+    set_tests_properties(
+        conformance_cli_api_dump
+        PROPERTIES
+            TIMEOUT
+            60
+            ENVIRONMENT
+            "XR_RUNTIME_JSON=${PROJECT_BINARY_DIR}/src/tests/test_runtimes/openxr/1/active_runtime.json;XR_ENABLE_API_LAYERS=XR_APILAYER_LUNARG_api_dump;XR_API_DUMP_EXPORT_TYPE=html"
+    )
+
+    add_dependencies(conformance_cli XrApiLayer_api_dump)
+endif()
+
+# Run the CTS with core_validation layer enabled to verify layer compatibility, if the layer is
+# available. Note: Layer is not part of OpenXR-CTS repo.
+if(TARGET XrApiLayer_core_validation)
+    gen_xr_layer_json(
+        "${CMAKE_CURRENT_BINARY_DIR}/XrApiLayer_core_validation.json"
+        LUNARG_core_validation
+        "$<TARGET_FILE:XrApiLayer_core_validation>"
+        1
+        "API Layer to perform validation of api calls and parameters as they occur"
+        ""
+    )
+
+    add_custom_command(
+        TARGET conformance_cli
+        POST_BUILD
+        COMMAND
+            "${CMAKE_COMMAND}" -E copy
+            "${CMAKE_CURRENT_BINARY_DIR}/XrApiLayer_core_validation.json"
+            "$<TARGET_FILE_DIR:conformance_cli>"
+        VERBATIM
+        COMMENT
+            "Copying conformance core_validation layer manifest XrApiLayer_core_validation.json"
+    )
+
+    # Add generated file to our sources so we depend on it, and thus trigger generation.
+    target_sources(
+        conformance_cli
+        PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/XrApiLayer_core_validation.json"
+    )
+
+    add_test(
+        NAME conformance_cli_core_validation
+        COMMAND conformance_cli -E XR_MND_headless exclude:[interactive]
+        WORKING_DIRECTORY "$<TARGET_FILE_DIR:conformance_cli>"
+    )
+
+    set_tests_properties(
+        conformance_cli_core_validation
+        PROPERTIES
+            TIMEOUT
+            60
+            ENVIRONMENT
+            "XR_RUNTIME_JSON=${PROJECT_BINARY_DIR}/src/tests/test_runtimes/openxr/1/active_runtime.json;XR_ENABLE_API_LAYERS=XR_APILAYER_LUNARG_core_validation"
+    )
+
+    add_dependencies(conformance_cli XrApiLayer_core_validation)
+endif()

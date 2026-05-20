@@ -482,7 +482,8 @@ namespace Conformance
     void CompositionHelper::EndFrame(XrTime predictedDisplayTime, std::vector<XrCompositionLayerBaseHeader*> layers,
                                      bool showTestNameQuad /* = true */)
     {
-        if (showTestNameQuad) {
+        // In headless mode (no graphics plugin), the swapchain is never created.
+        if (showTestNameQuad && m_testNameQuad.subImage.swapchain != XR_NULL_HANDLE) {
             layers.push_back(reinterpret_cast<XrCompositionLayerBaseHeader*>(&m_testNameQuad));
         }
 

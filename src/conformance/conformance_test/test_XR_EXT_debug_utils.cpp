@@ -1212,7 +1212,7 @@ namespace Conformance
                                              reinterpret_cast<PFN_xrVoidFunction*>(&pfnSessionInsertDebugUtilsLabelEXT)));
 
                 XrSessionBeginInfo session_begin_info = {XR_TYPE_SESSION_BEGIN_INFO};
-                session_begin_info.primaryViewConfigurationType = XR_VIEW_CONFIGURATION_TYPE_PRIMARY_STEREO;
+                session_begin_info.primaryViewConfigurationType = Options::Get().viewConfigurationValue;
                 CHK_XR(xrBeginSession(session, &session_begin_info));
 
                 const XrDebugUtilsLabelEXT session_active_region_label = {

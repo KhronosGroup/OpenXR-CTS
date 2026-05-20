@@ -36,7 +36,7 @@ namespace Conformance
 #else
     const std::chrono::nanoseconds waitDelay = 5ms;
 #endif  // XR_USE_PLATFORM_ANDROID
-    const std::chrono::seconds waitTimeBeforeExit = 1000s;
+    const std::chrono::seconds waitTimeBeforeExit = 30s;
 
     struct DisplayMessageManager : public ITestMessageDisplay
     {

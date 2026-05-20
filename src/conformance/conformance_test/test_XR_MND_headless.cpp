@@ -62,6 +62,12 @@ namespace Conformance
         sessionBeginInfo.primaryViewConfigurationType = Options::Get().viewConfigurationValue;
         REQUIRE_RESULT_UNQUALIFIED_SUCCESS(xrBeginSession(session, &sessionBeginInfo));
 
+        // In a headless session, the session state proceeds to XR_SESSION_STATE_SYNCHRONIZED, then
+        // XR_SESSION_STATE_VISIBLE and XR_SESSION_STATE_FOCUSED, after the call to xrBeginSession.
+        frameIterator.RunToSessionState(XR_SESSION_STATE_SYNCHRONIZED);
+        frameIterator.RunToSessionState(XR_SESSION_STATE_VISIBLE);
+        frameIterator.RunToSessionState(XR_SESSION_STATE_FOCUSED);
+
         // To do: call input and tracking functions here.
         REQUIRE_RESULT_UNQUALIFIED_SUCCESS(xrRequestExitSession(session));
         frameIterator.RunToSessionState(XR_SESSION_STATE_STOPPING);

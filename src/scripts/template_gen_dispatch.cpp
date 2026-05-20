@@ -19,6 +19,8 @@
 
 #include <exception>
 
+#include "utilities/stringification.h"
+
 // Unhandled exception at ABI is a catastrophic error in the layer (a bug).
 #define ABI_CATCH                                                                                               \
     catch (const HandleNotFoundException& e) {                                                                  \
@@ -97,7 +99,7 @@ static /*{ cur_cmd.cdecl | collapse_whitespace | replace(" xr", " ConformanceLay
 //#-            endfor
                 );
     if (!recognizedReturnCode) {
-        this->ConformanceFailure(XR_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT, /*{ cur_cmd.name | quote_string }*/, "Illegal result code returned: %d", result);
+        this->ConformanceFailure(XR_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT, /*{ cur_cmd.name | quote_string }*/, "Illegal result code returned: %s (%d)", Conformance::ResultToString(result), result);
     }
 
 //## If this is a create command, we have to create an entry in the appropriate

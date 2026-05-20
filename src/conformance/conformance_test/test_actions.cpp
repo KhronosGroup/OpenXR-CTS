@@ -586,10 +586,15 @@ namespace Conformance
                             selectedAction = vectorAction;
                             break;
                         case XR_ACTION_TYPE_VIBRATION_OUTPUT:
+                            selectedAction = hapticAction;
+                            break;
+                        case XR_ACTION_TYPE_POSE_INPUT:
                             selectedAction = poseAction;
                             break;
+                        case XR_ACTION_TYPE_MAX_ENUM:
                         default:
-                            selectedAction = hapticAction;
+                            WARN("Unexpected action type " << bindingPathData.Type);
+                            continue;
                         }
 
                         XrActionSuggestedBinding suggestedBindings{selectedAction, StringToPath(instance, bindingPathData.Path)};
@@ -723,10 +728,15 @@ namespace Conformance
                     selectedAction = vectorAction;
                     break;
                 case XR_ACTION_TYPE_VIBRATION_OUTPUT:
+                    selectedAction = hapticAction;
+                    break;
+                case XR_ACTION_TYPE_POSE_INPUT:
                     selectedAction = poseAction;
                     break;
+                case XR_ACTION_TYPE_MAX_ENUM:
                 default:
-                    selectedAction = hapticAction;
+                    WARN("Unexpected action type " << bindingPathData.Type);
+                    continue;
                 }
 
                 XrActionSuggestedBinding suggestedBindings =

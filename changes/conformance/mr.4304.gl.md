@@ -1,0 +1,4 @@
+---
+- mr.4304.gl
+---
+- Improvement: Print the name of the `XrResult` when hitting an invalid `XrResult` return value from a function.

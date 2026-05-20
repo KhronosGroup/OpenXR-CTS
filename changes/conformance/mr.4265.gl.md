@@ -1,0 +1,4 @@
+---
+- mr.4265.gl
+---
+- Improvement: Enable `-Wc++20-extensions`.

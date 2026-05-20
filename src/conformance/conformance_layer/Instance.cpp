@@ -258,18 +258,18 @@ void ConformanceHooks::checkEventPayload(const XrEventDataViewConfigurationViews
     VALIDATE_EVENT_XRENUM(data->viewConfigurationType);
 
     using namespace std::chrono;
+    auto now = steady_clock::now();
     static std::map<XrViewConfigurationType, time_point<steady_clock>> lastUpdateTimeMap{};
     auto& lastUpdateTime = lastUpdateTimeMap[data->viewConfigurationType];
 
     if (lastUpdateTime.time_since_epoch().count() != 0) {
         // Ensure that this event is not raised at a rate faster than 1Hz, as per the spec.
-        auto now = steady_clock::now();
-        auto duration = duration_cast<seconds>(now - lastUpdateTime);
-        NONCONFORMANT_IF(duration <= seconds(1),
+        auto interval = now - lastUpdateTime;
+        NONCONFORMANT_IF(interval < seconds(1),
                          "XrEventDataViewConfigurationViewsChangedEXT raised faster than 1Hz for a single view configuration");
     }
 
-    lastUpdateTime = steady_clock::now();
+    lastUpdateTime = now;
 }
 
 XrResult ConformanceHooks::xrGetSystemProperties(HandleState* const handleState, XrInstance instance, XrSystemId systemId,

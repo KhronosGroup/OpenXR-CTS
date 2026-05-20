@@ -64,6 +64,15 @@ namespace Conformance
                     .writeAttribute("value", formatAndName.first);
             }
         }
+
+        if (!cr.gltfModels.empty()) {
+            auto e2 = xml.scopedElement(CTS_XML_NS_PREFIX_QUALIFIER "gltfModels");
+            for (const auto& filenameAndWritten : cr.gltfModels) {
+                xml.scopedElement(CTS_XML_NS_PREFIX_QUALIFIER "gltfModel")
+                    .writeAttribute("filename", filenameAndWritten.first)
+                    .writeAttribute("written", "true");
+            }
+        }
     }
 
     void WriteInstanceProperties(Catch::XmlWriter& xml, XrVersion apiVersion, const XrInstanceProperties& instanceProperties)

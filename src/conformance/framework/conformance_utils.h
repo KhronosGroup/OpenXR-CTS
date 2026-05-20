@@ -721,7 +721,7 @@ namespace Conformance
             return session;
         }
 
-        const XrEnvironmentBlendMode PreferredEnvironmentBlendMode() const noexcept
+        XrEnvironmentBlendMode PreferredEnvironmentBlendMode() const noexcept
         {
             return environmentBlendModeVector[0];
         }

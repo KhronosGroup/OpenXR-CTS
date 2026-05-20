@@ -4,12 +4,12 @@
 
 #include "uuid_utils.h"
 
+#include "common/hex_and_handles.h"
+
 #include <openxr/openxr.h>
 
 #include <stdint.h>
-#include <ios>
 #include <sstream>
-#include <iomanip>
 
 bool operator==(const XrUuidEXT& lhs, const XrUuidEXT& rhs)
 {
@@ -29,25 +29,26 @@ std::string to_string(const XrUuidEXT& uuid)
     std::ostringstream oss;
     // 8-4-4-4-12 format
     // each byte is two digits
-    oss << std::hex << std::setw(2) << std::setfill('0') << uuid.data[0];
-    oss << std::hex << std::setw(2) << std::setfill('0') << uuid.data[1];
-    oss << std::hex << std::setw(2) << std::setfill('0') << uuid.data[2];
-    oss << std::hex << std::setw(2) << std::setfill('0') << uuid.data[3];
+    // accessing the bare impl of to_hex to drop the leading 0x
+    oss << to_hex(&uuid.data[0], 1, false);
+    oss << to_hex(&uuid.data[1], 1, false);
+    oss << to_hex(&uuid.data[2], 1, false);
+    oss << to_hex(&uuid.data[3], 1, false);
     oss << '-';
-    oss << std::hex << std::setw(2) << std::setfill('0') << uuid.data[4];
-    oss << std::hex << std::setw(2) << std::setfill('0') << uuid.data[5];
+    oss << to_hex(&uuid.data[4], 1, false);
+    oss << to_hex(&uuid.data[5], 1, false);
     oss << '-';
-    oss << std::hex << std::setw(2) << std::setfill('0') << uuid.data[6];
-    oss << std::hex << std::setw(2) << std::setfill('0') << uuid.data[7];
+    oss << to_hex(&uuid.data[6], 1, false);
+    oss << to_hex(&uuid.data[7], 1, false);
     oss << '-';
-    oss << std::hex << std::setw(2) << std::setfill('0') << uuid.data[8];
-    oss << std::hex << std::setw(2) << std::setfill('0') << uuid.data[9];
+    oss << to_hex(&uuid.data[8], 1, false);
+    oss << to_hex(&uuid.data[9], 1, false);
     oss << '-';
-    oss << std::hex << std::setw(2) << std::setfill('0') << uuid.data[10];
-    oss << std::hex << std::setw(2) << std::setfill('0') << uuid.data[11];
-    oss << std::hex << std::setw(2) << std::setfill('0') << uuid.data[12];
-    oss << std::hex << std::setw(2) << std::setfill('0') << uuid.data[13];
-    oss << std::hex << std::setw(2) << std::setfill('0') << uuid.data[14];
-    oss << std::hex << std::setw(2) << std::setfill('0') << uuid.data[15];
+    oss << to_hex(&uuid.data[10], 1, false);
+    oss << to_hex(&uuid.data[11], 1, false);
+    oss << to_hex(&uuid.data[12], 1, false);
+    oss << to_hex(&uuid.data[13], 1, false);
+    oss << to_hex(&uuid.data[14], 1, false);
+    oss << to_hex(&uuid.data[15], 1, false);
     return oss.str();
 }
