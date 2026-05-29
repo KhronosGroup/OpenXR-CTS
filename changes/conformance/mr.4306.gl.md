@@ -1,6 +1,0 @@
----
-- mr.4306.gl
----
-- Improvement: Add CMake test to run the CTS with the `XR_APILAYER_LUNARG_core_validation` layer and test runtime (when layer and CTS are in a single unified repo).
-- Fix: Skip submitting the test name quad layer in headless mode when no swapchain was created.
-- Fix: Reinitialize `XrViewConfigurationProperties` before reuse after a Catch2 SECTION that modified the next chain to avoid `use-after-scope` asan problems.

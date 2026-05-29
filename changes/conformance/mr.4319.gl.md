@@ -1,4 +1,0 @@
----
-- mr.4319.gl
----
-- Improvement: Reduced timeout in test for spurious recommended view changes in tests of `XR_EXT_view_configuration_views_change`.

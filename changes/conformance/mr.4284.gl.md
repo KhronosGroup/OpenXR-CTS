@@ -1,4 +1,0 @@
----
-- mr.4284.gl
----
-- Fix: Correct a `XR_EXT_view_configuration_views_change` test to allow  `XrEventDataViewConfigurationViewsChangedEXT` events to be sent at 1 Hz rate.

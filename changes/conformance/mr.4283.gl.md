@@ -1,4 +1,0 @@
----
-- mr.4283.gl
----
-- Fix: Remove double free in `test_xrCreateInstance`.
