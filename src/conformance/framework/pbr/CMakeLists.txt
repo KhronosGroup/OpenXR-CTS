@@ -12,6 +12,7 @@ add_library(
     PbrSharedState.cpp
     PbrTexture.cpp
 )
+add_sanitizers(conformance_framework_pbr)
 
 if(APPLE)
     # use C++17 since there is a dependency on metal-cpp

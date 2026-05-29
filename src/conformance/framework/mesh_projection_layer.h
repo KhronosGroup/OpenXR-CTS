@@ -39,7 +39,7 @@ namespace Conformance
         /// Set background colors per view
         void SetBgColors(std::vector<XrColor4f>&& bgColors);
 
-        XrCompositionLayerBaseHeader* TryGetUpdatedProjectionLayer(const XrFrameState& frameState);
+        XrCompositionLayerBaseHeader* TryGetUpdatedProjectionLayer(XrEnvironmentBlendMode ebm, const XrFrameState& frameState);
 
         uint32_t GetViewCount() const
         {

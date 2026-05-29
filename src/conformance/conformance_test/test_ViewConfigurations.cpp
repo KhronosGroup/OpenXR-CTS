@@ -159,6 +159,7 @@ namespace Conformance
                 }
 
                 // Exercise XR_ERROR_VIEW_CONFIGURATION_TYPE_UNSUPPORTED
+                vcp = {XR_TYPE_VIEW_CONFIGURATION_PROPERTIES};
                 XrResult result = xrGetViewConfigurationProperties(instance, instance.systemId, XR_VIEW_CONFIGURATION_TYPE_MAX_ENUM, &vcp);
                 REQUIRE_THAT(result, In<XrResult>({XR_ERROR_VALIDATION_FAILURE, XR_ERROR_VIEW_CONFIGURATION_TYPE_UNSUPPORTED}));
                 if (result == XR_ERROR_VIEW_CONFIGURATION_TYPE_UNSUPPORTED) {

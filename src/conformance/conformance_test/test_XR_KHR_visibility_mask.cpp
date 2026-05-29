@@ -269,14 +269,15 @@ namespace Conformance
         }
     }
 
-    static std::tuple<MeshHandle, XrColor4f> MakeMaskMesh(XrSession session, PFN_xrGetVisibilityMaskKHR xrGetVisibilityMaskKHR_,
+    static std::tuple<MeshHandle, XrColor4f> MakeMaskMesh(XrSession session, XrEnvironmentBlendMode ebm,
+                                                          PFN_xrGetVisibilityMaskKHR xrGetVisibilityMaskKHR_,
                                                           XrViewConfigurationType viewConfigurationType, uint32_t viewIndex,
                                                           XrVisibilityMaskTypeKHR maskType)
     {
         MeshHandle mesh;
         bool meshCoversHiddenArea = maskType == XR_VISIBILITY_MASK_TYPE_HIDDEN_TRIANGLE_MESH_KHR;
 
-        XrColor4f normalBgColor = GetGlobalData().GetClearColorForBackground();
+        XrColor4f normalBgColor = GetGlobalData().GetClearColorForEnvironmentBlendMode(ebm);
 
         XrColor4f color = meshCoversHiddenArea ? BrightRed : normalBgColor;
         XrColor4f bgColor = meshCoversHiddenArea ? normalBgColor : BrightRed;
@@ -366,6 +367,8 @@ namespace Conformance
 
         compositionHelper.BeginSession();
 
+        XrEnvironmentBlendMode ebm = compositionHelper.GetEnvironmentBlendMode();
+
         // We need to exercise whatever view configuration type is active (currently mono, stereo, quad),
         // and retrieve masks for 1, 2, or 4 views respectively, depending on the view configuration type.
         // We need to exercise each of the mask visibility types hidden, visible, line.
@@ -396,7 +399,7 @@ namespace Conformance
             for (uint32_t viewIndex = 0; viewIndex < nViews; ++viewIndex) {
                 CAPTURE(viewIndex);
                 CAPTURE(viewConfigurationType);
-                auto meshAndBackground = MakeMaskMesh(session, xrGetVisibilityMaskKHR_, viewConfigurationType, viewIndex, maskType);
+                auto meshAndBackground = MakeMaskMesh(session, ebm, xrGetVisibilityMaskKHR_, viewConfigurationType, viewIndex, maskType);
                 INFO("Checking that we could successfully create the mesh");
                 REQUIRE(std::get<MeshHandle>(meshAndBackground) != MeshHandle{});
                 meshes.emplace_back(std::get<MeshHandle>(meshAndBackground));
@@ -412,7 +415,8 @@ namespace Conformance
             else {
                 auto updateLayers = [&](const XrFrameState& frameState) {
                     std::vector<XrCompositionLayerBaseHeader*> layers;
-                    if (XrCompositionLayerBaseHeader* projLayer = meshProjectionLayerHelper.TryGetUpdatedProjectionLayer(frameState)) {
+                    if (XrCompositionLayerBaseHeader* projLayer = meshProjectionLayerHelper.TryGetUpdatedProjectionLayer(
+                            compositionHelper.GetEnvironmentBlendMode(), frameState)) {
                         layers.push_back(projLayer);
                     }
                     return interactiveLayerManager.EndFrame(frameState, layers);

@@ -56,6 +56,7 @@ Native Activity
 static JavaVM* AndroidApplicationVM = NULL;
 static jobject AndroidApplicationActivity = NULL;
 static AAssetManager* AndroidAssetManager = NULL;
+static const char* AndroidExternalDataPath = NULL;
 void* Conformance_Android_Get_Application_VM()
 {
     return AndroidApplicationVM;
@@ -69,6 +70,11 @@ void* Conformance_Android_Get_Application_Activity()
 void* Conformance_Android_Get_Asset_Manager()
 {
     return AndroidAssetManager;
+}
+
+const char* Conformance_Android_Get_External_Datapath()
+{
+    return AndroidExternalDataPath;
 }
 
 void Conformance_Android_Attach_Current_Thread()
@@ -203,6 +209,7 @@ void android_main(struct android_app* app)
     prctl(PR_SET_NAME, (long)"CTSMain", 0, 0, 0);
 
     AndroidAssetManager = app->activity->assetManager;
+    AndroidExternalDataPath = app->activity->externalDataPath;
 
     // Hook up android handlers
     app->onAppCmd = app_handle_cmd;

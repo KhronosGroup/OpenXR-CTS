@@ -15,6 +15,7 @@
 #include "two_call_struct_tests.h"
 #include "two_call_struct_metadata.h"
 #include "utilities/uuid_utils.h"
+#include "report.h"
 
 #include <openxr/openxr.h>
 
@@ -22,11 +23,16 @@
 #include <chrono>
 #include <cstdint>
 #include <initializer_list>
+#include <ios>
 #include <iterator>
 #include <memory>
 #include <set>
 #include <string>
 #include <tuple>
+#include <filesystem>
+#include <fstream>
+
+namespace fs = std::filesystem;
 
 namespace Conformance
 {
@@ -48,6 +54,41 @@ namespace Conformance
     }
     namespace
     {
+        void writeGlbModel(const XrRenderModelPropertiesEXT& properties, const std::vector<uint8_t>& buffer)
+        {
+
+            INFO("Trying to write " << to_string(properties.cacheId));
+            if (buffer.empty()) {
+                WARN("Empty buffer given for GLB model!");
+                return;
+            }
+#if defined(XR_USE_PLATFORM_ANDROID)
+            fs::path path{Conformance_Android_Get_External_Datapath()};
+#else
+            fs::path path = fs::current_path();
+#endif
+            const std::string fn = to_string(properties.cacheId) + ".glb";
+            path /= fs::path(fn);
+            if (fs::exists(path)) {
+                ReportConsoleOnlyF("Skip writing glTF model to %s, already exists", path.c_str());
+                Conformance::GetGlobalData().PushGltfModel(fn, false);
+
+                return;
+            }
+            ReportConsoleOnlyF("Writing glTF model to %s", path.c_str());
+
+            std::ofstream ofs(path, std::ios_base::out | std::ios_base::binary);
+            if (ofs.good()) {
+                ofs.write(reinterpret_cast<const char*>(buffer.data()), buffer.size());
+                ofs.flush();
+                ofs.close();
+            }
+            else {
+                ReportConsoleOnlyF("Failed to open %s", path.c_str());
+            }
+            Conformance::GetGlobalData().PushGltfModel(fn, true);
+        }
+
         std::tuple<RenderModelEXTScoped, std::vector<XrRenderModelAssetNodePropertiesEXT>, std::shared_ptr<const tinygltf::Model>>
         testRenderModelWithCreateInfo(const DispatchTable_EXT_render_model& ext, XrSession session,
                                       const XrRenderModelCreateInfoEXT& createInfo)
@@ -204,6 +245,8 @@ namespace Conformance
                         CHECK(assetLoadTime.Elapsed() + std::chrono::milliseconds(1) > assetBufferTime.Elapsed());
                     }
                 }
+
+                writeGlbModel(properties, buffer);
 
                 {
                     REQUIRE_NOTHROW(model = LoadGLTF(buffer));

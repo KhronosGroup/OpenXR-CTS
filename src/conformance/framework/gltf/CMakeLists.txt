@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 add_library(conformance_framework_gltf STATIC GltfHelper.cpp)
+add_sanitizers(conformance_framework_gltf)
 
 target_link_libraries(
     conformance_framework_gltf

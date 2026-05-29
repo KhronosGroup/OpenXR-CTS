@@ -332,10 +332,16 @@ namespace Conformance
         virtual void ClearImageSlice(const XrSwapchainImageBaseHeader* colorSwapchainImage, uint32_t imageArrayIndex, XrColor4f color) = 0;
 
         /// Clears to the background color which varies depending on the environment blend mode that is active.
-        void ClearImageSlice(const XrSwapchainImageBaseHeader* colorSwapchainImage, uint32_t imageArrayIndex = 0)
+        void ClearImageSlice(const XrSwapchainImageBaseHeader* colorSwapchainImage, uint32_t imageArrayIndex, XrEnvironmentBlendMode ebm)
         {
             GlobalData& globalData = GetGlobalData();
-            ClearImageSlice(colorSwapchainImage, imageArrayIndex, globalData.GetClearColorForBackground());
+            XrColor4f clearColor = globalData.GetClearColorForEnvironmentBlendMode(ebm);
+            ClearImageSlice(colorSwapchainImage, imageArrayIndex, clearColor);
+        }
+
+        void ClearImageSlice(const XrSwapchainImageBaseHeader* colorSwapchainImage, XrEnvironmentBlendMode ebm)
+        {
+            ClearImageSlice(colorSwapchainImage, 0, ebm);
         }
 
         /// Create internal data for a mesh, returning a handle to refer to it.

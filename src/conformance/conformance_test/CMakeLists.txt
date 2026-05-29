@@ -51,6 +51,7 @@ add_library(
     ${PROJECT_SOURCE_DIR}/src/common/platform_utils.hpp
 )
 
+add_sanitizers(conformance_test)
 source_group("Header Files" FILES ${LOCAL_HEADERS})
 source_group("Source Files" FILES ${LOCAL_SOURCE})
 target_link_libraries(

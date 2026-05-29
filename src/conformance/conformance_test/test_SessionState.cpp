@@ -65,7 +65,7 @@ namespace Conformance
         return false;
     }
 
-    static void submitFrame(XrSession session)
+    static void submitFrame(XrSession session, XrEnvironmentBlendMode ebm)
     {
         XrFrameState frameState{XR_TYPE_FRAME_STATE};
         XRC_CHECK_THROW_XRCMD(xrWaitFrame(session, nullptr, &frameState));
@@ -73,12 +73,12 @@ namespace Conformance
 
         XrFrameEndInfo frameEndInfo{XR_TYPE_FRAME_END_INFO};
         frameEndInfo.displayTime = frameState.predictedDisplayTime;
-        frameEndInfo.environmentBlendMode = Options::Get().environmentBlendModeValue;
+        frameEndInfo.environmentBlendMode = ebm;
         XRC_CHECK_THROW_XRCMD(xrEndFrame(session, &frameEndInfo));
     }
 
-    static void submitFramesUntilSessionState(XrInstance instance, XrSession session, XrSessionState expectedSessionState,
-                                              std::chrono::nanoseconds duration = 30s)
+    static void submitFramesUntilSessionState(XrInstance instance, XrSession session, XrEnvironmentBlendMode ebm,
+                                              XrSessionState expectedSessionState, std::chrono::nanoseconds duration = 30s)
     {
         CAPTURE(expectedSessionState);
 
@@ -89,7 +89,7 @@ namespace Conformance
                 REQUIRE(evt.state == expectedSessionState);
                 return;
             }
-            submitFrame(session);
+            submitFrame(session, ebm);
         }
 
         FAIL("Failed to reach expected session state");
@@ -102,6 +102,7 @@ namespace Conformance
         SECTION("Cycle through all states")
         {
             AutoBasicSession session(AutoBasicSession::createSession, instance);
+            XrEnvironmentBlendMode ebm = session.PreferredEnvironmentBlendMode();
 
             REQUIRE(session != XR_NULL_HANDLE_CPP);
 
@@ -125,18 +126,18 @@ namespace Conformance
 
                 REQUIRE(XR_SUCCESS == xrBeginSession(session, &beginInfo));
 
-                submitFramesUntilSessionState(instance, session, XR_SESSION_STATE_SYNCHRONIZED);
-                submitFramesUntilSessionState(instance, session, XR_SESSION_STATE_VISIBLE);
-                submitFramesUntilSessionState(instance, session, XR_SESSION_STATE_FOCUSED);
+                submitFramesUntilSessionState(instance, session, ebm, XR_SESSION_STATE_SYNCHRONIZED);
+                submitFramesUntilSessionState(instance, session, ebm, XR_SESSION_STATE_VISIBLE);
+                submitFramesUntilSessionState(instance, session, ebm, XR_SESSION_STATE_FOCUSED);
 
                 // Runtime should only allow ending a session in the STOPPING state.
                 REQUIRE(XR_ERROR_SESSION_NOT_STOPPING == xrEndSession(session));
 
                 REQUIRE(XR_SUCCESS == xrRequestExitSession(session));
 
-                submitFramesUntilSessionState(instance, session, XR_SESSION_STATE_VISIBLE);
-                submitFramesUntilSessionState(instance, session, XR_SESSION_STATE_SYNCHRONIZED);
-                submitFramesUntilSessionState(instance, session, XR_SESSION_STATE_STOPPING);
+                submitFramesUntilSessionState(instance, session, ebm, XR_SESSION_STATE_VISIBLE);
+                submitFramesUntilSessionState(instance, session, ebm, XR_SESSION_STATE_SYNCHRONIZED);
+                submitFramesUntilSessionState(instance, session, ebm, XR_SESSION_STATE_STOPPING);
 
                 // Runtime should not transition from STOPPING to IDLE until the session has been ended.
                 // This will wait 1 second before assuming no such incorrect event will come.
@@ -144,14 +145,14 @@ namespace Conformance
 
                 REQUIRE(XR_SUCCESS == xrEndSession(session));
 
-                submitFramesUntilSessionState(instance, session, XR_SESSION_STATE_IDLE);
+                submitFramesUntilSessionState(instance, session, ebm, XR_SESSION_STATE_IDLE);
 
                 // https://registry.khronos.org/OpenXR/specs/1.1/html/xrspec.html#session-lifecycle
                 // If the runtime determines that its use of this XR session has
                 // concluded, it will transition the session state from
                 // XR_SESSION_STATE_IDLE to XR_SESSION_STATE_EXITING.
 
-                submitFramesUntilSessionState(instance, session, XR_SESSION_STATE_EXITING);
+                submitFramesUntilSessionState(instance, session, ebm, XR_SESSION_STATE_EXITING);
             }
 
             SECTION("Try calls out of turn")
@@ -210,21 +211,21 @@ namespace Conformance
                 }
 
                 // READY -> SYNCHRONIZED
-                submitFramesUntilSessionState(instance, session, XR_SESSION_STATE_SYNCHRONIZED);
+                submitFramesUntilSessionState(instance, session, ebm, XR_SESSION_STATE_SYNCHRONIZED);
                 SECTION("xrBeginSession in SYNCHRONIZED")
                 {
                     REQUIRE(XR_ERROR_SESSION_RUNNING == xrBeginSession(session, &beginInfo));
                 }
 
                 // SYNCHRONIZED -> VISIBLE
-                submitFramesUntilSessionState(instance, session, XR_SESSION_STATE_VISIBLE);
+                submitFramesUntilSessionState(instance, session, ebm, XR_SESSION_STATE_VISIBLE);
                 SECTION("xrBeginSession in VISIBLE")
                 {
                     REQUIRE(XR_ERROR_SESSION_RUNNING == xrBeginSession(session, &beginInfo));
                 }
 
                 // VISIBLE -> FOCUSED
-                submitFramesUntilSessionState(instance, session, XR_SESSION_STATE_FOCUSED);
+                submitFramesUntilSessionState(instance, session, ebm, XR_SESSION_STATE_FOCUSED);
                 SECTION("xrBeginSession in FOCUSED")
                 {
                     REQUIRE(XR_ERROR_SESSION_RUNNING == xrBeginSession(session, &beginInfo));
@@ -244,21 +245,21 @@ namespace Conformance
                 }
 
                 // FOCUSED -> VISIBLE
-                submitFramesUntilSessionState(instance, session, XR_SESSION_STATE_VISIBLE);
+                submitFramesUntilSessionState(instance, session, ebm, XR_SESSION_STATE_VISIBLE);
                 SECTION("xrBeginSession in VISIBLE due to xrRequestExitSession")
                 {
                     REQUIRE(XR_ERROR_SESSION_RUNNING == xrBeginSession(session, &beginInfo));
                 }
 
                 // VISIBLE -> SYNCHRONIZED
-                submitFramesUntilSessionState(instance, session, XR_SESSION_STATE_SYNCHRONIZED);
+                submitFramesUntilSessionState(instance, session, ebm, XR_SESSION_STATE_SYNCHRONIZED);
                 SECTION("xrBeginSession in SYNCHRONIZED due to xrRequestExitSession")
                 {
                     REQUIRE(XR_ERROR_SESSION_RUNNING == xrBeginSession(session, &beginInfo));
                 }
 
                 // SYNCHRONIZED -> STOPPING
-                submitFramesUntilSessionState(instance, session, XR_SESSION_STATE_STOPPING);
+                submitFramesUntilSessionState(instance, session, ebm, XR_SESSION_STATE_STOPPING);
                 SECTION("xrBeginSession in STOPPING due to xrRequestExitSession")
                 {
                     REQUIRE(XR_ERROR_SESSION_RUNNING == xrBeginSession(session, &beginInfo));
@@ -280,14 +281,14 @@ namespace Conformance
                     CHECK(XR_ERROR_SESSION_NOT_RUNNING == xrWaitFrame(session, nullptr, &frameState));
                 }
 
-                submitFramesUntilSessionState(instance, session, XR_SESSION_STATE_IDLE);
+                submitFramesUntilSessionState(instance, session, ebm, XR_SESSION_STATE_IDLE);
 
                 SECTION("xrWaitFrame in IDLE while shutting down")
                 {
                     CHECK(XR_ERROR_SESSION_NOT_RUNNING == xrWaitFrame(session, nullptr, &frameState));
                 }
 
-                submitFramesUntilSessionState(instance, session, XR_SESSION_STATE_EXITING);
+                submitFramesUntilSessionState(instance, session, ebm, XR_SESSION_STATE_EXITING);
 
                 SECTION("xrWaitFrame in EXITING while shutting down")
                 {

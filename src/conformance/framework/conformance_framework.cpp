@@ -112,6 +112,12 @@ namespace Conformance
                 AppendSprintf(reportString, "    %s\n", spec.c_str());
             }
         }
+        if (!gltfModels.empty()) {
+            AppendSprintf(reportString, "glTF Models to Validate:\n");
+            for (auto const& fnAndWritten : gltfModels) {
+                AppendSprintf(reportString, "    %s\n", fnAndWritten.first.c_str());
+            }
+        }
 
         return reportString;
     }
@@ -347,10 +353,6 @@ namespace Conformance
             }
         }
 
-        if (minVersion) {
-            options.PopulateDefaultEnvironmentBlendMode(ownedInstance.get(), systemId);
-        }
-
         this->support = VersionSupportState::SupportedByRuntime;
         return true;
     }
@@ -484,10 +486,25 @@ namespace Conformance
         conformanceReport.swapchainFormats.emplace_back(format, name);
     }
 
-    XrColor4f GlobalData::GetClearColorForBackground() const
+    void GlobalData::PushGltfModel(const std::string& filename, bool written)
     {
-        // TODO move over to Options?
-        switch (Options::Get().environmentBlendModeValue) {
+        std::unique_lock<std::recursive_mutex> lock(dataMutex);
+        if (written) {
+            conformanceReport.gltfModels.emplace_back(filename, written);
+            return;
+        }
+        // see if we were the ones to already write this.
+        auto it = std::find_if(conformanceReport.gltfModels.begin(), conformanceReport.gltfModels.end(),
+                               [&](const std::pair<std::string, bool>& p) { return p.first == filename; });
+        if (it == conformanceReport.gltfModels.end()) {
+            // nope this is new, actually write it.
+            conformanceReport.gltfModels.emplace_back(filename, written);
+        }
+    }
+
+    XrColor4f GlobalData::GetClearColorForEnvironmentBlendMode(XrEnvironmentBlendMode ebm) const
+    {
+        switch (ebm) {
         case XR_ENVIRONMENT_BLEND_MODE_OPAQUE:
             return DarkSlateGrey;
         case XR_ENVIRONMENT_BLEND_MODE_ADDITIVE:

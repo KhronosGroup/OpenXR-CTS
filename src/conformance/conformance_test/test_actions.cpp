@@ -586,10 +586,15 @@ namespace Conformance
                             selectedAction = vectorAction;
                             break;
                         case XR_ACTION_TYPE_VIBRATION_OUTPUT:
+                            selectedAction = hapticAction;
+                            break;
+                        case XR_ACTION_TYPE_POSE_INPUT:
                             selectedAction = poseAction;
                             break;
+                        case XR_ACTION_TYPE_MAX_ENUM:
                         default:
-                            selectedAction = hapticAction;
+                            WARN("Unexpected action type " << bindingPathData.Type);
+                            continue;
                         }
 
                         XrActionSuggestedBinding suggestedBindings{selectedAction, StringToPath(instance, bindingPathData.Path)};
@@ -723,10 +728,15 @@ namespace Conformance
                     selectedAction = vectorAction;
                     break;
                 case XR_ACTION_TYPE_VIBRATION_OUTPUT:
+                    selectedAction = hapticAction;
+                    break;
+                case XR_ACTION_TYPE_POSE_INPUT:
                     selectedAction = poseAction;
                     break;
+                case XR_ACTION_TYPE_MAX_ENUM:
                 default:
-                    selectedAction = hapticAction;
+                    WARN("Unexpected action type " << bindingPathData.Type);
+                    continue;
                 }
 
                 XrActionSuggestedBinding suggestedBindings =
@@ -833,7 +843,8 @@ namespace Conformance
 
     TEST_CASE("xrSuggestInteractionProfileBindings_interactive", "[actions][interactive]")
     {
-        CompositionHelper compositionHelper("Suggest Bindings Interactive");
+        CompositionHelper compositionHelper("Suggest Bindings Interactive",
+                                            CompositionHelper::EnvironmentBlendModePreference::PreferPassthrough);
         XrInstance instance = compositionHelper.GetInstance();
         XrSession session = compositionHelper.GetSession();
         compositionHelper.BeginSession();
@@ -1194,7 +1205,8 @@ namespace Conformance
 
         auto suggestBindingsAndGetCurrentInteractionProfile = [features, globalFeatures](bool reverse, bool nullPathExpected,
                                                                                          const std::string& topLevelPathString) {
-            CompositionHelper compositionHelper("Suggest Bindings Order", features);
+            CompositionHelper compositionHelper("Suggest Bindings Order", features,
+                                                CompositionHelper::EnvironmentBlendModePreference::PreferPassthrough);
             XrInstance instance = compositionHelper.GetInstance();
             XrSession session = compositionHelper.GetSession();
             compositionHelper.BeginSession();
@@ -1328,7 +1340,8 @@ namespace Conformance
 
     TEST_CASE("xrGetCurrentInteractionProfile", "[actions][interactive]")
     {
-        CompositionHelper compositionHelper("xrGetCurrentInteractionProfile");
+        CompositionHelper compositionHelper("xrGetCurrentInteractionProfile",
+                                            CompositionHelper::EnvironmentBlendModePreference::PreferPassthrough);
         XrInstance instance = compositionHelper.GetInstance();
         XrSession session = compositionHelper.GetSession();
         compositionHelper.BeginSession();
@@ -1464,7 +1477,7 @@ namespace Conformance
     {
         GlobalData& globalData = GetGlobalData();
 
-        CompositionHelper compositionHelper("xrSyncActions");
+        CompositionHelper compositionHelper("xrSyncActions", CompositionHelper::EnvironmentBlendModePreference::PreferPassthrough);
         XrInstance instance = compositionHelper.GetInstance();
         XrSession session = compositionHelper.GetSession();
 
@@ -1845,7 +1858,8 @@ namespace Conformance
         SkipIfNotSatisfiable("xrSyncActions_priorityTest", globalData, featureSet);
         const bool EXT_active_action_set_priority_enabled = featureSet.Get(FeatureBitIndex::BIT_XR_EXT_active_action_set_priority);
 
-        CompositionHelper compositionHelper("xrSyncActions", featureSet);
+        CompositionHelper compositionHelper("xrSyncActions", featureSet,
+                                            CompositionHelper::EnvironmentBlendModePreference::PreferPassthrough);
         XrInstance instance = compositionHelper.GetInstance();
         XrSession session = compositionHelper.GetSession();
 
@@ -2652,7 +2666,8 @@ namespace Conformance
         auto TestParentComponentsOfProfile = [](const InteractionProfileAvailMetadata& ipMetadata,
                                                 const std::string& topLevelUserPathString,
                                                 const FeatureSet& profileAndOverallRequirements) {
-            CompositionHelper compositionHelper("Parent Components Bind State", profileAndOverallRequirements);
+            CompositionHelper compositionHelper("Parent Components Bind State", profileAndOverallRequirements,
+                                                CompositionHelper::EnvironmentBlendModePreference::PreferPassthrough);
             XrInstance instance = compositionHelper.GetInstance();
             XrSession session = compositionHelper.GetSession();
             InteractionManager& interactionManager = compositionHelper.GetInteractionManager();
@@ -2825,7 +2840,8 @@ namespace Conformance
         auto TestParentComponentsOfProfile = [](const InteractionProfileAvailMetadata& ipMetadata,
                                                 const std::string& topLevelUserPathString,
                                                 const FeatureSet& profileAndOverallRequirements) {
-            CompositionHelper compositionHelper("Parent Components Values", profileAndOverallRequirements);
+            CompositionHelper compositionHelper("Parent Components Values", profileAndOverallRequirements,
+                                                CompositionHelper::EnvironmentBlendModePreference::PreferPassthrough);
             XrInstance instance = compositionHelper.GetInstance();
             XrSession session = compositionHelper.GetSession();
             InteractionManager& interactionManager = compositionHelper.GetInteractionManager();
@@ -3979,7 +3995,8 @@ namespace Conformance
 
     TEST_CASE("StateQueryFunctionsAndHaptics", "[actions]")
     {
-        CompositionHelper compositionHelper("Input device state query");
+        CompositionHelper compositionHelper("Input device state query",
+                                            CompositionHelper::EnvironmentBlendModePreference::PreferPassthrough);
         XrInstance instance = compositionHelper.GetInstance();
         XrSession session = compositionHelper.GetSession();
 
@@ -4232,7 +4249,8 @@ namespace Conformance
 
     TEST_CASE("action_space_creation-noninteractive", "[actions]")
     {
-        CompositionHelper compositionHelper("action_space_creation-noni");
+        CompositionHelper compositionHelper("action_space_creation-noni",
+                                            CompositionHelper::EnvironmentBlendModePreference::PreferPassthrough);
         compositionHelper.BeginSession();
         XrSession session = compositionHelper.GetSession();
 
@@ -4283,7 +4301,8 @@ namespace Conformance
         // - one is created before xrSuggestInteractionProfileBindings and
         // - the other is created after.
         // These two action spaces should both return (the same) valid data.
-        CompositionHelper compositionHelper("action_space_create presuggest");
+        CompositionHelper compositionHelper("action_space_create presuggest",
+                                            CompositionHelper::EnvironmentBlendModePreference::PreferPassthrough);
         XrInstance instance = compositionHelper.GetInstance();
         XrSession session = compositionHelper.GetSession();
         compositionHelper.BeginSession();
@@ -4368,7 +4387,7 @@ namespace Conformance
     {
         GlobalData& globalData = GetGlobalData();
 
-        CompositionHelper compositionHelper("Action Spaces");
+        CompositionHelper compositionHelper("Action Spaces", CompositionHelper::EnvironmentBlendModePreference::PreferPassthrough);
         XrInstance instance = compositionHelper.GetInstance();
         XrSession session = compositionHelper.GetSession();
         compositionHelper.BeginSession();
@@ -4835,7 +4854,8 @@ namespace Conformance
 
     TEST_CASE("xrEnumerateBoundSourcesForAction_and_xrGetInputSourceLocalizedName", "[actions][interactive]")
     {
-        CompositionHelper compositionHelper("BoundSources and LocalizedName");
+        CompositionHelper compositionHelper("BoundSources and LocalizedName",
+                                            CompositionHelper::EnvironmentBlendModePreference::PreferPassthrough);
         XrInstance instance = compositionHelper.GetInstance();
         XrSession session = compositionHelper.GetSession();
 

@@ -597,6 +597,11 @@ namespace Conformance
             return instance != XR_NULL_HANDLE;
         }
 
+        XrInstance Release()
+        {
+            return std::exchange(instance, XR_NULL_HANDLE_CPP);
+        }
+
     private:
         void Initialize(int optionFlags);
 
@@ -714,6 +719,11 @@ namespace Conformance
         operator XrSession() const
         {
             return session;
+        }
+
+        XrEnvironmentBlendMode PreferredEnvironmentBlendMode() const noexcept
+        {
+            return environmentBlendModeVector[0];
         }
 
         const std::vector<XrEnvironmentBlendMode>& SupportedEnvironmentBlendModes() const noexcept

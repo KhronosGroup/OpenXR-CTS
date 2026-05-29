@@ -10,6 +10,7 @@
 void* Conformance_Android_Get_Application_VM();
 void* Conformance_Android_Get_Application_Activity();
 void* Conformance_Android_Get_Asset_Manager();
+const char* Conformance_Android_Get_External_Datapath();
 void Conformance_Android_Attach_Current_Thread();
 void Conformance_Android_Detach_Current_Thread();
 #endif  // defined(XR_USE_PLATFORM_ANDROID)

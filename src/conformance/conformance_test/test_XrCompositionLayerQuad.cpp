@@ -75,7 +75,7 @@ namespace Conformance
             XRC_CHECK_THROW_XRCMD(xrBeginFrame(session, nullptr));
 
             XrFrameEndInfo frameEndInfo{XR_TYPE_FRAME_END_INFO};
-            frameEndInfo.environmentBlendMode = Options::Get().environmentBlendModeValue;
+            frameEndInfo.environmentBlendMode = session.PreferredEnvironmentBlendMode();
             frameEndInfo.displayTime = frameState.predictedDisplayTime;
             frameEndInfo.layerCount = (uint32_t)layers.size();
             frameEndInfo.layers = reinterpret_cast<const XrCompositionLayerBaseHeader* const*>(layers.data());

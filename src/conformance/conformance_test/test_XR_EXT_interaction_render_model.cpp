@@ -381,7 +381,7 @@ namespace Conformance
                 // Render into each view port of the wide swapchain using the projection layer view fov and pose.
                 for (size_t view = 0; view < views.size(); view++) {
                     compositionHelper.AcquireWaitReleaseImage(swapchains[view], [&](const XrSwapchainImageBaseHeader* swapchainImage) {
-                        GetGlobalData().graphicsPlugin->ClearImageSlice(swapchainImage);
+                        GetGlobalData().graphicsPlugin->ClearImageSlice(swapchainImage, compositionHelper.GetEnvironmentBlendMode());
                         const_cast<XrFovf&>(projLayer->views[view].fov) = views[view].fov;
                         const_cast<XrPosef&>(projLayer->views[view].pose) = views[view].pose;
                         GetGlobalData().graphicsPlugin->RenderView(projLayer->views[view], swapchainImage,

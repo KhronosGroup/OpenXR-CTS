@@ -14,6 +14,7 @@
 
 #include <openxr/openxr.h>
 
+#include <algorithm>
 #include <stdint.h>
 #include <vector>
 
@@ -175,7 +176,8 @@ namespace Conformance
 
             auto updateLayers = [&](const XrFrameState& frameState) {
                 std::vector<XrCompositionLayerBaseHeader*> layers;
-                if (XrCompositionLayerBaseHeader* projLayer = simpleProjectionLayerHelper.TryGetUpdatedProjectionLayer(frameState)) {
+                if (XrCompositionLayerBaseHeader* projLayer =
+                        simpleProjectionLayerHelper.TryGetUpdatedProjectionLayer(compositionHelper.GetEnvironmentBlendMode(), frameState)) {
                     layers.push_back(projLayer);
                 }
 
@@ -236,7 +238,79 @@ namespace Conformance
 
             auto updateLayers = [&](const XrFrameState& frameState) {
                 std::vector<XrCompositionLayerBaseHeader*> layers;
-                if (XrCompositionLayerBaseHeader* projLayer = simpleProjectionLayerHelper.TryGetUpdatedProjectionLayer(frameState)) {
+                if (XrCompositionLayerBaseHeader* projLayer =
+                        simpleProjectionLayerHelper.TryGetUpdatedProjectionLayer(compositionHelper.GetEnvironmentBlendMode(), frameState)) {
+                    layers.push_back(projLayer);
+                }
+                // User is more likely to do interesting things (e.g. eye tracking) during this interactive test.
+                CheckStereoInsetLocateViews(compositionHelper, viewSpace, frameState.predictedDisplayTime);
+
+                return interactiveLayerManager.EndFrame(frameState, layers);
+            };
+
+            RenderLoop(session, updateLayers).Loop();
+        }
+
+        void StereoWithFoveatedInsetJitterInteractive(const FeatureSet& featureSet)
+        {
+            if (!GetGlobalData().IsUsingGraphicsPlugin()) {
+                // Nothing to check - no graphics plugin means no frame submission
+                SKIP("Cannot test view location without a graphics plugin");
+            }
+
+            SkipIfNotSatisfiable("Stereo with foveated inset/quad views", GetGlobalData(), featureSet);
+
+            InstanceREQUIRE instance;
+            {
+                XrInstance instanceRaw{XR_NULL_HANDLE_CPP};
+                XRC_CHECK_THROW_XRCMD(CreateBasicInstance(&instanceRaw, featureSet));
+                instance.adopt(instanceRaw);
+            }
+
+            // Explicitly naming view config type and ignoring whatever was configured on the command line
+            CompositionHelper compositionHelper("Quad Views Jitter", instance.get(),
+                                                XR_VIEW_CONFIGURATION_TYPE_PRIMARY_STEREO_WITH_FOVEATED_INSET, true);
+            if (!compositionHelper.GetViewConfigurationProperties().fovMutable) {
+                SKIP("View configuration does not support mutable FoV");
+            }
+
+            InteractiveLayerManager interactiveLayerManager(compositionHelper, "projection_separate.png", "Stereo inset views.");
+            XrSession session = compositionHelper.GetSession();
+
+            XrSpace viewSpace = compositionHelper.CreateReferenceSpace(XR_REFERENCE_SPACE_TYPE_VIEW, Pose::Identity);
+
+            InteractionManager& interactionManager = compositionHelper.GetInteractionManager();
+            interactionManager.AttachActionSets();
+
+            compositionHelper.BeginSession();
+
+            SimpleProjectionLayerHelper simpleProjectionLayerHelper(compositionHelper);
+            RandEngine& randEngine = GetGlobalData().GetRandEngine();
+
+            auto updateLayers = [&](const XrFrameState& frameState) {
+                std::vector<XrCompositionLayerBaseHeader*> layers;
+                std::tuple<XrViewState, std::vector<XrView>> viewData;
+                // TODO make a test similar to this for non-foveated rendering
+                viewData = compositionHelper.LocateViews(simpleProjectionLayerHelper.GetLocalSpace(), frameState.predictedDisplayTime);
+                auto& views = std::get<std::vector<XrView>>(viewData);
+                for (int eye = 0; eye < 2; eye++) {
+                    CAPTURE(eye);
+                    const auto& outer = views[eye].fov;
+                    auto& inner = views[eye + 2].fov;
+                    auto jitterUnit = 1000000.0;
+                    auto jitterFactorOfFoV = 0.3;
+                    auto jitterRange = int32_t(std::min(inner.angleUp - inner.angleDown, inner.angleRight - inner.angleLeft) *
+                                               jitterFactorOfFoV * jitterUnit);
+                    auto getJitter = [&]() { return float(randEngine.RandInt32(-jitterRange, jitterRange) / jitterUnit); };
+
+                    inner.angleDown = std::clamp(inner.angleDown + getJitter(), outer.angleDown, inner.angleUp);
+                    inner.angleUp = std::clamp(inner.angleUp + getJitter(), inner.angleDown, outer.angleUp);
+                    inner.angleLeft = std::clamp(inner.angleLeft + getJitter(), outer.angleLeft, inner.angleRight);
+                    inner.angleRight = std::clamp(inner.angleRight + getJitter(), inner.angleLeft, outer.angleRight);
+                }
+
+                if (XrCompositionLayerBaseHeader* projLayer = simpleProjectionLayerHelper.TryGetUpdatedProjectionLayer(
+                        compositionHelper.GetEnvironmentBlendMode(), frameState, &viewData)) {
                     layers.push_back(projLayer);
                 }
                 // User is more likely to do interesting things (e.g. eye tracking) during this interactive test.
@@ -258,4 +332,13 @@ namespace Conformance
     {
         StereoWithFoveatedInsetInteractive(kPromotedCoreRequirements);
     }
+    TEST_CASE("XR_VARJO_quad_views-mutableFoV-interactive", "[XR_VARJO_quad_views][composition][interactive][no_auto]")
+    {
+        StereoWithFoveatedInsetJitterInteractive(kExtensionRequirements);
+    }
+    TEST_CASE("StereoWithFoveatedInset-mutableFoV-interactive", "[XR_VERSION_1_1][composition][interactive][no_auto]")
+    {
+        StereoWithFoveatedInsetJitterInteractive(kPromotedCoreRequirements);
+    }
+
 }  // namespace Conformance

@@ -61,7 +61,7 @@ namespace Conformance
             AutoBasicSession session(AutoBasicSession::beginSession);
 
             XrFrameState frameState{XR_TYPE_FRAME_STATE};
-            auto environmentBlendMode = Options::Get().environmentBlendModeValue;
+            auto environmentBlendMode = session.PreferredEnvironmentBlendMode();
 
             SECTION("XrFrameWaitInfo without type")
             {
@@ -117,7 +117,7 @@ namespace Conformance
 
             XrFrameState frameState{XR_TYPE_FRAME_STATE};
             XrFrameEndInfo frameEndInfo{XR_TYPE_FRAME_END_INFO};
-            frameEndInfo.environmentBlendMode = Options::Get().environmentBlendModeValue;
+            frameEndInfo.environmentBlendMode = session.PreferredEnvironmentBlendMode();
 
             {  // Fresh session, test xrBeginFrame with no corresponding xrWaitFrame.
                 CHECK(XR_ERROR_CALL_ORDER_INVALID == xrBeginFrame(session, nullptr));
@@ -180,7 +180,7 @@ namespace Conformance
             XrFrameState frameState{XR_TYPE_FRAME_STATE};
 
             XrFrameEndInfo defaultFrameEndInfo{XR_TYPE_FRAME_END_INFO};
-            defaultFrameEndInfo.environmentBlendMode = Options::Get().environmentBlendModeValue;
+            defaultFrameEndInfo.environmentBlendMode = session.PreferredEnvironmentBlendMode();
 
             {
                 INFO("No layers in unknown session state");
@@ -418,7 +418,8 @@ namespace Conformance
             sw.Restart();
 
             std::vector<XrCompositionLayerBaseHeader*> layers;
-            if (XrCompositionLayerBaseHeader* projLayer = simpleProjectionLayerHelper.TryGetUpdatedProjectionLayer(frameState)) {
+            if (XrCompositionLayerBaseHeader* projLayer =
+                    simpleProjectionLayerHelper.TryGetUpdatedProjectionLayer(compositionHelper.GetEnvironmentBlendMode(), frameState)) {
                 layers.push_back(projLayer);
             }
 

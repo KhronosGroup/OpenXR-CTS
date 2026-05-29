@@ -51,8 +51,11 @@ add_library(
     ${CMAKE_CURRENT_BINARY_DIR}/gen_dispatch.cpp
     ${CMAKE_CURRENT_BINARY_DIR}/gen_dispatch.h
 )
+add_sanitizers(XrApiLayer_runtime_conformance)
 target_link_libraries(
-    XrApiLayer_runtime_conformance PRIVATE Threads::Threads OpenXR::headers
+    XrApiLayer_runtime_conformance
+    PUBLIC conformance_utilities
+    PRIVATE Threads::Threads OpenXR::headers
 )
 
 source_group("Headers" FILES ${LOCAL_HEADERS})

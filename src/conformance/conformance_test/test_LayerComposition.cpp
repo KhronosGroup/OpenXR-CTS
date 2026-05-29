@@ -930,7 +930,8 @@ namespace Conformance
                         compositionHelper.AcquireWaitReleaseImage(swapchain, [&](const XrSwapchainImageBaseHeader* swapchainImage) {
                             for (uint32_t slice = 0; slice < (uint32_t)views.size(); slice++) {
                                 GetGlobalData().graphicsPlugin->ClearImageSlice(swapchainImage,
-                                                                                projLayer->views[slice].subImage.imageArrayIndex);
+                                                                                projLayer->views[slice].subImage.imageArrayIndex,
+                                                                                compositionHelper.GetEnvironmentBlendMode());
 
                                 const_cast<XrFovf&>(projLayer->views[slice].fov) = views[slice].fov;
                                 const_cast<XrPosef&>(projLayer->views[slice].pose) = views[slice].pose;
@@ -1041,7 +1042,7 @@ namespace Conformance
 
                         // Render into each view port of the wide swapchain using the projection layer view fov and pose.
                         compositionHelper.AcquireWaitReleaseImage(swapchain, [&](const XrSwapchainImageBaseHeader* swapchainImage) {
-                            GetGlobalData().graphicsPlugin->ClearImageSlice(swapchainImage);
+                            GetGlobalData().graphicsPlugin->ClearImageSlice(swapchainImage, compositionHelper.GetEnvironmentBlendMode());
                             for (size_t view = 0; view < views.size(); view++) {
                                 const_cast<XrFovf&>(projLayer->views[view].fov) = views[view].fov;
                                 const_cast<XrPosef&>(projLayer->views[view].pose) = views[view].pose;
@@ -1145,7 +1146,8 @@ namespace Conformance
                         for (size_t view = 0; view < views.size(); view++) {
                             compositionHelper.AcquireWaitReleaseImage(
                                 swapchains[view], [&](const XrSwapchainImageBaseHeader* swapchainImage) {
-                                    GetGlobalData().graphicsPlugin->ClearImageSlice(swapchainImage);
+                                    GetGlobalData().graphicsPlugin->ClearImageSlice(swapchainImage,
+                                                                                    compositionHelper.GetEnvironmentBlendMode());
 
                                     const_cast<XrFovf&>(projLayer->views[view].fov) = views[view].fov;
                                     const_cast<XrPosef&>(projLayer->views[view].pose) = views[view].pose;
@@ -1195,6 +1197,7 @@ namespace Conformance
         const XrSpace localSpace = compositionHelper.CreateReferenceSpace(XR_REFERENCE_SPACE_TYPE_LOCAL);
 
         const std::vector<XrViewConfigurationView> viewProperties = compositionHelper.EnumerateConfigurationViews();
+        const XrEnvironmentBlendMode envBlendMode = compositionHelper.GetEnvironmentBlendMode();
 
         const auto totalWidth = ComputeTotalWidthSBS(viewProperties);
         // Because a single swapchain is being used for all views the maximum height must be used.
@@ -1261,16 +1264,16 @@ namespace Conformance
                 std::vector<XrCompositionLayerBaseHeader*> layers;
 
                 for (uint32_t i = 0; i < maxLayerCount; i++) {
-                    compositionHelper.AcquireWaitReleaseImage(projLayers[i]->views[0].subImage.swapchain,
-                                                              [&](const XrSwapchainImageBaseHeader* swapchainImage) {
-                                                                  GetGlobalData().graphicsPlugin->ClearImageSlice(swapchainImage);
-                                                              });
+                    compositionHelper.AcquireWaitReleaseImage(
+                        projLayers[i]->views[0].subImage.swapchain, [&](const XrSwapchainImageBaseHeader* swapchainImage) {
+                            GetGlobalData().graphicsPlugin->ClearImageSlice(swapchainImage, compositionHelper.GetEnvironmentBlendMode());
+                        });
 
                     layers.push_back(reinterpret_cast<XrCompositionLayerBaseHeader*>(projLayers[i]));
                 }
 
                 XrFrameEndInfo frameEndInfo{XR_TYPE_FRAME_END_INFO};
-                CAPTURE(frameEndInfo.environmentBlendMode = Options::Get().environmentBlendModeValue);
+                CAPTURE(frameEndInfo.environmentBlendMode = envBlendMode);
                 CAPTURE(frameEndInfo.displayTime = frameState.predictedDisplayTime);
                 CAPTURE(frameEndInfo.layerCount = (uint32_t)layers.size());
                 frameEndInfo.layers = layers.data();
@@ -1295,16 +1298,16 @@ namespace Conformance
                 std::vector<XrCompositionLayerBaseHeader*> layers;
 
                 for (uint32_t i = 0; i < maxLayerCountPlus1; i++) {
-                    compositionHelper.AcquireWaitReleaseImage(projLayers[i]->views[0].subImage.swapchain,
-                                                              [&](const XrSwapchainImageBaseHeader* swapchainImage) {
-                                                                  GetGlobalData().graphicsPlugin->ClearImageSlice(swapchainImage);
-                                                              });
+                    compositionHelper.AcquireWaitReleaseImage(
+                        projLayers[i]->views[0].subImage.swapchain, [&](const XrSwapchainImageBaseHeader* swapchainImage) {
+                            GetGlobalData().graphicsPlugin->ClearImageSlice(swapchainImage, compositionHelper.GetEnvironmentBlendMode());
+                        });
 
                     layers.push_back(reinterpret_cast<XrCompositionLayerBaseHeader*>(projLayers[i]));
                 }
 
                 XrFrameEndInfo frameEndInfo{XR_TYPE_FRAME_END_INFO};
-                frameEndInfo.environmentBlendMode = Options::Get().environmentBlendModeValue;
+                frameEndInfo.environmentBlendMode = envBlendMode;
                 frameEndInfo.displayTime = frameState.predictedDisplayTime;
                 frameEndInfo.layerCount = (uint32_t)layers.size();
                 frameEndInfo.layers = layers.data();
@@ -1325,7 +1328,7 @@ namespace Conformance
 
                 for (auto& swapchain : swapchains) {
                     compositionHelper.AcquireWaitReleaseImage(swapchain, [&](const XrSwapchainImageBaseHeader* swapchainImage) {
-                        GetGlobalData().graphicsPlugin->ClearImageSlice(swapchainImage);
+                        GetGlobalData().graphicsPlugin->ClearImageSlice(swapchainImage, compositionHelper.GetEnvironmentBlendMode());
                     });
                 }
 
@@ -1334,7 +1337,7 @@ namespace Conformance
                 }
 
                 XrFrameEndInfo frameEndInfo{XR_TYPE_FRAME_END_INFO};
-                frameEndInfo.environmentBlendMode = Options::Get().environmentBlendModeValue;
+                frameEndInfo.environmentBlendMode = envBlendMode;
                 frameEndInfo.displayTime = frameState.predictedDisplayTime;
                 frameEndInfo.layerCount = (uint32_t)layers.size();
                 frameEndInfo.layers = layers.data();
@@ -1354,7 +1357,7 @@ namespace Conformance
 
                 for (auto& swapchain : swapchains) {
                     compositionHelper.AcquireWaitReleaseImage(swapchain, [&](const XrSwapchainImageBaseHeader* swapchainImage) {
-                        GetGlobalData().graphicsPlugin->ClearImageSlice(swapchainImage);
+                        GetGlobalData().graphicsPlugin->ClearImageSlice(swapchainImage, compositionHelper.GetEnvironmentBlendMode());
                     });
                 }
 
@@ -1371,7 +1374,7 @@ namespace Conformance
                 }
 
                 XrFrameEndInfo frameEndInfo{XR_TYPE_FRAME_END_INFO};
-                frameEndInfo.environmentBlendMode = Options::Get().environmentBlendModeValue;
+                frameEndInfo.environmentBlendMode = envBlendMode;
                 frameEndInfo.displayTime = frameState.predictedDisplayTime;
                 frameEndInfo.layerCount = (uint32_t)layers.size();
                 frameEndInfo.layers = layers.data();
@@ -1877,7 +1880,8 @@ namespace Conformance
                 }
             }
             std::vector<XrCompositionLayerBaseHeader*> layers;
-            if (XrCompositionLayerBaseHeader* projLayer = simpleProjectionLayerHelper.TryGetUpdatedProjectionLayer(frameState, cubes)) {
+            if (XrCompositionLayerBaseHeader* projLayer = simpleProjectionLayerHelper.TryGetUpdatedProjectionLayer(
+                    compositionHelper.GetEnvironmentBlendMode(), frameState, nullptr, cubes)) {
                 layers.push_back(projLayer);
             }
             return interactiveLayerManager.EndFrame(frameState, layers);
@@ -1984,7 +1988,7 @@ namespace Conformance
 
                         // Render into each view port of the wide swapchain using the projection layer view fov and pose.
                         compositionHelper.AcquireWaitReleaseImage(swapchain, [&](const XrSwapchainImageBaseHeader* swapchainImage) {
-                            GetGlobalData().graphicsPlugin->ClearImageSlice(swapchainImage);
+                            GetGlobalData().graphicsPlugin->ClearImageSlice(swapchainImage, compositionHelper.GetEnvironmentBlendMode());
                             for (size_t viewIndex = 0; viewIndex < views.size(); viewIndex++) {
                                 // views field is pointer to const, but views haven't been populated yet
                                 auto& projView = const_cast<XrCompositionLayerProjectionView&>(projLayer->views[viewIndex]);
@@ -2187,7 +2191,8 @@ namespace Conformance
                         // Render into each view's swapchain using the projection layer view fov and pose.
                         compositionHelper.AcquireWaitReleaseImage(
                             swapchain[layer][j].first, [&](const XrSwapchainImageBaseHeader* swapchainImage) {
-                                GetGlobalData().graphicsPlugin->ClearImageSlice(swapchainImage);
+                                GetGlobalData().graphicsPlugin->ClearImageSlice(swapchainImage,
+                                                                                compositionHelper.GetEnvironmentBlendMode());
 
                                 const_cast<XrFovf&>(projLayers[layer]->views[j].fov) = views[j].fov;
                                 const_cast<XrPosef&>(projLayers[layer]->views[j].pose) = views[j].pose;

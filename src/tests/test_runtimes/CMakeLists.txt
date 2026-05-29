@@ -34,6 +34,7 @@ endforeach()
 
 add_library(test_runtime MODULE runtime_test.cpp)
 set_target_properties(test_runtime PROPERTIES FOLDER ${LOADER_TESTS_FOLDER})
+add_sanitizers(test_runtime)
 target_link_libraries(test_runtime PRIVATE OpenXR::headers)
 
 add_dependencies(test_runtime xr_global_generated_files)
@@ -57,6 +58,8 @@ macro(gen_xr_runtime_json filename libfile)
             "Generating Runtime JSON ${filename} using -f ${filename} -l ${libfile} ${ARGN}"
     )
 endmacro()
+
+file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/openxr/1")
 
 gen_xr_runtime_json(
     "${CMAKE_CURRENT_BINARY_DIR}/openxr/1/active_runtime.json"

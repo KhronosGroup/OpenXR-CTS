@@ -17,6 +17,65 @@ particular, since it is primarily software, pull requests may be integrated as
 they are accepted even between periodic updates. However, versions that are not
 signed tags on the `approved` branch are not valid for conformance submission.
 
+## OpenXR CTS 1.1.60.0 (2026-05-28)
+
+- Conformance Tests
+  - Fix: Remove double free in `test_xrCreateInstance`.
+    ([internal MR 4283](https://gitlab.khronos.org/openxr/openxr/merge_requests/4283))
+  - Fix: Correct a `XR_EXT_view_configuration_views_change` test to allow
+    `XrEventDataViewConfigurationViewsChangedEXT` events to be sent at 1 Hz rate.
+    ([internal MR 4284](https://gitlab.khronos.org/openxr/openxr/merge_requests/4284))
+  - Fix: Resolve "warning X3206: implicit truncation of vector type?" in
+    `PbrPixelShader.hlsl`
+    ([internal MR 4287](https://gitlab.khronos.org/openxr/openxr/merge_requests/4287))
+  - Fix: Skip submitting the test name quad layer in headless mode when no
+    swapchain was created.
+    ([internal MR 4306](https://gitlab.khronos.org/openxr/openxr/merge_requests/4306))
+  - Fix: Reinitialize `XrViewConfigurationProperties` before reuse after a Catch2
+    SECTION that modified the next chain to avoid `use-after-scope` asan problems.
+    ([internal MR 4306](https://gitlab.khronos.org/openxr/openxr/merge_requests/4306))
+  - Fix: Incorrect usage of pose and haptic actions in `test_actions.cpp`.
+    ([internal MR 4308](https://gitlab.khronos.org/openxr/openxr/merge_requests/4308))
+  - Improvement: Write glTF files from `XR_EXT_render_model` to disk.
+    ([internal MR 4169](https://gitlab.khronos.org/openxr/openxr/merge_requests/4169))
+  - Improvement: More cleanup following `--environmentBlendMode` argument removal.
+    ([internal MR 4210](https://gitlab.khronos.org/openxr/openxr/merge_requests/4210),
+    [internal MR 4211](https://gitlab.khronos.org/openxr/openxr/merge_requests/4211),
+    [internal MR 4299](https://gitlab.khronos.org/openxr/openxr/merge_requests/4299))
+  - Improvement: Better errors from Vulkan instance / device creation.
+    ([internal MR 4235](https://gitlab.khronos.org/openxr/openxr/merge_requests/4235))
+  - Improvement: Enable `-Wc++20-extensions`.
+    ([internal MR 4265](https://gitlab.khronos.org/openxr/openxr/merge_requests/4265))
+  - Improvement: `XR_MND_headless` tests validate state transitions that should
+    happen after the call to `xrBeginSession`.
+    ([internal MR 4271](https://gitlab.khronos.org/openxr/openxr/merge_requests/4271))
+  - Improvement: Add CMake test to run the CTS with the
+    `XR_APILAYER_LUNARG_api_dump` layer and test runtime (when layer and CTS are in
+    a single unified repo).
+    ([internal MR 4301](https://gitlab.khronos.org/openxr/openxr/merge_requests/4301))
+  - Improvement: Print the name of the `XrResult` when hitting an invalid
+    `XrResult` return value from a function.
+    ([internal MR 4304](https://gitlab.khronos.org/openxr/openxr/merge_requests/4304))
+  - Improvement: Add CMake test to run the CTS with the
+    `XR_APILAYER_LUNARG_core_validation` layer and test runtime (when layer and CTS
+    are in a single unified repo).
+    ([internal MR 4306](https://gitlab.khronos.org/openxr/openxr/merge_requests/4306))
+  - Improvement: Allow `test_XR_EXT_debug_utils.cpp` to work with non-`STEREO` view
+    config.
+    ([internal MR 4316](https://gitlab.khronos.org/openxr/openxr/merge_requests/4316),
+    [internal issue 2737](https://gitlab.khronos.org/openxr/openxr/issues/2737))
+  - Improvement: Reduced timeout in test for spurious recommended view changes in
+    tests of `XR_EXT_view_configuration_views_change`.
+    ([internal MR 4319](https://gitlab.khronos.org/openxr/openxr/merge_requests/4319))
+  - New test: Interactive test for `XR_EXT_haptic_parametric`
+    ([internal MR 3307](https://gitlab.khronos.org/openxr/openxr/merge_requests/3307))
+  - New test: Add test for `XR_EXT_interaction_profile_battery_state_display`.
+    ([internal MR 4220](https://gitlab.khronos.org/openxr/openxr/merge_requests/4220),
+    [internal MR 4041](https://gitlab.khronos.org/openxr/openxr/merge_requests/4041))
+  - Update: Include khr/generic_controller in the list of generic profiles in the
+    usage document.
+    ([internal MR 4274](https://gitlab.khronos.org/openxr/openxr/merge_requests/4274))
+
 ## OpenXR CTS 1.1.58.0 (2026-04-09)
 
 - Conformance Tests
