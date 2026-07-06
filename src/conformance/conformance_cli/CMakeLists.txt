@@ -221,8 +221,8 @@ endif()
 
 if(MSVC)
     set_property(
-        TARGET conformance_cli
-        PROPERTY VS_DEBUGGER_WORKING_DIRECTORY "$<TARGET_FILE_DIR:conformance_cli>"
+        TARGET conformance_cli PROPERTY VS_DEBUGGER_WORKING_DIRECTORY
+                                        "$<TARGET_FILE_DIR:conformance_cli>"
     )
 endif()
 
@@ -239,7 +239,9 @@ install(FILES ../conformance_test/readme.md DESTINATION conformance)
 
 add_test(
     NAME conformance_cli
-    COMMAND conformance_cli -E XR_MND_headless exclude:[interactive]
+    COMMAND
+        conformance_cli -E XR_MND_headless exclude:[interactive] --reporter
+        junit::out=conformance_automated_headless.xml --reporter console
     WORKING_DIRECTORY "$<TARGET_FILE_DIR:conformance_cli>"
 )
 
@@ -346,4 +348,66 @@ if(TARGET XrApiLayer_core_validation)
     )
 
     add_dependencies(conformance_cli XrApiLayer_core_validation)
+endif()
+
+if(TARGET XrApiLayer_best_practices_validation)
+    gen_xr_layer_json(
+        "${CMAKE_CURRENT_BINARY_DIR}/XrApiLayer_best_practices_validation.json"
+        KHRONOS_best_practices_validation
+        "$<TARGET_FILE:XrApiLayer_best_practices_validation>"
+        1
+        "API Layer to modify runtime behavior in conformant but perhaps unexpected ways"
+        ""
+    )
+
+    add_custom_command(
+        TARGET conformance_cli
+        COMMAND
+            "${CMAKE_COMMAND}" -E copy
+            "${CMAKE_CURRENT_BINARY_DIR}/XrApiLayer_best_practices_validation.json"
+            "$<TARGET_FILE_DIR:conformance_cli>"
+        VERBATIM
+        COMMENT
+            "Copying conformance best_practices_validation layer manifest XrApiLayer_best_practices_validation.json"
+    )
+
+    # Add generated file to our sources so we depend on it, and thus trigger generation.
+    target_sources(
+        conformance_cli
+        PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/XrApiLayer_best_practices_validation.json"
+    )
+
+    add_test(
+        NAME conformance_cli_best_practices_validation
+        COMMAND conformance_cli -E XR_MND_headless exclude:[interactive]
+        WORKING_DIRECTORY "$<TARGET_FILE_DIR:conformance_cli>"
+    )
+
+    set_tests_properties(
+        conformance_cli_best_practices_validation
+        PROPERTIES
+            TIMEOUT
+            60
+            ENVIRONMENT
+            "XR_RUNTIME_JSON=${PROJECT_BINARY_DIR}/src/tests/test_runtimes/openxr/1/active_runtime.json;XR_ENABLE_API_LAYERS=XR_APILAYER_KHRONOS_best_practices_validation"
+    )
+
+    add_dependencies(conformance_cli XrApiLayer_best_practices_validation)
+endif()
+
+if((TARGET XrApiLayer_api_dump) AND (TARGET XrApiLayer_core_validation) AND (TARGET XrApiLayer_best_practices_validation))
+    add_test(
+        NAME conformance_cli_all_sdk_layers
+        COMMAND conformance_cli -E XR_MND_headless exclude:[interactive]
+        WORKING_DIRECTORY "$<TARGET_FILE_DIR:conformance_cli>"
+    )
+
+    set_tests_properties(
+        conformance_cli_all_sdk_layers
+        PROPERTIES
+            TIMEOUT
+            120
+            ENVIRONMENT
+            "XR_RUNTIME_JSON=${PROJECT_BINARY_DIR}/src/tests/test_runtimes/openxr/1/active_runtime.json;XR_ENABLE_API_LAYERS=XR_APILAYER_LUNARG_core_validation:XR_APILAYER_LUNARG_api_dump:XR_APILAYER_KHRONOS_best_practices_validation;XR_API_DUMP_EXPORT_TYPE=html"
+    )
 endif()

@@ -96,6 +96,17 @@ namespace Conformance
             CHECK(std::string(buffer) == expectedUnknownType);
         }
 
+        // Output buffer must not be read before the call writes to it.
+        SECTION("Non-null-terminated output buffer")
+        {
+            std::array<char, XR_MAX_STRUCTURE_NAME_SIZE_EXTENDED_KHR> dirtyBuffer;
+            dirtyBuffer.fill('X');
+            REQUIRE(XR_SUCCESS == xrStructureTypeToString2KHR(instance, XR_TYPE_INSTANCE_CREATE_INFO, dirtyBuffer.data()));
+            // check for null termination at the right place first: string is 28 bytes long
+            REQUIRE(dirtyBuffer[28] == '\0');
+            CHECK(std::string(dirtyBuffer.data()) == "XR_TYPE_INSTANCE_CREATE_INFO");
+        }
+
         // Exercise invalid handles
         OPTIONAL_INVALID_HANDLE_VALIDATION_SECTION
         {

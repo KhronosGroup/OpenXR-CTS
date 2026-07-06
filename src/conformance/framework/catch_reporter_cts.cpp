@@ -206,11 +206,11 @@ namespace Catch
 
         normalizeNamespaceMarkers(className);
 
-        writeSection(className, "", rootSection, stats.testInfo->okToFail());
+        writeSection(className, "", rootSection, stats.testInfo->okToFail(), stats.testInfo->tagsAsString());
     }
 
     void CTSReporter::writeSection(std::string const& className, std::string const& rootName, SectionNode const& sectionNode,
-                                   bool testOkToFail)
+                                   bool testOkToFail, std::string const& testTags)
     {
         std::string name = trim(sectionNode.stats.sectionInfo.name);
         if (!rootName.empty())
@@ -227,6 +227,7 @@ namespace Catch
                 xml.writeAttribute("name"_sr, name);
             }
             xml.writeAttribute("time"_sr, formatDuration(sectionNode.stats.durationInSeconds));
+            xml.writeAttribute("cts:tags"_sr, testTags);
             // This is not ideal, but it should be enough to mimic gtest's
             // junit output.
             // Ideally the JUnit reporter would also handle `skipTest`
@@ -246,9 +247,9 @@ namespace Catch
         }
         for (auto const& childNode : sectionNode.childSections)
             if (className.empty())
-                writeSection(name, "", *childNode, testOkToFail);
+                writeSection(name, "", *childNode, testOkToFail, testTags);
             else
-                writeSection(className, name, *childNode, testOkToFail);
+                writeSection(className, name, *childNode, testOkToFail, testTags);
     }
 
     void CTSReporter::writeAssertions(SectionNode const& sectionNode)

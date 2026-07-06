@@ -7,6 +7,7 @@
 #include "conformance_framework.h"
 #include "conformance_utils.h"
 #include "composition_utils.h"
+#include "matchers.h"
 #include <catch2/catch_test_macros.hpp>
 #include "utilities/system_properties_helper.h"
 #include "utilities/xr_math_operators.h"
@@ -226,19 +227,28 @@ namespace Conformance
                     createInfo.hand = (hand == 0 ? XR_HAND_LEFT_EXT : XR_HAND_RIGHT_EXT);
 
                     XrHandTrackerEXT handTracker = XR_NULL_HANDLE;
-                    REQUIRE(XR_SUCCESS == ext_ht.xrCreateHandTrackerEXT_(session, &createInfo, &handTracker));
+                    XrResult resultOfXrCreateHandTracker = ext_ht.xrCreateHandTrackerEXT_(session, &createInfo, &handTracker);
 
-                    XrHandTrackingMeshFB mesh{XR_TYPE_HAND_TRACKING_MESH_FB};
-                    REQUIRE(XR_SUCCESS == ext_htm.xrGetHandMeshFB_(handTracker, &mesh));
+                    // XR_EXT_hand_tracking_data_source requirement:
+                    //
+                    // The runtime may: instead return ename:XR_ERROR_FEATURE_UNSUPPORTED from
+                    // flink:xrCreateHandTrackerEXT, if for example the runtime believes it will
+                    // never be able to satisfy the request.
+                    REQUIRE_THAT(resultOfXrCreateHandTracker, In<XrResult>({XR_SUCCESS, XR_ERROR_FEATURE_UNSUPPORTED}));
 
-                    // Using XR_HAND_JOINT_SET_DEFAULT_EXT -> XR_HAND_JOINT_COUNT_EXT
-                    REQUIRE(mesh.jointCountOutput == XR_HAND_JOINT_COUNT_EXT);
-                    REQUIRE(mesh.vertexCountOutput != 0);
-                    REQUIRE(mesh.indexCountOutput != 0);
+                    if (resultOfXrCreateHandTracker == XR_SUCCESS) {
+                        XrHandTrackingMeshFB mesh{XR_TYPE_HAND_TRACKING_MESH_FB};
+                        REQUIRE(XR_SUCCESS == ext_htm.xrGetHandMeshFB_(handTracker, &mesh));
 
-                    m[dataSourcesIndex][hand] = HandMeshData::QueryHandMesh(ext_htm.xrGetHandMeshFB_, handTracker);
+                        // Using XR_HAND_JOINT_SET_DEFAULT_EXT -> XR_HAND_JOINT_COUNT_EXT
+                        REQUIRE(mesh.jointCountOutput == XR_HAND_JOINT_COUNT_EXT);
+                        REQUIRE(mesh.vertexCountOutput != 0);
+                        REQUIRE(mesh.indexCountOutput != 0);
 
-                    REQUIRE(XR_SUCCESS == ext_ht.xrDestroyHandTrackerEXT_(handTracker));
+                        m[dataSourcesIndex][hand] = HandMeshData::QueryHandMesh(ext_htm.xrGetHandMeshFB_, handTracker);
+
+                        REQUIRE(XR_SUCCESS == ext_ht.xrDestroyHandTrackerEXT_(handTracker));
+                    }
                 }
             }
 

@@ -249,8 +249,18 @@ namespace Conformance
         VersionSupportState support;
 
         XrInstanceProperties instanceProperties{XR_TYPE_INSTANCE_PROPERTIES};
-        /// The environment blend modes available for the view configuration type.
-        std::vector<XrEnvironmentBlendMode> availableBlendModes;
+    };
+
+    struct AvailableViewConfiguration
+    {
+        XrViewConfigurationType type;
+        std::vector<XrEnvironmentBlendMode> environmentBlendModes;
+    };
+
+    struct AvailableFormFactor
+    {
+        XrFormFactor type;
+        std::vector<AvailableViewConfiguration> viewConfigurations;
     };
 
     static_assert(XR_VERSION_MAJOR(XR_CURRENT_API_VERSION) == 1, "Array indexed by minor version");
@@ -382,9 +392,9 @@ namespace Conformance
         /// The interaction profiles that have been requested to be tested.
         StringVec enabledInteractionProfiles;
 
-        /// The environment blend modes available for the view configuration type.
-        /// This is queried with a 1.0 instance and assumed to be the same for all API versions.
-        std::vector<XrEnvironmentBlendMode> availableBlendModes;
+        /// The form factors, view configurations, and environment blend modes available to a minApiVersion instance.
+        /// This is assumed to be the same for all API versions.
+        std::vector<AvailableFormFactor> availableFormFactors;
 
         /// Whether each controller is to be used during testing
         bool leftHandUnderTest{false};

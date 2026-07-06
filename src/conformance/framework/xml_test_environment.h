@@ -19,6 +19,7 @@ namespace Conformance
     class ConformanceReport;
     struct Options;
     class GlobalData;
+    struct AvailableFormFactor;
 
     /// Write the xmlns:cts attribute to the currently open element
     void WriteXmlnsAttribute(Catch::XmlWriter& xml);
@@ -38,6 +39,10 @@ namespace Conformance
     /// Write data about the instance extensions as a `cts:availableInstanceExtensions` element
     /// containing a `cts:extensionProperties` element for each with data in its attributes.
     void WriteAvailableInstanceExtensions(Catch::XmlWriter& xml, const span<XrExtensionProperties> availableInstanceExtensions);
+
+    /// Write data about supported form factors, view configurations, and environment blend modes
+    /// as a `cts:availableFormFactors` element.
+    void WriteAvailableFormFactors(Catch::XmlWriter& xml, const span<AvailableFormFactor> availableFormFactors);
 
     /// Write out instance properties as a `cts:runtimeInstanceProperties` element with two sub-elements
     void WriteInstanceProperties(Catch::XmlWriter& xml, XrVersion apiVersion, const XrInstanceProperties& instanceProperties);

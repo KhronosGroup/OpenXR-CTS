@@ -68,7 +68,24 @@ AvailableInstanceExtensions =
         element extensionProperties {
             attribute extensionName { XrExtName_t },
             attribute extensionVersion { xsd:positiveInteger }
-        }
+        }*
+    }
+
+AvailableFormFactors =
+    element availableFormFactors {
+        element formFactor {
+            attribute value { XrUpperSnakeCase_t },
+            element availableViewConfigurations {
+                element viewConfiguration {
+                    attribute value { XrUpperSnakeCase_t },
+                    element availableEnvironmentBlendModes {
+                        element environmentBlendMode {
+                            attribute value { XrUpperSnakeCase_t }
+                        }*
+                    }
+                }*
+            }
+        }*
     }
 
 TestOptions =
@@ -125,10 +142,11 @@ TestOptions =
 TestEnvironment =
     element ctsTestEnvironment {
         RevisionInfo,
-        InstanceProperties*,
+        InstanceProperties+,
         TestOptions,
         AvailableApiLayers,
         AvailableInstanceExtensions,
+        AvailableFormFactors?,
         element graphicsPluginDescription { text }?
     }
 

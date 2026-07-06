@@ -147,6 +147,26 @@ namespace Conformance
                 }
             }
         }
+
+        SECTION("Unknown struct before graphics binding in next chain")
+        {
+            GraphicsPluginShutdownDeviceOnScopeExit pluginShutdown;
+            if (graphicsPlugin) {
+                REQUIRE(graphicsPlugin->InitializeDevice(instance, systemId, true /* checkGraphicsRequirements */));
+                pluginShutdown = GraphicsPluginShutdownDeviceOnScopeExit{graphicsPlugin.get()};
+                sessionCreateInfo.next = graphicsPlugin->GetGraphicsBinding();
+            }
+
+            // XrSessionCreateInfo -> UnrecognizableInputStruct -> GraphicsBinding
+            UnrecognizableInputStruct unknown;
+            unknown.Insert(&sessionCreateInfo);
+
+            XrResult result;
+            CAPTURE(result = xrCreateSession(instance, &sessionCreateInfo, &session));
+            CHECK(result == XR_SUCCESS);
+
+            cleanup.Destroy();
+        }
     }
 
     TEST_CASE("xrDestroySession", "")

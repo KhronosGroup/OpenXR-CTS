@@ -1564,10 +1564,18 @@ namespace Conformance
                 syncInfo.activeActionSets = &activeActionSet;
                 syncInfo.countActiveActionSets = 1;
 
-                REQUIRE_RESULT(xrSyncActions(session, &syncInfo), XR_SESSION_NOT_FOCUSED);
+                // If we are using XR_MND_headless, the runtime transitions to visible and focused
+                // after xrBeginSession without requiring frames.
+                if (globalData.IsUsingGraphicsPlugin()) {
+                    REQUIRE_RESULT(xrSyncActions(session, &syncInfo), XR_SESSION_NOT_FOCUSED);
 
-                REQUIRE_RESULT(xrGetActionStateBoolean(session, &getInfo, &actionStateBoolean), XR_SUCCESS);
-                REQUIRE_FALSE(actionStateBoolean.isActive);
+                    REQUIRE_RESULT(xrGetActionStateBoolean(session, &getInfo, &actionStateBoolean), XR_SUCCESS);
+                    REQUIRE_FALSE(actionStateBoolean.isActive);
+                }
+                else {
+                    REQUIRE_THAT(xrSyncActions(session, &syncInfo), In<XrResult>({XR_SUCCESS, XR_SESSION_NOT_FOCUSED}));
+                    REQUIRE_RESULT(xrGetActionStateBoolean(session, &getInfo, &actionStateBoolean), XR_SUCCESS);
+                }
             }
         }
         SECTION("Focus")
@@ -4938,6 +4946,22 @@ namespace Conformance
                     REQUIRE_RESULT(xrGetInputSourceLocalizedName(session, &getInfo, 0, &sourceCountOutput, nullptr), XR_ERROR_PATH_INVALID);
                     getInfo.sourcePath = (XrPath)0x1234;
                     REQUIRE_RESULT(xrGetInputSourceLocalizedName(session, &getInfo, 0, &sourceCountOutput, nullptr), XR_ERROR_PATH_INVALID);
+                }
+
+                // Output buffer must not be read before the call writes to it.
+                SECTION("Non-null-terminated output buffer")
+                {
+                    if (!enumerateResult.empty()) {
+                        getInfo.sourcePath = enumerateResult[0];
+                        getInfo.whichComponents = XR_INPUT_SOURCE_LOCALIZED_NAME_USER_PATH_BIT;
+                        uint32_t requiredSize;
+                        REQUIRE(xrGetInputSourceLocalizedName(session, &getInfo, 0, &requiredSize, nullptr) == XR_SUCCESS);
+                        std::vector<char> dirtyBuffer(requiredSize, 'X');
+                        uint32_t count;
+                        REQUIRE(xrGetInputSourceLocalizedName(session, &getInfo, requiredSize, &count, dirtyBuffer.data()) == XR_SUCCESS);
+                        CHECK(count > 0);
+                        CHECK(dirtyBuffer[count - 1] == '\0');
+                    }
                 }
 
                 SECTION("xrGetInputSourceLocalizedName-on-each")

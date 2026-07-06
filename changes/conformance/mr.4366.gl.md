@@ -1,0 +1,5 @@
+---
+- mr.4366.gl
+- issue.2761.gl
+---
+- Fix: Resolve invalid hand tracking data source assumption in `test_XR_FB_hand_tracking_mesh.cpp`

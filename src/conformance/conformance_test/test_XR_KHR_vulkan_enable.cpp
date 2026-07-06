@@ -164,6 +164,33 @@ namespace Conformance
                 session = XR_NULL_HANDLE;
             }
         }
+
+        // Output buffers must not be read before the call writes to them.
+        SECTION("Non-null-terminated output buffer for xrGetVulkanInstanceExtensionsKHR")
+        {
+            auto pfn = GetInstanceExtensionFunction<PFN_xrGetVulkanInstanceExtensionsKHR>(instance, "xrGetVulkanInstanceExtensionsKHR");
+            REQUIRE(pfn != nullptr);
+            uint32_t requiredSize;
+            REQUIRE(pfn(instance, systemId, 0, &requiredSize, nullptr) == XR_SUCCESS);
+            std::vector<char> dirtyBuffer(requiredSize, 'X');
+            uint32_t count;
+            REQUIRE(pfn(instance, systemId, requiredSize, &count, dirtyBuffer.data()) == XR_SUCCESS);
+            CHECK(count > 0);
+            CHECK(dirtyBuffer[count - 1] == '\0');
+        }
+
+        SECTION("Non-null-terminated output buffer for xrGetVulkanDeviceExtensionsKHR")
+        {
+            auto pfn = GetInstanceExtensionFunction<PFN_xrGetVulkanDeviceExtensionsKHR>(instance, "xrGetVulkanDeviceExtensionsKHR");
+            REQUIRE(pfn != nullptr);
+            uint32_t requiredSize;
+            REQUIRE(pfn(instance, systemId, 0, &requiredSize, nullptr) == XR_SUCCESS);
+            std::vector<char> dirtyBuffer(requiredSize, 'X');
+            uint32_t count;
+            REQUIRE(pfn(instance, systemId, requiredSize, &count, dirtyBuffer.data()) == XR_SUCCESS);
+            CHECK(count > 0);
+            CHECK(dirtyBuffer[count - 1] == '\0');
+        }
     }
 }  // namespace Conformance
 

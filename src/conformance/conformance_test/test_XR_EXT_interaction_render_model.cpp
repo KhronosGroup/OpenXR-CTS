@@ -258,7 +258,11 @@ namespace Conformance
         XrInstance instance = compositionHelper.GetInstance();
         XrSession session = compositionHelper.GetSession();
 
-        InteractiveLayerManager interactiveLayerManager(compositionHelper, nullptr, "XR_EXT_interaction_render_model");
+        InteractiveLayerManager interactiveLayerManager(
+            compositionHelper, "irm_interactive.jpeg",
+            "Make sure all devices use to interact in the scene are visible. "
+            "The devices should be accurately located and scaled to match their physical counterparts on all axes. "
+            "If two controller are used, make sure they appear to collide when brought together physically.");
 
         InteractionManager& interactionManager = compositionHelper.GetInteractionManager();
         ActionSetup actions{instance, interactionManager};
@@ -419,7 +423,11 @@ namespace Conformance
         XrInstance instance = compositionHelper.GetInstance();
         XrSession session = compositionHelper.GetSession();
 
-        InteractiveLayerManager interactiveLayerManager(compositionHelper, nullptr, "XR_EXT_interaction_render_model");
+        InteractiveLayerManager interactiveLayerManager(
+            compositionHelper, "irm_interactive.jpeg",
+            "Make sure all devices use to interact in the scene are visible. "
+            "The devices should be accurately located and scaled to match their physical counterparts on all axes. "
+            "If two controller are used, make sure they appear to collide when brought together physically. ");
 
         InteractionManager& interactionManager = compositionHelper.GetInteractionManager();
 
