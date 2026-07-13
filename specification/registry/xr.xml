@@ -21531,16 +21531,10 @@ typedef XrResult (XRAPI_PTR *<name>PFN_xrCreateApiLayerInstance</name>)(
         </require>
     </extension>
 
-    <extension name="XR_META_hand_tracking_unextrapolated_poses" number="684" depends="XR_VERSION_1_0+XR_EXT_hand_tracking" type="instance" supported="openxr">
+    <extension name="XR_META_extension_684" number="684" type="instance" supported="disabled">
         <require>
-            <enum value="1"                                                      name="XR_META_hand_tracking_unextrapolated_poses_SPEC_VERSION"/>
-            <enum value="&quot;XR_META_hand_tracking_unextrapolated_poses&quot;" name="XR_META_HAND_TRACKING_UNEXTRAPOLATED_POSES_EXTENSION_NAME"/>
-
-            <enum offset="0" extends="XrStructureType"                           name="XR_TYPE_HAND_TRACKING_UNEXTRAPOLATED_POSES_REQUEST_META"/>
-            <enum offset="1" extends="XrStructureType"                           name="XR_TYPE_HAND_TRACKING_UNEXTRAPOLATED_POSES_META"/>
-
-            <type name="XrHandTrackingUnextrapolatedPosesRequestMETA"/>
-            <type name="XrHandTrackingUnextrapolatedPosesMETA"/>
+            <enum value="1"                                 name="XR_META_extension_684_SPEC_VERSION"/>
+            <enum value="&quot;XR_META_extension_684&quot;" name="XR_META_extension_684_EXTENSION_NAME"/>
         </require>
     </extension>
 
@@ -21551,22 +21545,17 @@ typedef XrResult (XRAPI_PTR *<name>PFN_xrCreateApiLayerInstance</name>)(
         </require>
     </extension>
 
-    <extension name="XR_META_hand_tracking_frequency_hint" number="686" depends="XR_VERSION_1_0+XR_EXT_hand_tracking" type="instance" supported="openxr">
+    <extension name="XR_META_extension_686" number="686" type="instance" supported="disabled">
         <require>
-            <enum value="1"                                                name="XR_META_hand_tracking_frequency_hint_SPEC_VERSION"/>
-            <enum value="&quot;XR_META_hand_tracking_frequency_hint&quot;" name="XR_META_HAND_TRACKING_FREQUENCY_HINT_EXTENSION_NAME"/>
-
-            <type name="XrHandTrackingFrequencyHintMETA"/>
-            <command name="xrSetHandTrackingFrequencyHintMETA"/>
+            <enum value="1"                                 name="XR_META_extension_686_SPEC_VERSION"/>
+            <enum value="&quot;XR_META_extension_686&quot;" name="XR_META_extension_686_EXTENSION_NAME"/>
         </require>
     </extension>
 
-    <extension name="XR_META_hand_tracking_wide_motion_mode2" number="687" depends="XR_VERSION_1_0+XR_EXT_hand_tracking+XR_EXT_hand_tracking_data_source" type="instance" supported="openxr">
+    <extension name="XR_META_extension_687" number="687" type="instance" supported="disabled">
         <require>
-            <enum value="1"                                                   name="XR_META_hand_tracking_wide_motion_mode2_SPEC_VERSION"/>
-            <enum value="&quot;XR_META_hand_tracking_wide_motion_mode2&quot;" name="XR_META_HAND_TRACKING_WIDE_MOTION_MODE2_EXTENSION_NAME"/>
-
-            <enum offset="0" extends="XrHandTrackingDataSourceEXT"            name="XR_HAND_TRACKING_DATA_SOURCE_UNOBSTRUCTED_WIDE_MOTION_META" comment="This data source value indicates that the hand tracking system should use wide motion mode inference to provide hand poses when the hands are not directly visible to the tracking cameras"/>
+            <enum value="1"                                 name="XR_META_extension_687_SPEC_VERSION"/>
+            <enum value="&quot;XR_META_extension_687&quot;" name="XR_META_extension_687_EXTENSION_NAME"/>
         </require>
     </extension>
 
@@ -21612,24 +21601,35 @@ typedef XrResult (XRAPI_PTR *<name>PFN_xrCreateApiLayerInstance</name>)(
         </require>
     </extension>
 
-    <extension name="XR_META_extension_694" number="694" type="instance" supported="disabled">
+    <extension name="XR_META_hand_tracking_unextrapolated_poses" number="694" depends="XR_VERSION_1_0+XR_EXT_hand_tracking" type="instance" supported="openxr">
         <require>
-            <enum value="1"                                 name="XR_META_extension_694_SPEC_VERSION"/>
-            <enum value="&quot;XR_META_extension_694&quot;" name="XR_META_extension_694_EXTENSION_NAME"/>
+            <enum value="1"                                                      name="XR_META_hand_tracking_unextrapolated_poses_SPEC_VERSION"/>
+            <enum value="&quot;XR_META_hand_tracking_unextrapolated_poses&quot;" name="XR_META_HAND_TRACKING_UNEXTRAPOLATED_POSES_EXTENSION_NAME"/>
+
+            <enum offset="0" extends="XrStructureType"                           name="XR_TYPE_HAND_TRACKING_UNEXTRAPOLATED_POSES_REQUEST_META"/>
+            <enum offset="1" extends="XrStructureType"                           name="XR_TYPE_HAND_TRACKING_UNEXTRAPOLATED_POSES_META"/>
+
+            <type name="XrHandTrackingUnextrapolatedPosesRequestMETA"/>
+            <type name="XrHandTrackingUnextrapolatedPosesMETA"/>
         </require>
     </extension>
 
-    <extension name="XR_META_extension_695" number="695" type="instance" supported="disabled">
+    <extension name="XR_META_hand_tracking_frequency_hint" number="695" depends="XR_VERSION_1_0+XR_EXT_hand_tracking" type="instance" supported="openxr">
         <require>
-            <enum value="1"                                 name="XR_META_extension_695_SPEC_VERSION"/>
-            <enum value="&quot;XR_META_extension_695&quot;" name="XR_META_extension_695_EXTENSION_NAME"/>
+            <enum value="1"                                                name="XR_META_hand_tracking_frequency_hint_SPEC_VERSION"/>
+            <enum value="&quot;XR_META_hand_tracking_frequency_hint&quot;" name="XR_META_HAND_TRACKING_FREQUENCY_HINT_EXTENSION_NAME"/>
+
+            <type name="XrHandTrackingFrequencyHintMETA"/>
+            <command name="xrSetHandTrackingFrequencyHintMETA"/>
         </require>
     </extension>
 
-    <extension name="XR_META_extension_696" number="696" type="instance" supported="disabled">
+    <extension name="XR_META_hand_tracking_wide_motion_mode2" number="696" depends="XR_VERSION_1_0+XR_EXT_hand_tracking+XR_EXT_hand_tracking_data_source" type="instance" supported="openxr">
         <require>
-            <enum value="1"                                 name="XR_META_extension_696_SPEC_VERSION"/>
-            <enum value="&quot;XR_META_extension_696&quot;" name="XR_META_extension_696_EXTENSION_NAME"/>
+            <enum value="1"                                                   name="XR_META_hand_tracking_wide_motion_mode2_SPEC_VERSION"/>
+            <enum value="&quot;XR_META_hand_tracking_wide_motion_mode2&quot;" name="XR_META_HAND_TRACKING_WIDE_MOTION_MODE2_EXTENSION_NAME"/>
+
+            <enum offset="0" extends="XrHandTrackingDataSourceEXT"            name="XR_HAND_TRACKING_DATA_SOURCE_UNOBSTRUCTED_WIDE_MOTION_META" comment="This data source value indicates that the hand tracking system should use wide motion mode inference to provide hand poses when the hands are not directly visible to the tracking cameras"/>
         </require>
     </extension>
 

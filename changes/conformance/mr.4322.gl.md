@@ -1,4 +1,0 @@
----
-- mr.4322.gl
----
-- Improvement: Add reference image and description to `XR_EXT_interaction_render_model` interactive tests.

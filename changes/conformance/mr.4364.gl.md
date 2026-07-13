@@ -1,4 +1,0 @@
----
-- mr.4364.gl
----
-- Fix: Resolve issue in `xrSyncActions` test validation with `XR_MND_headless` enabled.

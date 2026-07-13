@@ -1,4 +1,0 @@
----
-- mr.4348.gl
----
-- Improvement: Report unsupported swapchain usage flags only once.

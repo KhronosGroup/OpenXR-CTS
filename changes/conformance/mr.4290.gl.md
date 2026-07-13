@@ -1,4 +1,0 @@
----
-- mr.4290.gl
----
-- New test: Pass an unrecognized structure in `xrCreateSession` `XrSessionCreateInfo::next` chain so graphics binding is not the first chained structure.
