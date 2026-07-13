@@ -30,7 +30,7 @@ with a `testcase` tag, e.g.:
 
 [source,xml]
 ----
-<testcase classname="global" name="Swapchains/Swapchain creation test parameters" time="1.207" status="run">
+<testcase classname="global" name="Swapchains/Swapchain creation test parameters" time="1.207" cts:tags="[composition]" status="run">
 ----
 
 If all assertions in that case passed, there are no child elements to the
@@ -70,4 +70,26 @@ the number of top level test cases):
 [source,xml]
 ----
 <cts:results testSuccessCount="1" testFailureCount="0"/>
+----
+
+The `cts:ctsTestEnvironment` block also records runtime capability data used
+to interpret the submission independently of the tester-selected command-line
+options. In addition to available API layers and instance extensions, it may
+contain the form factors for which the runtime returned a system, the view
+configurations available for each system, and the environment blend modes
+available for each view configuration:
+
+[source,xml]
+----
+<cts:availableFormFactors>
+  <cts:formFactor value="XR_FORM_FACTOR_HEAD_MOUNTED_DISPLAY">
+    <cts:availableViewConfigurations>
+      <cts:viewConfiguration value="XR_VIEW_CONFIGURATION_TYPE_PRIMARY_STEREO">
+        <cts:availableEnvironmentBlendModes>
+          <cts:environmentBlendMode value="XR_ENVIRONMENT_BLEND_MODE_OPAQUE"/>
+        </cts:availableEnvironmentBlendModes>
+      </cts:viewConfiguration>
+    </cts:availableViewConfigurations>
+  </cts:formFactor>
+</cts:availableFormFactors>
 ----

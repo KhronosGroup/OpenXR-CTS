@@ -361,7 +361,10 @@ namespace Conformance
     class UnrecognizableOutputStruct
     {
     public:
-        UnrecognizableOutputStruct();
+        UnrecognizableOutputStruct() : m_struct()
+        {
+            m_struct.type = XRC_UNRECOGNIZABLE_STRUCTURE_TYPE;
+        }
 
         UnrecognizableOutputStruct(UnrecognizableOutputStruct&&) = delete;
         UnrecognizableOutputStruct(const UnrecognizableOutputStruct&) = delete;
@@ -396,7 +399,11 @@ namespace Conformance
     class UnrecognizableInputStruct
     {
     public:
-        UnrecognizableInputStruct();
+        UnrecognizableInputStruct() : m_struct()
+        {
+            m_struct.type = XRC_UNRECOGNIZABLE_STRUCTURE_TYPE;
+        }
+
         UnrecognizableInputStruct(UnrecognizableInputStruct&&) = delete;
         UnrecognizableInputStruct(const UnrecognizableInputStruct&) = delete;
 

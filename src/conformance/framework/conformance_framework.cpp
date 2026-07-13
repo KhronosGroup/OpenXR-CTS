@@ -58,6 +58,67 @@ namespace Conformance
 
     static std::unique_ptr<GlobalData> globalDataInstance;
 
+    constexpr XrFormFactor kKnownFormFactors[] = {XR_FORM_FACTOR_HEAD_MOUNTED_DISPLAY, XR_FORM_FACTOR_HANDHELD_DISPLAY};
+
+    enum class FormFactorAvailabilityStatus
+    {
+        Available,
+        Unavailable,
+        Unsupported,
+    };
+
+    static bool QueryAvailableFormFactor(XrInstance instance, XrFormFactor formFactor, FormFactorAvailabilityStatus& status,
+                                         AvailableFormFactor& availability)
+    {
+        XrSystemGetInfo systemGetInfo{XR_TYPE_SYSTEM_GET_INFO};
+        systemGetInfo.formFactor = formFactor;
+
+        XrSystemId systemId{XR_NULL_SYSTEM_ID};
+        const XrResult getSystemResult = xrGetSystem(instance, &systemGetInfo, &systemId);
+        switch (getSystemResult) {
+        case XR_SUCCESS:
+            break;
+        case XR_ERROR_FORM_FACTOR_UNAVAILABLE:
+            status = FormFactorAvailabilityStatus::Unavailable;
+            return true;
+        case XR_ERROR_FORM_FACTOR_UNSUPPORTED:
+            status = FormFactorAvailabilityStatus::Unsupported;
+            return true;
+        default:
+            ReportF("QueryAvailableFormFactor: xrGetSystem failed while querying %s with result: %s.", enum_to_string(formFactor),
+                    ResultToString(getSystemResult));
+            return false;
+        }
+
+        std::vector<XrViewConfigurationType> viewConfigurations;
+        const XrResult enumerateViewConfigurationsResult =
+            doTwoCallInPlace(viewConfigurations, xrEnumerateViewConfigurations, instance, systemId);
+        if (XR_FAILED(enumerateViewConfigurationsResult)) {
+            ReportF("QueryAvailableFormFactor: xrEnumerateViewConfigurations failed while querying %s with result: %s.",
+                    enum_to_string(formFactor), ResultToString(enumerateViewConfigurationsResult));
+            return false;
+        }
+
+        status = FormFactorAvailabilityStatus::Available;
+        availability.type = formFactor;
+        availability.viewConfigurations.clear();
+        for (const XrViewConfigurationType viewConfiguration : viewConfigurations) {
+            AvailableViewConfiguration viewConfigurationAvailability{viewConfiguration, {}};
+            const XrResult enumerateEnvironmentBlendModesResult =
+                doTwoCallInPlace(viewConfigurationAvailability.environmentBlendModes, xrEnumerateEnvironmentBlendModes, instance, systemId,
+                                 viewConfiguration);
+            if (XR_FAILED(enumerateEnvironmentBlendModesResult)) {
+                ReportF("QueryAvailableFormFactor: xrEnumerateEnvironmentBlendModes failed while querying %s/%s with result: %s.",
+                        enum_to_string(formFactor), enum_to_string(viewConfiguration),
+                        ResultToString(enumerateEnvironmentBlendModesResult));
+                return false;
+            }
+            availability.viewConfigurations.emplace_back(std::move(viewConfigurationAvailability));
+        }
+
+        return true;
+    }
+
     void ResetGlobalData()
     {
         globalDataInstance.reset();
@@ -268,8 +329,19 @@ namespace Conformance
             }
         }
 
-        // Create an initial instance for the purpose of identifying available blend modes.
+        // Create an initial instance for the purpose of identifying available form factors, view configurations, and blend modes.
         AutoBasicInstance autoInstance(AutoBasicInstance::skipDebugMessenger);  // uses minApiVersion by default
+        availableFormFactors.clear();
+        for (const XrFormFactor formFactor : kKnownFormFactors) {
+            FormFactorAvailabilityStatus status{};
+            AvailableFormFactor availability{};
+            if (!QueryAvailableFormFactor(autoInstance.GetInstance(), formFactor, status, availability)) {
+                return false;
+            }
+            if (status == FormFactorAvailabilityStatus::Available) {
+                availableFormFactors.emplace_back(std::move(availability));
+            }
+        }
 
         isInitialized = true;
         return true;

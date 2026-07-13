@@ -131,6 +131,22 @@ namespace Conformance
                 }
             }
         }
+        // Output buffer must not be read before the call writes to it.
+        SECTION("Non-null-terminated output buffer")
+        {
+            XrPath testPath{XR_NULL_PATH};
+            REQUIRE(xrStringToPath(instance, "/user/hand/left", &testPath) == XR_SUCCESS);
+
+            std::array<char, XR_MAX_PATH_LENGTH> dirtyBuffer;
+            dirtyBuffer.fill('X');
+
+            uint32_t length;
+            REQUIRE(XR_SUCCESS == xrPathToString(instance, testPath, sizeof(dirtyBuffer), &length, dirtyBuffer.data()));
+            // check for null termination at the right place first: string is 15 bytes long
+            REQUIRE(dirtyBuffer[15] == '\0');
+            CHECK(std::string(dirtyBuffer.data()) == "/user/hand/left");
+        }
+
         SECTION("Try exceeding path count")
         {
             // Given that there is no way to free an XrPath, some runtimes may not be able to deal with

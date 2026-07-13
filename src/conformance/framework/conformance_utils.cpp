@@ -1363,14 +1363,4 @@ namespace Conformance
         return os;
     }
 
-    UnrecognizableOutputStruct::UnrecognizableOutputStruct() : m_struct()
-    {
-        m_struct.type = XRC_UNRECOGNIZABLE_STRUCTURE_TYPE;
-    }
-
-    UnrecognizableInputStruct::UnrecognizableInputStruct() : m_struct()
-    {
-        m_struct.type = XRC_UNRECOGNIZABLE_STRUCTURE_TYPE;
-    }
-
 }  // namespace Conformance

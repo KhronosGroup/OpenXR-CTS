@@ -17,6 +17,35 @@ particular, since it is primarily software, pull requests may be integrated as
 they are accepted even between periodic updates. However, versions that are not
 signed tags on the `approved` branch are not valid for conformance submission.
 
+## OpenXR CTS 1.1.61.0 (2026-07-09)
+
+Note that this release includes one change to the XML, merged post 1.1.61 spec
+release, correcting an error in vendor extension numbers.
+
+- Conformance Tests
+  - Fix: Resolve issue in `xrSyncActions` test validation with `XR_MND_headless`
+    enabled.
+    ([internal MR 4364](https://gitlab.khronos.org/openxr/openxr/merge_requests/4364))
+  - Fix: Resolve invalid hand tracking data source assumption in
+    `test_XR_FB_hand_tracking_mesh.cpp`
+    ([internal MR 4366](https://gitlab.khronos.org/openxr/openxr/merge_requests/4366),
+    [internal issue 2761](https://gitlab.khronos.org/openxr/openxr/issues/2761))
+  - Improvement: Add reference image and description to
+    `XR_EXT_interaction_render_model` interactive tests.
+    ([internal MR 4322](https://gitlab.khronos.org/openxr/openxr/merge_requests/4322))
+  - Improvement: Add CMake test to run the CTS with the
+    `XR_APILAYER_KHRONOS_best_practices_validation`.
+    ([internal MR 4330](https://gitlab.khronos.org/openxr/openxr/merge_requests/4330))
+  - Improvement: Report unsupported swapchain usage flags only once.
+    ([internal MR 4348](https://gitlab.khronos.org/openxr/openxr/merge_requests/4348))
+  - New test: Pass an unrecognized structure in `xrCreateSession`
+    `XrSessionCreateInfo::next` chain so graphics binding is not the first chained
+    structure.
+    ([internal MR 4290](https://gitlab.khronos.org/openxr/openxr/merge_requests/4290))
+  - New test: Add tests for output buffers that are non-null-terminated when passed
+    in.
+    ([internal MR 4311](https://gitlab.khronos.org/openxr/openxr/merge_requests/4311))
+
 ## OpenXR CTS 1.1.60.0 (2026-05-28)
 
 - Conformance Tests

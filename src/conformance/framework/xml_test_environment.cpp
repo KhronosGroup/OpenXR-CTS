@@ -26,6 +26,28 @@
 #define CTS_XML_NS_PREFIX_QUALIFIER CTS_XML_NS_PREFIX ":"
 namespace Conformance
 {
+    namespace
+    {
+        void WriteAvailableFormFactor(Catch::XmlWriter& xml, const AvailableFormFactor& availability)
+        {
+            auto formFactorElement = xml.scopedElement(CTS_XML_NS_PREFIX_QUALIFIER "formFactor");
+            xml.writeAttribute("value", enum_to_string(availability.type));
+
+            auto availableViewConfigurationsElement = xml.scopedElement(CTS_XML_NS_PREFIX_QUALIFIER "availableViewConfigurations");
+            for (const AvailableViewConfiguration& viewConfiguration : availability.viewConfigurations) {
+                auto viewConfigurationElement = xml.scopedElement(CTS_XML_NS_PREFIX_QUALIFIER "viewConfiguration");
+                xml.writeAttribute("value", enum_to_string(viewConfiguration.type));
+
+                auto availableEnvironmentBlendModesElement =
+                    xml.scopedElement(CTS_XML_NS_PREFIX_QUALIFIER "availableEnvironmentBlendModes");
+                for (const XrEnvironmentBlendMode environmentBlendMode : viewConfiguration.environmentBlendModes) {
+                    xml.scopedElement(CTS_XML_NS_PREFIX_QUALIFIER "environmentBlendMode")
+                        .writeAttribute("value", enum_to_string(environmentBlendMode));
+                }
+            }
+        }
+    }  // namespace
+
     void WriteXmlnsAttribute(Catch::XmlWriter& xml)
     {
         xml.writeAttribute("xmlns:" CTS_XML_NS_PREFIX, "https://github.com/KhronosGroup/OpenXR-CTS");
@@ -114,6 +136,15 @@ namespace Conformance
             xml.scopedElement(CTS_XML_NS_PREFIX_QUALIFIER "extensionProperties")
                 .writeAttribute("extensionName", extensionProperties.extensionName)
                 .writeAttribute("extensionVersion", extensionProperties.extensionVersion);
+        }
+    }
+
+    void WriteAvailableFormFactors(Catch::XmlWriter& xml, const span<AvailableFormFactor> availableFormFactors)
+    {
+        auto e = xml.scopedElement(CTS_XML_NS_PREFIX_QUALIFIER "availableFormFactors");
+
+        for (const AvailableFormFactor& availability : availableFormFactors) {
+            WriteAvailableFormFactor(xml, availability);
         }
     }
 
@@ -226,6 +257,8 @@ namespace Conformance
         WriteAvailableApiLayers(xml, globalData.availableAPILayers);
 
         WriteAvailableInstanceExtensions(xml, globalData.availableInstanceExtensions);
+
+        WriteAvailableFormFactors(xml, globalData.availableFormFactors);
 
         if (globalData.IsGraphicsPluginRequired()) {
             auto graphicsPlugin = globalData.GetGraphicsPlugin();

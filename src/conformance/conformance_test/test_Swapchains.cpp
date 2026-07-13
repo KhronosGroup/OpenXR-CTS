@@ -293,6 +293,7 @@ namespace Conformance
     {
         int swapchainCreateCount{0};
         int unsupportedCount{0};
+        std::set<XrSwapchainCreateFlags> unsupportedFlags;
     };
 
     static void testSwapchainCreation(XrSession session, SwapchainTestData& data, const XrSwapchainCreateInfo& swapchainCreateInfo,
@@ -313,9 +314,9 @@ namespace Conformance
         XrResult resultOfXrCreateSwapchain = xrCreateSwapchain(session, &swapchainCreateInfo, &swapchain);
         REQUIRE_THAT(resultOfXrCreateSwapchain, In<XrResult>({XR_SUCCESS, XR_ERROR_FEATURE_UNSUPPORTED}));
         if (resultOfXrCreateSwapchain == XR_ERROR_FEATURE_UNSUPPORTED) {
-            WARN("Unsupported config found");
             CAPTURE(resultOfXrCreateSwapchain);
             data.unsupportedCount++;
+            data.unsupportedFlags.insert(swapchainCreateInfo.createFlags);
         }
 
         if (XR_SUCCEEDED(resultOfXrCreateSwapchain)) {
@@ -483,6 +484,7 @@ namespace Conformance
                     // values for recommended and max sizes/counts. There's currently no association with a
                     // swapchain and view configuration.
 
+                    std::set<XrSwapchainCreateFlags> unsupportedFlags;
                     for (int64_t imageFormat : imageFormatArray) {
 
                         SwapchainCreateTestParameters tp;
@@ -503,11 +505,18 @@ namespace Conformance
                                 auto createInfo = nameAndCreateInfo.second;
                                 testSwapchainCreation(session, data, createInfo, tp);
                             }
+
+                            unsupportedFlags.merge(data.unsupportedFlags);
+
                             ReportF("    %d cases tested (%d unsupported)", data.swapchainCreateCount, data.unsupportedCount);
                             CAPTURE(data.swapchainCreateCount);
                             CAPTURE(data.unsupportedCount);
                         }
                     }
+
+                    std::for_each(unsupportedFlags.begin(), unsupportedFlags.end(), [](XrSwapchainCreateFlags flags) {
+                        WARN("Unsupported config found: " << XrSwapchainCreateFlagsRefCPP(flags).ToString());
+                    });
                 }
             }
         }

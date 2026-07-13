@@ -94,6 +94,16 @@ namespace Conformance
             CHECK(std::string(buffer) == expectedUnknownFailure);
         }
 
+        // Output buffer must not be read before the call writes to it.
+        SECTION("Non-null-terminated output buffer")
+        {
+            std::array<char, XR_MAX_RESULT_STRING_SIZE> dirtyBuffer;
+            dirtyBuffer.fill('X');
+            result = xrResultToString(instance, XR_SUCCESS, dirtyBuffer.data());
+            REQUIRE(result == XR_SUCCESS);
+            CHECK(std::string(dirtyBuffer.data()) == "XR_SUCCESS");
+        }
+
         // Exercise invalid handles
         OPTIONAL_INVALID_HANDLE_VALIDATION_SECTION
         {
