@@ -1,0 +1,4 @@
+---
+- mr.4397.gl
+---
+- Improvement: Test runtime sets the `session` field of `XrEventDataUserPresenceChangedEXT` when issuing the event.

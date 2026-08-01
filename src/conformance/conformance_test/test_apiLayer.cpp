@@ -17,6 +17,7 @@
 #include "conformance_framework.h"
 #include "conformance_options.h"
 #include "conformance_utils.h"
+#include "platform_exports.h"
 #include "utilities/types_and_constants.h"
 #include "utilities/utils.h"
 
@@ -28,14 +29,6 @@
 #include <mutex>
 #include <unordered_map>
 #include <vector>
-
-#if defined(__GNUC__) && __GNUC__ >= 4
-#define LAYER_EXPORT __attribute__((visibility("default")))
-#elif defined(__SUNPRO_C) && (__SUNPRO_C >= 0x590)
-#define LAYER_EXPORT __attribute__((visibility("default")))
-#else
-#define LAYER_EXPORT
-#endif
 
 namespace
 {
@@ -179,10 +172,10 @@ namespace
 }  // namespace
 
 // forward decl
-extern "C" LAYER_EXPORT XRAPI_ATTR XrResult XRAPI_CALL testLayer_xrNegotiateLoaderApiLayerInterface(
+extern "C" PLATFORM_EXPORT XRAPI_ATTR XrResult XRAPI_CALL testLayer_xrNegotiateLoaderApiLayerInterface(
     const XrNegotiateLoaderInfo* loaderInfo, const char* apiLayerName, XrNegotiateApiLayerRequest* apiLayerRequest);
 
-extern "C" LAYER_EXPORT XRAPI_ATTR XrResult XRAPI_CALL testLayer_xrNegotiateLoaderApiLayerInterface(
+extern "C" PLATFORM_EXPORT XRAPI_ATTR XrResult XRAPI_CALL testLayer_xrNegotiateLoaderApiLayerInterface(
     const XrNegotiateLoaderInfo* loaderInfo, const char* apiLayerName, XrNegotiateApiLayerRequest* apiLayerRequest)
 {
     if (loaderInfo == nullptr || loaderInfo->structType != XR_LOADER_INTERFACE_STRUCT_LOADER_INFO ||

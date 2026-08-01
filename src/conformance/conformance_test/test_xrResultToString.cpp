@@ -17,6 +17,7 @@
 #include "conformance_framework.h"
 #include "conformance_utils.h"
 #include "matchers.h"
+
 #include "utilities/stringification.h"
 #include "utilities/types_and_constants.h"
 
@@ -117,8 +118,7 @@ namespace Conformance
 
             // Exercise invalid instance
             {
-                GlobalData& globalData = GetGlobalData();
-                result = xrResultToString(globalData.invalidInstance, XR_SUCCESS, buffer);
+                result = xrResultToString(InvalidValues::InvalidHandleValue<XrInstance>(), XR_SUCCESS, buffer);
                 REQUIRE(ValidateResultAllowed("xrResultToString", result));
                 REQUIRE(result == XR_ERROR_HANDLE_INVALID);
             }

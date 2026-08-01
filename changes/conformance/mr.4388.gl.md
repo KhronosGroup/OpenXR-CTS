@@ -1,0 +1,5 @@
+---
+- mr.4388.gl
+- issue.2776.gl
+---
+- Fix: Remove "[composition]" tag from glTFRendering self test, so it is not included in a submission run.

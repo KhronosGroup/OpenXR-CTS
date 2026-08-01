@@ -17,6 +17,7 @@
 #include "conformance_framework.h"
 #include "conformance_utils.h"
 #include "matchers.h"
+
 #include "utilities/stringification.h"
 #include "utilities/utils.h"
 
@@ -151,7 +152,7 @@ namespace Conformance
         {
             for (auto& functionInfo : functionInfoMap) {
                 PFN_xrVoidFunction f;
-                XrResult result = xrGetInstanceProcAddr(globalData.invalidInstance, functionInfo.first.c_str(), &f);
+                XrResult result = xrGetInstanceProcAddr(InvalidValues::InvalidHandleValue<XrInstance>(), functionInfo.first.c_str(), &f);
 
                 // The OpenXR loader returns XR_ERROR_HANDLE_INVALID for this case, so we currently
                 // implement our test to reflect that. If the application were to provide its own

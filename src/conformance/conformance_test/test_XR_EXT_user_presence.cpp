@@ -76,6 +76,9 @@ namespace Conformance
             REQUIRE(XR_SUCCEEDED(pollResult));
 
             if (eventData.type == XR_TYPE_EVENT_DATA_USER_PRESENCE_CHANGED_EXT) {
+                const auto& userPresenceEvent = reinterpret_cast<const XrEventDataUserPresenceChangedEXT&>(eventData);
+                REQUIRE(userPresenceEvent.session == session.GetSession());
+
                 foundUserPresenceEvent = true;
 
                 // We don't require a user to be present for running automated tests,

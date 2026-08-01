@@ -18,6 +18,8 @@
 
 #include <openxr/openxr.h>
 
+#include <common/hex_and_handles.h>
+
 #include <cstdint>
 #include <iosfwd>
 #include <utility>
@@ -25,38 +27,18 @@
 
 namespace Conformance
 {
-/**
- * @defgroup cts_constants CTS framework constants
- * @ingroup cts_framework
- */
-/// @{
 
-/// Identifies the default invalid `XrInstance` value which isn't `XR_NULL_HANDLE`.
-#define XRC_INVALID_INSTANCE_VALUE XrInstance(UINT64_C(0xbaaaaaaaaaaaaaad))
+    /**
+     * @defgroup cts_constants CTS framework constants
+     * @ingroup cts_framework
+     */
+    /// @{
 
-/// Identifies the default invalid `XrSession` value which isn't `XR_NULL_HANDLE`.
-#define XRC_INVALID_SESSION_VALUE XrSession(UINT64_C(0xbaaaaaaaaaaaaaad))
+/// Identifies an invalid handle value.
+#define XRC_INVALID_HANDLE_VALUE UINT64_C(0xbaaaaaaaaaaaaaad)
 
-/// Identifies the default invalid `XrSpace` value which isn't `XR_NULL_HANDLE`.
-#define XRC_INVALID_SPACE_VALUE XrSpace(UINT64_C(0xbaaaaaaaaaaaaaad))
-
-/// Identifies the default invalid `XrSwapchain` value which isn't `XR_NULL_HANDLE`.
-#define XRC_INVALID_SWAPCHAIN_VALUE XrSwapchain(UINT64_C(0xbaaaaaaaaaaaaaad))
-
-/// Identifies the default invalid `XrActionSet` value which isn't `XR_NULL_HANDLE`.
-#define XRC_INVALID_ACTION_SET_VALUE XrActionSet(UINT64_C(0xbaaaaaaaaaaaaaad))
-
-/// Identifies the default invalid `XrAction` value which isn't `XR_NULL_HANDLE`.
-#define XRC_INVALID_ACTION_VALUE XrAction(UINT64_C(0xbaaaaaaaaaaaaaad))
-
-/// Identifies the default invalid `SystemId` value which isn't `XR_NULL_SYSTEM_ID`.
-#define XRC_INVALID_SYSTEM_ID_VALUE UINT64_C(0xbaaaaaaaaaaaaaad)
-
-/// Identifies the default invalid `XrPath` value which isn't `XR_NULL_PATH`.
-#define XRC_INVALID_PATH_VALUE UINT64_C(0xbaaaaaaaaaaaaaad)
-
-/// Identifies the default invalid `XrRenderModelIdEXT` value which isn't `XR_NULL_RENDER_MODEL_ID_EXT`.
-#define XRC_INVALID_RENDER_MODEL_ID_EXT_VALUE UINT64_C(0xbaaaaaaaaaaaaaad)
+/// Identifies an invalid atom value.
+#define XRC_INVALID_ATOM_VALUE UINT64_C(0xbaaaaaaaaaaaaaad)
 
 /// Identifies an invalid image format.
 ///
@@ -71,6 +53,22 @@ namespace Conformance
 #define XRC_UNRECOGNIZABLE_STRUCTURE_TYPE ((XrStructureType)((int)XR_STRUCTURE_TYPE_MAX_ENUM - 1))
 
     /// @}
+
+    struct InvalidValues
+    {
+        /// Specifies invalid values, which aren't XR_NULL_HANDLE. Used to exercise invalid handles.
+        template <typename T>
+        static T InvalidHandleValue()
+        {
+            return TreatIntegerAsHandle<T>(XRC_INVALID_HANDLE_VALUE);
+        }
+
+        template <typename T>
+        static T InvalidAtomValue()
+        {
+            return XRC_INVALID_ATOM_VALUE;
+        }
+    };
 
     /**
      * @defgroup cts_handle_helpers Handle-type utilities

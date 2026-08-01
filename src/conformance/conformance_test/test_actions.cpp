@@ -24,6 +24,7 @@
 #include "matchers.h"
 #include "report.h"
 #include "two_call.h"
+
 #include "utilities/feature_availability.h"
 #include "utilities/bitmask_to_string.h"
 #include "utilities/event_reader.h"
@@ -126,7 +127,8 @@ namespace Conformance
         }
         OPTIONAL_INVALID_HANDLE_VALIDATION_SECTION
         {
-            REQUIRE_RESULT(xrCreateActionSet(GetGlobalData().invalidInstance, &actionSetCreateInfo, &actionSet), XR_ERROR_HANDLE_INVALID);
+            REQUIRE_RESULT(xrCreateActionSet(InvalidValues::InvalidHandleValue<XrInstance>(), &actionSetCreateInfo, &actionSet),
+                           XR_ERROR_HANDLE_INVALID);
         }
         SECTION("Naming rules")
         {
@@ -451,7 +453,7 @@ namespace Conformance
             {
                 SECTION("Invalid instance")
                 {
-                    REQUIRE_RESULT(xrSuggestInteractionProfileBindings(GetGlobalData().invalidInstance, &bindings),
+                    REQUIRE_RESULT(xrSuggestInteractionProfileBindings(InvalidValues::InvalidHandleValue<XrInstance>(), &bindings),
                                    XR_ERROR_HANDLE_INVALID);
                 }
                 SECTION("Invalid action")

@@ -16,6 +16,7 @@
 
 #include "conformance_framework.h"
 #include "conformance_utils.h"
+
 #include "utilities/types_and_constants.h"
 #include "utilities/utils.h"
 
@@ -177,9 +178,8 @@ namespace Conformance
 
             // Invalid handle validation
             {
-                GlobalData& globalData = GetGlobalData();
                 // Exercise XR_ERROR_HANDLE_INVALID
-                result = xrPollEvent(globalData.invalidInstance, &eventData);
+                result = xrPollEvent(InvalidValues::InvalidHandleValue<XrInstance>(), &eventData);
                 CHECK(ValidateResultAllowed("xrPollEvent", result));
                 CHECK(result == XR_ERROR_HANDLE_INVALID);
 

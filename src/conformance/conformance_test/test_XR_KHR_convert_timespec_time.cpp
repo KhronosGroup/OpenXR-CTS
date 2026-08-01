@@ -94,7 +94,7 @@ namespace Conformance
                 REQUIRE(ValidateResultAllowed("xrConvertTimespecTimeToTimeKHR", result));
                 REQUIRE(result == XR_ERROR_HANDLE_INVALID);
 
-                result = xrConvertTimeToTimespecTimeKHR(globalData.invalidInstance, time1, &ts2);
+                result = xrConvertTimeToTimespecTimeKHR(InvalidValues::InvalidHandleValue<XrInstance>(), time1, &ts2);
                 REQUIRE(ValidateResultAllowed("xrConvertTimeToTimespecTimeKHR", result));
                 REQUIRE(result == XR_ERROR_HANDLE_INVALID);
             }

@@ -17,6 +17,7 @@
 #include "conformance_framework.h"
 #include "conformance_utils.h"
 #include "two_call.h"
+
 #include "utilities/xr_math_operators.h"
 
 #include <catch2/catch_test_macros.hpp>
@@ -79,7 +80,7 @@ namespace Conformance
                 CHECK(result == XR_ERROR_HANDLE_INVALID);
 
                 // Exercise any invalid handle.
-                result = xrCreateReferenceSpace(GlobalData().invalidSession, &reference_space_create_info, &localSpace);
+                result = xrCreateReferenceSpace(InvalidValues::InvalidHandleValue<XrSession>(), &reference_space_create_info, &localSpace);
                 CHECK(result == XR_ERROR_HANDLE_INVALID);
             }
         }

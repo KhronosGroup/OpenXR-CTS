@@ -356,16 +356,6 @@ namespace Conformance
 
         std::shared_ptr<IGraphicsPlugin> graphicsPlugin;
 
-        /// Specifies invalid values, which aren't XR_NULL_HANDLE. Used to exercise invalid handles.
-        XrInstance invalidInstance{XRC_INVALID_INSTANCE_VALUE};
-        XrSession invalidSession{XRC_INVALID_SESSION_VALUE};
-        XrSpace invalidSpace{XRC_INVALID_SPACE_VALUE};
-        XrSwapchain invalidSwapchain{XRC_INVALID_SWAPCHAIN_VALUE};
-        XrActionSet invalidActionSet{XRC_INVALID_ACTION_SET_VALUE};
-        XrAction invalidAction{XRC_INVALID_ACTION_VALUE};
-        XrSystemId invalidSystemId{XRC_INVALID_SYSTEM_ID_VALUE};
-        XrPath invalidPath{XRC_INVALID_PATH_VALUE};
-
         /// The API layers currently available.
         std::vector<XrApiLayerProperties> availableAPILayers;
         std::vector<std::string> availableAPILayerNames;

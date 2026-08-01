@@ -54,14 +54,7 @@ namespace Conformance
         void ValidateSwapchainImageStructs(ConformanceHooksBase* conformanceHooks, uint64_t swapchainFormat, uint32_t count,
                                            XrSwapchainImageBaseHeader* images) const override
         {
-            // TODO
-            (void)conformanceHooks;
-            (void)swapchainFormat;
-            (void)count;
-            (void)images;
-
-            const VkFormat expectedFormat = (VkFormat)swapchainFormat;
-
+            const VkFormat expectedFormat = static_cast<VkFormat>(swapchainFormat);
             const XrSwapchainImageVulkanKHR* const vkImages = reinterpret_cast<const XrSwapchainImageVulkanKHR*>(images);
             for (uint32_t i = 0; i < count; ++i) {
                 if (vkImages[i].type != XR_TYPE_SWAPCHAIN_IMAGE_VULKAN_KHR) {
@@ -74,7 +67,7 @@ namespace Conformance
                 if (imgFormat != expectedFormat) {
                     conformanceHooks->ConformanceFailure(
                         XR_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT, "xrEnumerateSwapchainImages",
-                        "xrEnumerateSwapchainImages failed: VkImage format is not expected format %d: Swapchain : %d", expectedFormat,
+                        "xrEnumerateSwapchainImages warning: VkImage format is not expected format %d: Swapchain : %d", expectedFormat,
                         imgFormat);
                 }
             }

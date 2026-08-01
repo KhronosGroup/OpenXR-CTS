@@ -17,6 +17,7 @@
 #include "conformance_framework.h"
 #include "conformance_utils.h"
 #include "matchers.h"
+
 #include "utilities/types_and_constants.h"
 
 #include <catch2/catch_test_macros.hpp>
@@ -112,8 +113,7 @@ namespace Conformance
 
             // Exercise invalid instance
             {
-                GlobalData& globalData = GetGlobalData();
-                result = xrStructureTypeToString(globalData.invalidInstance, XR_TYPE_UNKNOWN, buffer);
+                result = xrStructureTypeToString(InvalidValues::InvalidHandleValue<XrInstance>(), XR_TYPE_UNKNOWN, buffer);
                 REQUIRE(ValidateResultAllowed("xrStructureTypeToString", result));
                 REQUIRE(result == XR_ERROR_HANDLE_INVALID);
             }

@@ -1,0 +1,4 @@
+---
+- mr.4384.gl
+---
+- Improvement: Simplify creation of invalid handles and atoms in the CTS.

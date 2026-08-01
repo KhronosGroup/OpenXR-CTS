@@ -49,7 +49,7 @@ namespace Conformance
                 REQUIRE(XR_ERROR_RENDER_MODEL_ID_INVALID_EXT == ext.xrCreateRenderModelEXT_(session, &createInfo, &rm));
             }
 
-            createInfo.renderModelId = XRC_INVALID_RENDER_MODEL_ID_EXT_VALUE;
+            createInfo.renderModelId = InvalidValues::InvalidAtomValue<XrRenderModelIdEXT>();
             {
                 INFO("Invalid render model ID");
                 CAPTURE(createInfo.renderModelId);

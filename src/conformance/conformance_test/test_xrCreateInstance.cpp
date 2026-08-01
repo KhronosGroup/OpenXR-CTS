@@ -16,6 +16,7 @@
 
 #include "conformance_framework.h"
 #include "conformance_utils.h"
+
 #include "utilities/types_and_constants.h"
 #include "utilities/utils.h"
 
@@ -281,10 +282,9 @@ namespace Conformance
 
         OPTIONAL_INVALID_HANDLE_VALIDATION_SECTION
         {
-            GlobalData& globalData = GetGlobalData();
             SECTION("invalid handle")
             {
-                CHECK(xrDestroyInstance(globalData.invalidInstance) == XR_ERROR_HANDLE_INVALID);
+                CHECK(xrDestroyInstance(InvalidValues::InvalidHandleValue<XrInstance>()) == XR_ERROR_HANDLE_INVALID);
             }
             SECTION("second destroy of instance")
             {

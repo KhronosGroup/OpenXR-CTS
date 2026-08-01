@@ -18,6 +18,7 @@
 #include "conformance_utils.h"
 #include "matchers.h"
 #include "two_call.h"
+
 #include "utilities/types_and_constants.h"
 
 #include <catch2/catch_test_macros.hpp>
@@ -60,7 +61,7 @@ namespace Conformance
             CHECK(result == XR_ERROR_HANDLE_INVALID);
 
             // Exercise other invalid handles.
-            result = xrGetReferenceSpaceBoundsRect(GlobalData().invalidSession, XR_REFERENCE_SPACE_TYPE_VIEW, &extent);
+            result = xrGetReferenceSpaceBoundsRect(InvalidValues::InvalidHandleValue<XrSession>(), XR_REFERENCE_SPACE_TYPE_VIEW, &extent);
             CHECK(result == XR_ERROR_HANDLE_INVALID);
         }
 

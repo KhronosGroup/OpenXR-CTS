@@ -325,13 +325,14 @@ namespace
                     }
 
                     {
-                        INFO("Interactive tests are typically either [actions], [composition], or [no_auto]");
+                        INFO("Interactive tests are typically either [actions], [composition], [self_test] or [no_auto]");
                         // [interactive] tests are almost always not automatable [no_auto] except when
                         // they are [actions] tests using `XR_EXT_conformance_automation`
                         bool isNoAuto = testTags.find("[no_auto]") != std::string::npos;
                         bool isComposition = testTags.find("[composition]") != std::string::npos;
+                        bool isSelfTest = testTags.find("[self_test]") != std::string::npos;
                         bool isActions = testTags.find("[actions]") != std::string::npos;
-                        REQUIRE((isNoAuto || isComposition || isActions));
+                        REQUIRE((isNoAuto || isComposition || isSelfTest || isActions));
                     }
                 }
             }
