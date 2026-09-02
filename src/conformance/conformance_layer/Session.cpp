@@ -196,7 +196,7 @@ XrResult ConformanceHooks::xrCreateSession(HandleState* const handleState, XrIns
 
         static_assert(XR_TYPE_GRAPHICS_BINDING_VULKAN_KHR == XR_TYPE_GRAPHICS_BINDING_VULKAN2_KHR, "vulkan binding mismatch");
 
-        const XrBaseInStructure* graphicsBinding = NULL;
+        const XrBaseInStructure* graphicsBinding = nullptr;
         ForEachExtension(createInfo, [&](const XrBaseInStructure* next) {
             constexpr std::array<XrStructureType, 10> graphicsBindings{{
                 XR_TYPE_GRAPHICS_BINDING_OPENGL_WIN32_KHR,
@@ -214,12 +214,12 @@ XrResult ConformanceHooks::xrCreateSession(HandleState* const handleState, XrIns
             const auto it = std::find_if(graphicsBindings.begin(), graphicsBindings.end(),
                                          [&](const XrStructureType type) { return next->type == type; });
 
-            if (it != graphicsBindings.end() && graphicsBinding == NULL) {
+            if (it != graphicsBindings.end() && graphicsBinding == nullptr) {
                 graphicsBinding = next;
             }
         });
 
-        if (graphicsBinding != NULL) {
+        if (graphicsBinding != nullptr) {
             customSessionState->graphicsValidator = Conformance::CreateGraphicsValidator(graphicsBinding);
         }
         else if (this->enabledExtensions.mnd_headless) {

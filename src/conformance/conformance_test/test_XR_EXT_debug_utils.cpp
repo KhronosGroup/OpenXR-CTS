@@ -16,11 +16,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "utilities/utils.h"
 #include "conformance_utils.h"
 #include "conformance_framework.h"
-#include "utilities/throw_helpers.h"
+
 #include "common/hex_and_handles.h"
+#include "platform_plugin.h"
+#include "utilities/utils.h"
+#include "utilities/throw_helpers.h"
 
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers.hpp>
@@ -269,7 +271,7 @@ namespace Conformance
             CleanupInstanceOnScopeExit cleanup(instance);
 
             XrInstanceCreateInfo createInfo{XR_TYPE_INSTANCE_CREATE_INFO};
-            createInfo.next = globalData.requiredPlatformInstanceCreateStruct;
+            createInfo.next = globalData.GetPlatformPlugin()->GetInstanceCreateInfoStruct();
 
             strcpy(createInfo.applicationInfo.applicationName, "conformance test : XR_EXT_debug_utils");
             createInfo.applicationInfo.applicationVersion = 1;
@@ -324,9 +326,7 @@ namespace Conformance
 
             // Add debug info
             createInfo.next = &debugInfo;
-            if (globalData.requiredPlatformInstanceCreateStruct) {
-                debugInfo.next = globalData.requiredPlatformInstanceCreateStruct;
-            }
+            debugInfo.next = globalData.GetPlatformPlugin()->GetInstanceCreateInfoStruct();
 
             createInfo.enabledApiLayerCount = (uint32_t)enabledApiLayers.size();
             createInfo.enabledApiLayerNames = enabledApiLayers.data();
@@ -1124,31 +1124,31 @@ namespace Conformance
 
                 XrDebugUtilsMessengerCreateInfoEXT callback1 = {
                     XR_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT,   // type
-                    NULL,                                            // next
+                    nullptr,                                         // next
                     XR_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT |  // messageSeverities
                         XR_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT,
                     XR_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT |  // messageTypes
                         XR_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT,
                     myOutputDebugString,  // userCallback
-                    NULL                  // userData
+                    nullptr               // userData
                 };
                 XrDebugUtilsMessengerEXT messenger1 = XR_NULL_HANDLE;
                 CHK_XR(pfnCreateDebugUtilsMessengerEXT(instance, &callback1, &messenger1));
 
                 callback1.messageSeverities = XR_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
                 callback1.userCallback = myDebugBreak;
-                callback1.userData = NULL;
+                callback1.userData = nullptr;
                 XrDebugUtilsMessengerEXT messenger2 = XR_NULL_HANDLE;
                 CHK_XR(pfnCreateDebugUtilsMessengerEXT(instance, &callback1, &messenger2));
 
                 XrDebugUtilsMessengerCreateInfoEXT callback3 = {
                     XR_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT,    // type
-                    NULL,                                             // next
+                    nullptr,                                          // next
                     XR_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT,  // messageSeverities
                     XR_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT |     // messageTypes
                         XR_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT,
                     myStdOutLogger,  // userCallback
-                    NULL             // userData
+                    nullptr          // userData
                 };
                 XrDebugUtilsMessengerEXT messenger3 = XR_NULL_HANDLE;
                 CHK_XR(pfnCreateDebugUtilsMessengerEXT(instance, &callback3, &messenger3));
@@ -1176,7 +1176,7 @@ namespace Conformance
                 // Set a name on the space
                 const XrDebugUtilsObjectNameInfoEXT spaceNameInfo = {
                     XR_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT,  // type
-                    NULL,                                      // next
+                    nullptr,                                   // next
                     XR_OBJECT_TYPE_SPACE,                      // objectType
                     (uint64_t)space,                           // objectHandle
                     "My Object-Specific Space",                // objectName
@@ -1217,7 +1217,7 @@ namespace Conformance
 
                 const XrDebugUtilsLabelEXT session_active_region_label = {
                     XR_TYPE_DEBUG_UTILS_LABEL_EXT,  // type
-                    NULL,                           // next
+                    nullptr,                        // next
                     "Session active",               // labelName
                 };
 
@@ -1228,7 +1228,7 @@ namespace Conformance
                 {
                     XrDebugUtilsLabelEXT individual_label = {
                         XR_TYPE_DEBUG_UTILS_LABEL_EXT,  // type
-                        NULL,                           // next
+                        nullptr,                        // next
                         "WaitFrame",                    // labelName
                     };
 
@@ -1244,7 +1244,7 @@ namespace Conformance
 
                     const XrDebugUtilsLabelEXT session_frame_region_label = {
                         XR_TYPE_DEBUG_UTILS_LABEL_EXT,  // type
-                        NULL,                           // next
+                        nullptr,                        // next
                         "Session Frame 123",            // labelName
                     };
 

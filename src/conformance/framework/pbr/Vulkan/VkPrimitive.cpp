@@ -93,7 +93,7 @@ namespace Pbr
             modelConstantBuffer, materialConstantBuffer, transformBuffer, materialTextures, descriptorSet);
 
         vkUpdateDescriptorSets(pbrResources.GetDevice(), static_cast<uint32_t>(wds->writeDescriptorSets.size()),
-                               wds->writeDescriptorSets.data(), 0, NULL);
+                               wds->writeDescriptorSets.data(), 0, nullptr);
 
         Shader shader = GetMaterial()->GetShader();
         BlendState blendState = GetMaterial()->GetAlphaBlended();

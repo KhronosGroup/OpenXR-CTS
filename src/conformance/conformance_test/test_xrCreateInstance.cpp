@@ -17,6 +17,7 @@
 #include "conformance_framework.h"
 #include "conformance_utils.h"
 
+#include "platform_plugin.h"
 #include "utilities/types_and_constants.h"
 #include "utilities/utils.h"
 
@@ -41,15 +42,11 @@ namespace Conformance
         CleanupInstanceOnScopeExit cleanup(instance);
 
         XrInstanceCreateInfo createInfo{XR_TYPE_INSTANCE_CREATE_INFO};
-
+        createInfo.next = globalData.GetPlatformPlugin()->GetInstanceCreateInfoStruct();
         strcpy(createInfo.applicationInfo.applicationName, "conformance test");
         createInfo.applicationInfo.applicationVersion = 1;
         // Leave engineName and engineVersion empty, which is valid usage.
         createInfo.applicationInfo.apiVersion = Options::Get().minApiVersionValue;
-
-        if (globalData.requiredPlatformInstanceCreateStruct) {
-            createInfo.next = globalData.requiredPlatformInstanceCreateStruct;
-        }
 
         // Layers enabled at least for run-time conformance
         StringVec enabledApiLayers = globalData.enabledAPILayerNames;

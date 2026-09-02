@@ -17,8 +17,8 @@
 #include "conformance_framework.h"
 #include "conformance_utils.h"
 #include "matchers.h"
-
 #include "utilities/stringification.h"
+#include "utilities/throw_helpers.h"
 #include "utilities/types_and_constants.h"
 
 #include <catch2/catch_test_macros.hpp>
@@ -34,39 +34,42 @@
 namespace Conformance
 {
 
-    TEST_CASE("xrResultToString", "")
+    TEST_CASE("XR_KHR_extended_result_name_lengths", "[XR_KHR_extended_result_name_lengths]")
     {
-        // XrResult xrResultToString(XrInstance instance, XrResult value, char buffer[XR_MAX_RESULT_STRING_SIZE]);
+        GlobalData& globalData = GetGlobalData();
+        if (!globalData.IsInstanceExtensionSupported(XR_KHR_EXTENDED_RESULT_NAME_LENGTHS_EXTENSION_NAME)) {
+            SKIP(XR_KHR_EXTENDED_RESULT_NAME_LENGTHS_EXTENSION_NAME " not supported");
+        }
 
-        AutoBasicInstance instance;
+        AutoBasicInstance instance({XR_KHR_EXTENDED_RESULT_NAME_LENGTHS_EXTENSION_NAME});
+
+        auto xrResultToString2KHR = GetInstanceExtensionFunction<PFN_xrResultToString2KHR>(instance, "xrResultToString2KHR");
+        REQUIRE(xrResultToString2KHR != nullptr);
 
         XrResult result;
-        char buffer[XR_MAX_RESULT_STRING_SIZE];
+        char buffer[XR_MAX_RESULT_STRING_SIZE_EXTENDED_KHR];
 
         // Exercise every known core xrResult.
         const ResultStringMap& resultStringMap = GetResultStringMap();
 
         for (auto value : resultStringMap) {
-            result = xrResultToString(instance, value.first, buffer);
-            REQUIRE(ValidateResultAllowed("xrResultToString", result));
+            result = xrResultToString2KHR(instance, value.first, buffer);
+            REQUIRE(ValidateResultAllowed("xrResultToString2KHR", result));
             REQUIRE(result == XR_SUCCESS);
             bool allowGeneratedName = false;
             uint64_t ext_num = 0;
             if (std::abs(value.first) >= XR_EXTENSION_ENUM_BASE) {
                 // This is an extension
-                ext_num = enumValueToExtensionNumber(std::abs(value.first));
+                ext_num = (std::abs(value.first) - XR_EXTENSION_ENUM_BASE) / XR_EXTENSION_ENUM_STRIDE + 1;
                 if (!IsInstanceExtensionEnabled(ext_num)) {
                     // It's not enabled, so not enforcing that it must be the real value.
                     allowGeneratedName = true;
                 }
             }
 
-            // See test_XR_KHR_extended_result_name_length for strings which are
-            // longer than XR_MAX_RESULT_STRING_SIZE.
+            // Note: unlike test_xrResultToString.cpp we expect the extended string here.
             std::string expectedString(value.second);
-            if (expectedString.size() >= XR_MAX_RESULT_STRING_SIZE - 1) {
-                expectedString.resize(XR_MAX_RESULT_STRING_SIZE - 1);
-            }
+            XRC_CHECK_THROW(expectedString.size() < XR_MAX_RESULT_STRING_SIZE_EXTENDED_KHR);
 
             std::string returnedString(buffer);
             if (allowGeneratedName) {
@@ -77,10 +80,10 @@ namespace Conformance
                 else {
                     generatedName = "XR_UNKNOWN_SUCCESS_" + std::to_string(value.first);
                 }
-                CHECK_THAT(returnedString, In<std::string>({expectedString, generatedName}));
+                CHECK_THAT(returnedString, In<std::string>({std::string(value.second), generatedName}));
             }
             else {
-                CHECK(returnedString == expectedString);
+                CHECK(returnedString == value.second);
             }
         }
 
@@ -88,8 +91,8 @@ namespace Conformance
         {
             const int UnknownSuccess = 0x7ffffffe;  // 0x7fffffff is XR_RESULT_MAX_ENUM.
             std::string expectedUnknownSuccess = ("XR_UNKNOWN_SUCCESS_" + std::to_string(UnknownSuccess));
-            result = xrResultToString(instance, static_cast<XrResult>(UnknownSuccess), buffer);
-            REQUIRE(ValidateResultAllowed("xrResultToString", result));
+            result = xrResultToString2KHR(instance, static_cast<XrResult>(UnknownSuccess), buffer);
+            REQUIRE(ValidateResultAllowed("xrResultToString2KHR", result));
             REQUIRE(result == XR_SUCCESS);
             CHECK(std::string(buffer) == expectedUnknownSuccess);
         }
@@ -97,20 +100,10 @@ namespace Conformance
         // Exercise XR_UNKNOWN_FAILURE_XXX
         {
             std::string expectedUnknownFailure = ("XR_UNKNOWN_FAILURE_" + std::to_string((int)0x80000000));
-            result = xrResultToString(instance, static_cast<XrResult>(0x80000000), buffer);
-            REQUIRE(ValidateResultAllowed("xrResultToString", result));
+            result = xrResultToString2KHR(instance, static_cast<XrResult>(0x80000000), buffer);
+            REQUIRE(ValidateResultAllowed("xrResultToString2KHR", result));
             REQUIRE(result == XR_SUCCESS);
             CHECK(std::string(buffer) == expectedUnknownFailure);
-        }
-
-        // Output buffer must not be read before the call writes to it.
-        SECTION("Non-null-terminated output buffer")
-        {
-            std::array<char, XR_MAX_RESULT_STRING_SIZE> dirtyBuffer;
-            dirtyBuffer.fill('X');
-            result = xrResultToString(instance, XR_SUCCESS, dirtyBuffer.data());
-            REQUIRE(result == XR_SUCCESS);
-            CHECK(std::string(dirtyBuffer.data()) == "XR_SUCCESS");
         }
 
         // Exercise invalid handles
@@ -119,15 +112,15 @@ namespace Conformance
 
             // Exercise null instance
             {
-                result = xrResultToString(XR_NULL_HANDLE_CPP, XR_SUCCESS, buffer);
-                REQUIRE(ValidateResultAllowed("xrResultToString", result));
+                result = xrResultToString2KHR(XR_NULL_HANDLE_CPP, XR_SUCCESS, buffer);
+                REQUIRE(ValidateResultAllowed("xrResultToString2KHR", result));
                 REQUIRE(result == XR_ERROR_HANDLE_INVALID);
             }
 
             // Exercise invalid instance
             {
-                result = xrResultToString(InvalidValues::InvalidHandleValue<XrInstance>(), XR_SUCCESS, buffer);
-                REQUIRE(ValidateResultAllowed("xrResultToString", result));
+                result = xrResultToString2KHR(InvalidValues::InvalidHandleValue<XrInstance>(), XR_SUCCESS, buffer);
+                REQUIRE(ValidateResultAllowed("xrResultToString2KHR", result));
                 REQUIRE(result == XR_ERROR_HANDLE_INVALID);
             }
         }

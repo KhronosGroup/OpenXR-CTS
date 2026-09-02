@@ -53,10 +53,8 @@ namespace Conformance
         // May be called only if successfully initialized.
         virtual std::vector<std::string> GetInstanceExtensions() const = 0;
 
-        // Provide extension to the next field for the given structure.
-        // Returns nullptr if there are no extension needed.
-        // May be called only if successfully initialized.
-        virtual XrBaseInStructure* PopulateNextFieldForStruct(XrStructureType t) const = 0;
+        // Required instance creation extension struct, or nullptr.
+        virtual const XrBaseInStructure* GetInstanceCreateInfoStruct() const = 0;
     };
 
     // Create a platform plugin for the platform specified at compile time.

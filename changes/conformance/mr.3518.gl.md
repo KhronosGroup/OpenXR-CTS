@@ -2,4 +2,4 @@
 - mr.3518.gl
 - mr.4398.gl
 ---
-- Improvement: Revise grip surface test to better reflect spec intent.
+- Improvement: Revise "grip_surface" test to better reflect spec intent.

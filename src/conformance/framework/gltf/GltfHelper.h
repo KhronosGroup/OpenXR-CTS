@@ -119,11 +119,11 @@ namespace GltfHelper
 
     // Passes image data throguh as-is if the image name ends in ".ktx2" or the mime type is "image/ktx2". Otherwise forwards to tinygltf.
     bool PassThroughKTX2(tinygltf::Image* image, const int image_idx, std::string* err, std::string* warn, int req_width, int req_height,
-                         const unsigned char* bytes, int size, void* user_data) noexcept;
+                         const unsigned char* bytes, int size, void* user_data);
 
     /// For images identified as KTX2, pass their data through as-is, setting the as-is flag.
     bool PassThroughKTX2(tinygltf::Image* image, const int image_idx, std::string* err, std::string* warn, int req_width, int req_height,
-                         const unsigned char* bytes, int size, void* /* user_data */) noexcept;
+                         const unsigned char* bytes, int size, void* /* user_data */);
 
     /// Converts the image to RGBA if necessary. Requires a temporary buffer only if it needs to be converted.
     Conformance::Image::Image DecodeImage(const tinygltf::Image& image, bool sRGB,

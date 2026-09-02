@@ -36,15 +36,17 @@ various aspects of runtime behavior.
 This layer **must** be loaded and active for a test run to be considered
 valid.
 
-When you plan to submit for conformance, please observe the following
-considerations to ensure that the build system has accurate source code
-revision information available to embed in the test suite and output
-reports.
-You **must** build from a git repo (forked from either the internal Gitlab
-or public GitHub) with tags available (a full clone, not shallow).
-You also **must** either perform a clean build, from an empty binary tree,
-or at least run `cmake` immediately before building to pick up current
-source tree status.
+If you are not using one of the pre-built CTS binaries created with the
+CTS release, then when you plan to submit for conformance, please observe
+the following considerations to ensure that the build system has accurate
+source code revision information available to embed in the test suite and
+output reports.
+* You **must** build from a git repo (forked from either the internal Gitlab
+  or public GitHub) with tags available (a full clone, not shallow).
+* You also **must** either perform a clean build, from an empty binary tree,
+  or at least run `cmake` immediately before building to pick up current
+  source tree status.
+
 If your "porting" process (as described by the conformance process
 documents) involves replacing the build system, you **must** populate the
 revision data constants in `utilities/git_revision.cpp.in` accurately.

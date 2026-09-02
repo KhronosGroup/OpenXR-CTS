@@ -334,13 +334,14 @@ namespace Conformance
     // CreateBasicInstance
     ////////////////////////////////////////////////////////////////////////////////////////////////
 
-    static XrResult CreateBasicInstanceImpl(XrInstance* instance, XrBaseInStructure* requiredPlatformInstanceCreateStruct,
+    static XrResult CreateBasicInstanceImpl(XrInstance* instance, const XrBaseInStructure* requiredPlatformInstanceCreateStruct,
                                             bool permitDebugMessenger, XrVersion apiVersion, const StringVec& extensions,
                                             const StringVec& enabledAPILayerNames)
     {
 
         XrDebugUtilsMessengerCreateInfoEXT debugInfo = MakeMessengerCreateInfo();
         XrInstanceCreateInfo createInfo{XR_TYPE_INSTANCE_CREATE_INFO};
+        createInfo.next = requiredPlatformInstanceCreateStruct;
         createInfo.applicationInfo.applicationVersion = 1;
         strcpy(createInfo.applicationInfo.applicationName, "conformance test");
         createInfo.applicationInfo.apiVersion = apiVersion;
@@ -350,9 +351,6 @@ namespace Conformance
         createInfo.enabledExtensionCount = (uint32_t)extensions.size();
         createInfo.enabledExtensionNames = extensions.data();
 
-        if (requiredPlatformInstanceCreateStruct != nullptr) {
-            createInfo.next = requiredPlatformInstanceCreateStruct;
-        }
         if (permitDebugMessenger) {
             debugInfo.next = createInfo.next;
             createInfo.next = &debugInfo;
@@ -375,7 +373,7 @@ namespace Conformance
             extensions.push_back_unique(enabledExt);
         }
 
-        return CreateBasicInstanceImpl(instance, globalData.requiredPlatformInstanceCreateStruct, permitDebugMessenger,
+        return CreateBasicInstanceImpl(instance, globalData.GetPlatformPlugin()->GetInstanceCreateInfoStruct(), permitDebugMessenger,
                                        Options::Get().minApiVersionValue, extensions, globalData.enabledAPILayerNames);
     }
 
@@ -410,8 +408,8 @@ namespace Conformance
         for (auto& ext : featureSet.GetExtensions()) {
             extensions.push_back_unique(ext);
         }
-        return CreateBasicInstanceImpl(instance, globalData.requiredPlatformInstanceCreateStruct, permitDebugMessenger, requestedVersion,
-                                       extensions, globalData.enabledAPILayerNames);
+        return CreateBasicInstanceImpl(instance, globalData.GetPlatformPlugin()->GetInstanceCreateInfoStruct(), permitDebugMessenger,
+                                       requestedVersion, extensions, globalData.enabledAPILayerNames);
     }
 
     ////////////////////////////////////////////////////////////////////////////////////////////////
@@ -675,7 +673,6 @@ namespace Conformance
 
     void AutoBasicSession::BeginSession()
     {
-        GlobalData& globalData = GetGlobalData();
         // The session starts in (or gets directly transitioned to) the
         // XR_SESSION_STATE_IDLE state and will get transitioned to
         // XR_SESSION_STATE_READY by the runtime. But before that has not happened,
@@ -724,9 +721,8 @@ namespace Conformance
             FAIL("Time out waiting for XR_SESSION_STATE_READY session state change after creating a new session." << extraInfo);
         }
 
-        XrSessionBeginInfo sessionBeginInfo{XR_TYPE_SESSION_BEGIN_INFO,
-                                            globalData.GetPlatformPlugin()->PopulateNextFieldForStruct(XR_TYPE_SESSION_BEGIN_INFO),
-                                            viewConfigurationType};
+        XrSessionBeginInfo sessionBeginInfo{XR_TYPE_SESSION_BEGIN_INFO};
+        sessionBeginInfo.primaryViewConfigurationType = viewConfigurationType;
         XRC_CHECK_THROW_XRCMD(xrBeginSession(session, &sessionBeginInfo));
 
         // We potentially changed the view configuration so we need to update the viewConfigurationViewVector
@@ -1002,10 +998,8 @@ namespace Conformance
                     // If we just transitioned to READY then we will call begin session, otherwise we will be stuck.
                     // If the caller of this function does not desire this, it should use targetSessionState=XR_SESSION_STATE_READY
                     // so that it can handle it differently.
-                    GlobalData& globalData = GetGlobalData();
-                    XrSessionBeginInfo sessionBeginInfo{
-                        XR_TYPE_SESSION_BEGIN_INFO, globalData.GetPlatformPlugin()->PopulateNextFieldForStruct(XR_TYPE_SESSION_BEGIN_INFO),
-                        autoBasicSession->viewConfigurationType};
+                    XrSessionBeginInfo sessionBeginInfo{XR_TYPE_SESSION_BEGIN_INFO};
+                    sessionBeginInfo.primaryViewConfigurationType = autoBasicSession->viewConfigurationType;
                     REQUIRE(xrBeginSession(autoBasicSession->GetSession(), &sessionBeginInfo) == XR_SUCCESS);
                 }
 

@@ -362,9 +362,9 @@ namespace Conformance
 
     private:
 #if defined(VK_USE_PLATFORM_WIN32_KHR)
-        HINSTANCE hInst{NULL};
-        HWND hWnd{NULL};
-        HINSTANCE hUser32Dll{NULL};
+        HINSTANCE hInst{nullptr};
+        HWND hWnd{nullptr};
+        HINSTANCE hUser32Dll{nullptr};
 #endif
         const VkExtent2D size{640, 480};
         VkInstance m_vkInstance{VK_NULL_HANDLE};
@@ -382,7 +382,7 @@ namespace Conformance
 
 // Create a WSI surface for the window:
 #if defined(VK_USE_PLATFORM_WIN32_KHR)
-        hInst = GetModuleHandle(NULL);
+        hInst = GetModuleHandle(nullptr);
 
         WNDCLASSW wc{};
         wc.style = CS_CLASSDC;
@@ -406,7 +406,7 @@ namespace Conformance
         AdjustWindowRect(&rect, WS_OVERLAPPEDWINDOW, false);
         hWnd = CreateWindowW(wc.lpszClassName, L"conformance_test (Vulkan)", WS_OVERLAPPEDWINDOW | WS_VISIBLE, CW_USEDEFAULT, CW_USEDEFAULT,
                              rect.right - rect.left, rect.bottom - rect.top, 0, 0, hInst, 0);
-        assert(hWnd != NULL);
+        assert(hWnd != nullptr);
 
         SetWindowLongPtr(hWnd, 0, LONG_PTR(this));
 
@@ -2407,13 +2407,13 @@ namespace Conformance
             writeDescriptorSets[1].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
             writeDescriptorSets[1].pBufferInfo = &uboInfo;
 
-            vkUpdateDescriptorSets(m_vkDevice, (uint32_t)ArraySize(writeDescriptorSets), writeDescriptorSets, 0, NULL);
+            vkUpdateDescriptorSets(m_vkDevice, (uint32_t)ArraySize(writeDescriptorSets), writeDescriptorSets, 0, nullptr);
         }
 
         swapchainData->BindPipeline(m_cmdBuffer.buf, imageArrayIndex, SHADER_PROGRAM_TYPE_COMPUTE);
 
         vkCmdBindDescriptorSets(m_cmdBuffer.buf, VK_PIPELINE_BIND_POINT_COMPUTE, m_computePipelineLayout.layout, 0, 1,
-                                &m_ComputeDescriptorSet, 0, NULL);
+                                &m_ComputeDescriptorSet, 0, nullptr);
 
         CHECKPOINT();
 

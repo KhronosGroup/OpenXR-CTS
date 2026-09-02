@@ -275,7 +275,7 @@ namespace Pbr
             info.addressModeU = info.addressModeV = info.addressModeW = addressMode;
 
             VkSampler destSampler;
-            XRC_CHECK_THROW_VKCMD(vkCreateSampler(device, &info, NULL, &destSampler));
+            XRC_CHECK_THROW_VKCMD(vkCreateSampler(device, &info, nullptr, &destSampler));
             return destSampler;
         }
     }  // namespace VulkanTexture

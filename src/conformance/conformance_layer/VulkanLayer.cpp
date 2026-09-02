@@ -126,7 +126,7 @@ struct Device
             return &(*it);
         }
 
-        return NULL;
+        return nullptr;
     }
 };
 
@@ -179,7 +179,7 @@ static Instance *getInstance(VkInstance instance)
     if (it != instances.end()) {
         return &(*it);
     }
-    return NULL;
+    return nullptr;
 }
 
 static Device *getDevice(VkDevice device)
@@ -190,7 +190,7 @@ static Device *getDevice(VkDevice device)
     if (it != devices.end()) {
         return &(*it);
     }
-    return NULL;
+    return nullptr;
 }
 
 static Queue *getQueue(VkQueue queue)
@@ -204,7 +204,7 @@ static Queue *getQueue(VkQueue queue)
         }
     }
 
-    return NULL;
+    return nullptr;
 }
 
 static Image *getImage(VkImage image)
@@ -215,7 +215,7 @@ static Image *getImage(VkImage image)
     if (it != images.end()) {
         return &(*it);
     }
-    return NULL;
+    return nullptr;
 }
 
 bool InstanceVkExtensionEnabled(VkInstance instance, const char *extension)
@@ -293,8 +293,8 @@ static VKAPI_ATTR VkResult VKAPI_CALL createInstance(const VkInstanceCreateInfo 
 
     // Next layer/runtime's GIPA
     PFN_vkGetInstanceProcAddr getInstanceProcAddr = pLayerCreateInfo->u.pLayerInfo->pfnNextGetInstanceProcAddr;
-    PFN_vkCreateInstance fpCreateInstance = (PFN_vkCreateInstance)getInstanceProcAddr(NULL, "vkCreateInstance");
-    if (fpCreateInstance == NULL) {
+    PFN_vkCreateInstance fpCreateInstance = (PFN_vkCreateInstance)getInstanceProcAddr(nullptr, "vkCreateInstance");
+    if (fpCreateInstance == nullptr) {
         return VK_ERROR_INITIALIZATION_FAILED;
     }
 
@@ -356,8 +356,8 @@ static VKAPI_ATTR VkResult VKAPI_CALL createDevice(VkPhysicalDevice physicalDevi
     PFN_vkGetInstanceProcAddr getInstanceProcAddr = pLayerCreateInfo->u.pLayerInfo->pfnNextGetInstanceProcAddr;
     PFN_vkGetDeviceProcAddr getDeviceProcAddr = pLayerCreateInfo->u.pLayerInfo->pfnNextGetDeviceProcAddr;
 
-    PFN_vkCreateDevice fpCreateDevice = (PFN_vkCreateDevice)getInstanceProcAddr(NULL, "vkCreateDevice");
-    if (fpCreateDevice == NULL) {
+    PFN_vkCreateDevice fpCreateDevice = (PFN_vkCreateDevice)getInstanceProcAddr(nullptr, "vkCreateDevice");
+    if (fpCreateDevice == nullptr) {
         return VK_ERROR_INITIALIZATION_FAILED;
     }
 
@@ -569,7 +569,7 @@ static VKAPI_ATTR PFN_vkVoidFunction VKAPI_CALL getInstanceProcAddr(VkInstance i
 
 extern "C" VK_LAYER_EXPORT VKAPI_ATTR VkResult VKAPI_CALL vkNegotiateLoaderLayerInterfaceVersion(VkNegotiateLayerInterface *pVersionStruct)
 {
-    if (pVersionStruct == NULL || pVersionStruct->sType != LAYER_NEGOTIATE_INTERFACE_STRUCT) {
+    if (pVersionStruct == nullptr || pVersionStruct->sType != LAYER_NEGOTIATE_INTERFACE_STRUCT) {
         return VK_ERROR_INITIALIZATION_FAILED;
     }
 
@@ -601,10 +601,10 @@ static const VkLayerProperties layerProperty = {
 
 static VkResult getLayerProperties(uint32_t *pPropertyCount, VkLayerProperties *pProperties)
 {
-    if (pPropertyCount == NULL) {
+    if (pPropertyCount == nullptr) {
         return VK_INCOMPLETE;
     }
-    if (pProperties == NULL) {
+    if (pProperties == nullptr) {
         *pPropertyCount = 1;
         return VK_SUCCESS;
     }

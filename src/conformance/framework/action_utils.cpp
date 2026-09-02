@@ -147,7 +147,7 @@ namespace Conformance
 
     bool ActionLayerManager::EndFrame(const XrFrameState& frameState)
     {
-        std::lock_guard<std::mutex> lock(m_mutex);
+        std::scoped_lock<std::mutex> lock(m_mutex);
 
         if (m_displayMessageImage) {
             m_messageQuad = std::make_unique<MessageQuad>(m_compositionHelper, std::move(m_displayMessageImage), m_viewSpace);
@@ -182,7 +182,7 @@ namespace Conformance
         constexpr int TitleBorderPixels = 2;
         constexpr int InsetPixels = TitleBorderPixels + TitleFontPaddingPixels;
 
-        std::lock_guard<std::mutex> lock(m_mutex);
+        std::scoped_lock<std::mutex> lock(m_mutex);
 
         auto image = std::make_unique<RGBAImage>(768, (TitleFontHeightPixels + InsetPixels * 2) * 5);
         if (!message.empty()) {

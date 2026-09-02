@@ -1,0 +1,5 @@
+---
+- mr.3964.gl
+---
+- New test: `XR_KHR_extended_result_name_lengths`
+- Fix: Update `test_xrResultToString.cpp` to support longer result names.

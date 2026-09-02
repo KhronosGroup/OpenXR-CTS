@@ -1,0 +1,4 @@
+---
+- mr.4457.gl
+---
+- Documentation: Document that pre-built CTS binaries can be used for CTS submissions.

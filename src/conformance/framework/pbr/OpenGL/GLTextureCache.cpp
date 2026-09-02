@@ -41,7 +41,7 @@ namespace Pbr
         // Check cache to see if this flat texture already exists.
         const uint32_t colorKey = *reinterpret_cast<const uint32_t*>(rgba.data());
         {
-            std::lock_guard<std::mutex> guard(*m_cacheMutex);
+            std::scoped_lock<std::mutex> guard(*m_cacheMutex);
             auto textureIt = m_solidColorTextureCache.find(colorKey);
             if (textureIt != m_solidColorTextureCache.end()) {
                 return textureIt->second;
@@ -54,7 +54,7 @@ namespace Pbr
 
         auto texture = std::make_shared<ScopedGLTexture>(GLTexture::CreateTexture(image));
 
-        std::lock_guard<std::mutex> guard(*m_cacheMutex);
+        std::scoped_lock<std::mutex> guard(*m_cacheMutex);
         // If the key already exists then the existing texture will be returned.
         return m_solidColorTextureCache.emplace(colorKey, texture).first->second;
     }

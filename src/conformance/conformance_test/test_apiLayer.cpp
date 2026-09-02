@@ -14,10 +14,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "conformance_utils.h"
 #include "conformance_framework.h"
 #include "conformance_options.h"
 #include "conformance_utils.h"
 #include "platform_exports.h"
+#include "platform_plugin.h"
 #include "utilities/types_and_constants.h"
 #include "utilities/utils.h"
 
@@ -238,16 +240,11 @@ namespace Conformance
         CleanupInstanceOnScopeExit cleanup(instance);
 
         XrInstanceCreateInfo createInfo{XR_TYPE_INSTANCE_CREATE_INFO};
-
+        createInfo.next = globalData.GetPlatformPlugin()->GetInstanceCreateInfoStruct();
         strcpy(createInfo.applicationInfo.applicationName, "conformance test");
         createInfo.applicationInfo.applicationVersion = 1;
         // Leave engineName and engineVersion empty, which is valid usage.
         createInfo.applicationInfo.apiVersion = Options::Get().minApiVersionValue;
-
-        if (globalData.requiredPlatformInstanceCreateStruct) {
-            createInfo.next = globalData.requiredPlatformInstanceCreateStruct;
-        }
-
         createInfo.enabledApiLayerCount = (uint32_t)enabledApiLayers.size();
         createInfo.enabledApiLayerNames = enabledApiLayers.data();
         createInfo.enabledExtensionCount = (uint32_t)enabledExtensions.size();

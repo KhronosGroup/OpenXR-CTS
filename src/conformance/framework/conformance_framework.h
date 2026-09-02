@@ -390,10 +390,6 @@ namespace Conformance
         bool leftHandUnderTest{false};
         bool rightHandUnderTest{false};
 
-        /// Required instance creation extension struct, or nullptr.
-        /// This is a pointer into IPlatformPlugin-provided memory.
-        XrBaseInStructure* requiredPlatformInstanceCreateStruct{};
-
     private:
         VersionDependentDataArray versionDependentData;
     };

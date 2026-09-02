@@ -200,6 +200,7 @@ namespace
             GlobalData& globalData = GetGlobalData();
 
             XrInstanceCreateInfo createInfo{XR_TYPE_INSTANCE_CREATE_INFO};
+            createInfo.next = globalData.GetPlatformPlugin()->GetInstanceCreateInfoStruct();
             createInfo.applicationInfo.applicationVersion = 1;
             strcpy(createInfo.applicationInfo.applicationName, "conformance test");
             createInfo.applicationInfo.apiVersion = apiVersion;
@@ -209,10 +210,6 @@ namespace
             StringVec extensions(globalData.enabledInstanceExtensionNames);
             createInfo.enabledExtensionCount = (uint32_t)extensions.size();
             createInfo.enabledExtensionNames = extensions.data();
-
-            if (globalData.requiredPlatformInstanceCreateStruct != nullptr) {
-                createInfo.next = globalData.requiredPlatformInstanceCreateStruct;
-            }
 
             XrInstance instance{XR_NULL_HANDLE};
             XrResult result = xrCreateInstance(&createInfo, &instance);

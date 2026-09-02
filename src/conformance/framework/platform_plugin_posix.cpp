@@ -65,9 +65,8 @@ namespace Conformance
             return {};
         }
 
-        XrBaseInStructure* PopulateNextFieldForStruct(XrStructureType t) const override
+        const XrBaseInStructure* GetInstanceCreateInfoStruct() const override
         {
-            (void)t;
             return nullptr;
         }
 

@@ -1,0 +1,4 @@
+---
+- mr.4433.gl
+---
+- Improvement: Allow `runClangTidy.sh` to run with clang-tidy 18.
