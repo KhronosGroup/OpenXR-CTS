@@ -69,7 +69,7 @@ namespace Conformance
         {
             INFO("Known-invalid model key: " << Uint64ToHexString(modelKey));
             uint32_t countOutput = 0;
-            CHECK(XR_ERROR_CONTROLLER_MODEL_KEY_INVALID_MSFT == xrLoadControllerModelMSFT_(session, modelKey, 0, &countOutput, NULL));
+            CHECK(XR_ERROR_CONTROLLER_MODEL_KEY_INVALID_MSFT == xrLoadControllerModelMSFT_(session, modelKey, 0, &countOutput, nullptr));
 
             XrControllerModelPropertiesMSFT modelProperties{XR_TYPE_CONTROLLER_MODEL_PROPERTIES_MSFT};
             CHECK(XR_ERROR_CONTROLLER_MODEL_KEY_INVALID_MSFT == xrGetControllerModelPropertiesMSFT_(session, modelKey, &modelProperties));

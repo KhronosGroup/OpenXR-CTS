@@ -17,6 +17,7 @@
 #include "conformance_utils.h"
 #include "conformance_framework.h"
 #include "matchers.h"
+
 #include "utilities/feature_availability.h"
 
 #include <catch2/catch_test_macros.hpp>
@@ -89,8 +90,8 @@ namespace Conformance
                           XR_ERROR_HANDLE_INVALID);
 
                     // Exercise invalid session handle.
-                    CHECK(xrLocateViews(GlobalData().invalidSession, &locateInfo, &viewState, viewCount, &viewCountOut, views.data()) ==
-                          XR_ERROR_HANDLE_INVALID);
+                    CHECK(xrLocateViews(InvalidValues::InvalidHandleValue<XrSession>(), &locateInfo, &viewState, viewCount, &viewCountOut,
+                                        views.data()) == XR_ERROR_HANDLE_INVALID);
                 }
 
                 SECTION("Exercise 0 as an invalid time")

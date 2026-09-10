@@ -16,6 +16,7 @@
 
 #include "conformance_framework.h"
 #include "conformance_utils.h"
+
 #include "utilities/types_and_constants.h"
 
 #include <catch2/catch_test_macros.hpp>
@@ -27,8 +28,6 @@ namespace Conformance
     TEST_CASE("xrGetSystem", "")
     {
         // XrResult xrGetSystem(XrInstance instance, const XrSystemGetInfo* getInfo, XrSystemId* systemId);
-        auto &globalData = GetGlobalData();
-
         AutoBasicInstance instance;
 
         XrResult result;
@@ -72,7 +71,7 @@ namespace Conformance
             CHECK(ValidateResultAllowed("xrGetSystem", result));
             CHECK(result == XR_ERROR_HANDLE_INVALID);
 
-            result = xrGetSystem(globalData.invalidInstance, &systemGetInfo, &systemId);
+            result = xrGetSystem(InvalidValues::InvalidHandleValue<XrInstance>(), &systemGetInfo, &systemId);
             CHECK(ValidateResultAllowed("xrGetSystem", result));
             CHECK(result == XR_ERROR_HANDLE_INVALID);
         }

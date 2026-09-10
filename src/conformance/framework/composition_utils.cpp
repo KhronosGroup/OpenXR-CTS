@@ -564,7 +564,7 @@ namespace Conformance
         createInfo.referenceSpaceType = type;
         XRC_CHECK_THROW_XRCMD(xrCreateReferenceSpace(m_session, &createInfo, &space));
 
-        std::lock_guard<std::mutex> lock(m_mutex);
+        std::scoped_lock<std::mutex> lock(m_mutex);
         m_spaces.push_back(space);
         return space;
     }
@@ -620,7 +620,7 @@ namespace Conformance
         XrSwapchain swapchain;
         XRC_CHECK_THROW_XRCMD(xrCreateSwapchain(m_session, &createInfo, &swapchain));
 
-        std::lock_guard<std::mutex> lock(m_mutex);
+        std::scoped_lock<std::mutex> lock(m_mutex);
 
         // Cache the swapchain create info and image structs.
         m_createdSwapchains.insert({swapchain, createInfo});
@@ -649,7 +649,7 @@ namespace Conformance
         XrSwapchain depthSwapchain;
         XRC_CHECK_THROW_XRCMD(xrCreateSwapchain(m_session, &depthCreateInfo, &depthSwapchain));
 
-        std::lock_guard<std::mutex> lock(m_mutex);
+        std::scoped_lock<std::mutex> lock(m_mutex);
 
         // Cache the swapchain create info and image structs.
         m_createdSwapchains.insert({swapchain, createInfo});
@@ -677,7 +677,7 @@ namespace Conformance
 
         XRC_CHECK_THROW_XRCMD(xrDestroySwapchain(swapchain));
 
-        std::lock_guard<std::mutex> lock(m_mutex);
+        std::scoped_lock<std::mutex> lock(m_mutex);
         XRC_CHECK_THROW(1 == m_createdSwapchains.erase(swapchain));
         if (it != m_swapchainImages.end())
             XRC_CHECK_THROW(1 == m_swapchainImages.erase(swapchain));
@@ -716,7 +716,7 @@ namespace Conformance
 
     XrSwapchainSubImage CompositionHelper::MakeDefaultSubImage(XrSwapchain swapchain, uint32_t imageArrayIndex /*= 0*/)
     {
-        std::lock_guard<std::mutex> lock(m_mutex);
+        std::scoped_lock<std::mutex> lock(m_mutex);
 
         XrSwapchainSubImage subImage;
         subImage.swapchain = swapchain;
@@ -740,14 +740,14 @@ namespace Conformance
         quad.subImage = MakeDefaultSubImage(swapchain);
         quad.size = {width, width * quad.subImage.imageRect.extent.height / quad.subImage.imageRect.extent.width};
 
-        std::lock_guard<std::mutex> lock(m_mutex);
+        std::scoped_lock<std::mutex> lock(m_mutex);
         m_quads.push_back(quad);
         return &m_quads.back();
     }
 
     XrCompositionLayerProjection* CompositionHelper::CreateProjectionLayer(XrSpace space)
     {
-        std::lock_guard<std::mutex> lock(m_mutex);
+        std::scoped_lock<std::mutex> lock(m_mutex);
 
         // Allocate projection views and store.
         XRC_CHECK_THROW_MSG(m_projectionViewCount > 0, "m_projectionViewCount empty");

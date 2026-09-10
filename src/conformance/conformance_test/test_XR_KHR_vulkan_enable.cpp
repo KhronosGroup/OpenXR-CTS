@@ -170,10 +170,10 @@ namespace Conformance
         {
             auto pfn = GetInstanceExtensionFunction<PFN_xrGetVulkanInstanceExtensionsKHR>(instance, "xrGetVulkanInstanceExtensionsKHR");
             REQUIRE(pfn != nullptr);
-            uint32_t requiredSize;
+            uint32_t requiredSize = 0;
             REQUIRE(pfn(instance, systemId, 0, &requiredSize, nullptr) == XR_SUCCESS);
             std::vector<char> dirtyBuffer(requiredSize, 'X');
-            uint32_t count;
+            uint32_t count = 0;
             REQUIRE(pfn(instance, systemId, requiredSize, &count, dirtyBuffer.data()) == XR_SUCCESS);
             CHECK(count > 0);
             CHECK(dirtyBuffer[count - 1] == '\0');
@@ -183,10 +183,10 @@ namespace Conformance
         {
             auto pfn = GetInstanceExtensionFunction<PFN_xrGetVulkanDeviceExtensionsKHR>(instance, "xrGetVulkanDeviceExtensionsKHR");
             REQUIRE(pfn != nullptr);
-            uint32_t requiredSize;
+            uint32_t requiredSize = 0;
             REQUIRE(pfn(instance, systemId, 0, &requiredSize, nullptr) == XR_SUCCESS);
             std::vector<char> dirtyBuffer(requiredSize, 'X');
-            uint32_t count;
+            uint32_t count = 0;
             REQUIRE(pfn(instance, systemId, requiredSize, &count, dirtyBuffer.data()) == XR_SUCCESS);
             CHECK(count > 0);
             CHECK(dirtyBuffer[count - 1] == '\0');

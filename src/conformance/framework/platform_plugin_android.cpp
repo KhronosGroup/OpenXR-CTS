@@ -40,7 +40,7 @@ namespace Conformance
             Shutdown();
         }
 
-        virtual bool Initialize() override
+        bool Initialize() override
         {
             instanceCreateInfoAndroid = {XR_TYPE_INSTANCE_CREATE_INFO_ANDROID_KHR};
             instanceCreateInfoAndroid.applicationVM = Conformance_Android_Get_Application_VM();
@@ -50,19 +50,19 @@ namespace Conformance
             return initialized;
         }
 
-        virtual bool IsInitialized() const override
+        bool IsInitialized() const override
         {
             return initialized;
         }
 
-        virtual void Shutdown() override
+        void Shutdown() override
         {
             if (initialized) {
                 initialized = false;
             }
         }
 
-        virtual std::string DescribePlatform() const override
+        std::string DescribePlatform() const override
         {
             return "Android";
         }
@@ -72,16 +72,9 @@ namespace Conformance
             return {XR_KHR_ANDROID_CREATE_INSTANCE_EXTENSION_NAME};
         }
 
-        XrBaseInStructure* PopulateNextFieldForStruct(XrStructureType t) const override
+        const XrBaseInStructure* GetInstanceCreateInfoStruct() const override
         {
-            switch (t) {
-            case XR_TYPE_INSTANCE_CREATE_INFO:
-                return (XrBaseInStructure*)&instanceCreateInfoAndroid;
-
-            default:
-                return nullptr;
-            }
-            return nullptr;
+            return (XrBaseInStructure*)&instanceCreateInfoAndroid;
         }
 
     protected:

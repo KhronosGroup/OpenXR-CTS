@@ -16,6 +16,7 @@
 
 #include "conformance_framework.h"
 #include "conformance_utils.h"
+
 #include "utilities/types_and_constants.h"
 #include "utilities/utils.h"
 
@@ -134,17 +135,18 @@ namespace Conformance
         // Output buffer must not be read before the call writes to it.
         SECTION("Non-null-terminated output buffer")
         {
+            const char* pathStr = "/user/hand/left";
             XrPath testPath{XR_NULL_PATH};
-            REQUIRE(xrStringToPath(instance, "/user/hand/left", &testPath) == XR_SUCCESS);
+            REQUIRE(xrStringToPath(instance, pathStr, &testPath) == XR_SUCCESS);
 
             std::array<char, XR_MAX_PATH_LENGTH> dirtyBuffer;
             dirtyBuffer.fill('X');
 
             uint32_t length;
             REQUIRE(XR_SUCCESS == xrPathToString(instance, testPath, sizeof(dirtyBuffer), &length, dirtyBuffer.data()));
-            // check for null termination at the right place first: string is 15 bytes long
-            REQUIRE(dirtyBuffer[15] == '\0');
-            CHECK(std::string(dirtyBuffer.data()) == "/user/hand/left");
+            // check for null termination at the right place
+            REQUIRE(dirtyBuffer[strlen(pathStr)] == '\0');
+            CHECK(std::string_view(dirtyBuffer.data()) == pathStr);
         }
 
         SECTION("Try exceeding path count")
@@ -194,7 +196,7 @@ namespace Conformance
             REQUIRE(ValidateResultAllowed("xrStringToPath", result));
             REQUIRE(result == XR_ERROR_HANDLE_INVALID);
 
-            result = xrStringToPath(GetGlobalData().invalidInstance, "/abcd", &path);  // To do: pick a better handle.
+            result = xrStringToPath(InvalidValues::InvalidHandleValue<XrInstance>(), "/abcd", &path);  // To do: pick a better handle.
             REQUIRE(ValidateResultAllowed("xrStringToPath", result));
             REQUIRE(result == XR_ERROR_HANDLE_INVALID);
         }

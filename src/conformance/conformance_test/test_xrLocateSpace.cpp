@@ -17,6 +17,7 @@
 #include "composition_utils.h"
 #include "conformance_framework.h"
 #include "conformance_utils.h"
+
 #include "utilities/bitmask_to_string.h"
 #include "utilities/types_and_constants.h"
 #include "utilities/xrduration_literals.h"
@@ -124,11 +125,11 @@ namespace Conformance
                 CHECK(result == XR_ERROR_HANDLE_INVALID);
 
                 // Exercise invalid handle.
-                result = xrLocateSpace(GlobalData().invalidSpace, spaceB, time, &location);
+                result = xrLocateSpace(InvalidValues::InvalidHandleValue<XrSpace>(), spaceB, time, &location);
                 CHECK(result == XR_ERROR_HANDLE_INVALID);
 
                 // Exercise another invalid handle.
-                result = xrLocateSpace(spaceA, GlobalData().invalidSpace, time, &location);
+                result = xrLocateSpace(spaceA, InvalidValues::InvalidHandleValue<XrSpace>(), time, &location);
                 CHECK(result == XR_ERROR_HANDLE_INVALID);
             }
 

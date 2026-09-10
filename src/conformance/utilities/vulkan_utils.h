@@ -1124,7 +1124,7 @@ namespace Conformance
                 descriptorSetLayoutInfo.pBindings = descriptorSetBindings;
 
                 vkCreateDescriptorSetLayout(device,  //
-                                            &descriptorSetLayoutInfo, NULL, &descriptorSetLayout);
+                                            &descriptorSetLayoutInfo, nullptr, &descriptorSetLayout);
 
                 VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo{VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO};
                 pipelineLayoutCreateInfo.setLayoutCount = 1;

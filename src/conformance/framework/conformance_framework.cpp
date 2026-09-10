@@ -206,7 +206,7 @@ namespace Conformance
         // NOTE: Runs *after* population of command-line options.
 
         GlobalData& globalData = GetGlobalData();
-        std::lock_guard<std::recursive_mutex> lock(dataMutex);
+        std::scoped_lock<std::recursive_mutex> lock(dataMutex);
 
         if (isInitialized) {
             return false;
@@ -227,9 +227,6 @@ namespace Conformance
         if (globalData.enabledInteractionProfiles.empty()) {
             globalData.enabledInteractionProfiles.push_back("khr/simple_controller");
         }
-
-        // Get all platform-specific extensions for the "next" fields in several structs
-        requiredPlatformInstanceCreateStruct = platformPlugin->PopulateNextFieldForStruct(XR_TYPE_INSTANCE_CREATE_INFO);
 
         // If we need or were given a graphics plugin, set it up.
         if (IsUsingGraphicsPlugin()) {
@@ -431,14 +428,14 @@ namespace Conformance
 
     bool GlobalData::IsInitialized() const
     {
-        std::lock_guard<std::recursive_mutex> lock(dataMutex);
+        std::scoped_lock<std::recursive_mutex> lock(dataMutex);
 
         return isInitialized;
     }
 
     void GlobalData::Shutdown()
     {
-        std::lock_guard<std::recursive_mutex> lock(dataMutex);
+        std::scoped_lock<std::recursive_mutex> lock(dataMutex);
 
         if (IsUsingGraphicsPlugin() && graphicsPlugin) {
             if (graphicsPlugin->IsInitialized()) {
@@ -461,7 +458,7 @@ namespace Conformance
 
     const FunctionInfo& GlobalData::GetFunctionInfo(const char* functionName) const
     {
-        std::lock_guard<std::recursive_mutex> lock(dataMutex);
+        std::scoped_lock<std::recursive_mutex> lock(dataMutex);
 
         const FunctionInfoMap& functionInfoMap = GetFunctionInfoMap();
 
@@ -486,7 +483,7 @@ namespace Conformance
 
     bool GlobalData::IsAPILayerEnabled(const char* layerName) const
     {
-        std::lock_guard<std::recursive_mutex> lock(dataMutex);
+        std::scoped_lock<std::recursive_mutex> lock(dataMutex);
 
         for (const char* name : enabledAPILayerNames) {
             if (strequal(name, layerName)) {
@@ -499,7 +496,7 @@ namespace Conformance
 
     bool GlobalData::IsInstanceExtensionEnabled(const char* extensionName) const
     {
-        std::lock_guard<std::recursive_mutex> lock(dataMutex);
+        std::scoped_lock<std::recursive_mutex> lock(dataMutex);
 
         for (const char* name : enabledInstanceExtensionNames) {
             if (strequal(name, extensionName)) {
@@ -512,7 +509,7 @@ namespace Conformance
 
     bool GlobalData::IsInstanceExtensionSupported(const char* extensionName) const
     {
-        std::lock_guard<std::recursive_mutex> lock(dataMutex);
+        std::scoped_lock<std::recursive_mutex> lock(dataMutex);
 
         for (const std::string& name : availableInstanceExtensionNames) {
             if (name == extensionName) {

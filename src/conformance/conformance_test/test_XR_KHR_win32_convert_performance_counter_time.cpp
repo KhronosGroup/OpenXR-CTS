@@ -81,7 +81,8 @@ namespace Conformance
                 // Exercise XR_ERROR_HANDLE_INVALID
                 REQUIRE(xrConvertWin32PerformanceCounterToTimeKHR(XR_NULL_HANDLE_CPP, &li1, &time1) == XR_ERROR_HANDLE_INVALID);
 
-                REQUIRE(xrConvertTimeToWin32PerformanceCounterKHR(GetGlobalData().invalidInstance, time1, &li2) == XR_ERROR_HANDLE_INVALID);
+                REQUIRE(xrConvertTimeToWin32PerformanceCounterKHR(InvalidValues::InvalidHandleValue<XrInstance>(), time1, &li2) ==
+                        XR_ERROR_HANDLE_INVALID);
             }
         }
 

@@ -683,7 +683,7 @@ namespace GltfHelper
     }
 
     bool PassThroughKTX2(tinygltf::Image* image, const int image_idx, std::string* err, std::string* warn, int req_width, int req_height,
-                         const unsigned char* bytes, int size, void* /* user_data */) noexcept
+                         const unsigned char* bytes, int size, void* /* user_data */)
     {
         if (image == nullptr || bytes == nullptr) {
             if (err) {

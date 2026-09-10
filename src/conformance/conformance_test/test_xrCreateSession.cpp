@@ -18,6 +18,7 @@
 #include "conformance_utils.h"
 #include "graphics_plugin.h"
 #include "matchers.h"
+
 #include "utilities/types_and_constants.h"
 
 #include <catch2/catch_test_macros.hpp>
@@ -123,7 +124,7 @@ namespace Conformance
 
         SECTION("XR_ERROR_SYSTEM_INVALID on an arbitrary, presumably invalid system ID")
         {
-            sessionCreateInfo.systemId = globalData.invalidSystemId;
+            sessionCreateInfo.systemId = InvalidValues::InvalidAtomValue<XrSystemId>();
             REQUIRE(xrCreateSession(instance, &sessionCreateInfo, &session) == XR_ERROR_SYSTEM_INVALID);
         }
 
@@ -143,7 +144,8 @@ namespace Conformance
                 }
                 SECTION("Non-null but presumably invalid handle")
                 {
-                    CHECK(xrCreateSession(globalData.invalidInstance, &sessionCreateInfo, &session) == XR_ERROR_HANDLE_INVALID);
+                    CHECK(xrCreateSession(InvalidValues::InvalidHandleValue<XrInstance>(), &sessionCreateInfo, &session) ==
+                          XR_ERROR_HANDLE_INVALID);
                 }
             }
         }

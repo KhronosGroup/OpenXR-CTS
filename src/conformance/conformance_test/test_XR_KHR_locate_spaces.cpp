@@ -18,6 +18,7 @@
 #include "composition_utils.h"
 #include "conformance_framework.h"
 #include "conformance_utils.h"
+
 #include "utilities/array_size.h"
 #include "utilities/bitmask_to_string.h"
 #include "utilities/types_and_constants.h"
@@ -261,13 +262,13 @@ namespace Conformance
                 locateInfo.baseSpace = baseSpace;
 
                 // Exercise invalid handle.
-                spaces[2] = GlobalData().invalidSpace;
+                spaces[2] = InvalidValues::InvalidHandleValue<XrSpace>();
                 result = xrLocateSpacesPFN(session, &locateInfo, &spacesData.locations);
                 CHECK(result == XR_ERROR_HANDLE_INVALID);
                 spaces[2] = spaceTmp;
 
                 // Exercise another invalid handle.
-                locateInfo.baseSpace = GlobalData().invalidSpace;
+                locateInfo.baseSpace = InvalidValues::InvalidHandleValue<XrSpace>();
                 result = xrLocateSpacesPFN(session, &locateInfo, &spacesData.locations);
                 CHECK(result == XR_ERROR_HANDLE_INVALID);
                 locateInfo.baseSpace = baseSpace;

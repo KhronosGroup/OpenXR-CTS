@@ -17,6 +17,7 @@
 #pragma once
 
 #include <stdint.h>
+#include "platform_exports.h"
 #include <openxr/openxr_platform_defines.h>
 
 enum MessageType
@@ -36,14 +37,6 @@ struct ConformanceLaunchSettings
 
     PFN_Message message;
 };
-
-#if defined(__GNUC__) && __GNUC__ >= 4
-#define CONFORMANCE_EXPORT __attribute__((visibility("default")))
-#elif defined(__SUNPRO_C) && (__SUNPRO_C >= 0x590)
-#define CONFORMANCE_EXPORT __attribute__((visibility("default")))
-#else
-#define CONFORMANCE_EXPORT __declspec(dllexport)
-#endif
 
 struct ConformanceTestCase
 {
@@ -72,12 +65,12 @@ enum XrcTestResult
 };
 
 /// Clean up after enumerating test cases or running tests. Idempotent: may call more than once.
-extern "C" CONFORMANCE_EXPORT XrcResult XRAPI_CALL xrcCleanup(void);
+extern "C" PLATFORM_EXPORT XrcResult XRAPI_CALL xrcCleanup(void);
 
-extern "C" CONFORMANCE_EXPORT XrcResult XRAPI_CALL xrcEnumerateTestCases(uint32_t capacityInput, uint32_t* countOutput,
-                                                                         ConformanceTestCase* testCases);
+extern "C" PLATFORM_EXPORT XrcResult XRAPI_CALL xrcEnumerateTestCases(uint32_t capacityInput, uint32_t* countOutput,
+                                                                      ConformanceTestCase* testCases);
 
 /// Returns XRC_SUCCESS if test execution was successful - tests may still have failed, or another failure condition may have been hit.
 /// In case of Catch2-defined error conditions, testResult is set to a value other than XRC_TEST_RESULT_SUCCESS.
-extern "C" CONFORMANCE_EXPORT XrcResult XRAPI_CALL xrcRunConformanceTests(const ConformanceLaunchSettings* conformanceLaunchSettings,
-                                                                          XrcTestResult* testResult, uint64_t* failureCount);
+extern "C" PLATFORM_EXPORT XrcResult XRAPI_CALL xrcRunConformanceTests(const ConformanceLaunchSettings* conformanceLaunchSettings,
+                                                                       XrcTestResult* testResult, uint64_t* failureCount);

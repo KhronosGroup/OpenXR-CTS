@@ -388,7 +388,7 @@ namespace Conformance
     template <>
     inline void UnrecognizableOutputStruct::Insert<XrEventDataBuffer>(XrEventDataBuffer* s)
     {
-        m_struct.next = reinterpret_cast<XrBaseOutStructure*>(const_cast<void*>(s->next));
+        m_struct.next = const_cast<XrBaseOutStructure*>(reinterpret_cast<const XrBaseOutStructure*>(s->next));
         s->next = &m_struct;
     }
 

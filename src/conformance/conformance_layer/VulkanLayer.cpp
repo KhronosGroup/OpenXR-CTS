@@ -27,6 +27,8 @@
 #include <thread>
 #include <vector>
 
+// Cannot use platform_exports.h as vk_layer.h forward declarations conflict
+// https://github.com/KhronosGroup/Vulkan-Loader/blob/main/tests/framework/layer/test_layer.cpp#L1055-L1056
 #if !defined(VK_LAYER_EXPORT)
 #if defined(__GNUC__) && __GNUC__ >= 4
 #define VK_LAYER_EXPORT __attribute__((visibility("default")))
@@ -124,7 +126,7 @@ struct Device
             return &(*it);
         }
 
-        return NULL;
+        return nullptr;
     }
 };
 
@@ -177,7 +179,7 @@ static Instance *getInstance(VkInstance instance)
     if (it != instances.end()) {
         return &(*it);
     }
-    return NULL;
+    return nullptr;
 }
 
 static Device *getDevice(VkDevice device)
@@ -188,7 +190,7 @@ static Device *getDevice(VkDevice device)
     if (it != devices.end()) {
         return &(*it);
     }
-    return NULL;
+    return nullptr;
 }
 
 static Queue *getQueue(VkQueue queue)
@@ -202,7 +204,7 @@ static Queue *getQueue(VkQueue queue)
         }
     }
 
-    return NULL;
+    return nullptr;
 }
 
 static Image *getImage(VkImage image)
@@ -213,7 +215,7 @@ static Image *getImage(VkImage image)
     if (it != images.end()) {
         return &(*it);
     }
-    return NULL;
+    return nullptr;
 }
 
 bool InstanceVkExtensionEnabled(VkInstance instance, const char *extension)
@@ -291,8 +293,8 @@ static VKAPI_ATTR VkResult VKAPI_CALL createInstance(const VkInstanceCreateInfo 
 
     // Next layer/runtime's GIPA
     PFN_vkGetInstanceProcAddr getInstanceProcAddr = pLayerCreateInfo->u.pLayerInfo->pfnNextGetInstanceProcAddr;
-    PFN_vkCreateInstance fpCreateInstance = (PFN_vkCreateInstance)getInstanceProcAddr(NULL, "vkCreateInstance");
-    if (fpCreateInstance == NULL) {
+    PFN_vkCreateInstance fpCreateInstance = (PFN_vkCreateInstance)getInstanceProcAddr(nullptr, "vkCreateInstance");
+    if (fpCreateInstance == nullptr) {
         return VK_ERROR_INITIALIZATION_FAILED;
     }
 
@@ -354,8 +356,8 @@ static VKAPI_ATTR VkResult VKAPI_CALL createDevice(VkPhysicalDevice physicalDevi
     PFN_vkGetInstanceProcAddr getInstanceProcAddr = pLayerCreateInfo->u.pLayerInfo->pfnNextGetInstanceProcAddr;
     PFN_vkGetDeviceProcAddr getDeviceProcAddr = pLayerCreateInfo->u.pLayerInfo->pfnNextGetDeviceProcAddr;
 
-    PFN_vkCreateDevice fpCreateDevice = (PFN_vkCreateDevice)getInstanceProcAddr(NULL, "vkCreateDevice");
-    if (fpCreateDevice == NULL) {
+    PFN_vkCreateDevice fpCreateDevice = (PFN_vkCreateDevice)getInstanceProcAddr(nullptr, "vkCreateDevice");
+    if (fpCreateDevice == nullptr) {
         return VK_ERROR_INITIALIZATION_FAILED;
     }
 
@@ -565,9 +567,9 @@ static VKAPI_ATTR PFN_vkVoidFunction VKAPI_CALL getInstanceProcAddr(VkInstance i
     return getInstance(instance)->vkGetInstanceProcAddr(instance, pName);
 }
 
-VK_LAYER_EXPORT VKAPI_ATTR VkResult VKAPI_CALL vkNegotiateLoaderLayerInterfaceVersion(VkNegotiateLayerInterface *pVersionStruct)
+extern "C" VK_LAYER_EXPORT VKAPI_ATTR VkResult VKAPI_CALL vkNegotiateLoaderLayerInterfaceVersion(VkNegotiateLayerInterface *pVersionStruct)
 {
-    if (pVersionStruct == NULL || pVersionStruct->sType != LAYER_NEGOTIATE_INTERFACE_STRUCT) {
+    if (pVersionStruct == nullptr || pVersionStruct->sType != LAYER_NEGOTIATE_INTERFACE_STRUCT) {
         return VK_ERROR_INITIALIZATION_FAILED;
     }
 
@@ -579,12 +581,12 @@ VK_LAYER_EXPORT VKAPI_ATTR VkResult VKAPI_CALL vkNegotiateLoaderLayerInterfaceVe
     return VK_SUCCESS;
 }
 
-VK_LAYER_EXPORT VKAPI_ATTR PFN_vkVoidFunction VKAPI_CALL vkGetInstanceProcAddr(VkInstance instance, const char *pName)
+extern "C" VK_LAYER_EXPORT VKAPI_ATTR PFN_vkVoidFunction VKAPI_CALL vkGetInstanceProcAddr(VkInstance instance, const char *pName)
 {
     return getInstanceProcAddr(instance, pName);
 }
 
-VK_LAYER_EXPORT VKAPI_ATTR PFN_vkVoidFunction VKAPI_CALL vkGetDeviceProcAddr(VkDevice device, const char *pName)
+extern "C" VK_LAYER_EXPORT VKAPI_ATTR PFN_vkVoidFunction VKAPI_CALL vkGetDeviceProcAddr(VkDevice device, const char *pName)
 {
     return getDeviceProcAddr(device, pName);
 }
@@ -599,10 +601,10 @@ static const VkLayerProperties layerProperty = {
 
 static VkResult getLayerProperties(uint32_t *pPropertyCount, VkLayerProperties *pProperties)
 {
-    if (pPropertyCount == NULL) {
+    if (pPropertyCount == nullptr) {
         return VK_INCOMPLETE;
     }
-    if (pProperties == NULL) {
+    if (pProperties == nullptr) {
         *pPropertyCount = 1;
         return VK_SUCCESS;
     }
@@ -613,13 +615,14 @@ static VkResult getLayerProperties(uint32_t *pPropertyCount, VkLayerProperties *
     return VK_SUCCESS;
 }
 
-VK_LAYER_EXPORT VKAPI_ATTR VkResult VKAPI_CALL vkEnumerateInstanceLayerProperties(uint32_t *pCount, VkLayerProperties *pProperties)
+extern "C" VK_LAYER_EXPORT VKAPI_ATTR VkResult VKAPI_CALL vkEnumerateInstanceLayerProperties(uint32_t *pCount,
+                                                                                             VkLayerProperties *pProperties)
 {
     return getLayerProperties(pCount, pProperties);
 }
 
-VK_LAYER_EXPORT VKAPI_ATTR VkResult VKAPI_CALL vkEnumerateDeviceLayerProperties(VkPhysicalDevice physicalDevice, uint32_t *pCount,
-                                                                                VkLayerProperties *pProperties)
+extern "C" VK_LAYER_EXPORT VKAPI_ATTR VkResult VKAPI_CALL vkEnumerateDeviceLayerProperties(VkPhysicalDevice physicalDevice,
+                                                                                           uint32_t *pCount, VkLayerProperties *pProperties)
 {
     (void)physicalDevice;
     return getLayerProperties(pCount, pProperties);
@@ -636,14 +639,15 @@ static VkResult getLayerExtensionProps(const char *pLayerName, uint32_t *pCount,
     return VK_ERROR_LAYER_NOT_PRESENT;
 }
 
-VK_LAYER_EXPORT VKAPI_ATTR VkResult VKAPI_CALL vkEnumerateInstanceExtensionProperties(const char *pLayerName, uint32_t *pCount,
-                                                                                      VkExtensionProperties *pProperties)
+extern "C" VK_LAYER_EXPORT VKAPI_ATTR VkResult VKAPI_CALL vkEnumerateInstanceExtensionProperties(const char *pLayerName, uint32_t *pCount,
+                                                                                                 VkExtensionProperties *pProperties)
 {
     return getLayerExtensionProps(pLayerName, pCount, pProperties);
 }
 
-VK_LAYER_EXPORT VKAPI_ATTR VkResult VKAPI_CALL vkEnumerateDeviceExtensionProperties(VkPhysicalDevice physicalDevice, const char *pLayerName,
-                                                                                    uint32_t *pCount, VkExtensionProperties *pProperties)
+extern "C" VK_LAYER_EXPORT VKAPI_ATTR VkResult VKAPI_CALL vkEnumerateDeviceExtensionProperties(VkPhysicalDevice physicalDevice,
+                                                                                               const char *pLayerName, uint32_t *pCount,
+                                                                                               VkExtensionProperties *pProperties)
 {
     (void)physicalDevice;
     return getLayerExtensionProps(pLayerName, pCount, pProperties);

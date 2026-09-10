@@ -4,19 +4,24 @@
 
 import {
   removeBreakNamespace,
-  fixFonts,
   removeDrawioAttrs,
-  removeForeignObject,
+  fixFonts,
 } from "./svgo-plugins.mjs";
+
 
 export default {
   multipass: true,
   plugins: [
     fixFonts,
     "preset-default",
-    removeDrawioAttrs,
     fixFonts,
+    removeDrawioAttrs,
     removeBreakNamespace,
-    removeForeignObject,
   ],
+  overrides: {
+    fixFonts: {
+      // leave Helvetica alone
+      regBadFonts: /('Liberation Sans')|Arial|Arimo|ArimoMT/g,
+    },
+  },
 };

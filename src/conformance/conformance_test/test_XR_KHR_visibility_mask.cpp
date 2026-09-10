@@ -22,6 +22,7 @@
 #include "two_call_struct_metadata.h"
 #include "two_call_struct_tests.h"
 #include "matchers.h"
+
 #include "utilities/Geometry.h"
 #include "utilities/colors.h"
 #include "utilities/types_and_constants.h"
@@ -220,8 +221,8 @@ namespace Conformance
                 REQUIRE(XR_ERROR_HANDLE_INVALID ==
                         xrGetVisibilityMaskKHR_(XR_NULL_HANDLE_CPP, viewConfigurationType, viewIndex, maskType, &visibilityMask));
 
-                REQUIRE(XR_ERROR_HANDLE_INVALID ==
-                        xrGetVisibilityMaskKHR_(globalData.invalidSession, viewConfigurationType, viewIndex, maskType, &visibilityMask));
+                REQUIRE(XR_ERROR_HANDLE_INVALID == xrGetVisibilityMaskKHR_(InvalidValues::InvalidHandleValue<XrSession>(),
+                                                                           viewConfigurationType, viewIndex, maskType, &visibilityMask));
             }
         }
     }

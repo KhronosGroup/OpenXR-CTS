@@ -63,6 +63,14 @@ android {
         versionName = project.versionOpenXR.toString() + project.versionQualifier
         versionCode = project.versionOpenXR.getVersionCode()
 
+        ndk {
+            if (project.hasProperty('abi')) {
+                abiFilters project.property('abi').toString()
+            } else {
+                abiFilters 'arm64-v8a', 'armeabi-v7a', 'x86', 'x86_64'
+            }
+        }
+
         externalNativeBuild {
             cmake {
                 arguments '-DBUILD_TESTS=OFF',

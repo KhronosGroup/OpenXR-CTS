@@ -36,7 +36,7 @@ namespace Conformance
         default:
             break;
         }
-        return NULL;
+        return nullptr;
     }
 
 }  // namespace Conformance

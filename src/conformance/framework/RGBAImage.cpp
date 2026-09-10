@@ -362,7 +362,7 @@ namespace Conformance
 
         // Check cache to see if this image already exists.
         {
-            std::lock_guard<std::mutex> guard(*m_cacheMutex);
+            std::scoped_lock<std::mutex> guard(*m_cacheMutex);
             auto imageIt = m_imageCache.find(path);
             if (imageIt != m_imageCache.end()) {
                 return imageIt->second;
@@ -373,7 +373,7 @@ namespace Conformance
 
         auto image = std::make_shared<RGBAImage>(RGBAImage::Load(path));
 
-        std::lock_guard<std::mutex> guard(*m_cacheMutex);
+        std::scoped_lock<std::mutex> guard(*m_cacheMutex);
         // If the key already exists then the existing image will be returned.
         return m_imageCache.emplace(path, image).first->second;
     }

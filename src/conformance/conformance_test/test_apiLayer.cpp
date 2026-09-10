@@ -14,9 +14,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "conformance_utils.h"
 #include "conformance_framework.h"
 #include "conformance_options.h"
 #include "conformance_utils.h"
+#include "platform_exports.h"
+#include "platform_plugin.h"
 #include "utilities/types_and_constants.h"
 #include "utilities/utils.h"
 
@@ -28,14 +31,6 @@
 #include <mutex>
 #include <unordered_map>
 #include <vector>
-
-#if defined(__GNUC__) && __GNUC__ >= 4
-#define LAYER_EXPORT __attribute__((visibility("default")))
-#elif defined(__SUNPRO_C) && (__SUNPRO_C >= 0x590)
-#define LAYER_EXPORT __attribute__((visibility("default")))
-#else
-#define LAYER_EXPORT
-#endif
 
 namespace
 {
@@ -179,10 +174,10 @@ namespace
 }  // namespace
 
 // forward decl
-extern "C" LAYER_EXPORT XRAPI_ATTR XrResult XRAPI_CALL testLayer_xrNegotiateLoaderApiLayerInterface(
+extern "C" PLATFORM_EXPORT XRAPI_ATTR XrResult XRAPI_CALL testLayer_xrNegotiateLoaderApiLayerInterface(
     const XrNegotiateLoaderInfo* loaderInfo, const char* apiLayerName, XrNegotiateApiLayerRequest* apiLayerRequest);
 
-extern "C" LAYER_EXPORT XRAPI_ATTR XrResult XRAPI_CALL testLayer_xrNegotiateLoaderApiLayerInterface(
+extern "C" PLATFORM_EXPORT XRAPI_ATTR XrResult XRAPI_CALL testLayer_xrNegotiateLoaderApiLayerInterface(
     const XrNegotiateLoaderInfo* loaderInfo, const char* apiLayerName, XrNegotiateApiLayerRequest* apiLayerRequest)
 {
     if (loaderInfo == nullptr || loaderInfo->structType != XR_LOADER_INTERFACE_STRUCT_LOADER_INFO ||
@@ -245,16 +240,11 @@ namespace Conformance
         CleanupInstanceOnScopeExit cleanup(instance);
 
         XrInstanceCreateInfo createInfo{XR_TYPE_INSTANCE_CREATE_INFO};
-
+        createInfo.next = globalData.GetPlatformPlugin()->GetInstanceCreateInfoStruct();
         strcpy(createInfo.applicationInfo.applicationName, "conformance test");
         createInfo.applicationInfo.applicationVersion = 1;
         // Leave engineName and engineVersion empty, which is valid usage.
         createInfo.applicationInfo.apiVersion = Options::Get().minApiVersionValue;
-
-        if (globalData.requiredPlatformInstanceCreateStruct) {
-            createInfo.next = globalData.requiredPlatformInstanceCreateStruct;
-        }
-
         createInfo.enabledApiLayerCount = (uint32_t)enabledApiLayers.size();
         createInfo.enabledApiLayerNames = enabledApiLayers.data();
         createInfo.enabledExtensionCount = (uint32_t)enabledExtensions.size();

@@ -209,7 +209,7 @@ void ConformanceHooks::checkEventPayload(const XrEventDataSessionStateChanged* d
 {
     VALIDATE_EVENT_XRTIME(data->time);
     VALIDATE_EVENT_XRENUM(data->state);
-    session::SessionStateChanged(this, data);
+    session::SessionStateChanged(this, data);  // also validates handle
 }
 
 void ConformanceHooks::checkEventPayload(const XrEventDataReferenceSpaceChangePending* data)
@@ -250,6 +250,7 @@ void ConformanceHooks::checkEventPayload(const XrEventDataSpatialAnchorCreateCom
 void ConformanceHooks::checkEventPayload(const XrEventDataUserPresenceChangedEXT* data)
 {
     VALIDATE_EVENT_XRBOOL32(data->isUserPresent);
+    (void)session::GetSessionState(data->session);  // Check handle is alive/valid.
 }
 
 void ConformanceHooks::checkEventPayload(const XrEventDataViewConfigurationViewsChangedEXT* data)

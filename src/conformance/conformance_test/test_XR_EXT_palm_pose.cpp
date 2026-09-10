@@ -592,12 +592,6 @@ namespace Conformance
             XrInstance instance = compositionHelper.GetInstance();
             XrSession session = compositionHelper.GetSession();
 
-            XrSpace localSpace{XR_NULL_HANDLE};
-            XrReferenceSpaceCreateInfo createSpaceInfo{XR_TYPE_REFERENCE_SPACE_CREATE_INFO};
-            createSpaceInfo.referenceSpaceType = XR_REFERENCE_SPACE_TYPE_LOCAL;
-            createSpaceInfo.poseInReferenceSpace = Pose::Identity;
-            REQUIRE_RESULT(xrCreateReferenceSpace(session, &createSpaceInfo, &localSpace), XR_SUCCESS);
-
             XrPath handPaths[2];
             handPaths[0] = StringToPath(instance, "/user/hand/left");
             handPaths[1] = StringToPath(instance, "/user/hand/right");
@@ -641,27 +635,21 @@ namespace Conformance
                 INFO("Hand: " << ((i == 0) ? "left" : "right"));
 
                 // Locatability implies active, and we need both.
-                XrSpaceVelocity gripVelocity{XR_TYPE_SPACE_VELOCITY};
-                XrSpaceLocation gripLocation{XR_TYPE_SPACE_LOCATION, &gripVelocity};
                 XrSpaceVelocity gripSurfaceVelocity{XR_TYPE_SPACE_VELOCITY};
                 XrSpaceLocation gripSurfaceLocation{XR_TYPE_SPACE_LOCATION, &gripSurfaceVelocity};
                 if (i == 0) {
                     leftHandInputDevice->SetDeviceActive(true);
                     actionLayerManager.SyncActionsUntilFocusWithMessage(syncInfo);
                     actionLayerManager.DisplayMessage("Keep left controller trackable.");
-                    actionLayerManager.Sleep_For(3s);
-                    REQUIRE(actionLayerManager.WaitForLocatability("left", gripPoseSpace[0], localSpace, &gripLocation, true));
-                    REQUIRE(
-                        actionLayerManager.WaitForLocatability("left", gripSurfacePoseSpace[0], localSpace, &gripSurfaceLocation, true));
+                    REQUIRE(actionLayerManager.WaitForLocatability("left", gripSurfacePoseSpace[0], gripPoseSpace[0], &gripSurfaceLocation,
+                                                                   true));
                 }
                 else {
                     rightHandInputDevice->SetDeviceActive(true);
                     actionLayerManager.SyncActionsUntilFocusWithMessage(syncInfo);
                     actionLayerManager.DisplayMessage("Keep right controller trackable.");
-                    actionLayerManager.Sleep_For(3s);
-                    REQUIRE(actionLayerManager.WaitForLocatability("right", gripPoseSpace[1], localSpace, &gripLocation, true));
-                    REQUIRE(
-                        actionLayerManager.WaitForLocatability("right", gripSurfacePoseSpace[1], localSpace, &gripSurfaceLocation, true));
+                    REQUIRE(actionLayerManager.WaitForLocatability("right", gripSurfacePoseSpace[1], gripPoseSpace[1], &gripSurfaceLocation,
+                                                                   true));
                 }
                 // Technically it should still be "active" but one or both might not be locatable by here.
                 // We need the user to not make them un-locatable for the duration of the test.
@@ -690,14 +678,6 @@ namespace Conformance
                 REQUIRE(gripState.isActive);
                 REQUIRE(gripSurfaceState.isActive);
 
-                // Locate again so we can pick our time to be the same.
-                XRC_CHECK_THROW_XRCMD(xrLocateSpace(gripPoseSpace[i], localSpace,
-                                                    actionLayerManager.GetRenderLoop().GetLastPredictedDisplayTime(), &gripLocation));
-
-                // VALID is usually enough here because the palm pose / grip surface is a usually a static offset that should be available for non TRACKED grip pose.
-                REQUIRE((gripLocation.locationFlags & XR_SPACE_LOCATION_POSITION_VALID_BIT &&
-                         gripLocation.locationFlags & XR_SPACE_LOCATION_ORIENTATION_VALID_BIT));
-
                 // Locate grip surface space in grip space to make checks simpler
                 XRC_CHECK_THROW_XRCMD(xrLocateSpace(gripSurfacePoseSpace[i], gripPoseSpace[i],
                                                     actionLayerManager.GetRenderLoop().GetLastPredictedDisplayTime(),
@@ -715,33 +695,46 @@ namespace Conformance
                 // Special configurations such as "fist grips", backhanded grips, push daggers, pens, etc. will require modifications to these tests or a waiver.
 
                 if (i == 0) {
-                    // For tracked hands: grip surface may be arbitrarily close to grip pose
-                    // For controllers: grip surface must be to the left of the grip pose, which is inside the controller.
+                    // Left hand:
+                    // For tracked hands: grip surface pose is roughly equivalent to grip pose
+                    // For controllers: grip pose is (usually) at the center of a physical controller handle. grip surface pose is located on the physical surface of the controller handle, on the left side.
                     REQUIRE(position.x <= epsilon);
+
+                    // For controllers: We don't know the radius of the controller handle, but as sanity tests, we check that the grip surface pose is no farther away than 10cm from the grip pose in x and y direction.
+                    CHECK(position.x >= -0.10f);
+                    CHECK(position.y >= -0.10f);
                 }
                 else {
-                    // For tracked hands: grip surface may be arbitrarily close to grip pose
-                    // For controllers: grip surface must be to the right of the grip pose, which is inside the controller.
+                    // Right hand
+                    // For tracked hands: grip surface is roughly equivalent to grip pose
+                    // For controllers: grip pose is (usually) at the center of a physical controller handle. grip surface pose is located on the physical surface of the controller handle, on the right side.
                     REQUIRE(position.x >= -epsilon);
+
+                    // For controllers: We don't know the radius of the controller handle, but as sanity tests, we check that the grip surface pose is no farther away than 10cm from the grip pose in x and y direction.
+                    CHECK(position.x <= 0.10f);
+                    CHECK(position.y <= 0.10f);
                 }
 
                 {
                     // Grip: +X axis: When you completely open your hand to form a flat 5-finger pose, the ray that is normal to the user's palm (away from the palm in the left hand, into the palm in the right hand).
-                    // Grip Surface: +X axis: When a user is holding the controller and straightens their index fingers pointing forward, the ray that is normal (perpendicular) to the user's palm (away from the palm in the left hand, into the palm in the right hand).
-                    // In other words, the x axis is normal to the palm for both poses and should "roughly" point in the same direction (away from the palm in the left hand, into the palm in the right hand).
+                    // Grip Surface: +X axis: When a user is holding the controller as designed, and straightens their index fingers pointing forward, the ray that is normal (perpendicular) to the user's palm (away from the palm in the left hand, into the palm in the right hand). When inferred from a controller, this axis must: be within 10° (0.174533) of the +X axis of the grip pose.
+                    // In other words, the x axes of grip and grip surfaces are assumed to be similar in direction and only differ slightly due to controller geometry (e.g. slightly cone shaped handle instead of perfect cylinder).
+                    // This also assumes, the controller is held such that the palm centroid touches the controller surface near where the grip x axis passes through the controller surface.
+                    // For hand tracking, grip and grip surface are roughly equivalent.
                     INFO("+X axis of grip and grip_surface/palm_ext should be roughly similar.");
                     XrVector3f xAxis = {1, 0, 0};
                     XrVector3f gripSurfaceXDirection = Quat::RotateVector(gripSurfaceLocation.pose.orientation, xAxis);
                     INFO("gripSurfaceXDirection is the local X axis of grip_surface/palm_ext relative to grip space");
                     CAPTURE(gripSurfaceXDirection);
                     double xAngleDiff = angleDeg(xAxis, gripSurfaceXDirection);
-                    CHECK(xAngleDiff < 75.0f);
+                    CHECK(xAngleDiff < 10.0f);
                 }
 
                 {
                     // Grip: -Z axis: When you close your hand partially (as if holding the controller), the ray that goes through the center of the tube formed by your non-thumb fingers, in the direction of little finger to thumb.
-                    // Grip Surface: -Z axis: When a user is holding the controller and straightens their index finger, the ray that is parallel to their finger's pointing direction.
-                    // In other words, the wrist (according to the grip surface pose) should not be tilted more than 90° away from the grip pose's z axis, i.e. the controller handle.
+                    // Grip Surface: -Z axis: When a user is holding the controller and straightens their index finger, the ray that is parallel to their finger's pointing direction. This contrasts with the grip pose, which focuses on the held object, and therefore the orientation of grip_surface is typically rotated about X relative to grip.
+                    // This is a sanity test rather than a spec mandated test. To grip the controller, the grip surface pose is rotated around the controller's (grip) x axis, and this tests that the rotation is not too far and still makes sense.
+                    // This assumption may only apply to conventional controllers.
                     XrVector3f zAxis = {0, 0, 1};
                     XrVector3f gripSurfaceZDirection = Quat::RotateVector(gripSurfaceLocation.pose.orientation, zAxis);
                     double zAngleDiff = angleDeg(zAxis, gripSurfaceZDirection);
@@ -749,45 +742,6 @@ namespace Conformance
                     CAPTURE(gripSurfaceZDirection);
                     CHECK(std::abs(zAngleDiff) < 90.0f);
                 }
-
-                {
-                    // Grip: +Y axis: orthogonal to +Z and +X using the right-hand rule.
-                    // Grip Surface: +Y axis: orthogonal to +Z and +X using the right-hand rule.
-                    // When the hand grips a cylindrical controller handle, the grip surface y axis pointing from the palm center "up" to the thumb should align roughly with the controller handle's forward (z = -1) axis.
-                    XrVector3f yAxis = {0, 1, 0};
-                    XrVector3f zMAxis = {0, 0, -1};
-                    XrVector3f gripSurfaceYDirection = Quat::RotateVector(gripSurfaceLocation.pose.orientation, yAxis);
-                    INFO("gripSurfaceYDirection is the local Y axis of grip_surface/palm_ext relative to grip space");
-                    CAPTURE(gripSurfaceYDirection);
-                    double yAngleDiff = angleDeg(zMAxis, gripSurfaceYDirection);
-                    CHECK(std::abs(yAngleDiff) < 85.0f);
-                }
-
-                const XrVector3f zAxis = {0, 0, 1};
-                XrVector3f gripSurfaceZDirection = Quat::RotateVector(gripSurfaceLocation.pose.orientation, zAxis);
-                INFO("gripSurfaceZDirection is the local Z axis of grip_surface/palm_ext relative to grip space");
-                CAPTURE(gripSurfaceZDirection);
-
-// assertions temporarily disabled for revision
-#if 0
-                if (i == 0) {
-                    // Test that the z axis (direction from the palm center to the wrist) of grip surface points "to the left" in grip space.
-                    // This should be true for all usual controllers. If this is not true for your controller, you may need to adapt or discard this test.
-                    CHECK(gripSurfaceZDirection.x < 0);
-                }
-                else {
-                    // Test that the z axis (direction from the palm center to the wrist) of grip surface points not significantly to the left in grip space,
-                    // i.e. the part of the hand between wrist and grip_surface pose does not point through the controller handle.
-                    // This should be true for all usual controllers. If this is not true for your controller, you may need to adapt or discard this test.
-                    CHECK(gripSurfaceZDirection.x >= -10);
-                }
-
-                {
-                    // Test that the z axis (direction from the palm center to the wrist) of grip surface points "upwards" in grip space, meaning that the controller cylinder is grabbed with the wrist angled towards the user and not somehow away.
-                    // This should be true for all usual controllers. If this is not true for your controller, you may need to adapt or discard this test.
-                    CHECK(gripSurfaceZDirection.y > 0);
-                }
-#endif
             }
         }
     }  // namespace

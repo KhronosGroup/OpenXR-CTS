@@ -16,6 +16,7 @@
 
 #include "conformance_framework.h"
 #include "conformance_utils.h"
+
 #include "utilities/types_and_constants.h"
 
 #include <catch2/catch_test_macros.hpp>
@@ -92,8 +93,8 @@ namespace Conformance
             CHECK(ValidateResultAllowed("xrThermalGetTemperatureTrendEXT", result));
             CHECK(result == XR_ERROR_HANDLE_INVALID);
 
-            result = _xrThermalGetTemperatureTrendEXT(globalData.invalidSession, XR_PERF_SETTINGS_DOMAIN_CPU_EXT, &notificationLevel,
-                                                      &tempHeadroom, &tempSlope);
+            result = _xrThermalGetTemperatureTrendEXT(InvalidValues::InvalidHandleValue<XrSession>(), XR_PERF_SETTINGS_DOMAIN_CPU_EXT,
+                                                      &notificationLevel, &tempHeadroom, &tempSlope);
             CHECK(ValidateResultAllowed("xrThermalGetTemperatureTrendEXT", result));
             CHECK(result == XR_ERROR_HANDLE_INVALID);
 
@@ -103,8 +104,8 @@ namespace Conformance
             CHECK(ValidateResultAllowed("xrThermalGetTemperatureTrendEXT", result));
             CHECK(result == XR_ERROR_HANDLE_INVALID);
 
-            result = _xrThermalGetTemperatureTrendEXT(globalData.invalidSession, XR_PERF_SETTINGS_DOMAIN_GPU_EXT, &notificationLevel,
-                                                      &tempHeadroom, &tempSlope);
+            result = _xrThermalGetTemperatureTrendEXT(InvalidValues::InvalidHandleValue<XrSession>(), XR_PERF_SETTINGS_DOMAIN_GPU_EXT,
+                                                      &notificationLevel, &tempHeadroom, &tempSlope);
             CHECK(ValidateResultAllowed("xrThermalGetTemperatureTrendEXT", result));
             CHECK(result == XR_ERROR_HANDLE_INVALID);
         }

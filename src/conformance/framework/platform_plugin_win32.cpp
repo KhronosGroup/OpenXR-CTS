@@ -33,19 +33,19 @@ namespace Conformance
             PlatformPluginWin32::Shutdown();
         }
 
-        virtual bool Initialize() override
+        bool Initialize() override
         {
             HRESULT hr = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
             initialized = !FAILED(hr);
             return initialized;
         }
 
-        virtual bool IsInitialized() const override
+        bool IsInitialized() const override
         {
             return initialized;
         }
 
-        virtual void Shutdown() override
+        void Shutdown() override
         {
             if (initialized) {
                 CoUninitialize();
@@ -53,7 +53,7 @@ namespace Conformance
             }
         }
 
-        virtual std::string DescribePlatform() const override
+        std::string DescribePlatform() const override
         {
             return "Windows";
         }
@@ -63,9 +63,8 @@ namespace Conformance
             return {};
         }
 
-        XrBaseInStructure* PopulateNextFieldForStruct(XrStructureType t) const override
+        const XrBaseInStructure* GetInstanceCreateInfoStruct() const override
         {
-            (void)t;
             return nullptr;
         }
 

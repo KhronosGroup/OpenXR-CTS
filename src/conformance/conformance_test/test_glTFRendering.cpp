@@ -27,7 +27,7 @@ namespace Conformance
 {
     using namespace openxr::math_operators;
 
-    TEST_CASE("glTFRendering", "[self_test][composition][interactive]")
+    TEST_CASE("glTFRendering", "[self_test][interactive]")
     {
         GlobalData& globalData = GetGlobalData();
         if (!globalData.IsUsingGraphicsPlugin()) {

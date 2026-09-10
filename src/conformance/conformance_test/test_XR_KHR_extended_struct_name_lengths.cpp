@@ -17,6 +17,7 @@
 #include "conformance_framework.h"
 #include "conformance_utils.h"
 #include "matchers.h"
+
 #include "utilities/throw_helpers.h"
 #include "utilities/types_and_constants.h"
 #include "utilities/utils.h"
@@ -99,12 +100,15 @@ namespace Conformance
         // Output buffer must not be read before the call writes to it.
         SECTION("Non-null-terminated output buffer")
         {
+            XrStructureType testValue = XR_TYPE_INSTANCE_CREATE_INFO;
+            const char* expectedString = "XR_TYPE_INSTANCE_CREATE_INFO";
+
             std::array<char, XR_MAX_STRUCTURE_NAME_SIZE_EXTENDED_KHR> dirtyBuffer;
             dirtyBuffer.fill('X');
-            REQUIRE(XR_SUCCESS == xrStructureTypeToString2KHR(instance, XR_TYPE_INSTANCE_CREATE_INFO, dirtyBuffer.data()));
-            // check for null termination at the right place first: string is 28 bytes long
-            REQUIRE(dirtyBuffer[28] == '\0');
-            CHECK(std::string(dirtyBuffer.data()) == "XR_TYPE_INSTANCE_CREATE_INFO");
+            REQUIRE(XR_SUCCESS == xrStructureTypeToString2KHR(instance, testValue, dirtyBuffer.data()));
+            // check for null termination at the right place first
+            REQUIRE(dirtyBuffer[strlen(expectedString)] == '\0');
+            CHECK(std::string_view(dirtyBuffer.data()) == expectedString);
         }
 
         // Exercise invalid handles
@@ -119,7 +123,7 @@ namespace Conformance
 
             // Exercise invalid instance
             {
-                result = xrStructureTypeToString2KHR(globalData.invalidInstance, XR_TYPE_UNKNOWN, buffer);
+                result = xrStructureTypeToString2KHR(InvalidValues::InvalidHandleValue<XrInstance>(), XR_TYPE_UNKNOWN, buffer);
                 REQUIRE(ValidateResultAllowed("xrStructureTypeToString2KHR", result));
                 REQUIRE(result == XR_ERROR_HANDLE_INVALID);
             }

@@ -190,7 +190,7 @@ namespace Conformance
                 REQUIRE(XR_SUCCESS ==
                         ext.xrEnumerateInteractionRenderModelIdsEXT_(session, nullptr, (uint32_t)rmids.size(), &countOutput, rmids.data()));
                 CHECK_THAT(rmids, !Catch::Matchers::Contains(XR_NULL_RENDER_MODEL_ID_EXT));
-                CHECK_THAT(rmids, !Catch::Matchers::Contains(XRC_INVALID_RENDER_MODEL_ID_EXT_VALUE));
+                CHECK_THAT(rmids, !Catch::Matchers::Contains(InvalidValues::InvalidAtomValue<XrRenderModelIdEXT>()));
                 std::set<XrRenderModelIdEXT> uniqueRMIds(rmids.begin(), rmids.end());
                 {
                     INFO("No repeated render model IDs enumerated");

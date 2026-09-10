@@ -16,6 +16,7 @@
 
 #include "conformance_framework.h"
 #include "conformance_utils.h"
+
 #include "utilities/types_and_constants.h"
 #include "utilities/utils.h"
 
@@ -66,8 +67,7 @@ namespace Conformance
 
             SECTION("xrGetInstanceProperties invalid instance")
             {
-                GlobalData& globalData = GetGlobalData();
-                result = xrGetInstanceProperties(globalData.invalidInstance, &instanceProperties);
+                result = xrGetInstanceProperties(InvalidValues::InvalidHandleValue<XrInstance>(), &instanceProperties);
                 REQUIRE(ValidateResultAllowed("xrGetInstanceProperties", result));
                 CHECK(result == XR_ERROR_HANDLE_INVALID);
             }
