@@ -1,4 +1,0 @@
----
-- mr.4385.gl
----
-- Improvement: Simplify usage of platform plugin required structs for instance creation.

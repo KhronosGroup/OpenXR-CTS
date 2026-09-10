@@ -17,6 +17,48 @@ particular, since it is primarily software, pull requests may be integrated as
 they are accepted even between periodic updates. However, versions that are not
 signed tags on the `approved` branch are not valid for conformance submission.
 
+## OpenXR CTS 1.1.63.0 (2026-09-10)
+
+- Conformance Tests
+  - Documentation: Document that pre-built CTS binaries can be used for CTS
+    submissions.
+    ([internal MR 4457](https://gitlab.khronos.org/openxr/openxr/merge_requests/4457))
+  - Fix: Update `test_xrResultToString.cpp` to support longer result names.
+    ([internal MR 3964](https://gitlab.khronos.org/openxr/openxr/merge_requests/3964))
+  - Fix: Remove "[composition]" tag from glTFRendering self test, so it is not
+    included in a submission run.
+    ([internal MR 4388](https://gitlab.khronos.org/openxr/openxr/merge_requests/4388),
+    [internal issue 2776](https://gitlab.khronos.org/openxr/openxr/issues/2776))
+  - Improvement: Revise "grip_surface" test to better reflect spec intent.
+    ([internal MR 3518](https://gitlab.khronos.org/openxr/openxr/merge_requests/3518),
+    [internal MR 4398](https://gitlab.khronos.org/openxr/openxr/merge_requests/4398))
+  - Improvement: Tidy CTS tests for non-null-terminated output buffers.
+    ([internal MR 4311](https://gitlab.khronos.org/openxr/openxr/merge_requests/4311),
+    [internal MR 4371](https://gitlab.khronos.org/openxr/openxr/merge_requests/4371))
+  - Improvement: Replace the string "failed" with "warning" in a conformance layer
+    warning.
+    ([internal MR 4376](https://gitlab.khronos.org/openxr/openxr/merge_requests/4376))
+  - Improvement: Update earcut-hpp from upstream v3.2.3
+    ([internal MR 4381](https://gitlab.khronos.org/openxr/openxr/merge_requests/4381),
+    [internal MR 4459](https://gitlab.khronos.org/openxr/openxr/merge_requests/4459))
+  - Improvement: Simplify creation of invalid handles and atoms in the CTS.
+    ([internal MR 4384](https://gitlab.khronos.org/openxr/openxr/merge_requests/4384))
+  - Improvement: Simplify usage of platform plugin required structs for instance
+    creation.
+    ([internal MR 4385](https://gitlab.khronos.org/openxr/openxr/merge_requests/4385))
+  - Improvement: Test runtime sets the `session` field of
+    `XrEventDataUserPresenceChangedEXT` when issuing the event.
+    ([internal MR 4397](https://gitlab.khronos.org/openxr/openxr/merge_requests/4397))
+  - Improvement: Allow `runClangTidy.sh` to run with clang-tidy 18.
+    ([internal MR 4433](https://gitlab.khronos.org/openxr/openxr/merge_requests/4433))
+  - Improvement: Allow `runClangTidy.sh` to run with `-modernize-use-scoped-lock`
+    enabled.
+    ([internal MR 4435](https://gitlab.khronos.org/openxr/openxr/merge_requests/4435))
+  - Improvement: Skip untracked markers in `XR_EXT_spatial_marker_tracking` tests.
+    ([internal MR 4445](https://gitlab.khronos.org/openxr/openxr/merge_requests/4445))
+  - New test: `XR_KHR_extended_result_name_lengths`
+    ([internal MR 3964](https://gitlab.khronos.org/openxr/openxr/merge_requests/3964))
+
 ## OpenXR CTS 1.1.61.0 (2026-07-09)
 
 Note that this release includes one change to the XML, merged post 1.1.61 spec

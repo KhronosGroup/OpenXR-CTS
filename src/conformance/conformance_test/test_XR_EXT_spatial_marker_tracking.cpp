@@ -166,12 +166,20 @@ namespace Conformance
                 querySnapshot(snapshot);
 
                 for (uint32_t i = 0; i < static_cast<uint32_t>(bounded2Ds.size()); ++i) {
+                    if (entityStates[i] != XR_SPATIAL_ENTITY_TRACKING_STATE_TRACKING_EXT) {
+                        continue;
+                    }
+
                     CHECK(markers[i].capability == mCapabilityConfig.capability);
+
                     if (markers[i].capability == XR_SPATIAL_CAPABILITY_MARKER_TRACKING_QR_CODE_EXT ||
                         markers[i].capability == XR_SPATIAL_CAPABILITY_MARKER_TRACKING_MICRO_QR_CODE_EXT) {
                         CHECK(markers[i].markerId == 0);
                     }
                     else {
+                        CHECK_THAT(markers[i].capability,
+                                   In<XrSpatialCapabilityEXT>({XR_SPATIAL_CAPABILITY_MARKER_TRACKING_ARUCO_MARKER_EXT,
+                                                               XR_SPATIAL_CAPABILITY_MARKER_TRACKING_APRIL_TAG_EXT}));
                         CHECK(markers[i].data.bufferId == XR_NULL_SPATIAL_BUFFER_ID_EXT);
                     }
 

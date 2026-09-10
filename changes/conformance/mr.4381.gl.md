@@ -1,5 +1,0 @@
----
-- mr.4381.gl
-- mr.4459.gl
----
-- Improvement: Update earcut-hpp from upstream v3.2.3

@@ -1,4 +1,0 @@
----
-- mr.4435.gl
----
-- Improvement: Allow runClangTidy.sh to run with `-modernize-use-scoped-lock` enabled.
