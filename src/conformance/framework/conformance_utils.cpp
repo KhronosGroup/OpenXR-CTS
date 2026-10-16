@@ -78,9 +78,14 @@ namespace Conformance
 
     bool ValidateResultAllowed(const char* functionName, XrResult result)
     {
-        GlobalData& globalData = GetGlobalData();
+        const FunctionInfoMap& functionInfoMap = GetFunctionInfoMap();
+        auto it = functionInfoMap.find(functionName);
+        if (it == functionInfoMap.end()) {
+            return false;
+        }
 
-        const FunctionInfo& functionInfo = globalData.GetFunctionInfo(functionName);
+        const FunctionInfo& functionInfo = it->second;
+
         const bool found =
             std::find(functionInfo.validResults.begin(), functionInfo.validResults.end(), result) != functionInfo.validResults.end();
         return found;
@@ -1090,14 +1095,12 @@ namespace Conformance
 
     bool IsInteractionProfileEnabled(const char* ipName)
     {
-        GlobalData& globalData = GetGlobalData();
-
         auto caseInsensitivePredicate = [&ipName](const std::string& str) -> bool { return striequal(ipName, str.c_str()); };
 
-        auto it = std::find_if(globalData.enabledInteractionProfiles.begin(), globalData.enabledInteractionProfiles.end(),
+        auto it = std::find_if(Options::Get().enabledInteractionProfiles.begin(), Options::Get().enabledInteractionProfiles.end(),
                                caseInsensitivePredicate);
 
-        return (it != globalData.enabledInteractionProfiles.end());
+        return (it != Options::Get().enabledInteractionProfiles.end());
     }
 
     bool IsExtensionFunctionEnabled(const char* functionName)

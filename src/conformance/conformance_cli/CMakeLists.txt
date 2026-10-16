@@ -249,7 +249,7 @@ set_tests_properties(
     conformance_cli
     PROPERTIES
         TIMEOUT 60
-        ENVIRONMENT XR_RUNTIME_JSON=${PROJECT_BINARY_DIR}/src/tests/test_runtimes/openxr/1/active_runtime.json
+        ENVIRONMENT XR_RUNTIME_JSON=${PROJECT_BINARY_DIR}/src/conformance/conformance_cli/test_runtime.json
 )
 
 add_dependencies(conformance_cli test_runtime)
@@ -296,7 +296,7 @@ if(TARGET XrApiLayer_api_dump)
             TIMEOUT
             60
             ENVIRONMENT
-            "XR_RUNTIME_JSON=${PROJECT_BINARY_DIR}/src/tests/test_runtimes/openxr/1/active_runtime.json;XR_ENABLE_API_LAYERS=XR_APILAYER_LUNARG_api_dump;XR_API_DUMP_EXPORT_TYPE=html"
+            "XR_RUNTIME_JSON=${PROJECT_BINARY_DIR}/src/conformance/conformance_cli/test_runtime.json;XR_ENABLE_API_LAYERS=XR_APILAYER_LUNARG_api_dump;XR_API_DUMP_EXPORT_TYPE=html"
     )
 
     add_dependencies(conformance_cli XrApiLayer_api_dump)
@@ -344,7 +344,7 @@ if(TARGET XrApiLayer_core_validation)
             TIMEOUT
             60
             ENVIRONMENT
-            "XR_RUNTIME_JSON=${PROJECT_BINARY_DIR}/src/tests/test_runtimes/openxr/1/active_runtime.json;XR_ENABLE_API_LAYERS=XR_APILAYER_LUNARG_core_validation"
+            "XR_RUNTIME_JSON=${PROJECT_BINARY_DIR}/src/conformance/conformance_cli/test_runtime.json;XR_ENABLE_API_LAYERS=XR_APILAYER_LUNARG_core_validation"
     )
 
     add_dependencies(conformance_cli XrApiLayer_core_validation)
@@ -389,7 +389,7 @@ if(TARGET XrApiLayer_best_practices_validation)
             TIMEOUT
             60
             ENVIRONMENT
-            "XR_RUNTIME_JSON=${PROJECT_BINARY_DIR}/src/tests/test_runtimes/openxr/1/active_runtime.json;XR_ENABLE_API_LAYERS=XR_APILAYER_KHRONOS_best_practices_validation"
+            "XR_RUNTIME_JSON=${PROJECT_BINARY_DIR}/src/conformance/conformance_cli/test_runtime.json;XR_ENABLE_API_LAYERS=XR_APILAYER_KHRONOS_best_practices_validation"
     )
 
     add_dependencies(conformance_cli XrApiLayer_best_practices_validation)
@@ -408,6 +408,6 @@ if((TARGET XrApiLayer_api_dump) AND (TARGET XrApiLayer_core_validation) AND (TAR
             TIMEOUT
             120
             ENVIRONMENT
-            "XR_RUNTIME_JSON=${PROJECT_BINARY_DIR}/src/tests/test_runtimes/openxr/1/active_runtime.json;XR_ENABLE_API_LAYERS=XR_APILAYER_LUNARG_core_validation:XR_APILAYER_LUNARG_api_dump:XR_APILAYER_KHRONOS_best_practices_validation;XR_API_DUMP_EXPORT_TYPE=html"
+            "XR_RUNTIME_JSON=${PROJECT_BINARY_DIR}/src/conformance/conformance_cli/test_runtime.json;XR_ENABLE_API_LAYERS=XR_APILAYER_LUNARG_core_validation:XR_APILAYER_LUNARG_api_dump:XR_APILAYER_KHRONOS_best_practices_validation;XR_API_DUMP_EXPORT_TYPE=html"
     )
 endif()

@@ -17,6 +17,7 @@
 #include "gltf/GltfHelper.h"
 
 #include "common/hex_and_handles.h"
+#include "utilities/extension_functions.h"
 #include "utilities/throw_helpers.h"
 #include "utilities/types_and_constants.h"
 #include "utilities/xr_math_operators.h"
@@ -44,73 +45,21 @@ namespace Conformance
 
     constexpr XrVector3f Up{0, 1, 0};
 
-    struct ExtensionDataForXR_MSFT_controller_model
+    CTS_EXTENSION_DATA_FOR(XR_MSFT_controller_model);
+
+    static void CheckInvalidModelKey(XrSession session, XrControllerModelKeyMSFT modelKey,
+                                     const ExtensionDataForXR_MSFT_controller_model& ext)
     {
-        XrInstance instance;
-        PFN_xrGetControllerModelKeyMSFT xrGetControllerModelKeyMSFT_;
-        PFN_xrGetControllerModelPropertiesMSFT xrGetControllerModelPropertiesMSFT_;
-        PFN_xrGetControllerModelStateMSFT xrGetControllerModelStateMSFT_;
-        PFN_xrLoadControllerModelMSFT xrLoadControllerModelMSFT_;
+        INFO("Known-invalid model key: " << Uint64ToHexString(modelKey));
+        uint32_t countOutput = 0;
+        CHECK(XR_ERROR_CONTROLLER_MODEL_KEY_INVALID_MSFT == ext.xrLoadControllerModelMSFT_(session, modelKey, 0, &countOutput, nullptr));
 
-        ExtensionDataForXR_MSFT_controller_model(XrInstance instance_)
-            : instance(instance_)
-            , xrGetControllerModelKeyMSFT_(
-                  GetInstanceExtensionFunction<PFN_xrGetControllerModelKeyMSFT, true>(instance, "xrGetControllerModelKeyMSFT"))
-            , xrGetControllerModelPropertiesMSFT_(GetInstanceExtensionFunction<PFN_xrGetControllerModelPropertiesMSFT, true>(
-                  instance, "xrGetControllerModelPropertiesMSFT"))
-            , xrGetControllerModelStateMSFT_(
-                  GetInstanceExtensionFunction<PFN_xrGetControllerModelStateMSFT, true>(instance, "xrGetControllerModelStateMSFT"))
-            , xrLoadControllerModelMSFT_(
-                  GetInstanceExtensionFunction<PFN_xrLoadControllerModelMSFT, true>(instance, "xrLoadControllerModelMSFT"))
-        {
-        }
+        XrControllerModelPropertiesMSFT modelProperties{XR_TYPE_CONTROLLER_MODEL_PROPERTIES_MSFT};
+        CHECK(XR_ERROR_CONTROLLER_MODEL_KEY_INVALID_MSFT == ext.xrGetControllerModelPropertiesMSFT_(session, modelKey, &modelProperties));
 
-        void CheckInvalidModelKey(XrSession session, XrControllerModelKeyMSFT modelKey) const
-        {
-            INFO("Known-invalid model key: " << Uint64ToHexString(modelKey));
-            uint32_t countOutput = 0;
-            CHECK(XR_ERROR_CONTROLLER_MODEL_KEY_INVALID_MSFT == xrLoadControllerModelMSFT_(session, modelKey, 0, &countOutput, nullptr));
-
-            XrControllerModelPropertiesMSFT modelProperties{XR_TYPE_CONTROLLER_MODEL_PROPERTIES_MSFT};
-            CHECK(XR_ERROR_CONTROLLER_MODEL_KEY_INVALID_MSFT == xrGetControllerModelPropertiesMSFT_(session, modelKey, &modelProperties));
-
-            XrControllerModelStateMSFT modelState{XR_TYPE_CONTROLLER_MODEL_STATE_MSFT};
-            CHECK(XR_ERROR_CONTROLLER_MODEL_KEY_INVALID_MSFT == xrGetControllerModelStateMSFT_(session, modelKey, &modelState));
-        }
-
-        void CheckValidModelKeys(XrSession session, const std::vector<XrControllerModelKeyMSFT>& modelKeys)
-        {
-
-            // Check two call struct for controller model properties and states,
-            // plus regular two-call for the model itself
-            auto modelPropertiesTwoCallData = getTwoCallStructData<XrControllerModelPropertiesMSFT>();
-            auto modelStateTwoCallData = getTwoCallStructData<XrControllerModelStateMSFT>();
-            for (auto modelKey : modelKeys) {
-                INFO("Model key: " << Uint64ToHexString(modelKey));
-                CheckTwoCallStructConformance(modelPropertiesTwoCallData, {XR_TYPE_CONTROLLER_MODEL_PROPERTIES_MSFT},
-                                              "xrGetControllerModelPropertiesMSFT", false,
-                                              [&](XrControllerModelPropertiesMSFT* properties) {
-                                                  return xrGetControllerModelPropertiesMSFT_(session, modelKey, properties);
-                                              });
-
-                CheckTwoCallStructConformance(
-                    modelStateTwoCallData, {XR_TYPE_CONTROLLER_MODEL_STATE_MSFT}, "xrGetControllerModelStateMSFT", false,
-                    [&](XrControllerModelStateMSFT* state) { return xrGetControllerModelStateMSFT_(session, modelKey, state); });
-                CHECK_TWO_CALL(uint8_t, {}, xrLoadControllerModelMSFT_, session, modelKey);
-            }
-
-            // Try inventing some model keys that will be invalid.
-
-            for (auto modelKey : modelKeys) {
-                XrControllerModelKeyMSFT fakeModelKey = modelKey + 1234;
-                if (std::find(modelKeys.begin(), modelKeys.end(), fakeModelKey) == modelKeys.end()) {
-                    // We invented an invalid key
-                    INFO("Invented model key: " << Uint64ToHexString(fakeModelKey));
-                    CheckInvalidModelKey(session, fakeModelKey);
-                }
-            }
-        }
-    };
+        XrControllerModelStateMSFT modelState{XR_TYPE_CONTROLLER_MODEL_STATE_MSFT};
+        CHECK(XR_ERROR_CONTROLLER_MODEL_KEY_INVALID_MSFT == ext.xrGetControllerModelStateMSFT_(session, modelKey, &modelState));
+    }
 
     TEST_CASE("XR_MSFT_controller_model-simple", "[XR_MSFT_controller_model]")
     {
@@ -123,7 +72,7 @@ namespace Conformance
         AutoBasicInstance instance({"XR_MSFT_controller_model"});
         AutoBasicSession session(AutoBasicSession::OptionFlags::createSession, instance);
         ExtensionDataForXR_MSFT_controller_model ext(instance);
-        ext.CheckInvalidModelKey(session, XR_NULL_CONTROLLER_MODEL_KEY_MSFT);
+        CheckInvalidModelKey(session, XR_NULL_CONTROLLER_MODEL_KEY_MSFT, ext);
     }
 
     TEST_CASE("XR_MSFT_controller_model", "[XR_MSFT_controller_model]")
@@ -308,7 +257,7 @@ namespace Conformance
             if (std::find(modelKeys.begin(), modelKeys.end(), fakeModelKey) == modelKeys.end()) {
                 // We invented an invalid key
                 INFO("Invented model key: " << Uint64ToHexString(fakeModelKey));
-                ext.CheckInvalidModelKey(session, fakeModelKey);
+                CheckInvalidModelKey(session, fakeModelKey, ext);
             }
         }
     }

@@ -31,6 +31,7 @@
 #include "conformance_utils.h"
 #include "report.h"
 #include "spatial_conformance_utils.h"
+#include "utilities/extension_functions.h"
 #include "utilities/stringification.h"
 #include "utilities/throw_helpers.h"
 #include "utilities/utils.h"
@@ -50,21 +51,24 @@ namespace Conformance
 
 #define STRINGIFY(x) #x
 #define VALIDATE_FUNCTION_NOT_SUPPORTED(name, ext) ValidateInstanceExtensionFunctionNotSupported(instance, "xr" STRINGIFY(name));
-#define LOAD_FUNCTION_POINTER(name, ext)                                                                \
-    PFN_xr##name xr##name = GetInstanceExtensionFunction<PFN_xr##name>(instance, "xr" STRINGIFY(name)); \
-    (void)xr##name;
+
+        CTS_EXTENSION_DATA_FOR(XR_EXT_future);
+        CTS_EXTENSION_DATA_FOR(XR_EXT_spatial_persistence);
+        CTS_EXTENSION_DATA_FOR(XR_EXT_spatial_persistence_operations);
+        CTS_EXTENSION_DATA_FOR(XR_EXT_spatial_entity);
+        CTS_EXTENSION_DATA_FOR(XR_EXT_spatial_anchor);
 
         static void RequireWaitUntilFutureComplete(XrInstance instance, XrFutureEXT future, std::chrono::nanoseconds timeout = kTimeout,
                                                    std::chrono::nanoseconds interval = kInterval)
         {
-            XR_LIST_FUNCTIONS_XR_EXT_future(LOAD_FUNCTION_POINTER);
+            ExtensionDataForXR_EXT_future ext_future(instance);
             REQUIRE(WaitUntilPredicateWithTimeout(
                 [&]() {
                     XrFuturePollInfoEXT pollInfo{XR_TYPE_FUTURE_POLL_INFO_EXT};
                     pollInfo.future = future;
 
                     XrFuturePollResultEXT pollResult{XR_TYPE_FUTURE_POLL_RESULT_EXT};
-                    XrResult result = xrPollFutureEXT(instance, &pollInfo, &pollResult);
+                    XrResult result = ext_future.xrPollFutureEXT_(instance, &pollInfo, &pollResult);
                     return (result == XR_SUCCESS) && pollResult.state == XR_FUTURE_STATE_READY_EXT;
                 },
                 timeout, interval));
@@ -192,21 +196,21 @@ namespace Conformance
                 {
                     AutoBasicInstance instance(requiredExtensions, AutoBasicInstance::createSystemId);
 
-                    XR_LIST_FUNCTIONS_XR_EXT_spatial_persistence(LOAD_FUNCTION_POINTER);
-                    XR_LIST_FUNCTIONS_XR_EXT_spatial_persistence_operations(LOAD_FUNCTION_POINTER);
-                    XR_LIST_FUNCTIONS_XR_EXT_spatial_entity(LOAD_FUNCTION_POINTER);
-                    XR_LIST_FUNCTIONS_XR_EXT_spatial_anchor(LOAD_FUNCTION_POINTER);
+                    ExtensionDataForXR_EXT_spatial_entity ext_se(instance);
+                    ExtensionDataForXR_EXT_spatial_anchor ext_sa(instance);
+                    ExtensionDataForXR_EXT_spatial_persistence ext_sp(instance);
+                    ExtensionDataForXR_EXT_spatial_persistence_operations ext_spo(instance);
 
                     uint32_t persistenceScopeCountOutput = 0;
-                    XRC_CHECK_THROW_XRCMD(
-                        xrEnumerateSpatialPersistenceScopesEXT(instance, instance.systemId, 0, &persistenceScopeCountOutput, nullptr));
+                    XRC_CHECK_THROW_XRCMD(ext_sp.xrEnumerateSpatialPersistenceScopesEXT_(instance, instance.systemId, 0,
+                                                                                         &persistenceScopeCountOutput, nullptr));
                     if (persistenceScopeCountOutput == 0) {
                         SKIP(XR_EXT_SPATIAL_PERSISTENCE_OPERATIONS_EXTENSION_NAME << ": No persistence scope supported. Skipping tests.");
                     }
 
                     std::vector<XrSpatialPersistenceScopeEXT> persistenceScopes(persistenceScopeCountOutput);
-                    XRC_CHECK_THROW_XRCMD(xrEnumerateSpatialPersistenceScopesEXT(instance, instance.systemId, persistenceScopeCountOutput,
-                                                                                 &persistenceScopeCountOutput, persistenceScopes.data()));
+                    XRC_CHECK_THROW_XRCMD(ext_sp.xrEnumerateSpatialPersistenceScopesEXT_(
+                        instance, instance.systemId, persistenceScopeCountOutput, &persistenceScopeCountOutput, persistenceScopes.data()));
 
                     if (!VectorContains(XR_SPATIAL_PERSISTENCE_SCOPE_LOCAL_ANCHORS_EXT).match(persistenceScopes)) {
                         SKIP(
@@ -224,13 +228,13 @@ namespace Conformance
                     createInfo.scope = XR_SPATIAL_PERSISTENCE_SCOPE_LOCAL_ANCHORS_EXT;
 
                     XrFutureEXT future{};
-                    REQUIRE(XR_SUCCESS == xrCreateSpatialPersistenceContextAsyncEXT(session, &createInfo, &future));
+                    REQUIRE(XR_SUCCESS == ext_sp.xrCreateSpatialPersistenceContextAsyncEXT_(session, &createInfo, &future));
                     RequireWaitUntilFutureComplete(instance, future);
 
                     XrCreateSpatialPersistenceContextCompletionEXT persistenceContextCreateCompletion{
                         XR_TYPE_CREATE_SPATIAL_PERSISTENCE_CONTEXT_COMPLETION_EXT};
                     REQUIRE(XR_SUCCESS ==
-                            xrCreateSpatialPersistenceContextCompleteEXT(session, future, &persistenceContextCreateCompletion));
+                            ext_sp.xrCreateSpatialPersistenceContextCompleteEXT_(session, future, &persistenceContextCreateCompletion));
                     REQUIRE(XR_SUCCESS == persistenceContextCreateCompletion.futureResult);
                     if (persistenceContextCreateCompletion.createResult != XR_SPATIAL_PERSISTENCE_CONTEXT_RESULT_SUCCESS_EXT) {
                         SKIP("Skipping test, spatial persistence context creation failed: "
@@ -284,7 +288,7 @@ namespace Conformance
                         // XR_ERROR_SPATIAL_CAPABILITY_CONFIGURATION_INVALID_EXT from
                         // xrCreateSpatialContextAsyncEXT.
                         REQUIRE(XR_ERROR_SPATIAL_CAPABILITY_CONFIGURATION_INVALID_EXT ==
-                                xrCreateSpatialContextAsyncEXT(session, &contextCreateInfo, &future));
+                                ext_se.xrCreateSpatialContextAsyncEXT_(session, &contextCreateInfo, &future));
                     }
 
                     // Create spatial context with persistence context
@@ -294,12 +298,12 @@ namespace Conformance
                         persistenceConfig.persistenceContexts = &persistenceContext;
 
                         contextCreateInfo.next = &persistenceConfig;
-                        XRC_CHECK_THROW_XRCMD(xrCreateSpatialContextAsyncEXT(session, &contextCreateInfo, &future));
+                        XRC_CHECK_THROW_XRCMD(ext_se.xrCreateSpatialContextAsyncEXT_(session, &contextCreateInfo, &future));
 
                         RequireWaitUntilFutureComplete(instance, future);
 
                         XrCreateSpatialContextCompletionEXT spatialContextCreateCompletion{XR_TYPE_CREATE_SPATIAL_CONTEXT_COMPLETION_EXT};
-                        XRC_CHECK_THROW_XRCMD(xrCreateSpatialContextCompleteEXT(session, future, &spatialContextCreateCompletion));
+                        XRC_CHECK_THROW_XRCMD(ext_se.xrCreateSpatialContextCompleteEXT_(session, future, &spatialContextCreateCompletion));
                         XRC_CHECK_THROW_XRCMD(spatialContextCreateCompletion.futureResult);
 
                         XrSpatialContextEXT spatialContext = spatialContextCreateCompletion.spatialContext;
@@ -325,7 +329,7 @@ namespace Conformance
                             anchorCreateInfo.time = frameIterator.frameState.predictedDisplayTime;
                             anchorCreateInfo.pose = anchorCreatePose;
 
-                            XRC_CHECK_THROW_XRCMD(xrCreateSpatialAnchorEXT(spatialContext, &anchorCreateInfo, &anchorId, &anchor));
+                            XRC_CHECK_THROW_XRCMD(ext_sa.xrCreateSpatialAnchorEXT_(spatialContext, &anchorCreateInfo, &anchorId, &anchor));
 
                             // Newly created anchor must not have persist component
                             {
@@ -345,7 +349,7 @@ namespace Conformance
                                 // Newly created anchor must not have persist component
                                 REQUIRE(entityIds.end() == std::find(entityIds.begin(), entityIds.end(), anchorId));
 
-                                XRC_CHECK_THROW_XRCMD(xrDestroySpatialSnapshotEXT(discoverySnapshot));
+                                XRC_CHECK_THROW_XRCMD(ext_se.xrDestroySpatialSnapshotEXT_(discoverySnapshot));
                             }
 
                             // Persisting invalid entity must fail
@@ -354,12 +358,12 @@ namespace Conformance
                                 persistInfo.spatialContext = spatialContext;
                                 persistInfo.spatialEntityId = XR_NULL_SPATIAL_ENTITY_ID_EXT;
                                 REQUIRE(XR_ERROR_SPATIAL_ENTITY_ID_INVALID_EXT ==
-                                        xrPersistSpatialEntityAsyncEXT(persistenceContext, &persistInfo, &future));
+                                        ext_spo.xrPersistSpatialEntityAsyncEXT_(persistenceContext, &persistInfo, &future));
 
                                 // ensure random entity is not null and not anchor id, [begin, end)
                                 persistInfo.spatialEntityId = GetGlobalData().GetRandEngine().RandUint64(1, anchorId);
                                 REQUIRE(XR_ERROR_SPATIAL_ENTITY_ID_INVALID_EXT ==
-                                        xrPersistSpatialEntityAsyncEXT(persistenceContext, &persistInfo, &future));
+                                        ext_spo.xrPersistSpatialEntityAsyncEXT_(persistenceContext, &persistInfo, &future));
                             }
 
                             const auto persistAnchorWithRetries = [&](uint32_t retries = 5) {
@@ -369,11 +373,12 @@ namespace Conformance
                                     XrSpatialEntityPersistInfoEXT persistInfo{XR_TYPE_SPATIAL_ENTITY_PERSIST_INFO_EXT};
                                     persistInfo.spatialContext = spatialContext;
                                     persistInfo.spatialEntityId = anchorId;
-                                    XRC_CHECK_THROW_XRCMD(xrPersistSpatialEntityAsyncEXT(persistenceContext, &persistInfo, &future));
+                                    XRC_CHECK_THROW_XRCMD(
+                                        ext_spo.xrPersistSpatialEntityAsyncEXT_(persistenceContext, &persistInfo, &future));
                                     RequireWaitUntilFutureComplete(instance, future);
 
                                     XRC_CHECK_THROW_XRCMD(
-                                        xrPersistSpatialEntityCompleteEXT(persistenceContext, future, &persistCompletion));
+                                        ext_spo.xrPersistSpatialEntityCompleteEXT_(persistenceContext, future, &persistCompletion));
                                     REQUIRE(XR_SUCCESS == persistCompletion.futureResult);
                                     if (persistCompletion.persistResult != XR_SPATIAL_PERSISTENCE_CONTEXT_RESULT_SUCCESS_EXT) {
                                         ReportF("Persist attempt [%d/%d] failed with error %s.", attempt, retries + 1,
@@ -410,7 +415,7 @@ namespace Conformance
                                     REQUIRE(persistUuid == persistData[anchorEntityIndex].persistUuid);
                                     REQUIRE(XR_SPATIAL_PERSISTENCE_STATE_LOADED_EXT == persistData[anchorEntityIndex].persistState);
 
-                                    XRC_CHECK_THROW_XRCMD(xrDestroySpatialSnapshotEXT(discoverySnapshot));
+                                    XRC_CHECK_THROW_XRCMD(ext_se.xrDestroySpatialSnapshotEXT_(discoverySnapshot));
                                 }
 
                                 // Persist UUID filter for discovery snapshot
@@ -454,14 +459,15 @@ namespace Conformance
                                     // Persist state of invalid uuid must be NOT FOUND
                                     REQUIRE(XR_SPATIAL_PERSISTENCE_STATE_NOT_FOUND_EXT == persistData[nullEntityIndex].persistState);
 
-                                    XRC_CHECK_THROW_XRCMD(xrDestroySpatialSnapshotEXT(discoverySnapshot));
+                                    XRC_CHECK_THROW_XRCMD(ext_se.xrDestroySpatialSnapshotEXT_(discoverySnapshot));
                                 }
 
                                 // Unpersist anchor
                                 {
                                     XrSpatialEntityUnpersistInfoEXT unpersistInfo{XR_TYPE_SPATIAL_ENTITY_UNPERSIST_INFO_EXT};
                                     unpersistInfo.persistUuid = persistUuid;
-                                    XRC_CHECK_THROW_XRCMD(xrUnpersistSpatialEntityAsyncEXT(persistenceContext, &unpersistInfo, &future));
+                                    XRC_CHECK_THROW_XRCMD(
+                                        ext_spo.xrUnpersistSpatialEntityAsyncEXT_(persistenceContext, &unpersistInfo, &future));
 
                                     RequireWaitUntilFutureComplete(instance, future);
 
@@ -469,7 +475,7 @@ namespace Conformance
                                         XR_TYPE_UNPERSIST_SPATIAL_ENTITY_COMPLETION_EXT,
                                     };
                                     XRC_CHECK_THROW_XRCMD(
-                                        xrUnpersistSpatialEntityCompleteEXT(persistenceContext, future, &unpersistCompletion));
+                                        ext_spo.xrUnpersistSpatialEntityCompleteEXT_(persistenceContext, future, &unpersistCompletion));
                                     REQUIRE(XR_SUCCESS == unpersistCompletion.futureResult);
                                     REQUIRE(XR_SPATIAL_PERSISTENCE_CONTEXT_RESULT_SUCCESS_EXT == unpersistCompletion.unpersistResult);
 
@@ -487,7 +493,7 @@ namespace Conformance
                                                       entityStates, persistData);
                                         REQUIRE(entityIds.end() == std::find(entityIds.begin(), entityIds.end(), anchorId));
 
-                                        XRC_CHECK_THROW_XRCMD(xrDestroySpatialSnapshotEXT(discoverySnapshot));
+                                        XRC_CHECK_THROW_XRCMD(ext_se.xrDestroySpatialSnapshotEXT_(discoverySnapshot));
                                     }
 
                                     // Unpersisted uuid state must be "not found"
@@ -518,18 +524,18 @@ namespace Conformance
                                         REQUIRE(persistUuids[0] == persistData[nullEntityIndex].persistUuid);
                                         REQUIRE(XR_SPATIAL_PERSISTENCE_STATE_NOT_FOUND_EXT == persistData[nullEntityIndex].persistState);
 
-                                        XRC_CHECK_THROW_XRCMD(xrDestroySpatialSnapshotEXT(discoverySnapshot));
+                                        XRC_CHECK_THROW_XRCMD(ext_se.xrDestroySpatialSnapshotEXT_(discoverySnapshot));
                                     }
                                 }
                             }
 
-                            XRC_CHECK_THROW_XRCMD(xrDestroySpatialEntityEXT(anchor));
+                            XRC_CHECK_THROW_XRCMD(ext_se.xrDestroySpatialEntityEXT_(anchor));
                         }
 
-                        XRC_CHECK_THROW_XRCMD(xrDestroySpatialContextEXT(spatialContext));
+                        XRC_CHECK_THROW_XRCMD(ext_se.xrDestroySpatialContextEXT_(spatialContext));
                     }
 
-                    REQUIRE(XR_SUCCESS == xrDestroySpatialPersistenceContextEXT(persistenceContext));
+                    REQUIRE(XR_SUCCESS == ext_sp.xrDestroySpatialPersistenceContextEXT_(persistenceContext));
                 }
             }
         }

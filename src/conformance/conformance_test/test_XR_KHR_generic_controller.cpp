@@ -99,7 +99,7 @@ namespace Conformance
             }
             REQUIRE(bindingSuggested);  // at least one bool binding should have been available
 
-            bool leftUnderTest = globalData.leftHandUnderTest;
+            bool leftUnderTest = Options::Get().leftHandEnabled;
             const char* topLevelPathString = leftUnderTest ? "/user/hand/left" : "/user/hand/right";
             XrPath topLevelXrPath{StringToPath(instance, topLevelPathString)};
             std::shared_ptr<IInputTestDevice> inputDevice =

@@ -29,6 +29,7 @@
 #include "conformance_utils.h"
 #include "report.h"
 #include "spatial_conformance_utils.h"
+#include "utilities/extension_functions.h"
 #include "utilities/stringification.h"
 #include "utilities/throw_helpers.h"
 
@@ -44,16 +45,8 @@ namespace Conformance
         const std::chrono::nanoseconds kTimeout = 5s;
         const std::chrono::nanoseconds kInterval = 16ms;
 
-#define PERSISTENCE_FUNCTION_POINTERS(_)            \
-    _(xrEnumerateSpatialPersistenceScopesEXT)       \
-    _(xrCreateSpatialPersistenceContextAsyncEXT)    \
-    _(xrCreateSpatialPersistenceContextCompleteEXT) \
-    _(xrDestroySpatialPersistenceContextEXT)
-
-#define FUTURE_FUNCTION_POINTERS(_) _(xrPollFutureEXT)
-
-#define VALIDATE_FUNCTION_NOT_SUPPORTED(name) ValidateInstanceExtensionFunctionNotSupported(instance, #name);
-#define LOAD_FUNCTION_POINTER(name) PFN_##name name = GetInstanceExtensionFunction<PFN_##name>(instance, #name);
+        CTS_EXTENSION_DATA_FOR(XR_EXT_future);
+        CTS_EXTENSION_DATA_FOR(XR_EXT_spatial_persistence);
 
         TEST_CASE("XR_EXT_spatial_persistence", "[XR_EXT_spatial_persistence][XR_EXT_spatial_entity]")
         {
@@ -67,7 +60,17 @@ namespace Conformance
                 if (!globalData.IsInstanceExtensionEnabled(XR_EXT_SPATIAL_PERSISTENCE_EXTENSION_NAME)) {
                     AutoBasicInstance instance;
 
+#define PERSISTENCE_FUNCTION_POINTERS(_)            \
+    _(xrEnumerateSpatialPersistenceScopesEXT)       \
+    _(xrCreateSpatialPersistenceContextAsyncEXT)    \
+    _(xrCreateSpatialPersistenceContextCompleteEXT) \
+    _(xrDestroySpatialPersistenceContextEXT)
+#define VALIDATE_FUNCTION_NOT_SUPPORTED(name) ValidateInstanceExtensionFunctionNotSupported(instance, #name);
+
                     PERSISTENCE_FUNCTION_POINTERS(VALIDATE_FUNCTION_NOT_SUPPORTED);
+
+#undef VALIDATE_FUNCTION_NOT_SUPPORTED
+#undef PERSISTENCE_FUNCTION_POINTERS
                 }
                 else {
                     WARN(XR_EXT_SPATIAL_PERSISTENCE_EXTENSION_NAME << " force-enabled, cannot test behavior when extension is enabled.");
@@ -80,19 +83,19 @@ namespace Conformance
                     {XR_EXT_FUTURE_EXTENSION_NAME, XR_EXT_SPATIAL_ENTITY_EXTENSION_NAME, XR_EXT_SPATIAL_PERSISTENCE_EXTENSION_NAME},
                     AutoBasicInstance::createSystemId);
 
-                PERSISTENCE_FUNCTION_POINTERS(LOAD_FUNCTION_POINTER)
-                FUTURE_FUNCTION_POINTERS(LOAD_FUNCTION_POINTER)
+                ExtensionDataForXR_EXT_future ext_future(instance);
+                ExtensionDataForXR_EXT_spatial_persistence ext_sp(instance);
 
                 uint32_t persistenceScopeCountOutput = 0;
                 XRC_CHECK_THROW_XRCMD(
-                    xrEnumerateSpatialPersistenceScopesEXT(instance, instance.systemId, 0, &persistenceScopeCountOutput, nullptr));
+                    ext_sp.xrEnumerateSpatialPersistenceScopesEXT_(instance, instance.systemId, 0, &persistenceScopeCountOutput, nullptr));
                 if (persistenceScopeCountOutput == 0) {
                     SKIP(XR_EXT_SPATIAL_ENTITY_EXTENSION_NAME << ": No persistence scope supported. Skipping tests.");
                 }
 
                 std::vector<XrSpatialPersistenceScopeEXT> persistenceScopes(persistenceScopeCountOutput);
-                XRC_CHECK_THROW_XRCMD(xrEnumerateSpatialPersistenceScopesEXT(instance, instance.systemId, persistenceScopeCountOutput,
-                                                                             &persistenceScopeCountOutput, persistenceScopes.data()));
+                XRC_CHECK_THROW_XRCMD(ext_sp.xrEnumerateSpatialPersistenceScopesEXT_(
+                    instance, instance.systemId, persistenceScopeCountOutput, &persistenceScopeCountOutput, persistenceScopes.data()));
 
                 SECTION(
                     "Create and destroy spatial persistence context : "
@@ -111,20 +114,20 @@ namespace Conformance
                     createInfo.scope = XR_SPATIAL_PERSISTENCE_SCOPE_SYSTEM_MANAGED_EXT;
 
                     XrFutureEXT future;
-                    REQUIRE(XR_SUCCESS == xrCreateSpatialPersistenceContextAsyncEXT(session, &createInfo, &future));
+                    REQUIRE(XR_SUCCESS == ext_sp.xrCreateSpatialPersistenceContextAsyncEXT_(session, &createInfo, &future));
                     REQUIRE(WaitUntilPredicateWithTimeout(
                         [&]() {
                             XrFuturePollInfoEXT pollInfo{XR_TYPE_FUTURE_POLL_INFO_EXT};
                             pollInfo.future = future;
 
                             XrFuturePollResultEXT pollResult{XR_TYPE_FUTURE_POLL_RESULT_EXT};
-                            XrResult result = xrPollFutureEXT(instance, &pollInfo, &pollResult);
+                            XrResult result = ext_future.xrPollFutureEXT_(instance, &pollInfo, &pollResult);
                             return (result == XR_SUCCESS) && pollResult.state == XR_FUTURE_STATE_READY_EXT;
                         },
                         kTimeout, kInterval));
 
                     XrCreateSpatialPersistenceContextCompletionEXT completion{XR_TYPE_CREATE_SPATIAL_PERSISTENCE_CONTEXT_COMPLETION_EXT};
-                    REQUIRE(XR_SUCCESS == xrCreateSpatialPersistenceContextCompleteEXT(session, future, &completion));
+                    REQUIRE(XR_SUCCESS == ext_sp.xrCreateSpatialPersistenceContextCompleteEXT_(session, future, &completion));
                     REQUIRE(XR_SUCCESS == completion.futureResult);
                     if (completion.createResult != XR_SPATIAL_PERSISTENCE_CONTEXT_RESULT_SUCCESS_EXT) {
                         SKIP("Skipping test, spatial persistence context creation failed: " << XrEnumStr(completion.createResult));
@@ -132,7 +135,7 @@ namespace Conformance
 
                     REQUIRE_FALSE(XR_NULL_HANDLE == completion.persistenceContext);
 
-                    REQUIRE(XR_SUCCESS == xrDestroySpatialPersistenceContextEXT(completion.persistenceContext));
+                    REQUIRE(XR_SUCCESS == ext_sp.xrDestroySpatialPersistenceContextEXT_(completion.persistenceContext));
                 }
             }
         }

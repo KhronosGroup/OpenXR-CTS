@@ -831,7 +831,7 @@ namespace Conformance
     bool IsInstanceExtensionEnabled(uint64_t extensionNumber);
 
     /// Returns true if the interaction profile is in the list oc interaction profiles that are
-    /// enabled by default for conformance testing (GlobalDat::Options::enabledInteractionProfiles).
+    /// enabled by default for conformance testing (Options::enabledInteractionProfiles).
     bool IsInteractionProfileEnabled(const char* interactionProfile);
 
     /// Returns true if the extension function (case-sensitive) belongs to an extension that

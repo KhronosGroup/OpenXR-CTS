@@ -18,6 +18,7 @@
 #include "conformance_utils.h"
 #include "graphics_plugin.h"
 #include "swapchain_image_data.h"
+#include "utilities/stringification.h"
 #include "utilities/throw_helpers.h"
 #include "utilities/utils.h"
 
@@ -288,6 +289,48 @@ namespace Conformance
                 env.AppendError(ex.what());
             }
         }
+    }
+
+    static void SwapchainValidatorThreadFunction(ThreadTestEnvironment& env, XrSwapchain swapchain)
+    {
+        env.WaitToBegin();
+
+        for (uint32_t i = 0; i < env.InvocationCount(); ++i) {
+            uint32_t imageCountOutput;
+            const XrResult result = xrEnumerateSwapchainImages(swapchain, 0, &imageCountOutput, nullptr);
+            if (XR_FAILED(result)) {
+                env.AppendError(ResultToString(result));
+            }
+        }
+    }
+
+    TEST_CASE("multithreading_swapchain_validator", "")
+    {
+        GlobalData& globalData = GetGlobalData();
+        if (!globalData.IsUsingGraphicsPlugin()) {
+            SKIP("Cannot exercise the graphics validator without a graphics plugin");
+        }
+
+        const size_t threadCount = 16;
+        const uint32_t invocationCount = 100;
+
+        ThreadTestEnvironment env(invocationCount);
+        env.GetAutoBasicSession().Init(AutoBasicSession::createSwapchains);
+
+        const std::vector<XrSwapchain>& swapchains = env.GetAutoBasicSession().swapchainVector;
+        REQUIRE_FALSE(swapchains.empty());
+
+        std::vector<std::thread>& threadVector = env.ThreadVector();
+
+        for (size_t i = 0; i < threadCount; ++i)
+            threadVector.emplace_back(std::thread(SwapchainValidatorThreadFunction, std::ref(env), swapchains[0]));
+
+        env.SignalBegin();
+
+        for (size_t i = 0; i < threadCount; ++i)
+            threadVector[i].join();
+
+        REQUIRE_MSG(env.ErrorCount() == 0, env.OutputText())
     }
 
     TEST_CASE("multithreading", "")

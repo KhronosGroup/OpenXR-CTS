@@ -143,7 +143,7 @@ namespace Conformance
         strcpy(actionCreateInfo.localizedActionName, "test select");
         REQUIRE_RESULT(xrCreateAction(actionSet, &actionCreateInfo, &boolAction), XR_SUCCESS);
 
-        bool leftUnderTest = globalData.leftHandUnderTest;
+        bool leftUnderTest = Options::Get().leftHandEnabled;
         const char* topLevelPathString = leftUnderTest ? "/user/hand/left" : "/user/hand/right";
         XrPath topLevelPath = StringToPath(instance, topLevelPathString);
 

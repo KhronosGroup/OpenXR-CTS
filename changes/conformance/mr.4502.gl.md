@@ -1,0 +1,4 @@
+---
+- mr.4502.gl
+---
+- Fix: Skip comparing `XR_FB_hand_tracking_mesh` static mesh data across data sources when the runtime does not support creating hand trackers for both sources.

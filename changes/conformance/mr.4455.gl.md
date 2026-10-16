@@ -1,0 +1,4 @@
+---
+- mr.4455.gl
+---
+- Fix: Make requirement for OpenGLES 3.1 more consistent.

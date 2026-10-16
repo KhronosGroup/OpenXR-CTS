@@ -55,11 +55,6 @@ layout(location = 4) out vec2 varying_TEXCOORD0;
 layout(location = 5) out vec4 varying_COLOR0;
 #endif //UNLIT
 
-out gl_PerVertex
-{
-    highp vec4 gl_Position;
-};
-
 void main()
 {
     mat4 modelTransform = ModelConstantBuffer.ModelToWorld * Transforms._m0[(in_var_TRANSFORMINDEX)];

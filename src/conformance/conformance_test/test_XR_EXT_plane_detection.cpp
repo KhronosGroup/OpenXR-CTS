@@ -18,6 +18,7 @@
 #include "composition_utils.h"
 #include "conformance_utils.h"
 #include "mesh_projection_layer.h"
+#include "utilities/extension_functions.h"
 
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/generators/catch_generators.hpp>
@@ -56,6 +57,8 @@ namespace mapbox
 namespace Conformance
 {
     using namespace openxr::math_operators;
+
+    CTS_EXTENSION_DATA_FOR(XR_EXT_plane_detection);
 
     static constexpr XrVector3f Up{0, 1, 0};
     static XrPlaneDetectionCapabilityFlagsEXT SystemPlaneDetectionCapabilities(XrInstance instance, XrSystemId systemId)
@@ -98,10 +101,7 @@ namespace Conformance
         {
             AutoBasicInstance instance({XR_EXT_PLANE_DETECTION_EXTENSION_NAME}, AutoBasicInstance::createSystemId);
             XrSystemId systemId = instance.systemId;
-            auto xrCreatePlaneDetectorEXT =
-                GetInstanceExtensionFunction<PFN_xrCreatePlaneDetectorEXT>(instance, "xrCreatePlaneDetectorEXT");
-            auto xrDestroyPlaneDetectorEXT =
-                GetInstanceExtensionFunction<PFN_xrDestroyPlaneDetectorEXT>(instance, "xrDestroyPlaneDetectorEXT");
+            ExtensionDataForXR_EXT_plane_detection ext(instance);
 
             if (!SystemSupportsEXTPlaneDetection(instance, systemId)) {
                 // This runtime does support plane detection tracking, but this system does not, that is fine.
@@ -113,13 +113,13 @@ namespace Conformance
             // pass not initialized structure
             XrPlaneDetectorCreateInfoEXT createInfo{};
             XrPlaneDetectorEXT detection = XR_NULL_HANDLE;
-            REQUIRE(XR_ERROR_VALIDATION_FAILURE == xrCreatePlaneDetectorEXT(session, &createInfo, &detection));
+            REQUIRE(XR_ERROR_VALIDATION_FAILURE == ext.xrCreatePlaneDetectorEXT_(session, &createInfo, &detection));
 
             createInfo.type = XR_TYPE_PLANE_DETECTOR_CREATE_INFO_EXT;
             createInfo.flags = XR_PLANE_DETECTOR_ENABLE_CONTOUR_BIT_EXT;
 
-            REQUIRE(XR_SUCCESS == xrCreatePlaneDetectorEXT(session, &createInfo, &detection));
-            REQUIRE(XR_SUCCESS == xrDestroyPlaneDetectorEXT(detection));
+            REQUIRE(XR_SUCCESS == ext.xrCreatePlaneDetectorEXT_(session, &createInfo, &detection));
+            REQUIRE(XR_SUCCESS == ext.xrDestroyPlaneDetectorEXT_(detection));
         }
     }
 
@@ -184,12 +184,7 @@ namespace Conformance
 
         XrInstance instance = compositionHelper.GetInstance();
 
-        auto xrCreatePlaneDetectorEXT = GetInstanceExtensionFunction<PFN_xrCreatePlaneDetectorEXT>(instance, "xrCreatePlaneDetectorEXT");
-        auto xrDestroyPlaneDetectorEXT = GetInstanceExtensionFunction<PFN_xrDestroyPlaneDetectorEXT>(instance, "xrDestroyPlaneDetectorEXT");
-        auto xrBeginPlaneDetectionEXT = GetInstanceExtensionFunction<PFN_xrBeginPlaneDetectionEXT>(instance, "xrBeginPlaneDetectionEXT");
-        auto xrGetPlaneDetectionStateEXT =
-            GetInstanceExtensionFunction<PFN_xrGetPlaneDetectionStateEXT>(instance, "xrGetPlaneDetectionStateEXT");
-        auto xrGetPlaneDetectionsEXT = GetInstanceExtensionFunction<PFN_xrGetPlaneDetectionsEXT>(instance, "xrGetPlaneDetectionsEXT");
+        ExtensionDataForXR_EXT_plane_detection ext(instance);
 
         const XrSpace localSpace = compositionHelper.CreateReferenceSpace(XR_REFERENCE_SPACE_TYPE_LOCAL);
         const XrSpace viewSpace = compositionHelper.CreateReferenceSpace(XR_REFERENCE_SPACE_TYPE_VIEW);
@@ -250,7 +245,7 @@ namespace Conformance
         XrPlaneDetectorCreateInfoEXT createInfo{XR_TYPE_PLANE_DETECTOR_CREATE_INFO_EXT};
         createInfo.flags = XR_PLANE_DETECTOR_ENABLE_CONTOUR_BIT_EXT;
         XrPlaneDetectorEXT detection = XR_NULL_HANDLE;
-        REQUIRE(XR_SUCCESS == xrCreatePlaneDetectorEXT(session, &createInfo, &detection));
+        REQUIRE(XR_SUCCESS == ext.xrCreatePlaneDetectorEXT_(session, &createInfo, &detection));
 
         // Create the instructional quad layer placed to the left.
         std::string fullInstructions = std::string(instructions) +
@@ -320,7 +315,7 @@ namespace Conformance
                 beginInfo.boundingBoxExtent = XrExtent3DfEXT{10.0f, 10.0f, 10.0f};
                 beginInfo.time = frameState.predictedDisplayTime;
                 beginInfo.baseSpace = viewSpace;
-                REQUIRE(XR_SUCCESS == xrBeginPlaneDetectionEXT(detection, &beginInfo));
+                REQUIRE(XR_SUCCESS == ext.xrBeginPlaneDetectionEXT_(detection, &beginInfo));
                 detect_state = WAITING;
             } break;
             case WAITING: {
@@ -331,10 +326,10 @@ namespace Conformance
                 getInfo.baseSpace = localSpace;
                 getInfo.time = frameState.predictedDisplayTime;
                 XrPlaneDetectorLocationsEXT locations{XR_TYPE_PLANE_DETECTOR_LOCATIONS_EXT};
-                REQUIRE(XR_ERROR_CALL_ORDER_INVALID == xrGetPlaneDetectionsEXT(detection, &getInfo, &locations));
+                REQUIRE(XR_ERROR_CALL_ORDER_INVALID == ext.xrGetPlaneDetectionsEXT_(detection, &getInfo, &locations));
 
                 XrPlaneDetectionStateEXT state;
-                REQUIRE(XR_SUCCESS == xrGetPlaneDetectionStateEXT(detection, &state));
+                REQUIRE(XR_SUCCESS == ext.xrGetPlaneDetectionStateEXT_(detection, &state));
                 REQUIRE((state == XR_PLANE_DETECTION_STATE_PENDING_EXT || state == XR_PLANE_DETECTION_STATE_DONE_EXT ||
                          state == XR_PLANE_DETECTION_STATE_ERROR_EXT));
                 switch (state) {
@@ -354,7 +349,7 @@ namespace Conformance
                 getInfo.baseSpace = localSpace;
                 getInfo.time = frameState.predictedDisplayTime;
                 XrPlaneDetectorLocationsEXT locations{XR_TYPE_PLANE_DETECTOR_LOCATIONS_EXT};
-                REQUIRE(XR_SUCCESS == xrGetPlaneDetectionsEXT(detection, &getInfo, &locations));
+                REQUIRE(XR_SUCCESS == ext.xrGetPlaneDetectionsEXT_(detection, &getInfo, &locations));
 
                 if (locations.planeLocationCountOutput == 0) {
                     break;
@@ -370,7 +365,7 @@ namespace Conformance
                 locations.planeLocations = location_vector.data();
                 locations.planeLocationCapacityInput = (uint32_t)location_vector.size();
 
-                REQUIRE(XR_SUCCESS == xrGetPlaneDetectionsEXT(detection, &getInfo, &locations));
+                REQUIRE(XR_SUCCESS == ext.xrGetPlaneDetectionsEXT_(detection, &getInfo, &locations));
                 for (auto& location : location_vector) {
 
                     if (autoCompleteSemanticType != XR_PLANE_DETECTOR_SEMANTIC_TYPE_UNDEFINED_EXT) {
@@ -423,7 +418,7 @@ namespace Conformance
 
         RenderLoop(session, update).Loop();
 
-        REQUIRE(XR_SUCCESS == xrDestroyPlaneDetectorEXT(detection));
+        REQUIRE(XR_SUCCESS == ext.xrDestroyPlaneDetectorEXT_(detection));
     }
 
     TEST_CASE("XR_EXT_plane_detection-V", "[XR_EXT_plane_detection][scenario][interactive][no_auto]")
@@ -503,9 +498,8 @@ namespace Conformance
         XrInstance instance = compositionHelper.GetInstance();
         XrSession session = compositionHelper.GetSession();
 
-        auto xrCreatePlaneDetectorEXT = GetInstanceExtensionFunction<PFN_xrCreatePlaneDetectorEXT>(instance, "xrCreatePlaneDetectorEXT");
-        auto xrDestroyPlaneDetectorEXT = GetInstanceExtensionFunction<PFN_xrDestroyPlaneDetectorEXT>(instance, "xrDestroyPlaneDetectorEXT");
-        auto xrBeginPlaneDetectionEXT = GetInstanceExtensionFunction<PFN_xrBeginPlaneDetectionEXT>(instance, "xrBeginPlaneDetectionEXT");
+        ExtensionDataForXR_EXT_plane_detection ext(instance);
+
         const XrSpace localSpace = compositionHelper.CreateReferenceSpace(XR_REFERENCE_SPACE_TYPE_LOCAL);
         const XrSpace viewSpace = compositionHelper.CreateReferenceSpace(XR_REFERENCE_SPACE_TYPE_VIEW);
 
@@ -527,7 +521,7 @@ namespace Conformance
         XrPlaneDetectorCreateInfoEXT createInfo{XR_TYPE_PLANE_DETECTOR_CREATE_INFO_EXT};
         createInfo.flags = XR_PLANE_DETECTOR_ENABLE_CONTOUR_BIT_EXT;
         XrPlaneDetectorEXT detection = XR_NULL_HANDLE;
-        REQUIRE(XR_SUCCESS == xrCreatePlaneDetectorEXT(session, &createInfo, &detection));
+        REQUIRE(XR_SUCCESS == ext.xrCreatePlaneDetectorEXT_(session, &createInfo, &detection));
 
         // Lambda to create the instructional quad layer placed to the left.
         auto makeInstructionsQuad = [&](const char* instructions) {
@@ -567,7 +561,7 @@ namespace Conformance
 
             RenderLoop(session, [&](const XrFrameState& frameState) {
                 beginInfo.time = frameState.predictedDisplayTime;
-                REQUIRE(XR_ERROR_VALIDATION_FAILURE == xrBeginPlaneDetectionEXT(detection, &beginInfo));
+                REQUIRE(XR_ERROR_VALIDATION_FAILURE == ext.xrBeginPlaneDetectionEXT_(detection, &beginInfo));
                 return false;
             }).Loop();
         }
@@ -578,7 +572,7 @@ namespace Conformance
 
             RenderLoop(session, [&](const XrFrameState& /* frameState */) {
                 beginInfo.time = 0;
-                REQUIRE(XR_ERROR_TIME_INVALID == xrBeginPlaneDetectionEXT(detection, &beginInfo));
+                REQUIRE(XR_ERROR_TIME_INVALID == ext.xrBeginPlaneDetectionEXT_(detection, &beginInfo));
                 return false;
             }).Loop();
         }
@@ -595,12 +589,12 @@ namespace Conformance
             RenderLoop(session, [&](const XrFrameState& frameState) {
                 beginInfo.time = frameState.predictedDisplayTime;
                 beginInfo.boundingBoxPose = pose;
-                REQUIRE(XR_ERROR_POSE_INVALID == xrBeginPlaneDetectionEXT(detection, &beginInfo));
+                REQUIRE(XR_ERROR_POSE_INVALID == ext.xrBeginPlaneDetectionEXT_(detection, &beginInfo));
                 return false;
             }).Loop();
         }
 
-        REQUIRE(XR_SUCCESS == xrDestroyPlaneDetectorEXT(detection));
+        REQUIRE(XR_SUCCESS == ext.xrDestroyPlaneDetectorEXT_(detection));
     }
 
     static bool IsClockWise(const XrVector2f* points, size_t count)
@@ -642,14 +636,7 @@ namespace Conformance
 
         XrInstance instance = compositionHelper.GetInstance();
 
-        auto xrCreatePlaneDetectorEXT = GetInstanceExtensionFunction<PFN_xrCreatePlaneDetectorEXT>(instance, "xrCreatePlaneDetectorEXT");
-        auto xrDestroyPlaneDetectorEXT = GetInstanceExtensionFunction<PFN_xrDestroyPlaneDetectorEXT>(instance, "xrDestroyPlaneDetectorEXT");
-        auto xrBeginPlaneDetectionEXT = GetInstanceExtensionFunction<PFN_xrBeginPlaneDetectionEXT>(instance, "xrBeginPlaneDetectionEXT");
-        auto xrGetPlaneDetectionStateEXT =
-            GetInstanceExtensionFunction<PFN_xrGetPlaneDetectionStateEXT>(instance, "xrGetPlaneDetectionStateEXT");
-        auto xrGetPlaneDetectionsEXT = GetInstanceExtensionFunction<PFN_xrGetPlaneDetectionsEXT>(instance, "xrGetPlaneDetectionsEXT");
-        auto xrGetPlanePolygonBufferEXT =
-            GetInstanceExtensionFunction<PFN_xrGetPlanePolygonBufferEXT>(instance, "xrGetPlanePolygonBufferEXT");
+        ExtensionDataForXR_EXT_plane_detection ext(instance);
 
         const XrSpace localSpace = compositionHelper.CreateReferenceSpace(XR_REFERENCE_SPACE_TYPE_LOCAL);
         const XrSpace viewSpace = compositionHelper.CreateReferenceSpace(XR_REFERENCE_SPACE_TYPE_VIEW);
@@ -672,7 +659,7 @@ namespace Conformance
         XrPlaneDetectorCreateInfoEXT createInfo{XR_TYPE_PLANE_DETECTOR_CREATE_INFO_EXT};
         createInfo.flags = XR_PLANE_DETECTOR_ENABLE_CONTOUR_BIT_EXT;
         XrPlaneDetectorEXT detection = XR_NULL_HANDLE;
-        REQUIRE(XR_SUCCESS == xrCreatePlaneDetectorEXT(session, &createInfo, &detection));
+        REQUIRE(XR_SUCCESS == ext.xrCreatePlaneDetectorEXT_(session, &createInfo, &detection));
 
         enum DetectState
         {
@@ -709,12 +696,12 @@ namespace Conformance
                 beginInfo.boundingBoxExtent = XrExtent3DfEXT{10.0f, 10.0f, 10.0f};
                 beginInfo.time = frameState.predictedDisplayTime;
                 beginInfo.baseSpace = viewSpace;
-                REQUIRE(XR_SUCCESS == xrBeginPlaneDetectionEXT(detection, &beginInfo));
+                REQUIRE(XR_SUCCESS == ext.xrBeginPlaneDetectionEXT_(detection, &beginInfo));
                 detect_state = WAITING;
             } break;
             case WAITING: {
                 XrPlaneDetectionStateEXT state;
-                REQUIRE(XR_SUCCESS == xrGetPlaneDetectionStateEXT(detection, &state));
+                REQUIRE(XR_SUCCESS == ext.xrGetPlaneDetectionStateEXT_(detection, &state));
                 REQUIRE((state == XR_PLANE_DETECTION_STATE_PENDING_EXT || state == XR_PLANE_DETECTION_STATE_DONE_EXT ||
                          state == XR_PLANE_DETECTION_STATE_ERROR_EXT));
                 switch (state) {
@@ -734,7 +721,7 @@ namespace Conformance
                 getInfo.baseSpace = localSpace;
                 getInfo.time = frameState.predictedDisplayTime;
                 XrPlaneDetectorLocationsEXT locations{XR_TYPE_PLANE_DETECTOR_LOCATIONS_EXT};
-                REQUIRE(XR_SUCCESS == xrGetPlaneDetectionsEXT(detection, &getInfo, &locations));
+                REQUIRE(XR_SUCCESS == ext.xrGetPlaneDetectionsEXT_(detection, &getInfo, &locations));
 
                 if (locations.planeLocationCountOutput == 0) {
                     break;
@@ -749,10 +736,10 @@ namespace Conformance
                 locations.planeLocations = location_vector.data();
                 locations.planeLocationCapacityInput = (uint32_t)location_vector.size();
 
-                REQUIRE(XR_SUCCESS == xrGetPlaneDetectionsEXT(detection, &getInfo, &locations));
+                REQUIRE(XR_SUCCESS == ext.xrGetPlaneDetectionsEXT_(detection, &getInfo, &locations));
                 detect_state = RETRIEVING;
 
-                retrieval = std::async(std::launch::async, [detection, location_vector, xrGetPlanePolygonBufferEXT]() {
+                retrieval = std::async(std::launch::async, [detection, location_vector, &ext]() {
                     std::vector<MeshData> local_meshes;
                     for (auto& location : location_vector) {
 
@@ -764,7 +751,7 @@ namespace Conformance
                             XrPlaneDetectorPolygonBufferEXT polygonBuffer{XR_TYPE_PLANE_DETECTOR_POLYGON_BUFFER_EXT};
 
                             REQUIRE(XR_SUCCESS ==
-                                    xrGetPlanePolygonBufferEXT(detection, location.planeId, polygonBufferIndex, &polygonBuffer));
+                                    ext.xrGetPlanePolygonBufferEXT_(detection, location.planeId, polygonBufferIndex, &polygonBuffer));
                             REQUIRE(polygonBuffer.vertexCountOutput > 0);
 
                             std::vector<XrVector2f> vertices;
@@ -772,7 +759,7 @@ namespace Conformance
                             polygonBuffer.vertexCapacityInput = (uint32_t)vertices.size();
                             polygonBuffer.vertices = vertices.data();
                             REQUIRE(XR_SUCCESS ==
-                                    xrGetPlanePolygonBufferEXT(detection, location.planeId, polygonBufferIndex, &polygonBuffer));
+                                    ext.xrGetPlanePolygonBufferEXT_(detection, location.planeId, polygonBufferIndex, &polygonBuffer));
 
                             CAPTURE(polygonBufferIndex);
                             if (polygonBufferIndex == 0) {
@@ -841,7 +828,7 @@ namespace Conformance
 
         RenderLoop(session, update).Loop();
 
-        REQUIRE(XR_SUCCESS == xrDestroyPlaneDetectorEXT(detection));
+        REQUIRE(XR_SUCCESS == ext.xrDestroyPlaneDetectorEXT_(detection));
     }
 
     TEST_CASE("XR_EXT_plane_detection-contour-HU", "[XR_EXT_plane_detection][scenario][interactive][no_auto]")

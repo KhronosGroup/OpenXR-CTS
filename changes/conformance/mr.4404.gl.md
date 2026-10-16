@@ -1,0 +1,4 @@
+---
+- mr.4404.gl
+---
+- Improvement: Move some non-standard async handle creation code out of the generated code for easier maintenance.

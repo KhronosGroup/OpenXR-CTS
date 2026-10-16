@@ -167,7 +167,7 @@ if(XR_USE_GRAPHICS_API_OPENGL OR XR_USE_GRAPHICS_API_OPENGL_ES)
         "#define UNLIT"
     )
 
-    set(gles_version_directive "#version 320 es")
+    set(gles_version_directive "#version 310 es")
     make_includable(
         "${CMAKE_CURRENT_SOURCE_DIR}/Shaders/PbrVertexShader_glsl.vert"
         "${CMAKE_CURRENT_BINARY_DIR}/PbrVertexShader_glsl_src_es.h"

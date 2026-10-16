@@ -66,7 +66,7 @@
 namespace Conformance
 {
     struct IPlatformPlugin;
-    static const char* VertexShaderGlsl = R"_(#version 320 es
+    static const char* VertexShaderGlsl = R"_(#version 310 es
 
     in vec3 VertexPos;
     in vec3 VertexColor;
@@ -82,7 +82,7 @@ namespace Conformance
     }
     )_";
 
-    static const char* FragmentShaderGlsl = R"_(#version 320 es
+    static const char* FragmentShaderGlsl = R"_(#version 310 es
 
     in lowp vec3 PSVertexColor;
     out lowp vec4 FragColor;
@@ -432,8 +432,7 @@ namespace Conformance
     bool OpenGLESGraphicsPlugin::InitializeDevice(XrInstance instance, XrSystemId systemId, bool checkGraphicsRequirements,
                                                   uint32_t /*deviceCreationFlags*/)
     {
-        XrGraphicsRequirementsOpenGLESKHR graphicsRequirements = {XR_TYPE_GRAPHICS_REQUIREMENTS_OPENGL_ES_KHR, nullptr,
-                                                                  XR_MAKE_VERSION(3, 1, 0), XR_MAKE_VERSION(3, 2, 0)};
+        XrGraphicsRequirementsOpenGLESKHR graphicsRequirements{XR_TYPE_GRAPHICS_REQUIREMENTS_OPENGL_ES_KHR};
 
         // Get the graphics requirements.
         if (checkGraphicsRequirements) {
@@ -447,6 +446,12 @@ namespace Conformance
                 // Log result?
                 return false;
             }
+        }
+        else {
+            // Pretend we got requirements back
+
+            graphicsRequirements.minApiVersionSupported = XR_MAKE_VERSION(3, 1, 0);
+            graphicsRequirements.maxApiVersionSupported = XR_MAKE_VERSION(3, 2, 0);
         }
 
         if (deviceInitialized == true) {

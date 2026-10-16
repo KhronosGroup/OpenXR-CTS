@@ -557,9 +557,8 @@ namespace Conformance
 
     static void GenerateDirectionalTestSet(std::vector<TestSet>& tests, eControllerComponent controllerComponent)
     {
-        GlobalData& globalData = GetGlobalData();
-        bool leftUnderTest = globalData.leftHandUnderTest;
-        bool rightUnderTest = globalData.rightHandUnderTest;
+        bool leftUnderTest = Options::Get().leftHandEnabled;
+        bool rightUnderTest = Options::Get().rightHandEnabled;
         std::string sTimeoutError = "Time out waiting for dpad input";
         std::string sComponent =
             (controllerComponent == eControllerComponent::Thumbstick) ? "thumbstick and release." : "trackpad and release.";
@@ -593,11 +592,10 @@ namespace Conformance
         std::string sComponent = (controllerComponent == eControllerComponent::Thumbstick) ? "thumbstick" : "trackpad";
         std::string sSuffix = ", rotate counter-clockwise until you get to the \nbottom area and hold (do not release).";
 
-        GlobalData& globalData = GetGlobalData();
-        if (globalData.leftHandUnderTest) {
+        if (Options::Get().leftHandEnabled) {
             tests.push_back({dpadLeft_L, "(1) With your LEFT controller, push fully LEFT on your " + sComponent + sSuffix, sTimeoutError});
         }
-        if (globalData.rightHandUnderTest) {
+        if (Options::Get().rightHandEnabled) {
             tests.push_back(
                 {dpadRight_R, "(2) With your RIGHT controller, push fully RIGHT on your " + sComponent + sSuffix, sTimeoutError});
         }
@@ -700,11 +698,10 @@ namespace Conformance
         actionLayerManager.DisplayMessage("Waiting for session focus...");
 
         // Set test devices to active
-        GlobalData& globalData = GetGlobalData();
-        if (globalData.leftHandUnderTest) {
+        if (Options::Get().leftHandEnabled) {
             testDevice_L->SetDeviceActive(true);
         }
-        if (globalData.rightHandUnderTest) {
+        if (Options::Get().rightHandEnabled) {
             testDevice_R->SetDeviceActive(true);
         }
 

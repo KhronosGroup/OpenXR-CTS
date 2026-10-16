@@ -1,0 +1,4 @@
+---
+- mr.4447.gl
+---
+- Improvement: Simplify `GlobalData()` and remove function with single incorrect usage of `GetFunctionInfo`.

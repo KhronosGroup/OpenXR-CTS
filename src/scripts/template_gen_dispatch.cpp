@@ -159,55 +159,6 @@ static /*{ cur_cmd.cdecl | collapse_whitespace | replace(" xr", " ConformanceLay
     }
 //#         endif
 
-//## If this is a xrQuerySpacesFB, we have to create an entry in
-//## the appropriate unordered_map pointing to the correct dispatch table for
-//## the newly created objects.
-//#-        set is_create_spatial_anchor = ("xrCreateSpatialAnchorFB" == cur_cmd.name)
-//#         set is_query_spaces = ("xrQuerySpacesFB" == cur_cmd.name)
-//#         if is_create_spatial_anchor or is_query_spaces
-    if (XR_SUCCEEDED(result)) {
-//#             set out_handle_name = cur_cmd.params[-1].name
-        // Create "handle state" for the XrAsyncRequestIdFB value, with "object type" of the completion event expected.
-        // The session is considered the parent handle.
-        CreateAndRegisterHandleState(handleState,
-            {* /*{ out_handle_name }*/, static_cast<XrObjectType>(XR_TYPE_EVENT_DATA_SPATIAL_ANCHOR_CREATE_COMPLETE_FB)});
-    }
-//#         endif
-
-//## If this is a xrPollEvent and the event type returns an object, we have to
-//## create an entry in the appropriate unordered_map pointing to the correct
-//## dispatch table for the newly created object.
-//#-        set is_pollevent = ("xrPollEvent" == cur_cmd.name)
-//#         if is_pollevent
-    if (XR_SUCCEEDED(result)) {
-        if (eventData->type == XR_TYPE_EVENT_DATA_SPATIAL_ANCHOR_CREATE_COMPLETE_FB) {
-            // Deal with new handle being returned in an async completion event.
-            XrEventDataSpatialAnchorCreateCompleteFB* completeEvent = reinterpret_cast<XrEventDataSpatialAnchorCreateCompleteFB*>(eventData);
-            // Lookup "handle state" for the XrAsyncRequestIdFB value, with "object type" of the event struct type.
-            HandleState* const requestStateObject = GetHandleState({(IntHandle)completeEvent->requestId, static_cast<XrObjectType>(XR_TYPE_EVENT_DATA_SPATIAL_ANCHOR_CREATE_COMPLETE_FB)});
-            CreateAndRegisterHandleState(requestStateObject->parent, // session: parent of request ID
-                {HandleToInt(completeEvent->space), XR_OBJECT_TYPE_SPACE});
-        }
-    }
-//#         endif
-
-//## If this is a xrRetrieveSpaceQueryResultsFB, we have to create an entry in
-//## the appropriate unordered_map pointing to the correct dispatch table for
-//## the newly created objects.
-//#-        set is_space_query_results = ("xrRetrieveSpaceQueryResultsFB" == cur_cmd.name)
-//#         if is_space_query_results
-    if (XR_SUCCEEDED(result)) {
-//#             set out_param_name = cur_cmd.params[-1].name
-        // Deal with created space handles
-        if (/*{ out_param_name }*/->results) {
-            for (uint32_t i = 0; i < /*{ out_param_name }*/->resultCountOutput; ++i) {
-                CreateAndRegisterHandleState(handleState,
-                    {HandleToInt(/*{ out_param_name }*/->results[i].space), XR_OBJECT_TYPE_SPACE});
-            }
-        }
-    }
-//#         endif
-
     return result;
 }
 

@@ -1,0 +1,4 @@
+---
+- mr.4444.gl
+---
+- Improvement: Make CTS consistent in treatment of `XR_ERROR_REFERENCE_SPACE_UNSUPPORTED`.

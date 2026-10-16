@@ -19,6 +19,7 @@
 #include "CustomHandleState.h"
 #include "HandleState.h"
 #include "RuntimeFailure.h"
+#include "gen_dispatch.h"
 
 #include <openxr/openxr.h>
 #include <openxr/openxr_loader_negotiation.h>
@@ -243,8 +244,16 @@ void ConformanceHooks::checkEventPayload(const XrEventDataPerfSettingsEXT* data)
 
 void ConformanceHooks::checkEventPayload(const XrEventDataSpatialAnchorCreateCompleteFB* data)
 {
-    (void)data;
-    // Event data used in gen_dispatch.cpp
+    NONCONFORMANT_IF(XR_SUCCEEDED(data->result) && data->space == XR_NULL_HANDLE, "Must return a handle if successful");
+    if (data->space == XR_NULL_HANDLE) {
+        return;
+    }
+
+    // Lookup "handle state" for the XrAsyncRequestIdFB value, with "object type" of the event struct type.
+    HandleState* const requestStateObject =
+        GetHandleState({(IntHandle)data->requestId, static_cast<XrObjectType>(XR_TYPE_EVENT_DATA_SPATIAL_ANCHOR_CREATE_COMPLETE_FB)});
+    CreateAndRegisterHandleState(requestStateObject->parent,  // session: parent of request ID
+                                 {HandleToInt(data->space), XR_OBJECT_TYPE_SPACE});
 }
 
 void ConformanceHooks::checkEventPayload(const XrEventDataUserPresenceChangedEXT* data)

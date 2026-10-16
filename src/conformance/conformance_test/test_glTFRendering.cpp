@@ -100,7 +100,7 @@ namespace Conformance
         // Create XrSpaces for each grip pose
         for (int i = 0; i < 2; i++) {
             XrSpace space;
-            if ((i == 0 && globalData.leftHandUnderTest) || (i == 1 && globalData.rightHandUnderTest)) {
+            if ((i == 0 && Options::Get().leftHandEnabled) || (i == 1 && Options::Get().rightHandEnabled)) {
                 XrActionSpaceCreateInfo spaceCreateInfo{XR_TYPE_ACTION_SPACE_CREATE_INFO};
                 spaceCreateInfo.action = gripPoseAction;
                 spaceCreateInfo.subactionPath = subactionPaths[i];

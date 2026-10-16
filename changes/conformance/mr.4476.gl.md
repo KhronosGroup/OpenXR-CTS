@@ -1,0 +1,4 @@
+---
+- mr.3376.gl
+---
+- Improvement: Add validation to the CTS that only known tags are used for tests.
