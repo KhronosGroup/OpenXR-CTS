@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites xmlns:cts="https://github.com/KhronosGroup/OpenXR-CTS">
+  <testsuite errors="0" failures="1" skipped="2" tests="4" hostname="tbd" time="1.000" timestamp="2026-01-01T00:00:00Z">
+    <properties>
+      <property name="filters" value="exclude:[interactive]"/>
+    </properties>
+    <cts:ctsTestEnvironment>
+      <cts:revisionData revision="openxr-cts-test" localChanges="false"/>
+      <cts:runtimeInstanceProperties>
+        <cts:apiVersion major="1" minor="0" patch="0"/>
+        <cts:runtimeVersion major="1" minor="2" patch="3"/>
+        <cts:runtimeName>Synthetic Runtime</cts:runtimeName>
+      </cts:runtimeInstanceProperties>
+      <cts:testOptions>
+        <cts:graphicsPlugin value="Vulkan"/>
+        <cts:minApiVersion string="1.0" value="0x0001000000000000"/>
+        <cts:formFactor string="Hmd" value="XR_FORM_FACTOR_HEAD_MOUNTED_DISPLAY"/>
+      </cts:testOptions>
+      <cts:availableApiLayers>
+        <cts:apiLayerProperties layerName="XR_APILAYER_KHRONOS_runtime_conformance" layerVersion="1" specVersionMajor="1" specVersionMinor="0" specVersionPatch="0"/>
+      </cts:availableApiLayers>
+      <cts:availableInstanceExtensions>
+        <cts:extensionProperties extensionName="XR_EXT_eye_gaze_interaction" extensionVersion="1"/>
+        <cts:extensionProperties extensionName="XR_EXT_palm_pose" extensionVersion="1"/>
+        <cts:extensionProperties extensionName="XR_KHR_D3D11_enable" extensionVersion="1"/>
+        <cts:extensionProperties extensionName="XR_KHR_vulkan_enable" extensionVersion="1"/>
+      </cts:availableInstanceExtensions>
+      <cts:availableFormFactors>
+        <cts:formFactor value="XR_FORM_FACTOR_HEAD_MOUNTED_DISPLAY">
+          <cts:availableViewConfigurations>
+            <cts:viewConfiguration value="XR_VIEW_CONFIGURATION_TYPE_PRIMARY_STEREO">
+              <cts:availableEnvironmentBlendModes>
+                <cts:environmentBlendMode value="XR_ENVIRONMENT_BLEND_MODE_OPAQUE"/>
+                <cts:environmentBlendMode value="XR_ENVIRONMENT_BLEND_MODE_ALPHA_BLEND"/>
+              </cts:availableEnvironmentBlendModes>
+            </cts:viewConfiguration>
+          </cts:availableViewConfigurations>
+        </cts:formFactor>
+      </cts:availableFormFactors>
+    </cts:ctsTestEnvironment>
+    <cts:ctsConformanceReport>
+      <cts:results testSuccessCount="1" testFailureCount="1"/>
+    </cts:ctsConformanceReport>
+    <testcase classname="global" name="WarningCase" time="0.000" status="run" cts:tags="[swapchain]">
+      <cts:warning type="WARN">
+WARNING:
+Conformance layer warning: hello
+at /tmp/openxr-cts/src/conformance/conformance_test/test_Warn.cpp:12
+      </cts:warning>
+    </testcase>
+    <testcase classname="global" name="EyeGazeSkip" time="0.000" status="run" cts:tags="[XR_EXT_eye_gaze_interaction]">
+      <skipped type="SKIP">
+SKIPPED
+System does not support eye gaze interaction
+at /tmp/openxr-cts/src/conformance/conformance_test/test_XR_EXT_eye_gaze_interaction.cpp:44
+      </skipped>
+    </testcase>
+    <testcase classname="global" name="DpadBindingSkip" time="0.000" status="run" cts:tags="[XR_EXT_dpad_binding]">
+      <skipped type="SKIP">
+SKIPPED
+XR_EXT_dpad_binding not supported
+at /tmp/openxr-cts/src/conformance/conformance_test/test_XR_EXT_dpad_binding.cpp:796
+      </skipped>
+    </testcase>
+    <testcase classname="global" name="FailingCase" time="0.000" status="run" cts:tags="[self_test]">
+      <failure type="CHECK">
+FAILED:
+CHECK(false)
+at /tmp/openxr-cts/src/conformance/conformance_test/test_Fail.cpp:99
+      </failure>
+    </testcase>
+  </testsuite>
+</testsuites>

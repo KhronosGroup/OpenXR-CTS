@@ -166,7 +166,7 @@ namespace Conformance
         /// The conformance tests will generically test the runtime supports each of the provided
         /// interaction profile.
         /// Default is /interaction_profiles/khr/simple_controller alone.
-        std::vector<std::string> enabledInteractionProfiles;
+        std::vector<std::string> enabledInteractionProfiles{"khr/simple_controller"};
 
         /// Indicates if the runtime should be tested to ensure it returns XR_ERROR_HANDLE_INVALID
         /// upon usage of invalid handles that are not undefined behavior to read.

@@ -126,12 +126,11 @@ namespace Conformance
         }
 
         CompositionHelper compositionHelper("Linear vs Non-Linear");
-        InteractiveLayerManager interactiveLayerManager(compositionHelper, "gradient_linearity.png",
-                                                        "Both gradients should match both each other"
-                                                        " and the example image, except for banding artifacts,"
-                                                        " and should appear perceptually linear."
-                                                        " Banding may introduce small color artifacts, but"
-                                                        " the gradients should be broadly the same color.");
+        InteractiveLayerManager interactiveLayerManager(
+            compositionHelper, "gradient_linearity.png",
+            "Both gradients should match both each other and the example image, except for banding artifacts, "
+            "and should appear perceptually linear. Banding may introduce small color artifacts (e.g., due to limited color "
+            "bits), but the gradients should be broadly the same color.");
 
         XrSession session = compositionHelper.GetSession();
 

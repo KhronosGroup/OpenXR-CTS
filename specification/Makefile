@@ -39,7 +39,7 @@ endif
 VERSIONS := XR_VERSION_1_0 XR_VERSION_1_1 XR_LOADER_VERSION_1_0
 VERSIONOPTIONS := $(foreach version,$(VERSIONS),-feature $(version))
 
-SPECREVISION = 1.1.63
+SPECREVISION = 1.1.65
 REVISION_COMPONENTS = $(subst ., ,$(SPECREVISION))
 MAJORMINORVER = $(word 1,$(REVISION_COMPONENTS)).$(word 2,$(REVISION_COMPONENTS))
 
@@ -600,6 +600,7 @@ check-spec-links:
 	$(QUIET)if [ -f checkSchematron.sh ] && [ -f registry/registry.sch ]; then ./checkSchematron.sh; fi
 	$(QUIET)$(PYTHON) $(SCRIPTS)/xml_consistency.py
 	$(QUIET)$(PYTHON) $(SCRIPTS)/findBareNormatives.py
+	$(QUIET)$(PYTHON) $(SCRIPTS)/findLegacyExtensionSections.py
 
 .PHONY: check-spec-links
 

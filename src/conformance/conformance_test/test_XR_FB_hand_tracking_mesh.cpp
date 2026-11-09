@@ -9,6 +9,7 @@
 #include "composition_utils.h"
 #include "matchers.h"
 #include <catch2/catch_test_macros.hpp>
+#include "utilities/extension_functions.h"
 #include "utilities/system_properties_helper.h"
 #include "utilities/xr_math_operators.h"
 #include <openxr/openxr.h>
@@ -23,24 +24,6 @@ namespace Conformance
     static const auto SystemSupportsHandTracking =
         MakeSystemPropertiesBoolChecker(XrSystemHandTrackingPropertiesEXT{XR_TYPE_SYSTEM_HAND_TRACKING_PROPERTIES_EXT},
                                         &XrSystemHandTrackingPropertiesEXT::supportsHandTracking);
-
-#define CTS_DECLARE_FUNCTION_POINTER(name, ext) PFN_xr##name xr##name##_;
-#define CTS_LOAD_FUNCTION_POINTER(name, ext) xr##name##_ = GetInstanceExtensionFunction<PFN_xr##name>(instance, "xr" #name);
-
-    // clang-format off
-
-#define CTS_EXTENSION_DATA_FOR(ext)                             \
-    struct ExtensionDataFor##ext                                \
-    {                                                           \
-        XR_LIST_FUNCTIONS_##ext(CTS_DECLARE_FUNCTION_POINTER)   \
-                                                                \
-        ExtensionDataFor##ext(XrInstance instance)              \
-        {                                                       \
-            XR_LIST_FUNCTIONS_##ext(CTS_LOAD_FUNCTION_POINTER)  \
-        }                                                       \
-    }
-
-    // clang-format on
 
     CTS_EXTENSION_DATA_FOR(XR_EXT_hand_tracking);
     CTS_EXTENSION_DATA_FOR(XR_FB_hand_tracking_mesh);
@@ -207,6 +190,7 @@ namespace Conformance
 
             static constexpr size_t DATA_SOURCE_COUNT = 2;
             HandMeshData m[DATA_SOURCE_COUNT][HAND_COUNT];
+            bool createdTracker[DATA_SOURCE_COUNT] = {false, false};
 
             std::array<std::array<XrHandTrackingDataSourceEXT, 1>, DATA_SOURCE_COUNT> testDataSources = {{
                 std::array<XrHandTrackingDataSourceEXT, 1>{{XR_HAND_TRACKING_DATA_SOURCE_UNOBSTRUCTED_EXT}},
@@ -237,6 +221,8 @@ namespace Conformance
                     REQUIRE_THAT(resultOfXrCreateHandTracker, In<XrResult>({XR_SUCCESS, XR_ERROR_FEATURE_UNSUPPORTED}));
 
                     if (resultOfXrCreateHandTracker == XR_SUCCESS) {
+                        createdTracker[dataSourcesIndex] = true;
+
                         XrHandTrackingMeshFB mesh{XR_TYPE_HAND_TRACKING_MESH_FB};
                         REQUIRE(XR_SUCCESS == ext_htm.xrGetHandMeshFB_(handTracker, &mesh));
 
@@ -253,8 +239,14 @@ namespace Conformance
             }
 
             // Static mesh data (required to be the same for the lifetime of the XrInstance)
-            for (size_t hand = 0; hand < HAND_COUNT; ++hand) {
-                REQUIRE(m[0][hand] == m[1][hand]);
+            // Only compare meshes across data sources if both data sources were successfully created
+            if (createdTracker[0] && createdTracker[1]) {
+                for (size_t hand = 0; hand < HAND_COUNT; ++hand) {
+                    REQUIRE(m[0][hand] == m[1][hand]);
+                }
+            }
+            else {
+                SKIP("Cannot compare hand tracking meshes as both sources could not be created");
             }
         }
     }

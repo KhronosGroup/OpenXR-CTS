@@ -47,10 +47,13 @@
 #include <openxr/openxr.h>
 #include <openxr/openxr_platform.h>
 
+#include <array>
 #include <cstring>
 #include <iostream>
+#include <map>
 #include <streambuf>
 #include <string>
+#include <vector>
 
 using namespace Conformance;
 
@@ -254,6 +257,51 @@ namespace
         }
     }
 
+    /// e.g. `[interactive][scenario]` -> {"interactive", "scenario"}.
+    std::vector<std::string> SplitTags(const std::string& tagsAsString)
+    {
+        std::vector<std::string> tags;
+        for (size_t open = tagsAsString.find('['); open != std::string::npos; open = tagsAsString.find('[', open)) {
+            const size_t close = tagsAsString.find(']', open + 1);
+            if (close == std::string::npos) {
+                break;  // Not possible from Catch2, which rejects unclosed tags at registration.
+            }
+            tags.emplace_back(tagsAsString.substr(open + 1, close - open - 1));
+            open = close + 1;
+        }
+        return tags;
+    }
+
+    /// Is this a tag that the CTS recognizes?
+    bool IsKnownTag(const std::string& tag)
+    {
+        // See src/conformance/usage/code.adoc for tag definitions.
+        constexpr std::array<const char*, 7> kKnownNonFeatureTags = {{
+            "actions",      //
+            "composition",  //
+            "gamepad",      //
+            "interactive",  //
+            "no_auto",      //
+            "scenario",     //
+            "self_test",    //
+        }};
+
+        // Catch2 adds `[#filename]` tags itself when run with `--filenames-as-tags`
+        if (!tag.empty() && tag[0] == '#') {
+            return true;
+        }
+
+        for (const char* knownTag : kKnownNonFeatureTags) {
+            if (tag == knownTag) {
+                return true;
+            }
+        }
+
+        // Extension and core version tags are checked against the names generated from the registry, which
+        // also catches misspellings and non-canonical capitalization of real extension names.
+        return FeatureNameToBitIndex(tag) != FeatureBitIndex::FEATURE_COUNT;
+    }
+
     // Ensure conformance is configured correctly.
     TEST_CASE("ValidateEnvironment")
     {
@@ -331,6 +379,13 @@ namespace
                         bool isActions = testTags.find("[actions]") != std::string::npos;
                         REQUIRE((isNoAuto || isComposition || isSelfTest || isActions));
                     }
+                }
+
+                // Every tag must be one that the CTS knows about, so that new categories are introduced
+                // deliberately and documented, rather than accumulating one-off tags that adopters cannot
+                // interpret and that the documented run commands do not select.
+                for (const std::string& tag : SplitTags(testTags)) {
+                    REQUIRE_MSG(IsKnownTag(tag), "Unrecognized tag [" << tag << "] used by: " << testCase.testName);
                 }
             }
         }
@@ -506,9 +561,6 @@ namespace
         auto& globalData = GetGlobalData();
         globalData.enabledAPILayerNames = options.enabledAPILayers;
         globalData.enabledInstanceExtensionNames = options.enabledInstanceExtensions;
-        globalData.enabledInteractionProfiles = options.enabledInteractionProfiles;
-        globalData.leftHandUnderTest = options.leftHandEnabled;
-        globalData.rightHandUnderTest = options.rightHandEnabled;
         globalData.conformanceReport.minApiVersion = options.minApiVersionValue;
 
         if (!(catchSession.configData().listTests || catchSession.configData().listTags || catchSession.configData().listListeners ||

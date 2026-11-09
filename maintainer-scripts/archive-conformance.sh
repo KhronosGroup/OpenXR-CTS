@@ -50,6 +50,10 @@ makeSubset "$TARNAME" $(getConformanceFilenames)
     cp ../src/conformance/README.md README.md
     add_to_tar "$TARNAME" README.md
     rm README.md
+
+    cd cts
+    # Add the CTS-specific CONTRIBUTING
+    add_to_tar "$TARNAME" CONTRIBUTING.md
 )
 
 echo

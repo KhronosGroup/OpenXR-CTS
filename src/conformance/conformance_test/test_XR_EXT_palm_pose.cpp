@@ -629,7 +629,7 @@ namespace Conformance
             syncInfo.countActiveActionSets = 1;
 
             for (uint32_t i = 0; i < 2; i++) {
-                if ((i == 0 && !globalData.leftHandUnderTest) || (i == 1 && !globalData.rightHandUnderTest)) {
+                if ((i == 0 && !Options::Get().leftHandEnabled) || (i == 1 && !Options::Get().rightHandEnabled)) {
                     continue;
                 }
                 INFO("Hand: " << ((i == 0) ? "left" : "right"));

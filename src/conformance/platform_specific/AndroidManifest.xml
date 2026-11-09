@@ -18,6 +18,13 @@
         android:name="android.hardware.vr.headtracking"
         android:required="false" />
 
+    <!-- for detailed (not only controller derived) hand tracking -->
+    <uses-permission android:name="org.khronos.openxr.permission.ACCESS_DETAILED_HAND_DATA" />
+    <!-- intentionally omitted: specification states that this uses-feature tag must: not be used for gating hand tracking data -->
+    <!-- <uses-feature
+        android:name="org.khronos.openxr.detailedhandtracking"
+        android:required="false" /> -->
+
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.INTERNET" />
 

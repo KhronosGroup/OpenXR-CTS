@@ -27,6 +27,7 @@
 
 #include "conformance_framework.h"
 #include "conformance_utils.h"
+#include "utilities/extension_functions.h"
 #include "utilities/stringification.h"
 #include "utilities/throw_helpers.h"
 #include "utilities/types_and_constants.h"
@@ -44,6 +45,9 @@ namespace Conformance
     /// Checks if the given spatial capability feature is supported for the given capability.
     bool IsSpatialCapabilityFeatureSupported(XrInstance instance, XrSystemId systemId, XrSpatialCapabilityEXT capability,
                                              XrSpatialCapabilityFeatureEXT feature);
+
+    CTS_EXTENSION_DATA_FOR(XR_EXT_future);
+    CTS_EXTENSION_DATA_FOR(XR_EXT_spatial_entity);
 
     /// Runs spatial context and discovery snapshot tests for the given capability,
     /// its expected list of guaranteed components, it configuration struct and
@@ -78,21 +82,8 @@ namespace Conformance
             AutoBasicInstance instance({XR_EXT_FUTURE_EXTENSION_NAME, XR_EXT_SPATIAL_ENTITY_EXTENSION_NAME, capabilityExtensionName},
                                        AutoBasicInstance::createSystemId);
 
-#define FUNCTION_POINTERS(_)                       \
-    _(xrCreateSpatialContextAsyncEXT)              \
-    _(xrCreateSpatialContextCompleteEXT)           \
-    _(xrDestroySpatialContextEXT)                  \
-    _(xrCreateSpatialDiscoverySnapshotAsyncEXT)    \
-    _(xrCreateSpatialDiscoverySnapshotCompleteEXT) \
-    _(xrDestroySpatialSnapshotEXT)                 \
-    _(xrPollFutureEXT)
-
-#define LOAD_FUNCTION_POINTER(name) PFN_##name name = GetInstanceExtensionFunction<PFN_##name>(instance, #name);
-
-            FUNCTION_POINTERS(LOAD_FUNCTION_POINTER)
-
-#undef LOAD_FUNCTION_POINTER
-#undef FUNCTION_POINTERS
+            ExtensionDataForXR_EXT_future ext_future(instance);
+            ExtensionDataForXR_EXT_spatial_entity ext_se(instance);
 
             static const std::chrono::nanoseconds kTimeout = 5s;
             static const std::chrono::nanoseconds kInterval = 16ms;
@@ -123,7 +114,7 @@ namespace Conformance
                 // slink:XrSpatialContextCreateInfoEXT::capabilityConfigCount is 0.
                 // A spatial context handle needs at least one capability.
                 REQUIRE(XR_ERROR_SPATIAL_CAPABILITY_CONFIGURATION_INVALID_EXT ==
-                        xrCreateSpatialContextAsyncEXT(session, &contextCreateInfo, &future));
+                        ext_se.xrCreateSpatialContextAsyncEXT_(session, &contextCreateInfo, &future));
             }
 
             SECTION("No components in capability config")
@@ -147,7 +138,7 @@ namespace Conformance
                 // A capability configuration is incomplete without a list of component types
                 // that need to be enabled for that capability.
                 REQUIRE(XR_ERROR_SPATIAL_CAPABILITY_CONFIGURATION_INVALID_EXT ==
-                        xrCreateSpatialContextAsyncEXT(session, &contextCreateInfo, &future));
+                        ext_se.xrCreateSpatialContextAsyncEXT_(session, &contextCreateInfo, &future));
             }
 
             // TODO:
@@ -178,7 +169,7 @@ namespace Conformance
                 // multiple structs with the same
                 // XrSpatialCapabilityConfigurationBaseHeaderEXT::capability.
                 REQUIRE(XR_ERROR_SPATIAL_CAPABILITY_CONFIGURATION_INVALID_EXT ==
-                        xrCreateSpatialContextAsyncEXT(session, &contextCreateInfo, &future));
+                        ext_se.xrCreateSpatialContextAsyncEXT_(session, &contextCreateInfo, &future));
             }
 
             SECTION("Create and destroy spatial context")
@@ -195,24 +186,19 @@ namespace Conformance
                                                                 static_cast<uint32_t>(capabilityConfigs.size()), capabilityConfigs.data()};
 
                 XrFutureEXT future;
-                REQUIRE(XR_SUCCESS == xrCreateSpatialContextAsyncEXT(session, &contextCreateInfo, &future));
+                REQUIRE(XR_SUCCESS == ext_se.xrCreateSpatialContextAsyncEXT_(session, &contextCreateInfo, &future));
                 REQUIRE(WaitUntilPredicateWithTimeout(
                     [&]() {
-                        XrFuturePollInfoEXT pollInfo{
-                            XR_TYPE_FUTURE_POLL_INFO_EXT,
-                            nullptr,
-                            future,
-                        };
-                        XrFuturePollResultEXT pollResult{
-                            XR_TYPE_FUTURE_POLL_RESULT_EXT,
-                        };
-                        XrResult result = xrPollFutureEXT(instance, &pollInfo, &pollResult);
+                        XrFuturePollInfoEXT pollInfo{XR_TYPE_FUTURE_POLL_INFO_EXT};
+                        pollInfo.future = future;
+                        XrFuturePollResultEXT pollResult{XR_TYPE_FUTURE_POLL_RESULT_EXT};
+                        XrResult result = ext_future.xrPollFutureEXT_(instance, &pollInfo, &pollResult);
                         return (result == XR_SUCCESS) && pollResult.state == XR_FUTURE_STATE_READY_EXT;
                     },
                     kTimeout, kInterval));
 
                 XrCreateSpatialContextCompletionEXT completion{XR_TYPE_CREATE_SPATIAL_CONTEXT_COMPLETION_EXT};
-                REQUIRE(XR_SUCCESS == xrCreateSpatialContextCompleteEXT(session, future, &completion));
+                REQUIRE(XR_SUCCESS == ext_se.xrCreateSpatialContextCompleteEXT_(session, future, &completion));
                 REQUIRE(XR_SUCCESS == completion.futureResult);
 
                 XrSpatialContextEXT spatialContext = completion.spatialContext;
@@ -235,7 +221,7 @@ namespace Conformance
                         // XrSpatialContextCreateInfoEXT::capabilityConfigs when creating
                         // spatialContext.
                         REQUIRE(XR_ERROR_SPATIAL_COMPONENT_NOT_ENABLED_EXT ==
-                                xrCreateSpatialDiscoverySnapshotAsyncEXT(spatialContext, &discoverySnapshotCreateInfo, &future));
+                                ext_se.xrCreateSpatialDiscoverySnapshotAsyncEXT_(spatialContext, &discoverySnapshotCreateInfo, &future));
                     }
 
                     SECTION("Create and destroy discovery snapshot")
@@ -243,18 +229,15 @@ namespace Conformance
                         discoverySnapshotCreateInfo.componentTypeCount = 0;
                         discoverySnapshotCreateInfo.componentTypes = nullptr;
                         REQUIRE(XR_SUCCESS ==
-                                xrCreateSpatialDiscoverySnapshotAsyncEXT(spatialContext, &discoverySnapshotCreateInfo, &future));
+                                ext_se.xrCreateSpatialDiscoverySnapshotAsyncEXT_(spatialContext, &discoverySnapshotCreateInfo, &future));
                         REQUIRE(WaitUntilPredicateWithTimeout(
                             [&]() {
-                                XrFuturePollInfoEXT pollInfo{
-                                    XR_TYPE_FUTURE_POLL_INFO_EXT,
-                                    nullptr,
-                                    future,
-                                };
+                                XrFuturePollInfoEXT pollInfo{XR_TYPE_FUTURE_POLL_INFO_EXT};
+                                pollInfo.future = future;
                                 XrFuturePollResultEXT pollResult{
                                     XR_TYPE_FUTURE_POLL_RESULT_EXT,
                                 };
-                                XrResult result = xrPollFutureEXT(instance, &pollInfo, &pollResult);
+                                XrResult result = ext_future.xrPollFutureEXT_(instance, &pollInfo, &pollResult);
                                 return (result == XR_SUCCESS) && pollResult.state == XR_FUTURE_STATE_READY_EXT;
                             },
                             kTimeout, kInterval));
@@ -285,11 +268,11 @@ namespace Conformance
                             };
                             XrCreateSpatialDiscoverySnapshotCompletionEXT discoverySnapshotCompletion{
                                 XR_TYPE_CREATE_SPATIAL_DISCOVERY_SNAPSHOT_COMPLETION_EXT};
-                            REQUIRE(XR_SUCCESS == xrCreateSpatialDiscoverySnapshotCompleteEXT(spatialContext, &createSnapshotCompletionInfo,
-                                                                                              &discoverySnapshotCompletion));
+                            REQUIRE(XR_SUCCESS == ext_se.xrCreateSpatialDiscoverySnapshotCompleteEXT_(
+                                                      spatialContext, &createSnapshotCompletionInfo, &discoverySnapshotCompletion));
                             REQUIRE(XR_SUCCESS == discoverySnapshotCompletion.futureResult);
 
-                            REQUIRE(XR_SUCCESS == xrDestroySpatialSnapshotEXT(discoverySnapshotCompletion.snapshot));
+                            REQUIRE(XR_SUCCESS == ext_se.xrDestroySpatialSnapshotEXT_(discoverySnapshotCompletion.snapshot));
                         }
                         else {
                             FAIL(
@@ -301,7 +284,7 @@ namespace Conformance
                     }
                 }
 
-                REQUIRE(XR_SUCCESS == xrDestroySpatialContextEXT(completion.spatialContext));
+                REQUIRE(XR_SUCCESS == ext_se.xrDestroySpatialContextEXT_(completion.spatialContext));
             }
         }
     }

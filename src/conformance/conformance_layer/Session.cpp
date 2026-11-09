@@ -530,3 +530,52 @@ XrResult ConformanceHooks::xrEnumerateSwapchainFormats(HandleState* const handle
 
     return result;
 }
+
+XrResult ConformanceHooks::xrCreateSpatialAnchorFB(HandleState* const handleState, XrSession session,
+                                                   const XrSpatialAnchorCreateInfoFB* info, XrAsyncRequestIdFB* requestId)
+{
+    const XrResult result = ConformanceHooksBase::xrCreateSpatialAnchorFB(handleState, session, info, requestId);
+    if (!XR_SUCCEEDED(result)) {
+        return result;
+    }
+
+    // Create "handle state" for the XrAsyncRequestIdFB value, with "object type" of the completion event expected.
+    // The session is considered the parent handle.
+    CreateAndRegisterHandleState(handleState,
+                                 {*requestId, static_cast<XrObjectType>(XR_TYPE_EVENT_DATA_SPATIAL_ANCHOR_CREATE_COMPLETE_FB)});
+    return result;
+}
+
+XrResult ConformanceHooks::xrQuerySpacesFB(HandleState* const handleState, XrSession session, const XrSpaceQueryInfoBaseHeaderFB* info,
+                                           XrAsyncRequestIdFB* requestId)
+{
+
+    const XrResult result = ConformanceHooksBase::xrQuerySpacesFB(handleState, session, info, requestId);
+    if (!XR_SUCCEEDED(result)) {
+        return result;
+    }
+
+    // Create "handle state" for the XrAsyncRequestIdFB value, with "object type" of the completion event expected.
+    // The session is considered the parent handle.
+    CreateAndRegisterHandleState(handleState,
+                                 {*requestId, static_cast<XrObjectType>(XR_TYPE_EVENT_DATA_SPATIAL_ANCHOR_CREATE_COMPLETE_FB)});
+    return result;
+}
+
+XrResult ConformanceHooks::xrRetrieveSpaceQueryResultsFB(HandleState* const handleState, XrSession session, XrAsyncRequestIdFB requestId,
+                                                         XrSpaceQueryResultsFB* results)
+{
+
+    const XrResult result = ConformanceHooksBase::xrRetrieveSpaceQueryResultsFB(handleState, session, requestId, results);
+    if (!XR_SUCCEEDED(result)) {
+        return result;
+    }
+    if (results && results->results) {
+        for (uint32_t i = 0; i < results->resultCountOutput; ++i) {
+            // TODO is it a problem that we are parenting these to session instead of instance (as they really are)
+            // or the request ID (as done elsewhere in the layer)?
+            CreateAndRegisterHandleState(handleState, {HandleToInt(results->results[i].space), XR_OBJECT_TYPE_SPACE});
+        }
+    }
+    return result;
+}

@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites xmlns:cts="https://github.com/KhronosGroup/OpenXR-CTS">
+  <testsuite errors="1" failures="0" skipped="0" tests="2" hostname="tbd" time="1.000" timestamp="2026-01-01T00:00:00Z">
+    <properties>
+      <property name="filters" value="[composition][interactive]"/>
+    </properties>
+    <cts:ctsTestEnvironment>
+      <cts:revisionData revision="openxr-cts-test" localChanges="false"/>
+      <cts:runtimeInstanceProperties>
+        <cts:apiVersion major="1" minor="0" patch="0"/>
+        <cts:runtimeVersion major="1" minor="2" patch="4"/>
+        <cts:runtimeName>Synthetic Runtime</cts:runtimeName>
+      </cts:runtimeInstanceProperties>
+      <cts:testOptions>
+        <cts:graphicsPlugin value="Vulkan"/>
+        <cts:minApiVersion string="1.0" value="0x0001000000000000"/>
+        <cts:formFactor string="Hmd" value="XR_FORM_FACTOR_HEAD_MOUNTED_DISPLAY"/>
+      </cts:testOptions>
+      <cts:availableApiLayers>
+        <cts:apiLayerProperties layerName="XR_APILAYER_KHRONOS_runtime_conformance" layerVersion="1" specVersionMajor="1" specVersionMinor="0" specVersionPatch="0"/>
+      </cts:availableApiLayers>
+      <cts:availableInstanceExtensions>
+        <cts:extensionProperties extensionName="XR_EXT_eye_gaze_interaction" extensionVersion="1"/>
+        <cts:extensionProperties extensionName="XR_EXT_palm_pose" extensionVersion="1"/>
+        <cts:extensionProperties extensionName="XR_KHR_D3D11_enable" extensionVersion="1"/>
+        <cts:extensionProperties extensionName="XR_KHR_vulkan_enable" extensionVersion="1"/>
+        <cts:extensionProperties extensionName="XR_KHR_vulkan_enable2" extensionVersion="1"/>
+      </cts:availableInstanceExtensions>
+      <cts:availableFormFactors>
+        <cts:formFactor value="XR_FORM_FACTOR_HEAD_MOUNTED_DISPLAY">
+          <cts:availableViewConfigurations>
+            <cts:viewConfiguration value="XR_VIEW_CONFIGURATION_TYPE_PRIMARY_STEREO">
+              <cts:availableEnvironmentBlendModes>
+                <cts:environmentBlendMode value="XR_ENVIRONMENT_BLEND_MODE_OPAQUE"/>
+                <cts:environmentBlendMode value="XR_ENVIRONMENT_BLEND_MODE_ALPHA_BLEND"/>
+              </cts:availableEnvironmentBlendModes>
+            </cts:viewConfiguration>
+          </cts:availableViewConfigurations>
+        </cts:formFactor>
+      </cts:availableFormFactors>
+    </cts:ctsTestEnvironment>
+    <cts:ctsConformanceReport>
+      <cts:results testSuccessCount="1" testFailureCount="0"/>
+    </cts:ctsConformanceReport>
+    <testcase classname="global" name="CompositionCase" time="0.000" status="run" cts:tags="[composition][interactive]"/>
+    <testcase classname="global" name="SourceCodeRevision" time="0.001" status="run" cts:tags="[self_test]">
+      <error message="[] { throw std::runtime_error(&quot;injected for golden test fixture&quot;); }()" type="REQUIRE_NOTHROW">
+FAILED:
+  REQUIRE_NOTHROW( [] { throw std::runtime_error("injected for golden test fixture"); }() )
+injected for golden test fixture
+at C:\openxr-cts\src\conformance\conformance_test\conformance_test.cpp(180)
+      </error>
+    </testcase>
+  </testsuite>
+</testsuites>

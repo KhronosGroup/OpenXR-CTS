@@ -1,0 +1,748 @@
+almalence_digital_lens_control.adoc|||*New Enum Constants*
+almalence_digital_lens_control.adoc|||*New Enums*
+almalence_digital_lens_control.adoc|||*New Flag Types*
+almalence_digital_lens_control.adoc|||*New Functions*
+almalence_digital_lens_control.adoc|||*New Object Types*
+almalence_digital_lens_control.adoc|||*New Structures*
+android_trackables.adoc|||*New Defines*
+bd_controller_interaction.adoc|||*New Enum Constants*
+bd_controller_interaction.adoc|||*New Enums*
+bd_controller_interaction.adoc|||*New Flag Types*
+bd_controller_interaction.adoc|||*New Functions*
+bd_controller_interaction.adoc|||*New Object Types*
+bd_controller_interaction.adoc|||*New Structures*
+epic_view_configuration_fov.adoc|||*New Enum Constants*
+epic_view_configuration_fov.adoc|||*New Enums*
+epic_view_configuration_fov.adoc|||*New Flag Types*
+epic_view_configuration_fov.adoc|||*New Functions*
+epic_view_configuration_fov.adoc|||*New Object Types*
+epic_view_configuration_fov.adoc|||*New Structures*
+ext_active_action_set_priority.adoc|||*New Enum Constants*
+ext_active_action_set_priority.adoc|||*New Enums*
+ext_active_action_set_priority.adoc|||*New Flag Types*
+ext_active_action_set_priority.adoc|||*New Functions*
+ext_active_action_set_priority.adoc|||*New Object Types*
+ext_active_action_set_priority.adoc|||*New Structures*
+ext_conformance_automation.adoc|||*New Enum Constants*
+ext_conformance_automation.adoc|||*New Enums*
+ext_conformance_automation.adoc|||*New Flag Types*
+ext_conformance_automation.adoc|||*New Function Pointers*
+ext_conformance_automation.adoc|||*New Functions*
+ext_conformance_automation.adoc|||*New Object Types*
+ext_conformance_automation.adoc|||*New Structures*
+ext_debug_utils.adoc|||*New Enum Constants*
+ext_debug_utils.adoc|||*New Enums*
+ext_debug_utils.adoc|||*New Flag Types*
+ext_debug_utils.adoc|||*New Function Pointers*
+ext_debug_utils.adoc|||*New Functions*
+ext_debug_utils.adoc|||*New Object Types*
+ext_debug_utils.adoc|||*New Structures*
+ext_dpad_binding.adoc|||*New Component Paths*
+ext_dpad_binding.adoc|||*New Functions*
+ext_dpad_binding.adoc|||*New Structures*
+ext_future.adoc|||*New Base Types*
+ext_future.adoc|||*New Enum Constants*
+ext_future.adoc|||*New Functions*
+ext_future.adoc|||*New Structures*
+ext_hand_interaction.adoc|||*New Enum Constants*
+ext_hand_interaction.adoc|||*New Enums*
+ext_hand_interaction.adoc|||*New Flag Types*
+ext_hand_interaction.adoc|||*New Functions*
+ext_hand_interaction.adoc|||*New Object Types*
+ext_hand_interaction.adoc|||*New Structures*
+ext_hand_joints_motion_range.adoc|||*New Enum Constants*
+ext_hand_joints_motion_range.adoc|||*New Enums*
+ext_hand_joints_motion_range.adoc|||*New Flag Types*
+ext_hand_joints_motion_range.adoc|||*New Functions*
+ext_hand_joints_motion_range.adoc|||*New Object Types*
+ext_hand_joints_motion_range.adoc|||*New Structures*
+ext_hand_tracking.adoc|||*New Enum Constants*
+ext_hand_tracking.adoc|||*New Enums*
+ext_hand_tracking.adoc|||*New Flag Types*
+ext_hand_tracking.adoc|||*New Functions*
+ext_hand_tracking.adoc|||*New Object Types*
+ext_hand_tracking.adoc|||*New Structures*
+ext_local_floor.adoc|||*New Enum Constants*
+ext_local_floor.adoc|||*New Enums*
+ext_local_floor.adoc|||*New Flag Types*
+ext_local_floor.adoc|||*New Object Types*
+ext_local_floor.adoc|||*New Structures*
+ext_plane_detection.adoc|||*New Enum Constants*
+ext_plane_detection.adoc|||*New Enums*
+ext_plane_detection.adoc|||*New Functions*
+ext_plane_detection.adoc|||*New Object Types*
+ext_plane_detection.adoc|||*New Structures*
+ext_user_presence.adoc|||*New Enum Constants*
+ext_user_presence.adoc|||*New Enums*
+ext_user_presence.adoc|||*New Flag Types*
+ext_user_presence.adoc|||*New Functions*
+ext_user_presence.adoc|||*New Object Types*
+ext_user_presence.adoc|||*New Structures*
+ext_uuid.adoc|||*New Enum Constants*
+ext_uuid.adoc|||*New Enums*
+ext_uuid.adoc|||*New Flag Types*
+ext_uuid.adoc|||*New Functions*
+ext_uuid.adoc|||*New Object Types*
+ext_uuid.adoc|||*New Structures*
+ext_view_configuration_depth_range.adoc|||*New Enum Constants*
+ext_view_configuration_depth_range.adoc|||*New Enums*
+ext_view_configuration_depth_range.adoc|||*New Flag Types*
+ext_view_configuration_depth_range.adoc|||*New Functions*
+ext_view_configuration_depth_range.adoc|||*New Object Types*
+ext_view_configuration_depth_range.adoc|||*New Structures*
+ext_win32_appcontainer_compatible.adoc|||*New Enum Constants*
+ext_win32_appcontainer_compatible.adoc|||*New Enums*
+ext_win32_appcontainer_compatible.adoc|||*New Flag Types*
+ext_win32_appcontainer_compatible.adoc|||*New Functions*
+ext_win32_appcontainer_compatible.adoc|||*New Object Types*
+ext_win32_appcontainer_compatible.adoc|||*New Structures*
+extx_overlay.adoc|||*New Enum Constants*
+extx_overlay.adoc|||*New Enums*
+extx_overlay.adoc|||*New Flag Types*
+extx_overlay.adoc|||*New Function Pointers*
+extx_overlay.adoc|||*New Functions*
+extx_overlay.adoc|||*New Object Types*
+extx_overlay.adoc|||*New Structures*
+fb_android_surface_swapchain_create.adoc|||*New Enum Constants*
+fb_android_surface_swapchain_create.adoc|||*New Enums*
+fb_android_surface_swapchain_create.adoc|||*New Flag Types*
+fb_android_surface_swapchain_create.adoc|||*New Functions*
+fb_android_surface_swapchain_create.adoc|||*New Object Types*
+fb_android_surface_swapchain_create.adoc|||*New Structures*
+fb_body_tracking.adoc|||*New Enum Constants*
+fb_body_tracking.adoc|||*New Enums*
+fb_body_tracking.adoc|||*New Flag Types*
+fb_body_tracking.adoc|||*New Functions*
+fb_body_tracking.adoc|||*New Object Types*
+fb_body_tracking.adoc|||*New Structures*
+fb_color_space.adoc|||*New Enum Constants*
+fb_color_space.adoc|||*New Enums*
+fb_color_space.adoc|||*New Flag Types*
+fb_color_space.adoc|||*New Functions*
+fb_color_space.adoc|||*New Object Types*
+fb_color_space.adoc|||*New Structures*
+fb_composition_layer_alpha_blend.adoc|||*New Enum Constants*
+fb_composition_layer_alpha_blend.adoc|||*New Enums*
+fb_composition_layer_alpha_blend.adoc|||*New Flag Types*
+fb_composition_layer_alpha_blend.adoc|||*New Functions*
+fb_composition_layer_alpha_blend.adoc|||*New Object Types*
+fb_composition_layer_alpha_blend.adoc|||*New Structures*
+fb_composition_layer_depth_test.adoc|||*New Enum Constants*
+fb_composition_layer_depth_test.adoc|||*New Enums*
+fb_composition_layer_depth_test.adoc|||*New Flag Types*
+fb_composition_layer_depth_test.adoc|||*New Functions*
+fb_composition_layer_depth_test.adoc|||*New Object Types*
+fb_composition_layer_depth_test.adoc|||*New Structures*
+fb_composition_layer_image_layout.adoc|||*New Enum Constants*
+fb_composition_layer_image_layout.adoc|||*New Enums*
+fb_composition_layer_image_layout.adoc|||*New Flag Types*
+fb_composition_layer_image_layout.adoc|||*New Functions*
+fb_composition_layer_image_layout.adoc|||*New Object Types*
+fb_composition_layer_image_layout.adoc|||*New Structures*
+fb_composition_layer_secure_content.adoc|||*New Enum Constants*
+fb_composition_layer_secure_content.adoc|||*New Enums*
+fb_composition_layer_secure_content.adoc|||*New Flag Types*
+fb_composition_layer_secure_content.adoc|||*New Functions*
+fb_composition_layer_secure_content.adoc|||*New Object Types*
+fb_composition_layer_secure_content.adoc|||*New Structures*
+fb_composition_layer_settings.adoc|||*New Enum Constants*
+fb_composition_layer_settings.adoc|||*New Enums*
+fb_composition_layer_settings.adoc|||*New Flag Types*
+fb_composition_layer_settings.adoc|||*New Functions*
+fb_composition_layer_settings.adoc|||*New Object Types*
+fb_composition_layer_settings.adoc|||*New Structures*
+fb_display_refresh_rate.adoc|||*New Enum Constants*
+fb_display_refresh_rate.adoc|||*New Enums*
+fb_display_refresh_rate.adoc|||*New Flag Types*
+fb_display_refresh_rate.adoc|||*New Functions*
+fb_display_refresh_rate.adoc|||*New Object Types*
+fb_display_refresh_rate.adoc|||*New Structures*
+fb_eye_tracking_social.adoc|||*New Enum Constants*
+fb_eye_tracking_social.adoc|||*New Enums*
+fb_eye_tracking_social.adoc|||*New Flag Types*
+fb_eye_tracking_social.adoc|||*New Functions*
+fb_eye_tracking_social.adoc|||*New Object Types*
+fb_eye_tracking_social.adoc|||*New Structures*
+fb_face_tracking.adoc|||*New Enum Constants*
+fb_face_tracking.adoc|||*New Enums*
+fb_face_tracking.adoc|||*New Flag Types*
+fb_face_tracking.adoc|||*New Functions*
+fb_face_tracking.adoc|||*New Object Types*
+fb_face_tracking.adoc|||*New Structures*
+fb_face_tracking2.adoc|||*New Enum Constants*
+fb_face_tracking2.adoc|||*New Enums*
+fb_face_tracking2.adoc|||*New Flag Types*
+fb_face_tracking2.adoc|||*New Functions*
+fb_face_tracking2.adoc|||*New Object Types*
+fb_face_tracking2.adoc|||*New Structures*
+fb_foveation.adoc|||*New Enum Constants*
+fb_foveation.adoc|||*New Enums*
+fb_foveation.adoc|||*New Flag Types*
+fb_foveation.adoc|||*New Functions*
+fb_foveation.adoc|||*New Object Types*
+fb_foveation.adoc|||*New Structures*
+fb_foveation_configuration.adoc|||*New Enum Constants*
+fb_foveation_configuration.adoc|||*New Enums*
+fb_foveation_configuration.adoc|||*New Flag Types*
+fb_foveation_configuration.adoc|||*New Functions*
+fb_foveation_configuration.adoc|||*New Object Types*
+fb_foveation_configuration.adoc|||*New Structures*
+fb_foveation_vulkan.adoc|||*New Enum Constants*
+fb_foveation_vulkan.adoc|||*New Enums*
+fb_foveation_vulkan.adoc|||*New Flag Types*
+fb_foveation_vulkan.adoc|||*New Functions*
+fb_foveation_vulkan.adoc|||*New Object Types*
+fb_foveation_vulkan.adoc|||*New Structures*
+fb_hand_tracking_aim.adoc|||*New Enum Constants*
+fb_hand_tracking_aim.adoc|||*New Enums*
+fb_hand_tracking_aim.adoc|||*New Flag Types*
+fb_hand_tracking_aim.adoc|||*New Functions*
+fb_hand_tracking_aim.adoc|||*New Object Types*
+fb_hand_tracking_aim.adoc|||*New Structures*
+fb_hand_tracking_capsules.adoc|||*New Enum Constants*
+fb_hand_tracking_capsules.adoc|||*New Enums*
+fb_hand_tracking_capsules.adoc|||*New Flag Types*
+fb_hand_tracking_capsules.adoc|||*New Functions*
+fb_hand_tracking_capsules.adoc|||*New Object Types*
+fb_hand_tracking_capsules.adoc|||*New Structures*
+fb_hand_tracking_mesh.adoc|||*New Enum Constants*
+fb_hand_tracking_mesh.adoc|||*New Enums*
+fb_hand_tracking_mesh.adoc|||*New Flag Types*
+fb_hand_tracking_mesh.adoc|||*New Functions*
+fb_hand_tracking_mesh.adoc|||*New Object Types*
+fb_hand_tracking_mesh.adoc|||*New Structures*
+fb_haptic_amplitude_envelope.adoc|||*New Defines*
+fb_haptic_amplitude_envelope.adoc|||*New Enum Constants*
+fb_haptic_amplitude_envelope.adoc|||*New Enums*
+fb_haptic_amplitude_envelope.adoc|||*New Flag Types*
+fb_haptic_amplitude_envelope.adoc|||*New Functions*
+fb_haptic_amplitude_envelope.adoc|||*New Object Types*
+fb_haptic_amplitude_envelope.adoc|||*New Structures*
+fb_haptic_pcm.adoc|||*New Defines*
+fb_haptic_pcm.adoc|||*New Enum Constants*
+fb_haptic_pcm.adoc|||*New Enums*
+fb_haptic_pcm.adoc|||*New Flag Types*
+fb_haptic_pcm.adoc|||*New Functions*
+fb_haptic_pcm.adoc|||*New Object Types*
+fb_haptic_pcm.adoc|||*New Structures*
+fb_keyboard_tracking.adoc|||*New Enum Constants*
+fb_keyboard_tracking.adoc|||*New Enums*
+fb_keyboard_tracking.adoc|||*New Flag Types*
+fb_keyboard_tracking.adoc|||*New Functions*
+fb_keyboard_tracking.adoc|||*New Object Types*
+fb_keyboard_tracking.adoc|||*New Structures*
+fb_passthrough.adoc|||*New Enum Constants*
+fb_passthrough.adoc|||*New Enums*
+fb_passthrough.adoc|||*New Flag Types*
+fb_passthrough.adoc|||*New Functions*
+fb_passthrough.adoc|||*New Object Types*
+fb_passthrough.adoc|||*New Structures*
+fb_passthrough_keyboard_hands.adoc|||*New Enum Constants*
+fb_passthrough_keyboard_hands.adoc|||*New Functions*
+fb_passthrough_keyboard_hands.adoc|||*New Structures*
+fb_render_model.adoc|||*New Base Types*
+fb_render_model.adoc|||*New Defines*
+fb_render_model.adoc|||*New Enum Constants*
+fb_render_model.adoc|||*New Flag Types*
+fb_render_model.adoc|||*New Functions*
+fb_render_model.adoc|||*New Structures*
+fb_scene.adoc|||*New Enum Constants*
+fb_scene.adoc|||*New Enums*
+fb_scene.adoc|||*New Flag Types*
+fb_scene.adoc|||*New Functions*
+fb_scene.adoc|||*New Object Types*
+fb_scene.adoc|||*New Structures*
+fb_scene_capture.adoc|||*New Enum Constants*
+fb_scene_capture.adoc|||*New Enums*
+fb_scene_capture.adoc|||*New Flag Types*
+fb_scene_capture.adoc|||*New Functions*
+fb_scene_capture.adoc|||*New Object Types*
+fb_scene_capture.adoc|||*New Structures*
+fb_space_warp.adoc|||*New Enum Constants*
+fb_space_warp.adoc|||*New Enums*
+fb_space_warp.adoc|||*New Flag Types*
+fb_space_warp.adoc|||*New Structures*
+fb_spatial_entity.adoc|||*New Base Types*
+fb_spatial_entity.adoc|||*New Enum Constants*
+fb_spatial_entity.adoc|||*New Enums*
+fb_spatial_entity.adoc|||*New Flag Types*
+fb_spatial_entity.adoc|||*New Functions*
+fb_spatial_entity.adoc|||*New Object Types*
+fb_spatial_entity.adoc|||*New Structures*
+fb_spatial_entity_container.adoc|||*New Enum Constants*
+fb_spatial_entity_container.adoc|||*New Enums*
+fb_spatial_entity_container.adoc|||*New Flag Types*
+fb_spatial_entity_container.adoc|||*New Functions*
+fb_spatial_entity_container.adoc|||*New Object Types*
+fb_spatial_entity_container.adoc|||*New Structures*
+fb_spatial_entity_query.adoc|||*New Enum Constants*
+fb_spatial_entity_query.adoc|||*New Enums*
+fb_spatial_entity_query.adoc|||*New Flag Types*
+fb_spatial_entity_query.adoc|||*New Functions*
+fb_spatial_entity_query.adoc|||*New Object Types*
+fb_spatial_entity_query.adoc|||*New Structures*
+fb_spatial_entity_sharing.adoc|||*New Base Types*
+fb_spatial_entity_sharing.adoc|||*New Enum Constants*
+fb_spatial_entity_sharing.adoc|||*New Enums*
+fb_spatial_entity_sharing.adoc|||*New Flag Types*
+fb_spatial_entity_sharing.adoc|||*New Functions*
+fb_spatial_entity_sharing.adoc|||*New Object Types*
+fb_spatial_entity_sharing.adoc|||*New Structures*
+fb_spatial_entity_storage.adoc|||*New Enum Constants*
+fb_spatial_entity_storage.adoc|||*New Enums*
+fb_spatial_entity_storage.adoc|||*New Flag Types*
+fb_spatial_entity_storage.adoc|||*New Functions*
+fb_spatial_entity_storage.adoc|||*New Object Types*
+fb_spatial_entity_storage.adoc|||*New Structures*
+fb_spatial_entity_storage_batch.adoc|||*New Enum Constants*
+fb_spatial_entity_storage_batch.adoc|||*New Enums*
+fb_spatial_entity_storage_batch.adoc|||*New Flag Types*
+fb_spatial_entity_storage_batch.adoc|||*New Functions*
+fb_spatial_entity_storage_batch.adoc|||*New Object Types*
+fb_spatial_entity_storage_batch.adoc|||*New Structures*
+fb_spatial_entity_user.adoc|||*New Base Types*
+fb_spatial_entity_user.adoc|||*New Enum Constants*
+fb_spatial_entity_user.adoc|||*New Enums*
+fb_spatial_entity_user.adoc|||*New Flag Types*
+fb_spatial_entity_user.adoc|||*New Functions*
+fb_spatial_entity_user.adoc|||*New Object Types*
+fb_spatial_entity_user.adoc|||*New Structures*
+fb_swapchain_update_state.adoc|||*New Enum Constants*
+fb_swapchain_update_state.adoc|||*New Enums*
+fb_swapchain_update_state.adoc|||*New Flag Types*
+fb_swapchain_update_state.adoc|||*New Functions*
+fb_swapchain_update_state.adoc|||*New Object Types*
+fb_swapchain_update_state.adoc|||*New Structures*
+fb_swapchain_update_state_android_surface.adoc|||*New Enum Constants*
+fb_swapchain_update_state_android_surface.adoc|||*New Enums*
+fb_swapchain_update_state_android_surface.adoc|||*New Flag Types*
+fb_swapchain_update_state_android_surface.adoc|||*New Functions*
+fb_swapchain_update_state_android_surface.adoc|||*New Object Types*
+fb_swapchain_update_state_android_surface.adoc|||*New Structures*
+fb_swapchain_update_state_opengl_es.adoc|||*New Enum Constants*
+fb_swapchain_update_state_opengl_es.adoc|||*New Enums*
+fb_swapchain_update_state_opengl_es.adoc|||*New Flag Types*
+fb_swapchain_update_state_opengl_es.adoc|||*New Functions*
+fb_swapchain_update_state_opengl_es.adoc|||*New Object Types*
+fb_swapchain_update_state_opengl_es.adoc|||*New Structures*
+fb_swapchain_update_state_vulkan.adoc|||*New Enum Constants*
+fb_swapchain_update_state_vulkan.adoc|||*New Enums*
+fb_swapchain_update_state_vulkan.adoc|||*New Flag Types*
+fb_swapchain_update_state_vulkan.adoc|||*New Functions*
+fb_swapchain_update_state_vulkan.adoc|||*New Object Types*
+fb_swapchain_update_state_vulkan.adoc|||*New Structures*
+fb_touch_controller_pro.adoc|||*New Identifiers*
+fb_touch_controller_proximity.adoc|||*New Enum Constants*
+fb_touch_controller_proximity.adoc|||*New Enums*
+fb_touch_controller_proximity.adoc|||*New Flag Types*
+fb_touch_controller_proximity.adoc|||*New Object Types*
+fb_touch_controller_proximity.adoc|||*New Structures*
+fb_triangle_mesh.adoc|||*New Enum Constants*
+fb_triangle_mesh.adoc|||*New Enums*
+fb_triangle_mesh.adoc|||*New Flag Types*
+fb_triangle_mesh.adoc|||*New Functions*
+fb_triangle_mesh.adoc|||*New Object Types*
+fb_triangle_mesh.adoc|||*New Structures*
+htc_anchor.adoc|||*New Enum Constants*
+htc_anchor.adoc|||*New Enums*
+htc_anchor.adoc|||*New Flag Types*
+htc_anchor.adoc|||*New Functions*
+htc_anchor.adoc|||*New Object Types*
+htc_anchor.adoc|||*New Structures*
+htc_facial_tracking.adoc|||*New Enum Constants*
+htc_facial_tracking.adoc|||*New Enums*
+htc_facial_tracking.adoc|||*New Flag Types*
+htc_facial_tracking.adoc|||*New Functions*
+htc_facial_tracking.adoc|||*New Object Types*
+htc_facial_tracking.adoc|||*New Structures*
+htc_foveation.adoc|||*New Enum Constants*
+htc_foveation.adoc|||*New Enums*
+htc_foveation.adoc|||*New Flag Types*
+htc_foveation.adoc|||*New Functions*
+htc_foveation.adoc|||*New Object Types*
+htc_foveation.adoc|||*New Structures*
+htc_passthrough.adoc|||*New Enum Constants*
+htc_passthrough.adoc|||*New Enums*
+htc_passthrough.adoc|||*New Flag Types*
+htc_passthrough.adoc|||*New Functions*
+htc_passthrough.adoc|||*New Object Types*
+htc_passthrough.adoc|||*New Structures*
+htc_vive_cosmos_controller_interaction.adoc|||*New Enum Constants*
+htc_vive_cosmos_controller_interaction.adoc|||*New Enums*
+htc_vive_cosmos_controller_interaction.adoc|||*New Flag Types*
+htc_vive_cosmos_controller_interaction.adoc|||*New Functions*
+htc_vive_cosmos_controller_interaction.adoc|||*New Object Types*
+htc_vive_cosmos_controller_interaction.adoc|||*New Structures*
+htc_vive_focus3_controller_interaction.adoc|||*New Enum Constants*
+htc_vive_focus3_controller_interaction.adoc|||*New Enums*
+htc_vive_focus3_controller_interaction.adoc|||*New Flag Types*
+htc_vive_focus3_controller_interaction.adoc|||*New Functions*
+htc_vive_focus3_controller_interaction.adoc|||*New Object Types*
+htc_vive_focus3_controller_interaction.adoc|||*New Structures*
+htcx_vive_tracker_interaction.adoc|||*New Enum Constants*
+htcx_vive_tracker_interaction.adoc|||*New Enums*
+htcx_vive_tracker_interaction.adoc|||*New Flag Types*
+htcx_vive_tracker_interaction.adoc|||*New Functions*
+htcx_vive_tracker_interaction.adoc|||*New Object Types*
+htcx_vive_tracker_interaction.adoc|||*New Structures*
+huawei_controller_interaction.adoc|||*New Enum Constants*
+huawei_controller_interaction.adoc|||*New Enums*
+huawei_controller_interaction.adoc|||*New Flag Types*
+huawei_controller_interaction.adoc|||*New Functions*
+huawei_controller_interaction.adoc|||*New Object Types*
+huawei_controller_interaction.adoc|||*New Structures*
+khr_android_create_instance.adoc|||*New Enum Constants*
+khr_android_create_instance.adoc|||*New Enums*
+khr_android_create_instance.adoc|||*New Flag Types*
+khr_android_create_instance.adoc|||*New Functions*
+khr_android_create_instance.adoc|||*New Object Types*
+khr_android_create_instance.adoc|||*New Structures*
+khr_android_surface_swapchain.adoc|||*New Enum Constants*
+khr_android_surface_swapchain.adoc|||*New Enums*
+khr_android_surface_swapchain.adoc|||*New Flag Types*
+khr_android_surface_swapchain.adoc|||*New Functions*
+khr_android_surface_swapchain.adoc|||*New Object Types*
+khr_android_surface_swapchain.adoc|||*New Structures*
+khr_android_thread_settings.adoc|||*New Enum Constants*
+khr_android_thread_settings.adoc|||*New Enums*
+khr_android_thread_settings.adoc|||*New Flag Types*
+khr_android_thread_settings.adoc|||*New Functions*
+khr_android_thread_settings.adoc|||*New Object Types*
+khr_android_thread_settings.adoc|||*New Structures*
+khr_binding_modification.adoc|||*New Enum Constants*
+khr_binding_modification.adoc|||*New Enums*
+khr_binding_modification.adoc|||*New Flag Types*
+khr_binding_modification.adoc|||*New Functions*
+khr_binding_modification.adoc|||*New Object Types*
+khr_binding_modification.adoc|||*New Structures*
+khr_composition_layer_color_scale_bias.adoc|||*New Enum Constants*
+khr_composition_layer_color_scale_bias.adoc|||*New Enums*
+khr_composition_layer_color_scale_bias.adoc|||*New Flag Types*
+khr_composition_layer_color_scale_bias.adoc|||*New Functions*
+khr_composition_layer_color_scale_bias.adoc|||*New Object Types*
+khr_composition_layer_color_scale_bias.adoc|||*New Structures*
+khr_composition_layer_cube.adoc|||*New Enum Constants*
+khr_composition_layer_cube.adoc|||*New Enums*
+khr_composition_layer_cube.adoc|||*New Flag Types*
+khr_composition_layer_cube.adoc|||*New Functions*
+khr_composition_layer_cube.adoc|||*New Object Types*
+khr_composition_layer_cube.adoc|||*New Structures*
+khr_composition_layer_cylinder.adoc|||*New Enum Constants*
+khr_composition_layer_cylinder.adoc|||*New Enums*
+khr_composition_layer_cylinder.adoc|||*New Flag Types*
+khr_composition_layer_cylinder.adoc|||*New Functions*
+khr_composition_layer_cylinder.adoc|||*New Object Types*
+khr_composition_layer_cylinder.adoc|||*New Structures*
+khr_composition_layer_depth.adoc|||*New Enum Constants*
+khr_composition_layer_depth.adoc|||*New Enums*
+khr_composition_layer_depth.adoc|||*New Flag Types*
+khr_composition_layer_depth.adoc|||*New Functions*
+khr_composition_layer_depth.adoc|||*New Object Types*
+khr_composition_layer_depth.adoc|||*New Structures*
+khr_composition_layer_equirect.adoc|||*New Enum Constants*
+khr_composition_layer_equirect.adoc|||*New Enums*
+khr_composition_layer_equirect.adoc|||*New Flag Types*
+khr_composition_layer_equirect.adoc|||*New Functions*
+khr_composition_layer_equirect.adoc|||*New Object Types*
+khr_composition_layer_equirect.adoc|||*New Structures*
+khr_composition_layer_equirect2.adoc|||*New Enum Constants*
+khr_composition_layer_equirect2.adoc|||*New Enums*
+khr_composition_layer_equirect2.adoc|||*New Flag Types*
+khr_composition_layer_equirect2.adoc|||*New Functions*
+khr_composition_layer_equirect2.adoc|||*New Object Types*
+khr_composition_layer_equirect2.adoc|||*New Structures*
+khr_convert_timespec_time.adoc|||*New Enum Constants*
+khr_convert_timespec_time.adoc|||*New Enums*
+khr_convert_timespec_time.adoc|||*New Flag Types*
+khr_convert_timespec_time.adoc|||*New Functions*
+khr_convert_timespec_time.adoc|||*New Object Types*
+khr_convert_timespec_time.adoc|||*New Structures*
+khr_loader_init.adoc|||*New Enum Constants*
+khr_loader_init.adoc|||*New Enums*
+khr_loader_init.adoc|||*New Flag Types*
+khr_loader_init.adoc|||*New Functions*
+khr_loader_init.adoc|||*New Object Types*
+khr_loader_init.adoc|||*New Structures*
+khr_loader_init_android.adoc|||*New Enum Constants*
+khr_loader_init_android.adoc|||*New Enums*
+khr_loader_init_android.adoc|||*New Flag Types*
+khr_loader_init_android.adoc|||*New Functions*
+khr_loader_init_android.adoc|||*New Object Types*
+khr_loader_init_android.adoc|||*New Structures*
+khr_locate_spaces.adoc|||*New Enum Constants*
+khr_locate_spaces.adoc|||*New Enums*
+khr_locate_spaces.adoc|||*New Flag Types*
+khr_locate_spaces.adoc|||*New Functions*
+khr_locate_spaces.adoc|||*New Object Types*
+khr_locate_spaces.adoc|||*New Structures*
+khr_swapchain_usage_input_attachment_bit.adoc|||*New Enum Constants*
+khr_swapchain_usage_input_attachment_bit.adoc|||*New Enums*
+khr_swapchain_usage_input_attachment_bit.adoc|||*New Flag Types*
+khr_swapchain_usage_input_attachment_bit.adoc|||*New Functions*
+khr_swapchain_usage_input_attachment_bit.adoc|||*New Object Types*
+khr_swapchain_usage_input_attachment_bit.adoc|||*New Structures*
+khr_visibility_mask.adoc|||*New Enum Constants*
+khr_visibility_mask.adoc|||*New Enums*
+khr_visibility_mask.adoc|||*New Flag Types*
+khr_visibility_mask.adoc|||*New Functions*
+khr_visibility_mask.adoc|||*New Object Types*
+khr_visibility_mask.adoc|||*New Structures*
+khr_vulkan_swapchain_format_list.adoc|||*New Enum Constants*
+khr_vulkan_swapchain_format_list.adoc|||*New Enums*
+khr_vulkan_swapchain_format_list.adoc|||*New Flag Types*
+khr_vulkan_swapchain_format_list.adoc|||*New Functions*
+khr_vulkan_swapchain_format_list.adoc|||*New Object Types*
+khr_vulkan_swapchain_format_list.adoc|||*New Structures*
+khr_win32_convert_performance_counter_time.adoc|||*New Enum Constants*
+khr_win32_convert_performance_counter_time.adoc|||*New Enums*
+khr_win32_convert_performance_counter_time.adoc|||*New Flag Types*
+khr_win32_convert_performance_counter_time.adoc|||*New Functions*
+khr_win32_convert_performance_counter_time.adoc|||*New Object Types*
+khr_win32_convert_performance_counter_time.adoc|||*New Structures*
+meta_foveation_eye_tracked.adoc|||*New Enum Constants*
+meta_foveation_eye_tracked.adoc|||*New Enums*
+meta_foveation_eye_tracked.adoc|||*New Flag Types*
+meta_foveation_eye_tracked.adoc|||*New Functions*
+meta_foveation_eye_tracked.adoc|||*New Object Types*
+meta_foveation_eye_tracked.adoc|||*New Structures*
+meta_headset_id.adoc|||*New Atom*
+meta_headset_id.adoc|||*New Enum Constants*
+meta_headset_id.adoc|||*New Enums*
+meta_headset_id.adoc|||*New Flag Types*
+meta_headset_id.adoc|||*New Functions*
+meta_headset_id.adoc|||*New Object Types*
+meta_headset_id.adoc|||*New Structures*
+meta_local_dimming.adoc|||*New Enum Constants*
+meta_local_dimming.adoc|||*New Enums*
+meta_local_dimming.adoc|||*New Flag Types*
+meta_local_dimming.adoc|||*New Functions*
+meta_local_dimming.adoc|||*New Object Types*
+meta_local_dimming.adoc|||*New Structures*
+meta_passthrough_color_lut.adoc|||*New Enum Constants*
+meta_passthrough_color_lut.adoc|||*New Enums*
+meta_passthrough_color_lut.adoc|||*New Functions*
+meta_passthrough_color_lut.adoc|||*New Object Types*
+meta_passthrough_color_lut.adoc|||*New Structures*
+meta_passthrough_preferences.adoc|||*New Enum Constants*
+meta_passthrough_preferences.adoc|||*New Flag Types*
+meta_passthrough_preferences.adoc|||*New Functions*
+meta_passthrough_preferences.adoc|||*New Structures*
+meta_performance_metrics.adoc|||*New Enum Constants*
+meta_performance_metrics.adoc|||*New Enums*
+meta_performance_metrics.adoc|||*New Flag Types*
+meta_performance_metrics.adoc|||*New Functions*
+meta_performance_metrics.adoc|||*New Structures*
+meta_recommended_layer_resolution.adoc|||*New Functions*
+meta_recommended_layer_resolution.adoc|||*New Structures*
+meta_spatial_entity_mesh.adoc|||*New Atom*
+meta_spatial_entity_mesh.adoc|||*New Enum Constants*
+meta_spatial_entity_mesh.adoc|||*New Enums*
+meta_spatial_entity_mesh.adoc|||*New Flag Types*
+meta_spatial_entity_mesh.adoc|||*New Functions*
+meta_spatial_entity_mesh.adoc|||*New Object Types*
+meta_spatial_entity_mesh.adoc|||*New Structures*
+meta_touch_controller_plus.adoc|||*New Identifiers*
+meta_virtual_keyboard.adoc|||*New Defines*
+meta_virtual_keyboard.adoc|||*New Enum Constants*
+meta_virtual_keyboard.adoc|||*New Enums*
+meta_virtual_keyboard.adoc|||*New Flag Types*
+meta_virtual_keyboard.adoc|||*New Functions*
+meta_virtual_keyboard.adoc|||*New Object Types*
+meta_virtual_keyboard.adoc|||*New Structures*
+meta_vulkan_swapchain_create_info.adoc|||*New Enum Constants*
+meta_vulkan_swapchain_create_info.adoc|||*New Enums*
+meta_vulkan_swapchain_create_info.adoc|||*New Flag Types*
+meta_vulkan_swapchain_create_info.adoc|||*New Functions*
+meta_vulkan_swapchain_create_info.adoc|||*New Object Types*
+meta_vulkan_swapchain_create_info.adoc|||*New Structures*
+ml_compat.adoc|||*New Enum Constants*
+ml_compat.adoc|||*New Functions*
+ml_compat.adoc|||*New Structures*
+ml_frame_end_info.adoc|||*New Enum Constants*
+ml_frame_end_info.adoc|||*New Flag Types*
+ml_frame_end_info.adoc|||*New Structures*
+ml_global_dimmer.adoc|||*New Enum Constants*
+ml_global_dimmer.adoc|||*New Flag Types*
+ml_global_dimmer.adoc|||*New Structures*
+ml_localization_map.adoc|||*New Defines*
+ml_localization_map.adoc|||*New Enum Constants*
+ml_localization_map.adoc|||*New Enums*
+ml_localization_map.adoc|||*New Object Types*
+ml_marker_understanding.adoc|||*New Enum Constants*
+ml_marker_understanding.adoc|||*New Structures*
+ml_ml2_controller_interaction.adoc|||*New Enum Constants*
+ml_ml2_controller_interaction.adoc|||*New Enums*
+ml_ml2_controller_interaction.adoc|||*New Flag Types*
+ml_ml2_controller_interaction.adoc|||*New Functions*
+ml_ml2_controller_interaction.adoc|||*New Object Types*
+ml_ml2_controller_interaction.adoc|||*New Structures*
+mnd_headless.adoc|||*New Enum Constants*
+mnd_headless.adoc|||*New Enums*
+mnd_headless.adoc|||*New Flag Types*
+mnd_headless.adoc|||*New Functions*
+mnd_headless.adoc|||*New Object Types*
+mnd_headless.adoc|||*New Structures*
+mnd_swapchain_usage_input_attachment_bit.adoc|||*New Enum Constants*
+mnd_swapchain_usage_input_attachment_bit.adoc|||*New Enums*
+mnd_swapchain_usage_input_attachment_bit.adoc|||*New Flag Types*
+mnd_swapchain_usage_input_attachment_bit.adoc|||*New Functions*
+mnd_swapchain_usage_input_attachment_bit.adoc|||*New Object Types*
+mnd_swapchain_usage_input_attachment_bit.adoc|||*New Structures*
+mndx_egl_enable.adoc|||*New Enum Constants*
+mndx_egl_enable.adoc|||*New Enums*
+mndx_egl_enable.adoc|||*New Flag Types*
+mndx_egl_enable.adoc|||*New Function Pointers*
+mndx_egl_enable.adoc|||*New Functions*
+mndx_egl_enable.adoc|||*New Object Types*
+mndx_egl_enable.adoc|||*New Structures*
+mndx_force_feedback_curl.adoc|||*New Enum Constants*
+mndx_force_feedback_curl.adoc|||*New Enums*
+mndx_force_feedback_curl.adoc|||*New Flag Types*
+mndx_force_feedback_curl.adoc|||*New Functions*
+mndx_force_feedback_curl.adoc|||*New Object Types*
+mndx_force_feedback_curl.adoc|||*New Structures*
+msft_composition_layer_reprojection.adoc|||*New Enum Constants*
+msft_composition_layer_reprojection.adoc|||*New Enums*
+msft_composition_layer_reprojection.adoc|||*New Flag Types*
+msft_composition_layer_reprojection.adoc|||*New Functions*
+msft_composition_layer_reprojection.adoc|||*New Object Types*
+msft_composition_layer_reprojection.adoc|||*New Structures*
+msft_controller_model.adoc|||*New Enum Constants*
+msft_controller_model.adoc|||*New Enums*
+msft_controller_model.adoc|||*New Flag Types*
+msft_controller_model.adoc|||*New Functions*
+msft_controller_model.adoc|||*New Object Types*
+msft_controller_model.adoc|||*New Structures*
+msft_first_person_observer.adoc|||*New Enum Constants*
+msft_first_person_observer.adoc|||*New Enums*
+msft_first_person_observer.adoc|||*New Flag Types*
+msft_first_person_observer.adoc|||*New Functions*
+msft_first_person_observer.adoc|||*New Object Types*
+msft_first_person_observer.adoc|||*New Structures*
+msft_hand_interaction.adoc|||*New Enum Constants*
+msft_hand_interaction.adoc|||*New Enums*
+msft_hand_interaction.adoc|||*New Flag Types*
+msft_hand_interaction.adoc|||*New Functions*
+msft_hand_interaction.adoc|||*New Object Types*
+msft_hand_interaction.adoc|||*New Structures*
+msft_hand_tracking_mesh.adoc|||*New Enum Constants*
+msft_hand_tracking_mesh.adoc|||*New Enums*
+msft_hand_tracking_mesh.adoc|||*New Flag Types*
+msft_hand_tracking_mesh.adoc|||*New Functions*
+msft_hand_tracking_mesh.adoc|||*New Object Types*
+msft_hand_tracking_mesh.adoc|||*New Structures*
+msft_perception_anchor_interop.adoc|||*New Enum Constants*
+msft_perception_anchor_interop.adoc|||*New Enums*
+msft_perception_anchor_interop.adoc|||*New Flag Types*
+msft_perception_anchor_interop.adoc|||*New Functions*
+msft_perception_anchor_interop.adoc|||*New Object Types*
+msft_perception_anchor_interop.adoc|||*New Structures*
+msft_scene_marker.adoc|||*New Enum Constants*
+msft_scene_marker.adoc|||*New Enums*
+msft_scene_marker.adoc|||*New Flag Types*
+msft_scene_marker.adoc|||*New Functions*
+msft_scene_marker.adoc|||*New Object Types*
+msft_scene_marker.adoc|||*New Structures*
+msft_scene_understanding.adoc|||*New Enum Constants*
+msft_scene_understanding.adoc|||*New Enums*
+msft_scene_understanding.adoc|||*New Flag Types*
+msft_scene_understanding.adoc|||*New Functions*
+msft_scene_understanding.adoc|||*New Object Types*
+msft_scene_understanding.adoc|||*New Structures*
+msft_scene_understanding_serialization.adoc|||*New Enum Constants*
+msft_scene_understanding_serialization.adoc|||*New Enums*
+msft_scene_understanding_serialization.adoc|||*New Flag Types*
+msft_scene_understanding_serialization.adoc|||*New Functions*
+msft_scene_understanding_serialization.adoc|||*New Object Types*
+msft_scene_understanding_serialization.adoc|||*New Structures*
+msft_secondary_view_configuration.adoc|||*New Enum Constants*
+msft_secondary_view_configuration.adoc|||*New Enums*
+msft_secondary_view_configuration.adoc|||*New Flag Types*
+msft_secondary_view_configuration.adoc|||*New Functions*
+msft_secondary_view_configuration.adoc|||*New Object Types*
+msft_secondary_view_configuration.adoc|||*New Structures*
+msft_spatial_anchor.adoc|||*New Enum Constants*
+msft_spatial_anchor.adoc|||*New Enums*
+msft_spatial_anchor.adoc|||*New Flag Types*
+msft_spatial_anchor.adoc|||*New Functions*
+msft_spatial_anchor.adoc|||*New Object Types*
+msft_spatial_anchor.adoc|||*New Structures*
+msft_spatial_anchor_persistence.adoc|||*New Enum Constants*
+msft_spatial_anchor_persistence.adoc|||*New Enums*
+msft_spatial_anchor_persistence.adoc|||*New Flag Types*
+msft_spatial_anchor_persistence.adoc|||*New Functions*
+msft_spatial_anchor_persistence.adoc|||*New Object Types*
+msft_spatial_anchor_persistence.adoc|||*New Structures*
+msft_spatial_graph_bridge.adoc|||*New Enum Constants*
+msft_spatial_graph_bridge.adoc|||*New Enums*
+msft_spatial_graph_bridge.adoc|||*New Flag Types*
+msft_spatial_graph_bridge.adoc|||*New Functions*
+msft_spatial_graph_bridge.adoc|||*New Object Types*
+msft_spatial_graph_bridge.adoc|||*New Structures*
+msft_unbounded_reference_space.adoc|||*New Enum Constants*
+msft_unbounded_reference_space.adoc|||*New Enums*
+msft_unbounded_reference_space.adoc|||*New Flag Types*
+msft_unbounded_reference_space.adoc|||*New Functions*
+msft_unbounded_reference_space.adoc|||*New Object Types*
+msft_unbounded_reference_space.adoc|||*New Structures*
+oculus_android_session_state_enable.adoc|||*New Enum Constants*
+oculus_android_session_state_enable.adoc|||*New Enums*
+oculus_android_session_state_enable.adoc|||*New Flag Types*
+oculus_android_session_state_enable.adoc|||*New Functions*
+oculus_android_session_state_enable.adoc|||*New Object Types*
+oculus_android_session_state_enable.adoc|||*New Structures*
+oculus_audio_device_guid.adoc|||*New Enum Constants*
+oculus_audio_device_guid.adoc|||*New Enums*
+oculus_audio_device_guid.adoc|||*New Flag Types*
+oculus_audio_device_guid.adoc|||*New Functions*
+oculus_audio_device_guid.adoc|||*New Object Types*
+oculus_audio_device_guid.adoc|||*New Structures*
+oculus_external_camera.adoc|||*New Enum Constants*
+oculus_external_camera.adoc|||*New Enums*
+oculus_external_camera.adoc|||*New Flag Types*
+oculus_external_camera.adoc|||*New Functions*
+oculus_external_camera.adoc|||*New Object Types*
+oculus_external_camera.adoc|||*New Structures*
+oppo_controller_interaction.adoc|||*New Identifiers*
+ultraleap_hand_tracking_forearm.adoc|||*New Enum Constants*
+ultraleap_hand_tracking_forearm.adoc|||*New Enums*
+ultraleap_hand_tracking_forearm.adoc|||*New Flag Types*
+ultraleap_hand_tracking_forearm.adoc|||*New Functions*
+ultraleap_hand_tracking_forearm.adoc|||*New Object Types*
+ultraleap_hand_tracking_forearm.adoc|||*New Structures*
+valve_analog_threshold.adoc|||*New Enum Constants*
+valve_analog_threshold.adoc|||*New Enums*
+valve_analog_threshold.adoc|||*New Flag Types*
+valve_analog_threshold.adoc|||*New Functions*
+valve_analog_threshold.adoc|||*New Object Types*
+valve_analog_threshold.adoc|||*New Structures*
+varjo_composition_layer_depth_test.adoc|||*New Enum Constants*
+varjo_composition_layer_depth_test.adoc|||*New Structures*
+varjo_environment_depth_estimation.adoc|||*New Functions*
+varjo_environment_depth_estimation.adoc|||*New Structures*
+varjo_foveated_rendering.adoc|||*New Enum Constants*
+varjo_foveated_rendering.adoc|||*New Structures*
+varjo_marker_tracking.adoc|||*New Enum Constants*
+varjo_marker_tracking.adoc|||*New Enums*
+varjo_marker_tracking.adoc|||*New Flag Types*
+varjo_marker_tracking.adoc|||*New Functions*
+varjo_marker_tracking.adoc|||*New Object Types*
+varjo_marker_tracking.adoc|||*New Structures*
+varjo_quad_views.adoc|||*New Enum Constants*
+varjo_quad_views.adoc|||*New Enums*
+varjo_quad_views.adoc|||*New Flag Types*
+varjo_quad_views.adoc|||*New Functions*
+varjo_quad_views.adoc|||*New Object Types*
+varjo_quad_views.adoc|||*New Structures*
+varjo_xr4_controller_interaction.adoc|||*New Enum Constants*
+varjo_xr4_controller_interaction.adoc|||*New Enums*
+varjo_xr4_controller_interaction.adoc|||*New Flag Types*
+varjo_xr4_controller_interaction.adoc|||*New Functions*
+varjo_xr4_controller_interaction.adoc|||*New Object Types*
+varjo_xr4_controller_interaction.adoc|||*New Structures*
+yvr_controller_interaction.adoc|||*New Enum Constants*
+yvr_controller_interaction.adoc|||*New Enums*
+yvr_controller_interaction.adoc|||*New Flag Types*
+yvr_controller_interaction.adoc|||*New Functions*
+yvr_controller_interaction.adoc|||*New Object Types*
+yvr_controller_interaction.adoc|||*New Structures*

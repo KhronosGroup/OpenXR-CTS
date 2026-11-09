@@ -874,7 +874,7 @@ namespace Conformance
         XrActionStateBoolean booleanActionState{XR_TYPE_ACTION_STATE_BOOLEAN};
         XrActionStateGetInfo getInfo{XR_TYPE_ACTION_STATE_GET_INFO};
 
-        bool leftUnderTest = GetGlobalData().leftHandUnderTest;
+        bool leftUnderTest = Options::Get().leftHandEnabled;
         const char* pathStr = leftUnderTest ? "/user/hand/left" : "/user/hand/right";
 
         XrPath path{StringToPath(instance, pathStr)};
@@ -1309,8 +1309,8 @@ namespace Conformance
         };
 
         std::vector<std::tuple<std::string, bool>> list = {
-            {"/user/hand/left", !globalData.leftHandUnderTest},
-            {"/user/hand/right", !globalData.rightHandUnderTest},
+            {"/user/hand/left", !Options::Get().leftHandEnabled},
+            {"/user/hand/right", !Options::Get().rightHandEnabled},
         };
 
         for (const auto& entry : list) {
@@ -1439,11 +1439,10 @@ namespace Conformance
 
                 // Ensure controllers are on and synced and by now XR_TYPE_EVENT_DATA_INTERACTION_PROFILE_CHANGED should have been queued.
                 // In fact, it may have been queued earlier when actionsets were attached, but that is okay.
-                GlobalData& globalData = GetGlobalData();
-                if (globalData.leftHandUnderTest) {
+                if (Options::Get().leftHandEnabled) {
                     leftHandInputDevice->SetDeviceActive(true);
                 }
-                if (globalData.rightHandUnderTest) {
+                if (Options::Get().rightHandEnabled) {
                     rightHandInputDevice->SetDeviceActive(true);
                 }
                 actionLayerManager.SyncActionsUntilFocusWithMessage(syncInfo);
@@ -1463,11 +1462,11 @@ namespace Conformance
                 };
 
                 REQUIRE(ReadUntilEvent(XR_TYPE_EVENT_DATA_INTERACTION_PROFILE_CHANGED, 1s));
-                if (globalData.leftHandUnderTest) {
+                if (Options::Get().leftHandEnabled) {
                     REQUIRE_RESULT(xrGetCurrentInteractionProfile(session, leftHandPath, &interactionProfileState), XR_SUCCESS);
                     REQUIRE(simpleControllerInteractionProfile == interactionProfileState.interactionProfile);
                 }
-                if (globalData.rightHandUnderTest) {
+                if (Options::Get().rightHandEnabled) {
                     REQUIRE_RESULT(xrGetCurrentInteractionProfile(session, rightHandPath, &interactionProfileState), XR_SUCCESS);
                     REQUIRE(simpleControllerInteractionProfile == interactionProfileState.interactionProfile);
                 }
@@ -1477,8 +1476,6 @@ namespace Conformance
 
     TEST_CASE("xrSyncActions", "[actions][interactive]")
     {
-        GlobalData& globalData = GetGlobalData();
-
         CompositionHelper compositionHelper("xrSyncActions", CompositionHelper::EnvironmentBlendModePreference::PreferPassthrough);
         XrInstance instance = compositionHelper.GetInstance();
         XrSession session = compositionHelper.GetSession();
@@ -1499,7 +1496,7 @@ namespace Conformance
             CreateTestDevice(&actionLayerManager, &compositionHelper.GetInteractionManager(), instance, session,
                              simpleControllerInteractionProfile, rightHandPath, GetSimpleInteractionProfile().BindingPaths);
 
-        bool leftUnderTest = GetGlobalData().leftHandUnderTest;
+        bool leftUnderTest = Options::Get().leftHandEnabled;
         std::string defaultDevicePathStr = leftUnderTest ? leftHandPathString : rightHandPathString;
         XrPath defaultDevicePath = leftUnderTest ? leftHandPath : rightHandPath;
         std::shared_ptr<IInputTestDevice> defaultInputDevice = leftUnderTest ? leftHandInputDevice : rightHandInputDevice;
@@ -1568,7 +1565,7 @@ namespace Conformance
 
                 // If we are using XR_MND_headless, the runtime transitions to visible and focused
                 // after xrBeginSession without requiring frames.
-                if (globalData.IsUsingGraphicsPlugin()) {
+                if (GetGlobalData().IsUsingGraphicsPlugin()) {
                     REQUIRE_RESULT(xrSyncActions(session, &syncInfo), XR_SESSION_NOT_FOCUSED);
 
                     REQUIRE_RESULT(xrGetActionStateBoolean(session, &getInfo, &actionStateBoolean), XR_SUCCESS);
@@ -1592,10 +1589,10 @@ namespace Conformance
                 compositionHelper.GetInteractionManager().AddActionBindings(simpleControllerInteractionProfile, {{action, selectPath}});
                 compositionHelper.GetInteractionManager().AttachActionSets();
 
-                if (globalData.leftHandUnderTest) {
+                if (Options::Get().leftHandEnabled) {
                     leftHandInputDevice->SetDeviceActive(true);
                 }
-                if (globalData.rightHandUnderTest) {
+                if (Options::Get().rightHandEnabled) {
                     rightHandInputDevice->SetDeviceActive(true);
                 }
 
@@ -1706,10 +1703,10 @@ namespace Conformance
                 compositionHelper.GetInteractionManager().AddActionSet(unboundActionActionSet);
                 compositionHelper.GetInteractionManager().AttachActionSets();
 
-                if (globalData.leftHandUnderTest) {
+                if (Options::Get().leftHandEnabled) {
                     leftHandInputDevice->SetDeviceActive(true);
                 }
-                if (globalData.rightHandUnderTest) {
+                if (Options::Get().rightHandEnabled) {
                     rightHandInputDevice->SetDeviceActive(true);
                 }
 
@@ -1724,7 +1721,7 @@ namespace Conformance
 
                     INFO("Basic usage");
 
-                    if (globalData.leftHandUnderTest) {
+                    if (Options::Get().leftHandEnabled) {
                         INFO("Left hand");
                         activeActionSet.subactionPath = leftHandPath;
                         actionLayerManager.SyncActionsUntilFocusWithMessage(syncInfo);
@@ -1746,7 +1743,7 @@ namespace Conformance
                         }
                     }
 
-                    if (globalData.rightHandUnderTest) {
+                    if (Options::Get().rightHandEnabled) {
                         INFO("Right hand");
                         activeActionSet.subactionPath = rightHandPath;
                         actionLayerManager.SyncActionsUntilFocusWithMessage(syncInfo);
@@ -1769,7 +1766,7 @@ namespace Conformance
                         }
                     }
 
-                    if (globalData.leftHandUnderTest && globalData.rightHandUnderTest) {
+                    if (Options::Get().leftHandEnabled && Options::Get().rightHandEnabled) {
                         INFO("both synchronized");
                         XrActiveActionSet bothHands[2] = {{actionSet}, {actionSet}};
                         bothHands[0].subactionPath = leftHandPath;
@@ -1973,10 +1970,10 @@ namespace Conformance
         compositionHelper.GetInteractionManager().AddActionSet(lowPriorityActionSet);
         compositionHelper.GetInteractionManager().AttachActionSets();
 
-        if (globalData.leftHandUnderTest) {
+        if (Options::Get().leftHandEnabled) {
             leftHandInputDevice->SetDeviceActive(true);
         }
-        if (globalData.rightHandUnderTest) {
+        if (Options::Get().rightHandEnabled) {
             rightHandInputDevice->SetDeviceActive(true);
         }
 
@@ -1994,7 +1991,7 @@ namespace Conformance
             return booleanData.isActive == XR_TRUE;
         };
 
-        if (globalData.leftHandUnderTest && globalData.rightHandUnderTest) {
+        if (Options::Get().leftHandEnabled && Options::Get().rightHandEnabled) {
             {
                 // Both sets with null subaction path
                 std::array<XrActiveActionSet, 4> activeSets = {{lowPriorityLeftHandActiveActionSet, lowPriorityRightHandActiveActionSet,
@@ -2102,7 +2099,7 @@ namespace Conformance
             }
         }
 
-        if (globalData.rightHandUnderTest) {
+        if (Options::Get().rightHandEnabled) {
             // Both sets with right hand subaction path
             std::array<XrActiveActionSet, 2> activeSets = {{highPriorityRightHandActiveActionSet, lowPriorityRightHandActiveActionSet}};
 
@@ -2130,7 +2127,7 @@ namespace Conformance
             REQUIRE(getActionActiveState(lowPrioritySelectAndMenuAction, rightHandPath) == true);
         }
 
-        if (globalData.leftHandUnderTest) {
+        if (Options::Get().leftHandEnabled) {
             // Both sets with left hand subaction path
             std::array<XrActiveActionSet, 2> activeSets = {{highPriorityLeftHandActiveActionSet, lowPriorityLeftHandActiveActionSet}};
 
@@ -2158,7 +2155,7 @@ namespace Conformance
             REQUIRE(getActionActiveState(lowPrioritySelectAndMenuAction, rightHandPath) == false);
         }
 
-        if (globalData.leftHandUnderTest && globalData.rightHandUnderTest) {
+        if (Options::Get().leftHandEnabled && Options::Get().rightHandEnabled) {
             {
                 // Both sets with differing subaction path
                 std::array<XrActiveActionSet, 2> activeSets = {{highPriorityRightHandActiveActionSet, lowPriorityLeftHandActiveActionSet}};
@@ -2796,8 +2793,8 @@ namespace Conformance
             required += requiredForProfile;
         }
 
-        const bool leftHandUnderTest = globalData.leftHandUnderTest;
-        const bool rightHandUnderTest = globalData.rightHandUnderTest;
+        const bool leftHandUnderTest = Options::Get().leftHandEnabled;
+        const bool rightHandUnderTest = Options::Get().rightHandEnabled;
         // `required` now contains all extensions needed for all listed interaction profiles.
         // (But not any extra top level /user paths.)
         for (const InteractionProfileAvailMetadata* ipMetadata : enabledProfiles) {
@@ -3063,8 +3060,8 @@ namespace Conformance
             required += requiredForProfile;
         }
 
-        const bool leftHandUnderTest = globalData.leftHandUnderTest;
-        const bool rightHandUnderTest = globalData.rightHandUnderTest;
+        const bool leftHandUnderTest = Options::Get().leftHandEnabled;
+        const bool rightHandUnderTest = Options::Get().rightHandEnabled;
         // `required` now contains all extensions needed for all listed interaction profiles.
         // (But not any extra top level /user paths.)
         for (const InteractionProfileAvailMetadata* ipMetadata : enabledProfiles) {
@@ -3981,8 +3978,8 @@ namespace Conformance
             required += requiredForProfile;
         }
 
-        const bool leftHandUnderTest = globalData.leftHandUnderTest;
-        const bool rightHandUnderTest = globalData.rightHandUnderTest;
+        const bool leftHandUnderTest = Options::Get().leftHandEnabled;
+        const bool rightHandUnderTest = Options::Get().rightHandEnabled;
         // `required` now contains all extensions needed for all listed interaction profiles.
         // (But not any extra top level /user paths.)
         for (const InteractionProfileAvailMetadata* ipMetadata : enabledProfiles) {
@@ -4305,7 +4302,7 @@ namespace Conformance
 
     TEST_CASE("action_space_creation_pre_suggest", "[actions][interactive]")
     {
-        bool useLeftHand = GetGlobalData().leftHandUnderTest;
+        bool useLeftHand = Options::Get().leftHandEnabled;
 
         // Creates two ActionSpaces
         // - one is created before xrSuggestInteractionProfileBindings and
@@ -4395,8 +4392,6 @@ namespace Conformance
 
     TEST_CASE("ActionSpaces", "[actions][interactive]")
     {
-        GlobalData& globalData = GetGlobalData();
-
         CompositionHelper compositionHelper("Action Spaces", CompositionHelper::EnvironmentBlendModePreference::PreferPassthrough);
         XrInstance instance = compositionHelper.GetInstance();
         XrSession session = compositionHelper.GetSession();
@@ -4467,10 +4462,10 @@ namespace Conformance
         XrSpace rightSpace{XR_NULL_HANDLE};
         REQUIRE_RESULT(xrCreateActionSpace(session, &spaceCreateInfo, &rightSpace), XR_SUCCESS);
 
-        if (globalData.leftHandUnderTest) {
+        if (Options::Get().leftHandEnabled) {
             leftHandInputDevice->SetDeviceActive(true);
         }
-        if (globalData.rightHandUnderTest) {
+        if (Options::Get().rightHandEnabled) {
             rightHandInputDevice->SetDeviceActive(true);
         }
 
@@ -4485,7 +4480,7 @@ namespace Conformance
             syncInfo.countActiveActionSets = 2;
             syncInfo.activeActionSets = bothSets;
 
-            if (globalData.leftHandUnderTest && globalData.rightHandUnderTest) {
+            if (Options::Get().leftHandEnabled && Options::Get().rightHandEnabled) {
                 // two-handed tests
                 // If we tell them to place the controllers somewhere they don't move,
                 // we can compare poses to verify identity.
@@ -4631,13 +4626,13 @@ namespace Conformance
             else {
                 // One handed
                 std::shared_ptr<IInputTestDevice> availableInputDevice =
-                    globalData.leftHandUnderTest ? leftHandInputDevice : rightHandInputDevice;
+                    Options::Get().leftHandEnabled ? leftHandInputDevice : rightHandInputDevice;
                 std::shared_ptr<IInputTestDevice> unavailableInputDevice =
-                    globalData.leftHandUnderTest ? rightHandInputDevice : leftHandInputDevice;
+                    Options::Get().leftHandEnabled ? rightHandInputDevice : leftHandInputDevice;
 
-                XrPath controllerSubactionPath = globalData.leftHandUnderTest ? leftHandPath : rightHandPath;
+                XrPath controllerSubactionPath = Options::Get().leftHandEnabled ? leftHandPath : rightHandPath;
 
-                XrSpace actionSpaceWithSubactionPath = globalData.leftHandUnderTest ? leftSpace : rightSpace;
+                XrSpace actionSpaceWithSubactionPath = Options::Get().leftHandEnabled ? leftSpace : rightSpace;
                 XrSpaceLocation relationWithSubactionPath{XR_TYPE_SPACE_LOCATION};
 
                 // This will wait until it is inactive, which implies not locatable
@@ -4887,7 +4882,7 @@ namespace Conformance
         ActionLayerManager actionLayerManager(compositionHelper);
         actionLayerManager.WaitForSessionFocusWithMessage();
 
-        bool leftUnderTest = GetGlobalData().leftHandUnderTest;
+        bool leftUnderTest = Options::Get().leftHandEnabled;
         const char* pathStr = leftUnderTest ? "/user/hand/left" : "/user/hand/right";
 
         XrPath path{StringToPath(instance, pathStr)};

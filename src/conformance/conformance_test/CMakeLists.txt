@@ -61,7 +61,6 @@ target_link_libraries(
 )
 
 add_dependencies(conformance_test XrApiLayer_runtime_conformance)
-openxr_add_filesystem_utils(conformance_test)
 
 target_include_directories(
     conformance_test

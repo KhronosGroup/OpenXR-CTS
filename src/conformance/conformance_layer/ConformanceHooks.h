@@ -74,6 +74,14 @@ struct ConformanceHooks : ConformanceHooksBase
     XrResult xrEnumerateSwapchainFormats(HandleState* const handleState, XrSession session, uint32_t formatCapacityInput,
                                          uint32_t* formatCountOutput, int64_t* formats) override;
 
+    // these return new handles from either non-create-named functions, or async via events
+    XrResult xrCreateSpatialAnchorFB(HandleState* const handleState, XrSession session, const XrSpatialAnchorCreateInfoFB* info,
+                                     XrAsyncRequestIdFB* requestId) override;
+    XrResult xrQuerySpacesFB(HandleState* const handleState, XrSession session, const XrSpaceQueryInfoBaseHeaderFB* info,
+                             XrAsyncRequestIdFB* requestId) override;
+    XrResult xrRetrieveSpaceQueryResultsFB(HandleState* const handleState, XrSession session, XrAsyncRequestIdFB requestId,
+                                           XrSpaceQueryResultsFB* results) override;
+
     //
     // Defined in Action.cpp
     //

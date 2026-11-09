@@ -289,8 +289,6 @@ namespace Conformance
         /// Returns the default random number engine.
         RandEngine& GetRandEngine();
 
-        const FunctionInfo& GetFunctionInfo(const char* functionName) const;
-
         const ConformanceReport& GetConformanceReport() const;
 
         const VersionDependentDataArray& GetVersionDependentData() const;
@@ -345,12 +343,7 @@ namespace Conformance
         /// The default random number generation engine we use. Thread safe.
         RandEngine randEngine;
 
-        /// User selected options for the program execution.
-        // Options* options;
-
         ConformanceReport conformanceReport;
-
-        FunctionInfo nullFunctionInfo;
 
         std::shared_ptr<IPlatformPlugin> platformPlugin;
 
@@ -379,16 +372,9 @@ namespace Conformance
         /// The instance extensions that have been requested to be enabled. Suitable for passing to OpenXR.
         StringVec enabledInstanceExtensionNames;
 
-        /// The interaction profiles that have been requested to be tested.
-        StringVec enabledInteractionProfiles;
-
         /// The form factors, view configurations, and environment blend modes available to a minApiVersion instance.
         /// This is assumed to be the same for all API versions.
         std::vector<AvailableFormFactor> availableFormFactors;
-
-        /// Whether each controller is to be used during testing
-        bool leftHandUnderTest{false};
-        bool rightHandUnderTest{false};
 
     private:
         VersionDependentDataArray versionDependentData;

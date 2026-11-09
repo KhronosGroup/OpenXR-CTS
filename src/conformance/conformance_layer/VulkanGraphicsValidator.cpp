@@ -19,6 +19,7 @@
 #include "VulkanLayer.h"
 
 #include <map>
+#include <mutex>
 #include <thread>
 
 #if defined(XR_USE_GRAPHICS_API_VULKAN)
@@ -32,7 +33,11 @@ namespace Conformance
         VkDevice device;
         uint32_t queueFamilyIndex;
         uint32_t queueIndex;
+        // Keyed by thread id, but that does NOT make it safe to touch unlocked from
+        // several threads: std::map::operator[] inserts, which rebalances the tree and
+        // allocates, while another thread is walking it.
         std::map<std::thread::id, bool> allowAccessVkQueue;
+        mutable std::mutex allowAccessVkQueueMutex;
 
         VulkanGraphicsValidator(const XrGraphicsBindingVulkanKHR* graphicsBinding)
             : instance(graphicsBinding->instance)
@@ -84,13 +89,20 @@ namespace Conformance
 
         void AllowVkQueueAccess(bool allowed) override
         {
-            allowAccessVkQueue[std::this_thread::get_id()] = allowed;
+            {
+                std::lock_guard<std::mutex> lock(allowAccessVkQueueMutex);
+                allowAccessVkQueue[std::this_thread::get_id()] = allowed;
+            }
             ResetVkQueueAccess(device, queueFamilyIndex, queueIndex);
         }
 
         bool CheckState() const override
         {
-            const bool checkAccess = !allowAccessVkQueue.at(std::this_thread::get_id());
+            bool checkAccess;
+            {
+                std::lock_guard<std::mutex> lock(allowAccessVkQueueMutex);
+                checkAccess = !allowAccessVkQueue.at(std::this_thread::get_id());
+            }
             if (checkAccess) {
                 bool accessed = CheckVkQueueAccess(device, queueFamilyIndex, queueIndex);
                 ResetVkQueueAccess(device, queueFamilyIndex, queueIndex);

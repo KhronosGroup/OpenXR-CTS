@@ -224,10 +224,6 @@ namespace Conformance
             globalData.enabledInstanceExtensionNames.push_back_unique(str);
         }
 
-        if (globalData.enabledInteractionProfiles.empty()) {
-            globalData.enabledInteractionProfiles.push_back("khr/simple_controller");
-        }
-
         // If we need or were given a graphics plugin, set it up.
         if (IsUsingGraphicsPlugin()) {
             // Setup the graphics-specific plugin. OpenXR supports only a single graphics plugin per
@@ -454,21 +450,6 @@ namespace Conformance
     RandEngine& GlobalData::GetRandEngine()
     {
         return randEngine;
-    }
-
-    const FunctionInfo& GlobalData::GetFunctionInfo(const char* functionName) const
-    {
-        std::scoped_lock<std::recursive_mutex> lock(dataMutex);
-
-        const FunctionInfoMap& functionInfoMap = GetFunctionInfoMap();
-
-        auto it = functionInfoMap.find(functionName);
-
-        if (it != functionInfoMap.end()) {
-            return it->second;
-        }
-
-        return nullFunctionInfo;
     }
 
     const VersionDependentDataArray& GlobalData::GetVersionDependentData() const

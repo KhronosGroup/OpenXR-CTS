@@ -17,6 +17,46 @@ particular, since it is primarily software, pull requests may be integrated as
 they are accepted even between periodic updates. However, versions that are not
 signed tags on the `approved` branch are not valid for conformance submission.
 
+## OpenXR CTS 1.1.65.0 (2026-11-05)
+
+- Conformance Tests
+  - Fix: Make requirement for OpenGLES 3.1 more consistent.
+    ([internal MR 4455](https://gitlab.khronos.org/openxr/openxr/merge_requests/4455))
+  - Fix: Skip comparing `XR_FB_hand_tracking_mesh` static mesh data across data
+    sources when the runtime does not support creating hand trackers for both
+    sources.
+    ([internal MR 4502](https://gitlab.khronos.org/openxr/openxr/merge_requests/4502))
+  - Fix: Resolve race in `VulkanGraphicsValidator.cpp` `allowAccessVkQueue`
+    allocation.
+    ([internal MR 4539](https://gitlab.khronos.org/openxr/openxr/merge_requests/4539))
+  - Fix: Use `depthSwapchains.size()` instead of hardcoded view count `2` in
+    `XR_KHR_composition_layer_depth` conformance test.
+    ([internal MR 4573](https://gitlab.khronos.org/openxr/openxr/merge_requests/4573))
+  - Improvement: Move some non-standard async handle creation code out of the
+    generated code for easier maintenance.
+    ([internal MR 4404](https://gitlab.khronos.org/openxr/openxr/merge_requests/4404))
+  - Improvement: Update "GradientFormatsLinearVsNonLinear" test description to note
+    that color artifacts due to limited bit depth are expected, and update sample
+    image.
+    ([internal MR 4424](https://gitlab.khronos.org/openxr/openxr/merge_requests/4424))
+  - Improvement: Unify function loading using `openxr_reflection.h` macros for
+    extension loading large number of functions in the CTS.
+    ([internal MR 4432](https://gitlab.khronos.org/openxr/openxr/merge_requests/4432))
+  - Improvement: Make CTS consistent in treatment of
+    `XR_ERROR_REFERENCE_SPACE_UNSUPPORTED`.
+    ([internal MR 4444](https://gitlab.khronos.org/openxr/openxr/merge_requests/4444))
+  - Improvement: Simplify `GlobalData()` / `Options()` duplication of interaction
+    profile data.
+    ([internal MR 4447](https://gitlab.khronos.org/openxr/openxr/merge_requests/4447),
+    [internal MR 4527](https://gitlab.khronos.org/openxr/openxr/merge_requests/4527))
+  - Improvement: Add validation to the CTS that only known tags are used for tests.
+    ([internal MR 4476](https://gitlab.khronos.org/openxr/openxr/merge_requests/4476),
+    [internal MR 3376](https://gitlab.khronos.org/openxr/openxr/merge_requests/3376))
+  - Improvement: Simplify `GlobalData()` and remove function with single incorrect
+    usage of `GetFunctionInfo`.
+    ([internal MR 4529](https://gitlab.khronos.org/openxr/openxr/merge_requests/4529),
+    [internal MR 4447](https://gitlab.khronos.org/openxr/openxr/merge_requests/4447))
+
 ## OpenXR CTS 1.1.63.0 (2026-09-10)
 
 - Conformance Tests

@@ -542,8 +542,6 @@ namespace Conformance
                                                 uint32_t /*deviceCreationFlags*/)
     {
         XrGraphicsRequirementsOpenGLKHR graphicsRequirements{XR_TYPE_GRAPHICS_REQUIREMENTS_OPENGL_KHR};
-        graphicsRequirements.minApiVersionSupported = XR_MAKE_VERSION(3, 2, 0);
-        graphicsRequirements.maxApiVersionSupported = XR_MAKE_VERSION(4, 6, 0);
 
         // optional check to get the graphics requirements:
         if (checkGraphicsRequirements) {
@@ -556,6 +554,12 @@ namespace Conformance
                 // Log result?
                 return false;
             }
+        }
+        else {
+            // Pretend we got requirements back
+
+            graphicsRequirements.minApiVersionSupported = XR_MAKE_VERSION(3, 2, 0);
+            graphicsRequirements.maxApiVersionSupported = XR_MAKE_VERSION(4, 6, 0);
         }
 
         // In contrast to DX, OpenGL on Windows needs a window to render:
