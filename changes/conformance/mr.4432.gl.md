@@ -1,4 +1,0 @@
----
-- mr.4432.gl
----
-- Improvement: Unify function loading using `openxr_reflection.h` macros for extension loading large number of functions in the CTS.

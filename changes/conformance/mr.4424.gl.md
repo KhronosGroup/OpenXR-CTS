@@ -1,4 +1,0 @@
----
-- mr.4424.gl
----
-- Improvement: Update "GradientFormatsLinearVsNonLinear" test description to note that color artifacts due to limited bit depth are expected, and update sample image.

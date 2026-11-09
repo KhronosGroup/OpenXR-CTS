@@ -600,6 +600,7 @@ check-spec-links:
 	$(QUIET)if [ -f checkSchematron.sh ] && [ -f registry/registry.sch ]; then ./checkSchematron.sh; fi
 	$(QUIET)$(PYTHON) $(SCRIPTS)/xml_consistency.py
 	$(QUIET)$(PYTHON) $(SCRIPTS)/findBareNormatives.py
+	$(QUIET)$(PYTHON) $(SCRIPTS)/findLegacyExtensionSections.py
 
 .PHONY: check-spec-links
 

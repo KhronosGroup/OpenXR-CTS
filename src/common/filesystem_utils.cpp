@@ -11,10 +11,17 @@
 #include "filesystem_utils.hpp"
 
 #include <filesystem>
+#include <system_error>
 
-bool FileSysUtilsIsRegularFile(const std::string& path) { return std::filesystem::is_regular_file(path); }
+bool FileSysUtilsIsRegularFile(const std::string& path) {
+    std::error_code ec;
+    return std::filesystem::is_regular_file(path, ec);
+}
 
-bool FileSysUtilsPathExists(const std::string& path) { return std::filesystem::exists(path); }
+bool FileSysUtilsPathExists(const std::string& path) {
+    std::error_code ec;
+    return std::filesystem::exists(path, ec);
+}
 
 bool FileSysUtilsIsAbsolutePath(const std::string& path) {
     std::filesystem::path file_path(path);
@@ -28,8 +35,9 @@ bool FileSysUtilsGetParentPath(const std::string& file_path, std::string& parent
 }
 
 bool FileSysUtilsGetAbsolutePath(const std::string& path, std::string& absolute) {
-    absolute = std::filesystem::absolute(path).string();
-    return true;
+    std::error_code ec;
+    absolute = std::filesystem::absolute(path, ec).string();
+    return !ec;
 }
 
 bool FileSysUtilsGetCanonicalPath(const std::string& path, std::string& canonical) {
@@ -39,7 +47,11 @@ bool FileSysUtilsGetCanonicalPath(const std::string& path, std::string& canonica
     // registry for indirection instead, and so this function can be a no-op on Windows.
     canonical = path;
 #else
-    canonical = std::filesystem::canonical(path).string();
+    std::error_code ec;
+    canonical = std::filesystem::canonical(path, ec).string();
+    if (ec) {
+        return false;
+    }
 #endif
     return true;
 }
@@ -53,8 +65,11 @@ bool FileSysUtilsCombinePaths(const std::string& parent, const std::string& chil
 }
 
 bool FileSysUtilsFindFilesInPath(const std::string& path, std::vector<std::string>& files) {
-    for (auto& dir_iter : std::filesystem::directory_iterator(path)) {
-        files.push_back(dir_iter.path().filename().string());
+    std::error_code ec;
+    std::filesystem::directory_iterator dir_iter(path, ec);
+    // A directory that cannot be opened, or a failed increment(ec), sets ec and leaves dir_iter at the end iterator.
+    for (; dir_iter != std::filesystem::directory_iterator(); dir_iter.increment(ec)) {
+        files.push_back(dir_iter->path().filename().string());
     }
-    return true;
+    return !ec;
 }

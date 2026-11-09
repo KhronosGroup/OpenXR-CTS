@@ -1,4 +1,0 @@
----
-- mr.4539.gl
----
-- Fix: Resolve race in `VulkanGraphicsValidator.cpp` `allowAccessVkQueue` allocation.

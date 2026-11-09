@@ -1,5 +1,0 @@
----
-- mr.4447.gl
-- mr.4527.gl
----
-- Improvement: Simplify `GlobalData()` / `Options()` duplication of interaction profile data.
