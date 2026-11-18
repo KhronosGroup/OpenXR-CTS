@@ -329,6 +329,70 @@ namespace Conformance
         }).Loop();
     }
 
+    // Purpose: Verify that we can simultaneously submit quad layers with different reference spaces.
+    TEST_CASE("ProjectionQuadQuadSpaces", "[composition][interactive]")
+    {
+        const GlobalData& globalData = GetGlobalData();
+        if (!globalData.IsUsingGraphicsPlugin()) {
+            SKIP("Cannot test without a graphics plugin");
+        }
+
+        CompositionHelper compositionHelper("ProjectionQuadQuadSpaces");
+        InteractiveLayerManager interactiveLayerManager(
+            compositionHelper, "quad_projection_sandwich.png",
+            "There should appear to be three visible squares - blue, green, yellow - "
+            "though each actually continues hidden under the subsequent ones. "
+            "The yellow rectangle is drawn via a pose in the LOCAL space, "
+            "and may have some jitter relative to the others, which are drawn using the VIEW space.");
+        XrSession session = compositionHelper.GetSession();
+        InteractionManager& interactionManager = compositionHelper.GetInteractionManager();
+        interactionManager.AttachActionSets();
+        compositionHelper.BeginSession();
+
+        // Overall plan:
+        // projection quad     quad
+        //     |        v    +--------+
+        //     v    +--------| yellow |
+        // +--------| green  +--------+
+        // |  blue  +-----------------+
+        // +--------------------------+
+        // (vertical offsets for illustration purposes only)
+
+        const XrSpace viewSpace = compositionHelper.CreateReferenceSpace(XR_REFERENCE_SPACE_TYPE_VIEW);
+        const XrSpace localSpace = compositionHelper.CreateReferenceSpace(XR_REFERENCE_SPACE_TYPE_LOCAL);
+        constexpr float quadZ = -3;  // How far away quads are placed.
+
+        std::vector<std::unique_ptr<SimpleTestLayers::TestLayer>> testLayers = {};
+        testLayers.push_back(std::make_unique<SimpleTestLayers::ProjectionQuadLayer>(
+            &compositionHelper, Colors::Blue, viewSpace, XrPosef{Quat::Identity, {0.0, 0.0, quadZ}}, XrExtent2Df{3.0, 1.0}, false));
+        testLayers.push_back(std::make_unique<SimpleTestLayers::QuadLayer>(
+            &compositionHelper, Colors::Green, viewSpace, XrPosef{Quat::Identity, {0.5, 0.0, quadZ}}, XrExtent2Df{2.0, 1.0}));
+        testLayers.push_back(std::make_unique<SimpleTestLayers::QuadLayer>(
+            &compositionHelper, Colors::Yellow, localSpace, XrPosef {}, XrExtent2Df{1.0, 1.0}));
+        constexpr XrPosef localLayerViewPose = XrPosef{Quat::Identity, {1.0, 0.0, quadZ}};
+        const auto localLayer = reinterpret_cast<XrCompositionLayerQuad*>(testLayers.back()->Update({}));
+
+        RenderLoop(session, [&](const XrFrameState& frameState) {
+            auto viewData = compositionHelper.LocateViews(viewSpace, frameState.predictedDisplayTime);
+            const auto& viewState = std::get<XrViewState>(viewData);
+
+            std::vector<XrCompositionLayerBaseHeader*> layers;
+            if (viewState.viewStateFlags & XR_VIEW_STATE_POSITION_VALID_BIT &&
+                viewState.viewStateFlags & XR_VIEW_STATE_ORIENTATION_VALID_BIT) {
+                const auto& views = std::get<std::vector<XrView>>(viewData);
+                for (auto& testLayer : testLayers) {
+                    layers.push_back(testLayer->Update(views));
+                }
+            }
+
+            XrSpaceLocation viewInLocal { XR_TYPE_SPACE_LOCATION };
+            XRC_CHECK_THROW_XRCMD(xrLocateSpace(viewSpace, localSpace, frameState.predictedDisplayTime, &viewInLocal));
+            XrPosef_Multiply(&localLayer->pose, &viewInLocal.pose, &localLayerViewPose);
+
+            return interactiveLayerManager.EndFrame(frameState, layers);
+        }).Loop();
+    }
+
     // Purpose: Verify order of transforms by exercising the two ways poses can be specified:
     // 1. A pose offset when creating the space
     // 2. A pose offset when adding the layer
